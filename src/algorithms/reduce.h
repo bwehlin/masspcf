@@ -1,0 +1,43 @@
+#ifndef MPCF_ALGORITHM_REDUCE_H
+#define MPCF_ALGORITHM_REDUCE_H
+
+#include "iterate_rectangles.h"
+
+#include <functional>
+#include <vector>
+#include <numeric>
+#include <algorithm>
+
+namespace mpcf
+{
+  template <typename TPcf>
+  using TOp = std::function<typename TPcf::value_type(const typename TPcf::rectangle_type&)>;
+
+  template <typename TPcf>
+  TPcf combine(const TPcf& f, const TPcf& g, TOp<TPcf> op)
+  {
+    using point_type = typename TPcf::point_type;
+    using rectangle_type = typename TPcf::rectangle_type;
+
+    std::vector<point_type> retPts;
+    std::size_t npts = 0;
+    iterate_rectangles(f, g, 0, 1000, [&npts](const rectangle_type&){ ++npts; });
+    retPts.resize(npts);
+    auto i = 0ul;
+    iterate_rectangles(f, g, 0, 1000, [&retPts, &i, &op](const rectangle_type& rect){
+      retPts[i++] = point_type(rect.left, op(rect));
+    });
+
+    return TPcf(std::move(retPts));
+  }
+
+  template <typename TPcf>
+  TPcf reduce(const std::vector<TPcf> fs, TOp<TPcf> op)
+  {
+    return std::reduce(fs.begin(), fs.end(), TPcf(), [&op](const TPcf& f, const TPcf& g) {
+      return combine(f, g, op);
+    });
+  }
+}
+
+#endif
