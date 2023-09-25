@@ -1,4 +1,4 @@
-#include "cuda_matrix_integrate.h"
+#include "algorithms/cuda_matrix_integrate.h"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>

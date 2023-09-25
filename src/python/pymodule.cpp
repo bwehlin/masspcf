@@ -2,9 +2,9 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "../pcf.h"
-#include "../pypcf_support.h"
-#include "../algorithms/cuda_matrix_integrate.h"
+#include "pcf.h"
+#include "pypcf_support.h"
+#include "algorithms/cuda_matrix_integrate.h"
 
 namespace py = pybind11;
 

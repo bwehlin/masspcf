@@ -14,16 +14,17 @@ include_directories("taskflow")
 add_subdirectory(pybind11)
 pybind11_add_module(mpcf_cpp 
   src/python/pymodule.cpp 
-  src/pcf.h
-  src/point.h
-  src/pypcf_support.h
-  src/rectangle.h
-  src/algorithm.h
-  src/algorithms/iterate_rectangles.h
-  src/algorithms/reduce.h
-  src/algorithms/cuda_matrix_integrate.h
-  src/algorithms/cuda_matrix_integrate.cu)
+  include/pcf.h
+  include/point.h
+  include/pypcf_support.h
+  include/rectangle.h
+  include/algorithm.h
+  include/algorithms/iterate_rectangles.h
+  include/algorithms/reduce.h
+  include/algorithms/cuda_matrix_integrate.h
+  src/cuda_matrix_integrate.cu)
 
+include_directories("include")
 
 
 
