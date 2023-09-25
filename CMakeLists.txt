@@ -22,7 +22,8 @@ pybind11_add_module(mpcf_cpp
   include/algorithms/iterate_rectangles.h
   include/algorithms/reduce.h
   include/algorithms/cuda_matrix_integrate.h
-  src/cuda_matrix_integrate.cu)
+  src/cuda_matrix_integrate.cu
+  src/cuda_util.h)
 
 include_directories("include")
 

@@ -1,3 +1,6 @@
+#ifndef MPCF_POINT_H
+#define MPCF_POINT_H
+
 namespace mpcf
 {
   template <typename Tt, typename Tv>
@@ -14,3 +17,5 @@ namespace mpcf
       : t(it), v(iv) { }
   };
 }
+
+#endif

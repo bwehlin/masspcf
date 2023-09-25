@@ -1,5 +1,5 @@
-#ifndef MPCF_POINT_H
-#define MPCF_POINT_H
+#ifndef MPCF_PCF_H
+#define MPCF_PCF_H
 
 #include "point.h"
 #include "rectangle.h"

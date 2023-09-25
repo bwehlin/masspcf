@@ -1,3 +1,6 @@
+#ifndef MPCF_RECTANGLE_H
+#define MPCF_RECTANGLE_H
+
 namespace mpcf
 {
   template <typename Tt, typename Tv>
@@ -14,3 +17,5 @@ namespace mpcf
     { }
   };
 }
+
+#endif
