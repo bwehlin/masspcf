@@ -8,6 +8,9 @@
 #include <numeric>
 #include <algorithm>
 
+#include <taskflow/taskflow.hpp>
+#include <taskflow/algorithm/reduce.hpp>
+
 namespace mpcf
 {
   template <typename TPcf>
@@ -32,11 +35,24 @@ namespace mpcf
   }
 
   template <typename TPcf>
-  TPcf reduce(const std::vector<TPcf> fs, TOp<TPcf> op)
+  TPcf reduce(const std::vector<TPcf>& fs, TOp<TPcf> op)
   {
     return std::reduce(fs.begin(), fs.end(), TPcf(), [&op](const TPcf& f, const TPcf& g) {
       return combine(f, g, op);
     });
+  }
+  
+  template <typename TPcf>
+  TPcf parallel_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op)
+  {
+    tf::Taskflow taskflow;
+    tf::Executor exec;
+    TPcf f;
+    /*auto task =*/ taskflow.reduce(fs.begin(), fs.end(), f, [&op](const TPcf& f, const TPcf& g) {
+      return combine(f, g, op);
+    });
+    exec.run(taskflow).wait();
+    return f;
   }
 }
 

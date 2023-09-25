@@ -61,7 +61,10 @@ namespace mpcf
   private:
     std::vector<point_type> m_points;
   };
-
+  
+  using Pcf_f32 = Pcf<float, float>;
+  using Pcf_f64 = Pcf<double, double>;
+  
   template <typename Tt, typename Tv>
   Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {

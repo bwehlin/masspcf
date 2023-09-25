@@ -106,7 +106,6 @@ def combine(f : Pcf, g : Pcf, cb):
     raise TypeError("Unknown PCF type")
   
 def average(fs):
-
   fsdata = [None]*len(fs)
   for i, f in enumerate(fs):
     fsdata[i] = f.data_
@@ -117,3 +116,32 @@ def average(fs):
     return Pcf(cpp.Pcf_f64_f64_average(fsdata))
   else:
     raise TypeError("Unknown PCF type")
+
+def parallel_reduce(fs, cb):
+  cb = cb.address
+  fsdata = [None]*len(fs)
+  for i, f in enumerate(fs):
+    fsdata[i] = f.data_
+    if not _has_matching_types(fs[i], fs[0]):
+      raise TypeError("All PCFs must have the same data type")
+  
+  if _has_matching_types(fs[0], tPcf_f32_f32):
+    return Pcf(cpp.Pcf_f32_f32_parallel_reduce(fsdata, cb))
+  elif _has_matching_types(fs[0], tPcf_f64_f64):
+    return Pcf(cpp.Pcf_f64_f64_parallel_reduce(fsdata, cb))
+  else:
+    raise TypeError("Unsupported PCF type")
+
+def l1_inner_prod(fs):
+  fsdata = [None]*len(fs)
+  for i, f in enumerate(fs):
+    fsdata[i] = f.data_
+    if not _has_matching_types(fs[i], fs[0]):
+      raise TypeError("All PCFs must have the same data type")
+    
+  if _has_matching_types(fs[0], tPcf_f32_f32):
+    cpp.Pcf_f32_f32_l1_inner_prod(fsdata)
+  elif _has_matching_types(fs[0], tPcf_f64_f64):
+    cpp.Pcf_f64_f64_l1_inner_prod(fsdata)
+  else:
+    raise TypeError("Unsupported PCF type")

@@ -4,6 +4,7 @@
 
 #include "../pcf.h"
 #include "../pypcf_support.h"
+#include "../algorithms/cuda_matrix_integrate.h"
 
 namespace py = pybind11;
 
@@ -41,25 +42,14 @@ private:
     return mpcf::combine(f, g, [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { return reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
   }); \
   m.def(STRINGIFY(name##_average), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs){ return mpcf::average(fs); }); \
-  
-    
-    #if 0
-    \
-    \
-  m.def(STRINGIFY(name##_print_rectangles), &print_rectangles<mpcf::Pcf<Tt, Tv>>); \
-  m.def(STRINGIFY(name##_add), &add<Pmpcf::cf<Tt, Tv>>); \
-  m.def(STRINGIFY(name##_enumerate_rectangles), \
-  [](const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, Tt a, Tt b, unsigned long long cb){ \
+  m.def(STRINGIFY(name##_parallel_reduce), \
+  [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
     ReductionWrapper<Tt, Tv> reduction(cb); \
-    enumerate_rectangles(f, g, a, b, [&reduction](const Rectangle<Tt, Tv>& rect){ reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
+    return mpcf::parallel_reduce(fs, [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { return reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
   }); \
-  m.def(STRINGIFY(name##_add), &add<Pcf<Tt, Tv>>); \
-  m.def(STRINGIFY(name##_combine), \
-  [](const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, unsigned long long cb){ \
-    ReductionWrapper<Tt, Tv> reduction(cb); \
-    return combine(f, g, [&reduction](const Rectangle<Tt, Tv>& rect) -> Tt { return reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
+  m.def(STRINGIFY(name##_l1_inner_prod), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs){ \
+    mpcf::matrix_integrate<Tt, Tv>(nullptr, fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>()); \
   });
-  #endif
 
 #define DECLARE_RECTANGLE(Tt, Tv, name) \
   py::class_<Rectangle<Tt, Tv>>(m, STRINGIFY(name)) \

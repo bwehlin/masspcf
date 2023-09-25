@@ -1,4 +1,8 @@
 *.user
+*.autosave
+
+# Temporary local test
+parallel_reduce.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

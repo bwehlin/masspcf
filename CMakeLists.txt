@@ -9,6 +9,7 @@ SET(CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA 12.0 REQUIRED)
 
 include_directories("pybind11/include")
+include_directories("taskflow")
 
 add_subdirectory(pybind11)
 pybind11_add_module(mpcf_cpp 
@@ -19,7 +20,9 @@ pybind11_add_module(mpcf_cpp
   src/rectangle.h
   src/algorithm.h
   src/algorithms/iterate_rectangles.h
-  src/algorithms/reduce.h)
+  src/algorithms/reduce.h
+  src/algorithms/cuda_matrix_integrate.h
+  src/algorithms/cuda_matrix_integrate.cu)
 
 
 
