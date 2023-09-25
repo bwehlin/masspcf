@@ -2,6 +2,7 @@
 
 #include "point.h"
 #include "cuda_util.h"
+#include "cuda_device_array.h"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -14,26 +15,73 @@ namespace
 {
   bool verbose = true;
   
+  // POD version of Point
   template <typename Tt, typename Tv>
-  struct CpuPcfOffsetData
+  struct SimplePoint
+  {
+    Tt t;
+    Tv v;
+  };
+  
+  template <typename Tt, typename Tv>
+  struct HostPcfOffsetData
   {
     std::vector<size_t> nTimePointOffsets;
-    std::vector<mpcf::Point<Tt, Tv>> points;
+    std::vector<SimplePoint<Tt, Tv>> points;
   };
   
   template <typename Tt, typename Tv>
-  struct GpuPcfOffsetData
+  struct DeviceStorage
   {
-    size_t* nTimePointOffsets = nullptr;
-    mpcf::Point<Tt, Tv>* points = nullptr;
-    std::size_t n;
+    mpcf::CudaDeviceArray<Tv> matrix;
+    mpcf::CudaDeviceArray<size_t> timePointOffsets;
+    mpcf::CudaDeviceArray<SimplePoint<Tt, Tv>> points;
+    
+    DeviceStorage() = default;
+    DeviceStorage(const DeviceStorage&) = delete;
+    DeviceStorage& operator=(const DeviceStorage&) = delete;
+    ~DeviceStorage() = default;
+    
+    DeviceStorage(DeviceStorage&& other)
+      : matrix(std::move(other.matrix))
+      , timePointOffsets(std::move(other.timePointOffsets))
+      , points(std::move(other.points))
+    { }
+    
+    DeviceStorage& operator=(DeviceStorage&& rhs)
+    {
+      if (&rhs == this)
+      {
+        return *this;
+      }
+      
+      matrix = std::move(rhs.matrix);
+      timePointOffsets = std::move(rhs.timePointOffsets);
+      points = std::move(rhs.points);
+      
+      return *this;
+    }
   };
   
   template <typename Tt, typename Tv>
-  CpuPcfOffsetData<Tt, Tv>
-  get_cpu_offset_data(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  struct DeviceExecParams
   {
-    CpuPcfOffsetData<Tt, Tv> offsetData;
+    Tv* hostMatrix;
+    
+    size_t nPcfs;
+    size_t* timePointOffsets;
+    SimplePoint<Tt, Tv>* points;
+    
+    mpcf::DeviceOp<Tt, Tv> op;
+    
+    dim3 blockDim;
+  };
+  
+  template <typename Tt, typename Tv>
+  HostPcfOffsetData<Tt, Tv>
+  get_host_offset_data(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  {
+    HostPcfOffsetData<Tt, Tv> offsetData;
     auto sz = fs.size();
     
     offsetData.nTimePointOffsets.resize(sz + 1);
@@ -56,7 +104,8 @@ namespace
       auto coffs = offsetData.nTimePointOffsets[i];
       for (auto j = 0ul; j < csz; ++j)
       {
-        offsetData.points[coffs + j] = f[j];
+        offsetData.points[coffs + j].t = f[j].t;
+        offsetData.points[coffs + j].v = f[j].v;
       }
     }
     
@@ -158,18 +207,49 @@ namespace
   }
   
   template <typename Tt, typename Tv>
+  DeviceStorage<Tt, Tv>
+  make_device_storage(size_t rowSz, size_t nPcfs, const HostPcfOffsetData<Tt, Tv>& hostOffsetData)
+  {
+    DeviceStorage<Tt, Tv> storage;
+    
+    storage.matrix = mpcf::CudaDeviceArray<Tv>(rowSz * nPcfs);
+    storage.points = mpcf::CudaDeviceArray<SimplePoint<Tt, Tv>>(hostOffsetData.points);
+    storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(hostOffsetData.nTimePointOffsets);
+    
+    return storage;
+  }
+  
+  template <typename Tt, typename Tv>
+  std::vector<DeviceStorage<Tt, Tv>>
+  make_device_storages(int nGpus, size_t rowSz, size_t nPcfs, const HostPcfOffsetData<Tt, Tv>& hostOffsetData)
+  {
+    std::vector<DeviceStorage<Tt, Tv>> storages;
+    storages.resize(nGpus);
+    
+    for (auto iGpu = 0; iGpu < nGpus; ++iGpu)
+    {
+      CHK_CUDA(cudaSetDevice(iGpu));
+      storages[iGpu] = make_device_storage(rowSz, nPcfs, hostOffsetData);
+    }
+    
+    return storages;
+  }
+  
+  template <typename Tt, typename Tv>
   void
   cuda_matrix_integrate_impl(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv> op)
   {
+    auto nPcfs = fs.size();
+    
     auto nGpus = get_gpu_limit();
-    auto rowSz = get_row_size<Tv>(nGpus, fs.size());
+    auto rowSz = get_row_size<Tv>(nGpus, nPcfs);
     
     if (verbose)
     {
       std::cout << "Row size: " << rowSz << std::endl;
     }
     
-    auto blockRowBoundaries = get_block_row_boundaries<Tv>(rowSz, fs.size());
+    auto blockRowBoundaries = get_block_row_boundaries<Tv>(rowSz, nPcfs);
     if (verbose)
     {
       for (auto const & bdry : blockRowBoundaries)
@@ -178,7 +258,16 @@ namespace
       }
     }
     
-    auto cpuOffsetData = get_cpu_offset_data<Tt, Tv>(fs);
+    auto hostOffsetData = get_host_offset_data<Tt, Tv>(fs);
+    
+    DeviceExecParams<Tt, Tv> params;
+    params.hostMatrix = nullptr; // Delayed initialization
+    //params.timePointOffsets = &
+    
+    auto deviceStorages = make_device_storages<Tt, Tv>(nGpus, rowSz, nPcfs, hostOffsetData);
+    
+    
+    
   }
 }
 
