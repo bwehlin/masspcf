@@ -69,6 +69,15 @@ namespace
   template <typename Tt, typename Tv>
   struct IntegrationContext
   {
+    struct DeviceKernelParams
+    {
+      Tv* matrix;
+      size_t* timePointOffsets;
+      SimplePoint<Tt, Tv>* points;
+      size_t nPcfs;
+      mpcf::DeviceOp<Tt, Tv> op;
+    };
+    
     Tv* hostMatrix;
     
     std::vector<DeviceStorage<Tt, Tv>> deviceStorages;
@@ -81,6 +90,22 @@ namespace
     
     int nGpus;
     dim3 blockDim;
+    
+    DeviceKernelParams make_kernel_params(int iGpu) const
+    {
+      DeviceKernelParams params;
+      auto & storage = deviceStorages[iGpu];
+      
+      params.matrix = storage.matrix.get();
+      params.points = storage.points.get();
+      params.timePointOffsets = storage.timePointOffsets.get();
+      
+      params.nPcfs = nPcfs;
+      params.op = op;
+      
+      return params;
+    }
+    
   };
   
   template <typename Tt, typename Tv>
@@ -254,14 +279,39 @@ namespace
     
     ctx.hostMatrix = out;
     
-    ctx.blockDim = dim3(128,1,1);
+    ctx.blockDim = dim3(1,160,1);
     
     return ctx;
   }
   
   template <typename Tt, typename Tv>
+  __global__
+  void cuda_iterate_rectangles(typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, size_t rowStart, size_t rowHeight, size_t iRow)
+  {
+    size_t j = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t i = blockDim.y * blockIdx.y + threadIdx.y;
+    
+    i += rowStart;
+    
+    if (i >= rowHeight)
+    {
+      return;
+    }
+    
+    size_t iOut = i; // Where to write in this block row
+    i += iRow * rowHeight;
+    
+    if (j < i || i >= params.nPcfs || j >= params.nPcfs)
+    {
+      return;
+    }
+    
+    printf("In block: (%d, %d), in global: (%d, %d)\n", (int)i, (int)j, (int)iOut, (int)j);
+  }
+  
+  template <typename Tt, typename Tv>
   void
-  exec_gpu(int iRow, const tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
+  exec_gpu(size_t iRow, const tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
   {
     auto iGpu = executor.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
     
@@ -274,14 +324,30 @@ namespace
     Tv* hostMatrix = ctx.hostMatrix;
     Tv* deviceMatrix = ctx.deviceStorages[iGpu].matrix.get();
     
-    auto rowStart = ctx.blockRowBoundaries[iRow].first;
-    auto rowEnd = ctx.blockRowBoundaries[iRow].second;
+    auto const & rowBoundaries = ctx.blockRowBoundaries[iRow];
+    
+    auto rowStart = rowBoundaries.first;
+    auto rowEnd = rowBoundaries.second;
     
     auto start = rowStart * ctx.nPcfs;
     auto end = rowEnd * ctx.nPcfs + ctx.nPcfs + 1;
     
-    std::cout << "Block row " << rowStart << " to " << rowEnd << " matrix start " << start << " matrix end " << end << std::endl;
+    auto rowHeight = mpcf::internal::get_row_height_from_boundaries(rowBoundaries);
+    auto gridDims = mpcf::internal::get_grid_dims(ctx.blockDim, rowHeight, ctx.nPcfs);
     
+    auto params = ctx.make_kernel_params(iGpu);
+    
+    std::cout << "Grid dims " << gridDims.x << " " << gridDims.y << std::endl;
+    std::cout << "Block dims " << ctx.blockDim.x << " " << ctx.blockDim.y << std::endl;
+    std::cout << "Block row " << rowStart << " to " << rowEnd << " matrix start " << start << " matrix end " << end << " rowHeight " << (rowEnd - rowStart + 1) << std::endl;
+    
+    
+    cuda_iterate_rectangles<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowStart, rowHeight, iRow);
+    CHK_CUDA(cudaPeekAtLastError());
+    
+    CHK_CUDA(cudaDeviceSynchronize());
+    
+    std::this_thread::sleep_for(std::chrono::seconds(1));
   }
   
   template <typename Tt, typename Tv>

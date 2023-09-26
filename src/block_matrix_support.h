@@ -38,9 +38,15 @@ namespace mpcf::internal
   
   dim3 get_grid_dims(dim3 blockSz, size_t rowHeight, size_t nPcfs)
   {
-    int xover = nPcfs % blockSz.x == 0 ? 0 : 1;
-    int yover = rowHeight % blockSz.y == 0 ? 0 : 1;
-    return dim3( nPcfs / blockSz.x + xover, rowHeight / blockSz.y + yover, 1 );
+    int iover = rowHeight % blockSz.x == 0 ? 0 : 1;
+    int jover = nPcfs % blockSz.y == 0 ? 0 : 1;
+    
+    return dim3( rowHeight / blockSz.x + iover, nPcfs / blockSz.y + jover, 1 );
+  }
+  
+  size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)
+  {
+    return boundaries.second - boundaries.first + 1;
   }
 
 }

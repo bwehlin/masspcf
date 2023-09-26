@@ -86,21 +86,21 @@ TEST(BlockMatrixSupport, GetGridDims_overflows_1x9)
     dim3 blockSz(8, 1, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(2,1,1));
+    EXPECT_EQ(dims, dim3(1,9,1));
   }
   
   {
     dim3 blockSz(1, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(9,1,1));
+    EXPECT_EQ(dims, dim3(1,2,1));
   }
   
   {
     dim3 blockSz(8, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(2,1,1));
+    EXPECT_EQ(dims, dim3(1,2,1));
   }
 }
 
@@ -113,21 +113,21 @@ TEST(BlockMatrixSupport, GetGridDims_exact_1x16)
     dim3 blockSz(8, 1, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(2,1,1));
+    EXPECT_EQ(dims, dim3(1,16,1));
   }
   
   {
     dim3 blockSz(1, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(16,1,1));
+    EXPECT_EQ(dims, dim3(1,2,1));
   }
   
   {
     dim3 blockSz(8, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(2,1,1));
+    EXPECT_EQ(dims, dim3(1,2,1));
   }
 }
 
@@ -140,21 +140,21 @@ TEST(BlockMatrixSupport, GetGridDims_exact_32x16)
     dim3 blockSz(8, 1, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(2,32,1));
+    EXPECT_EQ(dims, dim3(4,16,1));
   }
   
   {
     dim3 blockSz(1, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(16,4,1));
+    EXPECT_EQ(dims, dim3(32,2,1));
   }
   
   {
     dim3 blockSz(8, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(2,4,1));
+    EXPECT_EQ(dims, dim3(4,2,1));
   }
 }
 
@@ -168,21 +168,26 @@ TEST(BlockMatrixSupport, GetGridDims_overflow_33x17)
     dim3 blockSz(8, 1, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(3,33,1));
+    EXPECT_EQ(dims, dim3(5,17,1));
   }
   
   {
     dim3 blockSz(1, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(17,5,1));
+    EXPECT_EQ(dims, dim3(33,3,1));
   }
   
   {
     dim3 blockSz(8, 8, 1);
 
     auto dims = mpcf::internal::get_grid_dims(blockSz, rowHeight, nPcfs);
-    EXPECT_EQ(dims, dim3(3,5,1));
+    EXPECT_EQ(dims, dim3(5,3,1));
   }
 }
 
+TEST(BlockMatrixSupport, GetRowHeightFromBoundaries)
+{
+  EXPECT_EQ(mpcf::internal::get_row_height_from_boundaries(std::make_pair(0, 3)), 4);
+  EXPECT_EQ(mpcf::internal::get_row_height_from_boundaries(std::make_pair(4, 7)), 4);
+}
