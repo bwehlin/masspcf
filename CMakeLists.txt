@@ -9,6 +9,7 @@ SET(CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA 12.0 REQUIRED)
 
 include_directories("taskflow")
+include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 add_library(mpcf SHARED 
   include/mpcf/pcf.h
@@ -51,12 +52,9 @@ add_executable(mpcf_test
   test/block_matrix_support.cpp)
 target_include_directories(mpcf_test PRIVATE "include/")
 
-target_link_libraries(mpcf_test GTest::gtest_main)
+target_link_libraries(mpcf_test PRIVATE GTest::gtest_main mpcf ${CUDART_LIBRARY})
 include(GoogleTest)
 gtest_discover_tests(mpcf_test)
-
-
-
 
 # EXAMPLE_VERSION_INFO is defined by setup.py and passed into the C++ code as a
 # define (VERSION_INFO) here.

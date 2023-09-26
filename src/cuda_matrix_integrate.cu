@@ -185,17 +185,17 @@ namespace
   {
     auto maxAllocationN = get_max_allocation_n<T>(nGpus);
     auto nSplits = nGpus * 2; // Give the scheduler something to work with
-    auto rowSz = mpcf::internal::get_row_size(maxAllocationN, nSplits, nPcfs);
-    return mpcf::internal::get_block_row_boundaries(rowSz, nPcfs);
+    auto rowHeight = mpcf::internal::get_row_size(maxAllocationN, nSplits, nPcfs);
+    return mpcf::internal::get_block_row_boundaries(rowHeight, nPcfs);
   }
   
   template <typename Tt, typename Tv>
   DeviceStorage<Tt, Tv>
-  make_device_storage(size_t rowSz, size_t nPcfs, const HostPcfOffsetData<Tt, Tv>& hostOffsetData)
+  make_device_storage(size_t rowHeight, size_t nPcfs, const HostPcfOffsetData<Tt, Tv>& hostOffsetData)
   {
     DeviceStorage<Tt, Tv> storage;
     
-    storage.matrix = mpcf::CudaDeviceArray<Tv>(rowSz * nPcfs);
+    storage.matrix = mpcf::CudaDeviceArray<Tv>(rowHeight * nPcfs);
     storage.points = mpcf::CudaDeviceArray<SimplePoint<Tt, Tv>>(hostOffsetData.points);
     storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(hostOffsetData.timePointOffsets);
     
@@ -209,12 +209,12 @@ namespace
     auto & storages = ctx.deviceStorages;
     storages.resize(ctx.nGpus);
     
-    auto maxRowSz = ctx.blockRowBoundaries[0].second + 1;
+    auto maxRowHeight = ctx.blockRowBoundaries[0].second + 1;
     
     for (auto iGpu = 0; iGpu < ctx.nGpus; ++iGpu)
     {
       CHK_CUDA(cudaSetDevice(iGpu));
-      storages[iGpu] = make_device_storage(maxRowSz, ctx.nPcfs, ctx.hostOffsetData);
+      storages[iGpu] = make_device_storage(maxRowHeight, ctx.nPcfs, ctx.hostOffsetData);
     }
   }
   
@@ -263,8 +263,6 @@ namespace
   void
   exec_gpu(int iRow, const tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
   {
-    
-    
     auto iGpu = executor.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
     
     std::cout << "Exec row " << iRow << " on GPU " << iGpu << std::endl;
