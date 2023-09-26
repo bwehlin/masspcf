@@ -140,8 +140,8 @@ def l1_inner_prod(fs):
       raise TypeError("All PCFs must have the same data type")
     
   if _has_matching_types(fs[0], tPcf_f32_f32):
-    cpp.Pcf_f32_f32_l1_inner_prod(fsdata)
+    return cpp.Pcf_f32_f32_l1_inner_prod(fsdata)
   elif _has_matching_types(fs[0], tPcf_f64_f64):
-    cpp.Pcf_f64_f64_l1_inner_prod(fsdata)
+    return cpp.Pcf_f64_f64_l1_inner_prod(fsdata)
   else:
     raise TypeError("Unsupported PCF type")

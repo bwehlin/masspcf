@@ -24,7 +24,8 @@ pybind11_add_module(mpcf_cpp
   include/algorithms/cuda_matrix_integrate.h
   src/cuda_matrix_integrate.cu
   src/cuda_util.h
-  src/cuda_device_array.h)
+  src/cuda_device_array.h
+  src/block_matrix_support.h)
 
 include_directories("include")
 

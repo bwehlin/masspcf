@@ -1,5 +1,6 @@
 *.user
 *.autosave
+callgrind.out.*
 
 # Temporary local test
 parallel_reduce.py

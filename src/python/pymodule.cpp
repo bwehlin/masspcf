@@ -47,9 +47,11 @@ private:
     ReductionWrapper<Tt, Tv> reduction(cb); \
     return mpcf::parallel_reduce(fs, [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { return reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
   }); \
-  m.def(STRINGIFY(name##_l1_inner_prod), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs){ \
-    mpcf::matrix_integrate<Tt, Tv>(nullptr, fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>()); \
-  });
+  m.def(STRINGIFY(name##_l1_inner_prod), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs) -> py::array_t<Tv> { \
+    py::array_t<Tv> matrix({fs.size(), fs.size()}); \
+    mpcf::matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>()); \
+    return matrix; \
+  }, py::return_value_policy::move);
 
 #define DECLARE_RECTANGLE(Tt, Tv, name) \
   py::class_<Rectangle<Tt, Tv>>(m, STRINGIFY(name)) \

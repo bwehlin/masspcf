@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include <taskflow/taskflow.hpp>
+
 namespace
 {
   bool verbose = true;
@@ -26,7 +28,7 @@ namespace
   template <typename Tt, typename Tv>
   struct HostPcfOffsetData
   {
-    std::vector<size_t> nTimePointOffsets;
+    std::vector<size_t> timePointOffsets;
     std::vector<SimplePoint<Tt, Tv>> points;
   };
   
@@ -64,16 +66,19 @@ namespace
   };
   
   template <typename Tt, typename Tv>
-  struct DeviceExecParams
+  struct IntegrationContext
   {
     Tv* hostMatrix;
     
-    size_t nPcfs;
-    size_t* timePointOffsets;
-    SimplePoint<Tt, Tv>* points;
+    std::vector<DeviceStorage<Tt, Tv>> deviceStorages;
+    HostPcfOffsetData<Tt, Tv> hostOffsetData;
+    std::vector<std::pair<size_t, size_t>> blockRowBoundaries;
     
     mpcf::DeviceOp<Tt, Tv> op;
     
+    size_t nPcfs;
+    
+    int nGpus;
     dim3 blockDim;
   };
   
@@ -84,14 +89,14 @@ namespace
     HostPcfOffsetData<Tt, Tv> offsetData;
     auto sz = fs.size();
     
-    offsetData.nTimePointOffsets.resize(sz + 1);
+    offsetData.timePointOffsets.resize(sz + 1);
     
     // Compute size required for all PCFs
     auto offset = 0ul;
     for (auto i = 0ul; i < sz; ++i)
     {
       auto const & f = fs[i].points();
-      offsetData.nTimePointOffsets[i] = offset;
+      offsetData.timePointOffsets[i] = offset;
       offset += f.size();
     }
     
@@ -101,7 +106,7 @@ namespace
     {
       auto const & f = fs[i].points();
       auto csz = f.size();
-      auto coffs = offsetData.nTimePointOffsets[i];
+      auto coffs = offsetData.timePointOffsets[i];
       for (auto j = 0ul; j < csz; ++j)
       {
         offsetData.points[coffs + j].t = f[j].t;
@@ -109,7 +114,7 @@ namespace
       }
     }
     
-    offsetData.nTimePointOffsets[sz] = offsetData.nTimePointOffsets[sz - 1] + fs[sz - 1].points().size();
+    offsetData.timePointOffsets[sz] = offsetData.timePointOffsets[sz - 1] + fs[sz - 1].points().size();
     
     return offsetData;
   }
@@ -136,6 +141,7 @@ namespace
   // Return either the user maximum GPU count, or the number of physical GPUs present (whichever is smaller)
   int get_gpu_limit()
   {
+    return 1;
     int nGpus;
     CHK_CUDA(cudaGetDeviceCount(&nGpus));
     // TODO: user limit
@@ -214,7 +220,7 @@ namespace
     
     storage.matrix = mpcf::CudaDeviceArray<Tv>(rowSz * nPcfs);
     storage.points = mpcf::CudaDeviceArray<SimplePoint<Tt, Tv>>(hostOffsetData.points);
-    storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(hostOffsetData.nTimePointOffsets);
+    storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(hostOffsetData.timePointOffsets);
     
     return storage;
   }
@@ -237,37 +243,97 @@ namespace
   
   template <typename Tt, typename Tv>
   void
+  copy_offset_data_to_active_device(int iGpu, IntegrationContext<Tt, Tv>& ctx)
+  {
+    ctx.deviceStorages[iGpu].points.toDevice(ctx.hostOffsetData.points);
+    ctx.deviceStorages[iGpu].timePointOffsets.toDevice(ctx.hostOffsetData.timePointOffsets);
+  }
+  
+  template <typename Tt, typename Tv>
+  void
+  copy_offset_data_to_devices(IntegrationContext<Tt, Tv>& ctx)
+  {
+    for (auto iGpu = 0; iGpu < ctx.nGpus; ++iGpu)
+    {
+      CHK_CUDA(cudaSetDevice(iGpu));
+      copy_offset_data_to_active_device(iGpu, ctx);
+    }
+  }
+  
+  template <typename Tt, typename Tv>
+  IntegrationContext<Tt, Tv>
+  make_context(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv> op)
+  {
+    IntegrationContext<Tt, Tv> ctx;
+    
+    ctx.nPcfs = fs.size();
+    ctx.nGpus = get_gpu_limit();
+    auto rowSz = get_row_size<Tv>(ctx.nGpus, ctx.nPcfs);
+    
+    ctx.blockRowBoundaries = get_block_row_boundaries<Tv>(rowSz, ctx.nPcfs);
+    ctx.hostOffsetData = get_host_offset_data<Tt, Tv>(fs);
+    ctx.deviceStorages = make_device_storages<Tt, Tv>(ctx.nGpus, rowSz, ctx.nPcfs, ctx.hostOffsetData);
+    
+    copy_offset_data_to_devices(ctx);
+    
+    ctx.hostMatrix = out;
+    
+    ctx.blockDim = dim3(128,1,1);
+    
+    return ctx;
+  }
+  
+  template <typename Tt, typename Tv>
+  void
+  exec_gpu(int iRow, const tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
+  {
+    
+    
+    auto iGpu = executor.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
+    
+    std::cout << "Exec row " << iRow << " on GPU " << iGpu << std::endl;
+    
+    CHK_CUDA(cudaSetDevice(iGpu));
+    
+    ctx.deviceStorages[iGpu].matrix.clear();
+    
+    Tv* hostMatrix = ctx.hostMatrix;
+    Tv* deviceMatrix = ctx.deviceStorages[iGpu].matrix.get();
+    
+    auto rowStart = ctx.blockRowBoundaries[iRow].first;
+    auto rowEnd = ctx.blockRowBoundaries[iRow].second;
+    
+    auto start = rowStart * ctx.nPcfs;
+    auto end = rowEnd * ctx.nPcfs + ctx.nPcfs + 1;
+    
+    std::cout << "Block row " << rowStart << " to " << rowEnd << " matrix start " << start << " matrix end " << end << std::endl;
+    
+  }
+  
+  template <typename Tt, typename Tv>
+  void
+  schedule_block_rows(tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
+  {
+    for (auto i = 0ul; i < ctx.blockRowBoundaries.size(); ++i)
+    {
+      executor.silent_async([&ctx, &executor, i]{ exec_gpu(i, executor, ctx); });
+    }
+  }
+  
+  template <typename Tt, typename Tv>
+  void
   cuda_matrix_integrate_impl(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv> op)
   {
-    auto nPcfs = fs.size();
-    
-    auto nGpus = get_gpu_limit();
-    auto rowSz = get_row_size<Tv>(nGpus, nPcfs);
-    
-    if (verbose)
-    {
-      std::cout << "Row size: " << rowSz << std::endl;
-    }
-    
-    auto blockRowBoundaries = get_block_row_boundaries<Tv>(rowSz, nPcfs);
-    if (verbose)
-    {
-      for (auto const & bdry : blockRowBoundaries)
-      {
-        std::cout << "Row [" << bdry.first << ", " << bdry.second << "]" << std::endl;
-      }
-    }
-    
-    auto hostOffsetData = get_host_offset_data<Tt, Tv>(fs);
-    
-    DeviceExecParams<Tt, Tv> params;
-    params.hostMatrix = nullptr; // Delayed initialization
+    auto ctx = make_context(out, fs, op);
     //params.timePointOffsets = &
     
-    auto deviceStorages = make_device_storages<Tt, Tv>(nGpus, rowSz, nPcfs, hostOffsetData);
+    std::memset(out, 0, fs.size() * fs.size() * sizeof(Tv));
     
+    tf::Executor hostWorkers(ctx.nGpus); // One worker thread per GPU
     
+    schedule_block_rows<Tt, Tv>(hostWorkers, ctx);
     
+    hostWorkers.wait_for_all();
   }
 }
 
