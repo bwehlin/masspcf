@@ -3,6 +3,7 @@
 #include "point.h"
 #include "cuda_util.h"
 #include "cuda_device_array.h"
+#include "block_matrix_support.h"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -180,36 +181,12 @@ namespace
   }
   
   template <typename T>
-  size_t get_row_size(int nGpus, size_t nPcfs)
+  std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(int nGpus, size_t nPcfs)
   {
-    constexpr size_t nExtraSplits = 2; // Extra subdivisions to give the scheduler something to work with
-    
     auto maxAllocationN = get_max_allocation_n<T>(nGpus);
-    auto maxRowSz = maxAllocationN / nPcfs;
-    
-    maxRowSz = std::min(maxRowSz, nPcfs);
-    maxRowSz /= nGpus;
-    maxRowSz /= nExtraSplits;
-    maxRowSz = std::max(maxRowSz, 1ul);
-    
-    // TODO: detect too low # pcfs -> run everything on one GPU
-    
-    return maxRowSz;
-  }
-  
-  template <typename T>
-  std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(size_t rowSz, size_t nPcfs)
-  {
-    std::vector<std::pair<size_t, size_t>> boundaries;
-    for (size_t i = 0ul;; i += rowSz)
-    {
-      boundaries.emplace_back(i, std::min(i + rowSz - 1ul, nPcfs));
-      if (boundaries.back().second >= nPcfs)
-      {
-        boundaries.back().second = nPcfs - 1;
-        return boundaries;
-      }
-    }
+    auto nSplits = nGpus * 2; // Give the scheduler something to work with
+    auto rowSz = mpcf::internal::get_row_size(maxAllocationN, nSplits, nPcfs);
+    return mpcf::internal::get_block_row_boundaries(rowSz, nPcfs);
   }
   
   template <typename Tt, typename Tv>
@@ -226,19 +203,19 @@ namespace
   }
   
   template <typename Tt, typename Tv>
-  std::vector<DeviceStorage<Tt, Tv>>
-  make_device_storages(int nGpus, size_t rowSz, size_t nPcfs, const HostPcfOffsetData<Tt, Tv>& hostOffsetData)
+  void
+  init_device_storages(IntegrationContext<Tt, Tv>& ctx)
   {
-    std::vector<DeviceStorage<Tt, Tv>> storages;
-    storages.resize(nGpus);
+    auto & storages = ctx.deviceStorages;
+    storages.resize(ctx.nGpus);
     
-    for (auto iGpu = 0; iGpu < nGpus; ++iGpu)
+    auto maxRowSz = ctx.blockRowBoundaries[0].second + 1;
+    
+    for (auto iGpu = 0; iGpu < ctx.nGpus; ++iGpu)
     {
       CHK_CUDA(cudaSetDevice(iGpu));
-      storages[iGpu] = make_device_storage(rowSz, nPcfs, hostOffsetData);
+      storages[iGpu] = make_device_storage(maxRowSz, ctx.nPcfs, ctx.hostOffsetData);
     }
-    
-    return storages;
   }
   
   template <typename Tt, typename Tv>
@@ -268,11 +245,10 @@ namespace
     
     ctx.nPcfs = fs.size();
     ctx.nGpus = get_gpu_limit();
-    auto rowSz = get_row_size<Tv>(ctx.nGpus, ctx.nPcfs);
     
-    ctx.blockRowBoundaries = get_block_row_boundaries<Tv>(rowSz, ctx.nPcfs);
+    ctx.blockRowBoundaries = get_block_row_boundaries<Tv>(ctx.nGpus, ctx.nPcfs);
     ctx.hostOffsetData = get_host_offset_data<Tt, Tv>(fs);
-    ctx.deviceStorages = make_device_storages<Tt, Tv>(ctx.nGpus, rowSz, ctx.nPcfs, ctx.hostOffsetData);
+    init_device_storages<Tt, Tv>(ctx);
     
     copy_offset_data_to_devices(ctx);
     

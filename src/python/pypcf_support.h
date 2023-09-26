@@ -1,7 +1,7 @@
 #ifndef MPCF_PYPCF_SUPPORT_H
 #define MPCF_PYPCF_SUPPORT_H
 
-#include "pcf.h"
+#include <mpcf/pcf.h>
 
 #include <pybind11/pybind11.h>
 

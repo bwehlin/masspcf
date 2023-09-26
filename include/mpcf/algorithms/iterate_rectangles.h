@@ -1,6 +1,8 @@
 #ifndef MPCF_ALGORITHM_ITERATE_RECTANGLES_H
 #define MPCF_ALGORITHM_ITERATE_RECTANGLES_H
 
+#include <algorithm>
+
 namespace mpcf
 {
   template <typename TPcf, typename FCb>
