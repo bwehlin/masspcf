@@ -1,4 +1,3 @@
-
 #include <gtest/gtest.h>
 
 #include "../src/block_matrix_support.h"
