@@ -3,5 +3,6 @@
 
 #include "algorithms/iterate_rectangles.h"
 #include "algorithms/reduce.h"
+#include "algorithms/matrix_integrate.h"
 
 #endif

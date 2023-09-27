@@ -49,7 +49,7 @@ private:
   }); \
   m.def(STRINGIFY(name##_l1_inner_prod), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs) -> py::array_t<Tv> { \
     py::array_t<Tv> matrix({fs.size(), fs.size()}); \
-    mpcf::matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>()); \
+    mpcf::cuda_matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>()); \
     return matrix; \
   }, py::return_value_policy::move);
 

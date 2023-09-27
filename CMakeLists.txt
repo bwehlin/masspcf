@@ -31,6 +31,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
+  include/mpcf/algorithms/matrix_integrate.h
   include/mpcf/algorithms/cuda_matrix_integrate.h
   src/cuda_matrix_integrate.cu
   src/cuda_util.h
@@ -81,7 +82,8 @@ if (NOT SKBUILD)
   ######################################################################
 
   add_executable(mpcf_test
-    test/block_matrix_support.cpp)
+    test/block_matrix_support.cpp
+    test/basic_l1_dist.cpp)
   target_include_directories(mpcf_test PRIVATE "include/")
 
   target_link_libraries(mpcf_test PRIVATE GTest::gtest_main mpcf_cpp ${CUDART_LIBRARY})

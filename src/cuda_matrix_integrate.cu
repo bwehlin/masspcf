@@ -303,7 +303,19 @@ namespace
       return;
     }
     
-    params.matrix[iBlock * params.nPcfs + j] = i + j;
+    auto t = 0.f; // TODO: a
+    auto tPrev = t;
+    
+    
+    
+    while (true /* t < b */)
+    {
+      tPrev = t;
+      return;
+    }
+    
+    
+    //params.matrix[iBlock * params.nPcfs + j] = i + j;
   }
   
   template <typename Tt, typename Tv>

@@ -19,7 +19,7 @@ namespace mpcf
   }
   
   template <typename Tt, typename Tv>
-  void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, DeviceOp<Tt, Tv> op)
+  void cuda_matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, DeviceOp<Tt, Tv> op)
   {
     if constexpr (std::is_same<Tt, float>::value && std::is_same<Tv, float>::value)
     {

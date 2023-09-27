@@ -16,6 +16,9 @@ namespace mpcf
     Point(Tt it, Tv iv)
       : t(it), v(iv) { }
   };
+  
+  using Point_f32 = Point<float, float>;
+  using Point_f64 = Point<double, double>;
 }
 
 #endif
