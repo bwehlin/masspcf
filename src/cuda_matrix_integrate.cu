@@ -279,7 +279,7 @@ namespace
     
     ctx.hostMatrix = out;
     
-    ctx.blockDim = dim3(1,160,1);
+    ctx.blockDim = dim3(1,8,1);
     
     return ctx;
   }
@@ -288,25 +288,22 @@ namespace
   __global__
   void cuda_iterate_rectangles(typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, size_t rowStart, size_t rowHeight, size_t iRow)
   {
-    size_t j = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t i = blockDim.y * blockIdx.y + threadIdx.y;
+    size_t iBlock = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t j = blockDim.y * blockIdx.y + threadIdx.y;
     
-    i += rowStart;
-    
-    if (i >= rowHeight)
+    if (iBlock >= rowHeight)
     {
       return;
     }
     
-    size_t iOut = i; // Where to write in this block row
-    i += iRow * rowHeight;
+    size_t i = iBlock + rowStart;
     
     if (j < i || i >= params.nPcfs || j >= params.nPcfs)
     {
       return;
     }
     
-    printf("In block: (%d, %d), in global: (%d, %d)\n", (int)i, (int)j, (int)iOut, (int)j);
+    params.matrix[iBlock * params.nPcfs + j] = i + j;
   }
   
   template <typename Tt, typename Tv>
@@ -337,17 +334,15 @@ namespace
     
     auto params = ctx.make_kernel_params(iGpu);
     
-    std::cout << "Grid dims " << gridDims.x << " " << gridDims.y << std::endl;
-    std::cout << "Block dims " << ctx.blockDim.x << " " << ctx.blockDim.y << std::endl;
-    std::cout << "Block row " << rowStart << " to " << rowEnd << " matrix start " << start << " matrix end " << end << " rowHeight " << (rowEnd - rowStart + 1) << std::endl;
-    
-    
     cuda_iterate_rectangles<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowStart, rowHeight, iRow);
     CHK_CUDA(cudaPeekAtLastError());
     
-    CHK_CUDA(cudaDeviceSynchronize());
+    auto* target = &hostMatrix[rowStart * ctx.nPcfs];
+    auto nEntries = rowHeight * ctx.nPcfs;
+
+    ctx.deviceStorages[iGpu].matrix.toHost(target, nEntries);
     
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    //CHK_CUDA(cudaDeviceSynchronize()); 
   }
   
   template <typename Tt, typename Tv>
