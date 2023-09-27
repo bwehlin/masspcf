@@ -1,6 +1,7 @@
 *.user
 *.autosave
 callgrind.out.*
+_skbuild
 
 # Temporary local test
 parallel_reduce.py

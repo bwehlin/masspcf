@@ -63,7 +63,7 @@ private:
     .def_property("bottom", [](Rectangle<Tt, Tv>& self){ return self.bottom; }, [](Rectangle<Tt, Tv>& self, Tv val){ self.bottom = val; } ) \
     ;
 
-PYBIND11_MODULE(mpcf_py, m) {
+PYBIND11_MODULE(mpcf_cpp, m) {
   DECLARE_PCF(float, float, Pcf_f32_f32)
 //  DECLARE_RECTANGLE(float, float, Rectangle_f32_f32)
 

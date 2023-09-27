@@ -1,4 +1,4 @@
-import mpcf_py as cpp
+from . import mpcf_cpp as cpp
 import numpy as np
 
 class Rectangle:
