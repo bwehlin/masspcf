@@ -5,17 +5,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX CUDA)
 
+if (SKBUILD)  
+  find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+else()
+  set(SKBUILD_PROJECT_NAME massivepcf)
+  set(SKBUILD_PROJECT_VERSION "0.0.1")
+  find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
+endif()
+
 SET(CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA 12.0 REQUIRED)
 
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG)
 if (NOT ${pybind11_FOUND})
   add_subdirectory(pybind11)
-endif()
+endif() 
 
 SET(MPCF_LIB_SOURCES
   include/mpcf/pcf.h
@@ -39,13 +46,13 @@ SET(MPCF_PY_SOURCES
 if (SKBUILD)
   python_add_library(mpcf_cpp MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
 else()
-  #python_add_library(mpcf_cpp SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+  python_add_library(mpcf_cpp SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 endif()
 
 #add_library(mpcf SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 
 target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
-
+ 
 #add_subdirectory(pybind11)
 
 
