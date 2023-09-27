@@ -37,6 +37,9 @@ namespace mpcf
 #endif
   }
   
+  template <typename Tt, typename Tv>
+  void cuda_matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs);
+  
   namespace device_ops
   {
     DeviceOp<float, float> l1_inner_prod_f32();

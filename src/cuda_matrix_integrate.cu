@@ -284,19 +284,28 @@ namespace
     return ctx;
   }
   
+  struct RowInfo
+  {
+    size_t rowStart;
+    size_t rowHeight;
+    size_t iRow;
+  };
+  
   template <typename Tt, typename Tv>
   __global__
-  void cuda_iterate_rectangles(typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, size_t rowStart, size_t rowHeight, size_t iRow)
+  void cuda_iterate_rectangles(
+      typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
+      RowInfo rowInfo)
   {
     size_t iBlock = blockDim.x * blockIdx.x + threadIdx.x;
     size_t j = blockDim.y * blockIdx.y + threadIdx.y;
     
-    if (iBlock >= rowHeight)
+    if (iBlock >= rowInfo.rowHeight)
     {
       return;
     }
     
-    size_t i = iBlock + rowStart;
+    size_t i = iBlock + rowInfo.rowStart;
     
     if (j < i || i >= params.nPcfs || j >= params.nPcfs)
     {
@@ -306,8 +315,6 @@ namespace
     auto t = 0.f; // TODO: a
     auto tPrev = t;
     
-    
-    
     while (true /* t < b */)
     {
       tPrev = t;
@@ -315,7 +322,14 @@ namespace
     }
     
     
-    //params.matrix[iBlock * params.nPcfs + j] = i + j;
+    params.matrix[iBlock * params.nPcfs + j] = i + j + 50;
+  }
+  
+  template <typename Tt, typename Tv>
+  __device__
+  void cuda_integrate(typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, size_t rowStart, size_t rowHeight, size_t iRow)
+  {
+    
   }
   
   template <typename Tt, typename Tv>
@@ -346,7 +360,12 @@ namespace
     
     auto params = ctx.make_kernel_params(iGpu);
     
-    cuda_iterate_rectangles<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowStart, rowHeight, iRow);
+    RowInfo rowInfo;
+    rowInfo.rowHeight = rowHeight;
+    rowInfo.rowStart = rowStart;
+    rowInfo.iRow = iRow;
+    
+    cuda_iterate_rectangles<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowInfo);
     CHK_CUDA(cudaPeekAtLastError());
     
     auto* target = &hostMatrix[rowStart * ctx.nPcfs];
@@ -382,6 +401,20 @@ namespace
     
     hostWorkers.wait_for_all();
   }
+}
+
+template <>
+void 
+mpcf::cuda_matrix_l1_dist<float, float>(float* out, const std::vector<Pcf<float, float>>& fs)
+{
+  
+}
+
+template <>
+void 
+mpcf::cuda_matrix_l1_dist<double, double>(double* out, const std::vector<Pcf<double, double>>& fs)
+{
+  
 }
 
 mpcf::DeviceOp<float, float>
