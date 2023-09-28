@@ -5,6 +5,7 @@
 #include "cuda_device_array.h"
 #include "block_matrix_support.h"
 #include "cuda_functional_support.h"
+#include "cuda_matrix_integrate_structs.h"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -19,101 +20,11 @@ namespace
 {
   bool verbose = true;
   
-  // POD version of Point
   template <typename Tt, typename Tv>
-  struct SimplePoint
-  {
-    Tt t;
-    Tv v;
-  };
-  
-  template <typename Tt, typename Tv>
-  struct HostPcfOffsetData
-  {
-    std::vector<size_t> timePointOffsets;
-    std::vector<SimplePoint<Tt, Tv>> points;
-  };
-  
-  template <typename Tt, typename Tv>
-  struct DeviceStorage
-  {
-    mpcf::CudaDeviceArray<Tv> matrix;
-    mpcf::CudaDeviceArray<size_t> timePointOffsets;
-    mpcf::CudaDeviceArray<SimplePoint<Tt, Tv>> points;
-    
-    DeviceStorage() = default;
-    DeviceStorage(const DeviceStorage&) = delete;
-    DeviceStorage& operator=(const DeviceStorage&) = delete;
-    ~DeviceStorage() = default;
-    
-    DeviceStorage(DeviceStorage&& other)
-      : matrix(std::move(other.matrix))
-      , timePointOffsets(std::move(other.timePointOffsets))
-      , points(std::move(other.points))
-    { }
-    
-    DeviceStorage& operator=(DeviceStorage&& rhs)
-    {
-      if (&rhs == this)
-      {
-        return *this;
-      }
-      
-      matrix = std::move(rhs.matrix);
-      timePointOffsets = std::move(rhs.timePointOffsets);
-      points = std::move(rhs.points);
-      
-      return *this;
-    }
-  };
-  
-  template <typename Tt, typename Tv>
-  struct IntegrationContext
-  {
-    struct DeviceKernelParams
-    {
-      Tv* matrix;
-      size_t* timePointOffsets;
-      SimplePoint<Tt, Tv>* points;
-      size_t nPcfs;
-      mpcf::DeviceOp<Tt, Tv>* op;
-    };
-    
-    Tv* hostMatrix;
-    
-    std::vector<DeviceStorage<Tt, Tv>> deviceStorages;
-    HostPcfOffsetData<Tt, Tv> hostOffsetData;
-    std::vector<std::pair<size_t, size_t>> blockRowBoundaries;
-    
-    mpcf::DeviceOp<Tt, Tv>* op;
-    
-    size_t nPcfs;
-    
-    int nGpus;
-    dim3 blockDim;
-    
-    DeviceKernelParams make_kernel_params(int iGpu) const
-    {
-      DeviceKernelParams params;
-      auto & storage = deviceStorages[iGpu];
-      
-      params.matrix = storage.matrix.get();
-      params.points = storage.points.get();
-      params.timePointOffsets = storage.timePointOffsets.get();
-      
-      params.nPcfs = nPcfs;
-      params.op = op;
-      
-      return params;
-    }
-    
-  };
-  
-  template <typename Tt, typename Tv>
-  HostPcfOffsetData<Tt, Tv>
+  mpcf::internal::HostPcfOffsetData<Tt, Tv>
   get_host_offset_data(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
   {
-    HostPcfOffsetData<Tt, Tv> offsetData;
+    mpcf::internal::HostPcfOffsetData<Tt, Tv> offsetData;
     auto sz = fs.size();
     
     offsetData.timePointOffsets.resize(sz + 1);
@@ -216,13 +127,13 @@ namespace
   }
   
   template <typename Tt, typename Tv>
-  DeviceStorage<Tt, Tv>
-  make_device_storage(size_t rowHeight, size_t nPcfs, const HostPcfOffsetData<Tt, Tv>& hostOffsetData)
+  mpcf::internal::DeviceStorage<Tt, Tv>
+  make_device_storage(size_t rowHeight, size_t nPcfs, const mpcf::internal::HostPcfOffsetData<Tt, Tv>& hostOffsetData)
   {
-    DeviceStorage<Tt, Tv> storage;
+    mpcf::internal::DeviceStorage<Tt, Tv> storage;
     
     storage.matrix = mpcf::CudaDeviceArray<Tv>(rowHeight * nPcfs);
-    storage.points = mpcf::CudaDeviceArray<SimplePoint<Tt, Tv>>(hostOffsetData.points);
+    storage.points = mpcf::CudaDeviceArray<mpcf::internal::SimplePoint<Tt, Tv>>(hostOffsetData.points);
     storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(hostOffsetData.timePointOffsets);
     
     return storage;
@@ -230,7 +141,7 @@ namespace
   
   template <typename Tt, typename Tv>
   void
-  init_device_storages(IntegrationContext<Tt, Tv>& ctx)
+  init_device_storages(mpcf::internal::IntegrationContext<Tt, Tv>& ctx)
   {
     auto & storages = ctx.deviceStorages;
     storages.resize(ctx.nGpus);
@@ -246,7 +157,7 @@ namespace
   
   template <typename Tt, typename Tv>
   void
-  copy_offset_data_to_active_device(int iGpu, IntegrationContext<Tt, Tv>& ctx)
+  copy_offset_data_to_active_device(int iGpu, mpcf::internal::IntegrationContext<Tt, Tv>& ctx)
   {
     ctx.deviceStorages[iGpu].points.toDevice(ctx.hostOffsetData.points);
     ctx.deviceStorages[iGpu].timePointOffsets.toDevice(ctx.hostOffsetData.timePointOffsets);
@@ -254,7 +165,7 @@ namespace
   
   template <typename Tt, typename Tv>
   void
-  copy_offset_data_to_devices(IntegrationContext<Tt, Tv>& ctx)
+  copy_offset_data_to_devices(mpcf::internal::IntegrationContext<Tt, Tv>& ctx)
   {
     for (auto iGpu = 0; iGpu < ctx.nGpus; ++iGpu)
     {
@@ -264,10 +175,10 @@ namespace
   }
   
   template <typename Tt, typename Tv>
-  IntegrationContext<Tt, Tv>
+  mpcf::internal::IntegrationContext<Tt, Tv>
   make_context(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv>* op)
   {
-    IntegrationContext<Tt, Tv> ctx;
+    mpcf::internal::IntegrationContext<Tt, Tv> ctx;
     
     ctx.nPcfs = fs.size();
     ctx.nGpus = get_gpu_limit();
@@ -297,7 +208,7 @@ namespace
   template <typename Tt, typename Tv, typename FOp>
   __device__
   void cuda_iterate_rectangles(
-      typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
+      typename mpcf::internal::IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
       RowInfo rowInfo, size_t fMatrixIdx, size_t gMatrixIdx,
       FOp op)
   {
@@ -316,8 +227,8 @@ namespace
     size_t fsz = params.timePointOffsets[fMatrixIdx + 1] - fOffset;
     size_t gsz = params.timePointOffsets[gMatrixIdx + 1] - gOffset;
 
-    SimplePoint<Tt, Tv>* fpts = params.points + fOffset;
-    SimplePoint<Tt, Tv>* gpts = params.points + gOffset;
+    mpcf::internal::SimplePoint<Tt, Tv>* fpts = params.points + fOffset;
+    mpcf::internal::SimplePoint<Tt, Tv>* gpts = params.points + gOffset;
     
     auto b = 1000; //std::numeric_limits<Tt>::max(); // TODO
     
@@ -384,7 +295,7 @@ namespace
   template <typename Tt, typename Tv>
   __global__
   void cuda_integrate(
-      typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
+      typename mpcf::internal::IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
       RowInfo rowInfo)
   {
     size_t iBlock = blockDim.x * blockIdx.x + threadIdx.x;
@@ -418,7 +329,7 @@ namespace
   
   template <typename Tt, typename Tv>
   void
-  exec_gpu(size_t iRow, const tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
+  exec_gpu(size_t iRow, const tf::Executor& executor, mpcf::internal::IntegrationContext<Tt, Tv>& ctx)
   {
     auto iGpu = executor.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
     
@@ -462,7 +373,7 @@ namespace
   
   template <typename Tt, typename Tv>
   void
-  schedule_block_rows(tf::Executor& executor, IntegrationContext<Tt, Tv>& ctx)
+  schedule_block_rows(tf::Executor& executor, mpcf::internal::IntegrationContext<Tt, Tv>& ctx)
   {
     for (auto i = 0ul; i < ctx.blockRowBoundaries.size(); ++i)
     {

@@ -37,6 +37,7 @@ SET(MPCF_LIB_SOURCES
   src/cuda_util.h
   src/cuda_device_array.h
   src/cuda_functional_support.h
+  src/cuda_matrix_integrate_structs.h
   src/block_matrix_support.h
 )
 
