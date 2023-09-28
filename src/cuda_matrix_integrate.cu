@@ -79,7 +79,7 @@ namespace
   // Return either the user maximum GPU count, or the number of physical GPUs present (whichever is smaller)
   int get_gpu_limit()
   {
-    return 1;
+    //return 1;
     int nGpus;
     CHK_CUDA(cudaGetDeviceCount(&nGpus));
     // TODO: user limit
@@ -333,8 +333,6 @@ namespace
   {
     auto iGpu = executor.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
     
-    std::cout << "Exec row " << iRow << " on GPU " << iGpu << std::endl;
-    
     CHK_CUDA(cudaSetDevice(iGpu));
     
     ctx.deviceStorages[iGpu].matrix.clear();
@@ -353,8 +351,11 @@ namespace
     auto rowHeight = mpcf::internal::get_row_height_from_boundaries(rowBoundaries);
     auto gridDims = mpcf::internal::get_grid_dims(ctx.blockDim, rowHeight, ctx.nPcfs);
     
-    auto params = ctx.make_kernel_params(iGpu);
+    mpcf::detail::CudaCallableFunctionPointer<mpcf::DeviceOp<Tt, Tv>> op(ctx.op);
     
+    auto params = ctx.make_kernel_params(iGpu);
+    params.op = op.ptr;
+
     RowInfo rowInfo;
     rowInfo.rowHeight = rowHeight;
     rowInfo.rowStart = rowStart;
@@ -398,11 +399,12 @@ namespace
   }
 }
 
-typedef float (*op_func_f)(float, float, float, float);
-__device__ op_func_f opf = sub1f;
-typedef double (*op_func_d)(double, double, double, double);
-__device__ op_func_d opd = sub1d;
-
+//typedef float (*op_func_f)(float, float, float, float);
+//__device__ op_func_f opf = sub1f;
+__device__ mpcf::DeviceOp<float, float> opf = sub1f;
+//typedef double (*op_func_d)(double, double, double, double);
+//__device__ op_func_d opd = sub1d;
+__device__ mpcf::DeviceOp<double,double> opd = sub1d;
 
 
 
@@ -410,16 +412,16 @@ template <>
 void 
 mpcf::cuda_matrix_l1_dist<float, float>(float* out, const std::vector<Pcf<float, float>>& fs)
 {
-  mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
-  cuda_matrix_integrate_impl<float, float>(out, fs, f.ptr);
+  //mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
+  cuda_matrix_integrate_impl<float, float>(out, fs, &opf);
 }
 
 template <>
 void 
 mpcf::cuda_matrix_l1_dist<double, double>(double* out, const std::vector<Pcf<double, double>>& fs)
 {
-  mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
-  cuda_matrix_integrate_impl<double, double>(out, fs, f.ptr);
+  //mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
+  cuda_matrix_integrate_impl<double, double>(out, fs, &opd);
 }
 
 mpcf::DeviceOp<float, float>
@@ -440,10 +442,10 @@ mpcf::device_ops::l1_inner_prod_f64()
 void
 mpcf::detail::cuda_matrix_integrate_f32(float* out, const std::vector<Pcf_f32>& fs, DeviceOp<float, float> opa)
 {
-  mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
+  //mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
   //op_func_f hOpPtr;
   //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opf, sizeof(op_func_f)));
-  cuda_matrix_integrate_impl<float, float>(out, fs, f.ptr);
+  cuda_matrix_integrate_impl<float, float>(out, fs, &opf);
 }
 
 
@@ -451,8 +453,8 @@ mpcf::detail::cuda_matrix_integrate_f32(float* out, const std::vector<Pcf_f32>& 
 void
 mpcf::detail::cuda_matrix_integrate_f64(double* out, const std::vector<Pcf_f64>& fs, DeviceOp<double, double> opa)
 {
-  mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
+  //mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
   //op_func_d hOpPtr;
   //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opd, sizeof(op_func_d))); 
-  cuda_matrix_integrate_impl<double, double>(out, fs, f.ptr);
+  cuda_matrix_integrate_impl<double, double>(out, fs, &opd);
 }

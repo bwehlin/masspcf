@@ -86,7 +86,6 @@ namespace mpcf::internal
       params.timePointOffsets = storage.timePointOffsets.get();
       
       params.nPcfs = nPcfs;
-      params.op = op;
       
       return params;
     }
