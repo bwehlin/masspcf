@@ -4,6 +4,7 @@
 #include "cuda_util.h"
 #include "cuda_device_array.h"
 #include "block_matrix_support.h"
+#include "cuda_functional_support.h"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -75,7 +76,7 @@ namespace
       size_t* timePointOffsets;
       SimplePoint<Tt, Tv>* points;
       size_t nPcfs;
-      mpcf::DeviceOp<Tt, Tv> op;
+      mpcf::DeviceOp<Tt, Tv>* op;
     };
     
     Tv* hostMatrix;
@@ -84,7 +85,7 @@ namespace
     HostPcfOffsetData<Tt, Tv> hostOffsetData;
     std::vector<std::pair<size_t, size_t>> blockRowBoundaries;
     
-    mpcf::DeviceOp<Tt, Tv> op;
+    mpcf::DeviceOp<Tt, Tv>* op;
     
     size_t nPcfs;
     
@@ -264,7 +265,7 @@ namespace
   
   template <typename Tt, typename Tv>
   IntegrationContext<Tt, Tv>
-  make_context(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv> op)
+  make_context(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv>* op)
   {
     IntegrationContext<Tt, Tv> ctx;
     
@@ -281,6 +282,8 @@ namespace
     
     ctx.blockDim = dim3(1,8,1);
     
+    ctx.op = op;
+    
     return ctx;
   }
   
@@ -291,14 +294,103 @@ namespace
     size_t iRow;
   };
   
+  template <typename Tt, typename Tv, typename FOp>
+  __device__
+  void cuda_iterate_rectangles(
+      typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
+      RowInfo rowInfo, size_t fMatrixIdx, size_t gMatrixIdx,
+      FOp op)
+  {
+    Tt t = 0; // TODO: a
+    Tt tprev = t;
+    
+    Tv fv;
+    Tv gv;
+    
+    size_t fi = 0; // max_time_prior_to(f, a);
+    size_t gi = 0; // max_time_prior_to(g, a);
+    
+    size_t fOffset = params.timePointOffsets[fMatrixIdx];
+    size_t gOffset = params.timePointOffsets[gMatrixIdx];
+    
+    size_t fsz = params.timePointOffsets[fMatrixIdx + 1] - fOffset;
+    size_t gsz = params.timePointOffsets[gMatrixIdx + 1] - gOffset;
+
+    SimplePoint<Tt, Tv>* fpts = params.points + fOffset;
+    SimplePoint<Tt, Tv>* gpts = params.points + gOffset;
+    
+    auto b = 1000; //std::numeric_limits<Tt>::max(); // TODO
+    
+    while (t < b)
+    {
+      tprev = t;
+      fv = fpts[fi].v;
+      gv = gpts[gi].v;
+
+      if (fi + 1 < fsz && gi + 1 < gsz)
+      {
+        auto delta = fpts[fi+1].t - gpts[gi+1].t;
+        if (delta <= 0)
+        {
+          ++fi;
+        }
+        if (delta >= 0)
+        {
+          ++gi;
+        }
+      }
+      else
+      {
+        if (fi + 1 < fsz)
+        {
+          ++fi;
+        }
+        else if (gi + 1 < gsz)
+        {
+          ++gi;
+        }
+        else
+        {
+          op(tprev, b, fv, gv);
+          return;
+        }
+      }
+      
+      t = max(fpts[fi].t, gpts[gi].t);
+      op(tprev, t, fv, gv);
+    }
+    
+  }
+  
+  template <typename Tt, typename Tv>
+  __device__
+  Tv sub1(Tt, Tt, Tv t, Tv b)
+  {
+    return abs(t - b);
+  }
+  
+  __device__
+  float sub1f(float, float, float t, float b)
+  {
+    return abs(t - b);
+  }
+  
+  __device__
+  double sub1d(double, double, double t, double b)
+  {
+    return abs(t - b);
+  }
+  
   template <typename Tt, typename Tv>
   __global__
-  void cuda_iterate_rectangles(
+  void cuda_integrate(
       typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, 
       RowInfo rowInfo)
   {
     size_t iBlock = blockDim.x * blockIdx.x + threadIdx.x;
     size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+    
+    //printf("Integrate (%d, %d)\n", (int)iBlock, (int)j);
     
     if (iBlock >= rowInfo.rowHeight)
     {
@@ -312,24 +404,16 @@ namespace
       return;
     }
     
-    auto t = 0.f; // TODO: a
-    auto tPrev = t;
+    auto* op = params.op;
+    printf("op %p\n", op);
     
-    while (true /* t < b */)
-    {
-      tPrev = t;
-      return;
-    }
+    Tv ret = 0;
+    cuda_iterate_rectangles<Tt, Tv>(params, rowInfo, i, j, [&ret, op](Tt l, Tt r, Tv t, Tv b){
+      ret += (r - l) * (*op)(l, r, t, b);
+    });
     
-    
-    params.matrix[iBlock * params.nPcfs + j] = i + j + 50;
-  }
-  
-  template <typename Tt, typename Tv>
-  __device__
-  void cuda_integrate(typename IntegrationContext<Tt, Tv>::DeviceKernelParams params, size_t rowStart, size_t rowHeight, size_t iRow)
-  {
-    
+    //printf("Integrate (%d, %d) -> %f\n", (int)i, (int)j, ret);
+    params.matrix[iBlock * params.nPcfs + j] = ret;
   }
   
   template <typename Tt, typename Tv>
@@ -365,7 +449,7 @@ namespace
     rowInfo.rowStart = rowStart;
     rowInfo.iRow = iRow;
     
-    cuda_iterate_rectangles<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowInfo);
+    cuda_integrate<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowInfo);
     CHK_CUDA(cudaPeekAtLastError());
     
     auto* target = &hostMatrix[rowStart * ctx.nPcfs];
@@ -388,7 +472,7 @@ namespace
   
   template <typename Tt, typename Tv>
   void
-  cuda_matrix_integrate_impl(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv> op)
+  cuda_matrix_integrate_impl(Tv* out, const std::vector<mpcf::Pcf<Tt, Tv>>& fs, mpcf::DeviceOp<Tt, Tv>* op)
   {
     auto ctx = make_context(out, fs, op);
     //params.timePointOffsets = &
@@ -403,18 +487,28 @@ namespace
   }
 }
 
+typedef float (*op_func_f)(float, float, float, float);
+__device__ op_func_f opf = sub1f;
+typedef double (*op_func_d)(double, double, double, double);
+__device__ op_func_d opd = sub1d;
+
+
+
+
 template <>
 void 
 mpcf::cuda_matrix_l1_dist<float, float>(float* out, const std::vector<Pcf<float, float>>& fs)
 {
-  
+  mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
+  cuda_matrix_integrate_impl<float, float>(out, fs, f.ptr);
 }
 
 template <>
 void 
 mpcf::cuda_matrix_l1_dist<double, double>(double* out, const std::vector<Pcf<double, double>>& fs)
 {
-  
+  mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
+  cuda_matrix_integrate_impl<double, double>(out, fs, f.ptr);
 }
 
 mpcf::DeviceOp<float, float>
@@ -429,14 +523,25 @@ mpcf::device_ops::l1_inner_prod_f64()
   return &l1_inner_prod_f64_impl;
 }
 
-void
-mpcf::detail::cuda_matrix_integrate_f32(float* out, const std::vector<Pcf_f32>& fs, DeviceOp<float, float> op)
-{
-  cuda_matrix_integrate_impl<float, float>(out, fs, op);
-}
+
+
 
 void
-mpcf::detail::cuda_matrix_integrate_f64(double* out, const std::vector<Pcf_f64>& fs, DeviceOp<double, double> op)
+mpcf::detail::cuda_matrix_integrate_f32(float* out, const std::vector<Pcf_f32>& fs, DeviceOp<float, float> opa)
 {
-  cuda_matrix_integrate_impl<double, double>(out, fs, op);
+  mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
+  //op_func_f hOpPtr;
+  //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opf, sizeof(op_func_f)));
+  cuda_matrix_integrate_impl<float, float>(out, fs, f.ptr);
+}
+
+
+
+void
+mpcf::detail::cuda_matrix_integrate_f64(double* out, const std::vector<Pcf_f64>& fs, DeviceOp<double, double> opa)
+{
+  mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
+  //op_func_d hOpPtr;
+  //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opd, sizeof(op_func_d))); 
+  cuda_matrix_integrate_impl<double, double>(out, fs, f.ptr);
 }

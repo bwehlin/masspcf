@@ -7,6 +7,8 @@
 #include <functional>
 #include <vector>
 
+#include <cuda_runtime.h>
+
 namespace mpcf
 {
   template <typename Tt, typename Tv>
