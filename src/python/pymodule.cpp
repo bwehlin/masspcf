@@ -4,6 +4,7 @@
 
 #include <mpcf/pcf.h>
 #include "pypcf_support.h"
+#include <mpcf/algorithm.h>
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/algorithms/cuda_matrix_integrate.h>
@@ -29,58 +30,88 @@ private:
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
-#define DECLARE_PCF(Tt, Tv, name) \
-  py::class_<mpcf::Pcf<Tt, Tv>>(m, STRINGIFY(name)) \
-    .def(py::init<>()) \
-    .def(py::init<>([](py::array_t<mpcf::Pcf<Tt, Tv>::time_type> arr){ return mpcf::detail::construct_pcf<Tt, Tv>(arr); })) \
-    .def("get_time_type", [](mpcf::Pcf<Tt, Tv>& /* self */) -> std::string { return STRINGIFY(Tt); }) \
-    .def("get_value_type", [](mpcf::Pcf<Tt, Tv>& /* self */) -> std::string { return STRINGIFY(Tv); }) \
-    .def("debugPrint", &mpcf::Pcf<Tt, Tv>::debugPrint) \
-    .def("to_numpy", &mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>) \
-    .def("div_scalar", [](mpcf::Pcf<Tt, Tv>& self, Tv c){ return self /= c; }) \
-    ; \
-  m.def(STRINGIFY(name##_add), [](const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g){ return f + g; }); \
-  m.def(STRINGIFY(name##_combine), \
-  [](const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g, unsigned long long cb){ \
-    ReductionWrapper<Tt, Tv> reduction(cb); \
-    return mpcf::combine(f, g, [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { return reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
-  }); \
-  m.def(STRINGIFY(name##_average), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs){ return mpcf::average(fs); }); \
-  m.def(STRINGIFY(name##_parallel_reduce), \
-  [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
-    ReductionWrapper<Tt, Tv> reduction(cb); \
-    return mpcf::parallel_reduce(fs, [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { return reduction(rect.left, rect.right, rect.top, rect.bottom); }); \
-  }); \
-  m.def(STRINGIFY(name##_l1_inner_prod), [](const std::vector<mpcf::Pcf<Tt, Tv>>& fs) -> py::array_t<Tv> { \
-    py::array_t<Tv> matrix({fs.size(), fs.size()}); \
-    mpcf::cuda_matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>()); \
-    return matrix; \
-  }, py::return_value_policy::move);
-
-#define DECLARE_RECTANGLE(Tt, Tv, name) \
-  py::class_<Rectangle<Tt, Tv>>(m, STRINGIFY(name)) \
-    .def(py::init<>()) \
-    .def(py::init<Tt, Tt, Tv, Tv>()) \
-    .def_property("left", [](Rectangle<Tt, Tv>& self){ return self.left; }, [](Rectangle<Tt, Tv>& self, Tv val){ self.left = val; } ) \
-    .def_property("right", [](Rectangle<Tt, Tv>& self){ return self.right; }, [](Rectangle<Tt, Tv>& self, Tv val){ self.right = val; } ) \
-    .def_property("top", [](Rectangle<Tt, Tv>& self){ return self.top; }, [](Rectangle<Tt, Tv>& self, Tv val){ self.top = val; } ) \
-    .def_property("bottom", [](Rectangle<Tt, Tv>& self){ return self.bottom; }, [](Rectangle<Tt, Tv>& self, Tv val){ self.bottom = val; } ) \
-    ;
-
-class Binder
+template <typename Tt, typename Tv>
+class Backend
 {
 public:
-  void bind(py::handle scope, const char* name)
-  {
+  static mpcf::Pcf<Tt, Tv> add(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g)
+  { 
+    return f + g;
+  }
 
+  static mpcf::Pcf<Tt, Tv> combine(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g, unsigned long long cb)
+  {
+    ReductionWrapper<Tt, Tv> reduction(cb);
+    return mpcf::combine(f, g, 
+      [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { 
+        return reduction(rect.left, rect.right, rect.top, rect.bottom); 
+      });
+  }
+
+  static mpcf::Pcf<Tt, Tv> average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  { 
+    return mpcf::average(fs);
+  }
+
+  static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
+    ReductionWrapper<Tt, Tv> reduction(cb);
+    return mpcf::parallel_reduce(fs, 
+      [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt 
+      { 
+        return reduction(rect.left, rect.right, rect.top, rect.bottom); 
+      });
+  }
+
+  static py::array_t<Tv> l1_inner_prod(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  {
+    py::array_t<Tv> matrix({fs.size(), fs.size()});
+#ifdef BUILD_WITH_CUDA
+    mpcf::cuda_matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>());
+#else
+    mpcf::matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, 
+      [](const typename mpcf::Pcf<Tt, Tv>::rectangle_type& rect){ 
+        return (rect.right - rect.left) * rect.top * rect.bottom;
+      });
+#endif
+    return matrix;
+  }
+
+  static std::vector<mpcf::Pcf<Tt, Tv>> from_numpy(const py::array_t<Tt>& timeseries, const py::array_t<Tv>& valseries)
+  {
+    auto ret = std::vector<mpcf::Pcf<Tt, Tv>>();
+    return ret;
+  }
+};
+
+template <typename Tt, typename Tv>
+class PyBindings
+{
+public:
+  void register_bindings(py::handle m, const std::string& suffix)
+  {
+    py::class_<mpcf::Pcf<Tt, Tv>>(m, ("Pcf" + suffix).c_str())
+      .def(py::init<>())
+      .def(py::init<>([](py::array_t<Tt> arr){ return mpcf::detail::construct_pcf<Tt, Tv>(arr); }))
+      .def("get_time_type", [](mpcf::Pcf<Tt, Tv>& /* self */) -> std::string { return STRINGIFY(Tt); })
+      .def("get_value_type", [](mpcf::Pcf<Tt, Tv>& /* self */) -> std::string { return STRINGIFY(Tv); })
+      .def("debug_print", &mpcf::Pcf<Tt, Tv>::debug_print) \
+      .def("to_numpy", &mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>)
+      .def("div_scalar", [](mpcf::Pcf<Tt, Tv>& self, Tv c){ return self /= c; })
+      ;
+    
+    py::class_<Backend<Tt, Tv>>(m, ("Backend" + suffix).c_str())
+      .def(py::init<>())
+      .def_static("add", &Backend<Tt, Tv>::add)
+      .def_static("combine", &Backend<Tt, Tv>::combine)
+      .def_static("average", &Backend<Tt, Tv>::average)
+      .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
+      .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
+      .def_static("from_numpy", &Backend<Tt, Tv>::from_numpy, py::return_value_policy::move)
+      ;
   }
 };
 
 PYBIND11_MODULE(mpcf_cpp, m) {
-  Binder().bind(m, "test123");
-  //DECLARE_PCF(float, float, Pcf_f32_f32)
-//  DECLARE_RECTANGLE(float, float, Rectangle_f32_f32)
-
-  //DECLARE_PCF(double, double, Pcf_f64_f64)
-//  DECLARE_RECTANGLE(double, double, Rectangle_f64_f64)
+  PyBindings<float, float>().register_bindings(m, "_f32_f32");
+  PyBindings<double, double>().register_bindings(m, "_f64_f64");
 }

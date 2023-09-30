@@ -3,7 +3,10 @@
 
 #include "iterate_rectangles.h"
 #include "../pcf.h"
+
+#ifdef BUILD_WITH_CUDA
 #include "cuda_matrix_integrate.h"
+#endif
 
 #include <vector>
 
@@ -49,9 +52,11 @@ namespace mpcf
     
     switch (executor)
     {
+#ifdef BUILD_WITH_CUDA
     case Executor::Cuda:
       cuda_matrix_l1_dist<Tt, Tv>(out, fs);
       break;
+#endif
     default:
       matrix_integrate(out, fs, [](const rect_t& rect) -> Tv {
         return std::abs(rect.top - rect.bottom);

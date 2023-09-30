@@ -42,6 +42,8 @@ class Rectangle:
   def bottom(self, v):
     self.data_.bottom = v
 
+
+
 class Pcf:
   def __init__(self, arr):
     if isinstance(arr, np.ndarray):
@@ -76,9 +78,9 @@ class Pcf:
     params = (self.data_, rhs.data_)
 
     if _has_matching_types(self, tPcf_f32_f32):
-      self.data_ = cpp.Pcf_f32_f32_add(*params)
+      self.data_ = cpp.Backend_f32_f32.add(*params)
     elif _has_matching_types(self, tPcf_f64_f64):
-      self.data_ = cpp.Pcf_f64_f64_add(*params)
+      self.data_ = cpp.Backend_f64_f64.add(*params)
     
     return self
   
@@ -89,59 +91,61 @@ class Pcf:
 tPcf_f32_f32 = Pcf(np.array([[0],[0]]).astype(np.float32))
 tPcf_f64_f64 = Pcf(np.array([[0],[0]]).astype(np.float64))
 
+backend_f32_f32 = cpp.Backend_f32_f32
+backend_f64_f64 = cpp.Backend_f64_f64
+
+def _get_backend(f : Pcf):
+  if _has_matching_types(f, tPcf_f32_f32):
+    return backend_f32_f32
+  elif _has_matching_types(f, tPcf_f64_f64):
+    return backend_f64_f64
+  else:
+    raise TypeError("Unknown PCF type")
+
+def _get_backend(t, v):
+  if isinstance(t, np.ndarray) and isinstance(v, np.ndarray):
+    if t.dtype == np.float32 and v.dtype == np.float32:
+      return backend_f32_f32
+    elif t.dtype == np.float64 and v.dtype == np.float64:
+      return backend_f64_f64
+    else:
+      raise TypeError("Unsupported data types")
+  raise TypeError("Unsupported data types")
+
 def _has_matching_types(f : Pcf, g : Pcf):
   return f.get_time_value_type() == g.get_time_value_type()
 
-def combine(f : Pcf, g : Pcf, cb):
-  if not _has_matching_types(f, g):
-    raise TypeError('Mismatched PCF types')
-  
-  params = (f.data_, g.data_, cb)
-
-  if _has_matching_types(f, tPcf_f32_f32):
-    return Pcf(cpp.Pcf_f32_f32_combine(*params))
-  elif _has_matching_types(f, tPcf_f64_f64):
-    return Pcf(cpp.Pcf_f64_f64_combine(*params))
-  else:
-    raise TypeError("Unknown PCF type")
-  
-def average(fs):
+def _prepare_list(fs):
   fsdata = [None]*len(fs)
   for i, f in enumerate(fs):
     fsdata[i] = f.data_
+    _ensure_same_type(fsdata[0], fsdata[i])
+  backend = _get_backend(fsdata[0])
+  return fsdata, backend
+
+def _ensure_same_type(f : Pcf, g : Pcf):
+  if not _has_matching_types(f, g):
+    raise TypeError('Mismatched PCF types')
+
+def combine(f : Pcf, g : Pcf, cb):
+  _ensure_same_type(f, g)
+  backend = _get_backend(f)
+  return Pcf(backend.combine(f.data_, g.data_, cb))
   
-  if _has_matching_types(f, tPcf_f32_f32):
-    return Pcf(cpp.Pcf_f32_f32_average(fsdata))
-  elif _has_matching_types(f, tPcf_f64_f64):
-    return Pcf(cpp.Pcf_f64_f64_average(fsdata))
-  else:
-    raise TypeError("Unknown PCF type")
+def average(fs):
+  fsdata, backend = _prepare_list(fs)
+  return Pcf(backend.average(fsdata))
 
 def parallel_reduce(fs, cb):
   cb = cb.address
-  fsdata = [None]*len(fs)
-  for i, f in enumerate(fs):
-    fsdata[i] = f.data_
-    if not _has_matching_types(fs[i], fs[0]):
-      raise TypeError("All PCFs must have the same data type")
-  
-  if _has_matching_types(fs[0], tPcf_f32_f32):
-    return Pcf(cpp.Pcf_f32_f32_parallel_reduce(fsdata, cb))
-  elif _has_matching_types(fs[0], tPcf_f64_f64):
-    return Pcf(cpp.Pcf_f64_f64_parallel_reduce(fsdata, cb))
-  else:
-    raise TypeError("Unsupported PCF type")
+  fsdata, backend = _prepare_list(fs)
+  return Pcf(backend.parallel_reduce(fsdata, cb))
 
 def l1_inner_prod(fs):
-  fsdata = [None]*len(fs)
-  for i, f in enumerate(fs):
-    fsdata[i] = f.data_
-    if not _has_matching_types(fs[i], fs[0]):
-      raise TypeError("All PCFs must have the same data type")
-    
-  if _has_matching_types(fs[0], tPcf_f32_f32):
-    return cpp.Pcf_f32_f32_l1_inner_prod(fsdata)
-  elif _has_matching_types(fs[0], tPcf_f64_f64):
-    return cpp.Pcf_f64_f64_l1_inner_prod(fsdata)
-  else:
-    raise TypeError("Unsupported PCF type")
+  fsdata, backend = _prepare_list(fs)
+  return backend.l1_inner_prod(fsdata)
+
+def from_numpy(timeseries, valseries):
+  backend = _get_backend(timeseries, valseries)
+  fsdata = backend.from_numpy(timeseries, valseries)
+  return [Pcf(fdata) for fdata in fsdata]

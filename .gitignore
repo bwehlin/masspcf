@@ -2,6 +2,7 @@
 *.autosave
 callgrind.out.*
 _skbuild
+.vscode
 
 # Temporary local test
 parallel_reduce.py

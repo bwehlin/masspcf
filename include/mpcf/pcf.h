@@ -32,7 +32,7 @@ namespace mpcf
 
     }
 
-    void debugPrint() const
+    void debug_print() const
     {
       for (auto i = 0ul; i < m_points.size(); ++i)
       {
