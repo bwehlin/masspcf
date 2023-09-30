@@ -4,7 +4,10 @@
 
 #include <mpcf/pcf.h>
 #include "pypcf_support.h"
+
+#ifdef BUILD_WITH_CUDA
 #include <mpcf/algorithms/cuda_matrix_integrate.h>
+#endif
 
 namespace py = pybind11;
 
@@ -21,6 +24,7 @@ public:
 private:
   reduction_function m_fn;
 };
+
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -63,10 +67,20 @@ private:
     .def_property("bottom", [](Rectangle<Tt, Tv>& self){ return self.bottom; }, [](Rectangle<Tt, Tv>& self, Tv val){ self.bottom = val; } ) \
     ;
 
+class Binder
+{
+public:
+  void bind(py::handle scope, const char* name)
+  {
+
+  }
+};
+
 PYBIND11_MODULE(mpcf_cpp, m) {
-  DECLARE_PCF(float, float, Pcf_f32_f32)
+  Binder().bind(m, "test123");
+  //DECLARE_PCF(float, float, Pcf_f32_f32)
 //  DECLARE_RECTANGLE(float, float, Rectangle_f32_f32)
 
-  DECLARE_PCF(double, double, Pcf_f64_f64)
+  //DECLARE_PCF(double, double, Pcf_f64_f64)
 //  DECLARE_RECTANGLE(double, double, Rectangle_f64_f64)
 }

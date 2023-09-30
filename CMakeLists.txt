@@ -1,11 +1,20 @@
 cmake_minimum_required(VERSION 3.20...3.26)
 
+set(BUILD_WITH_CUDA OFF)
+set(BUILD_TESTER OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX CUDA)
+if (BUILD_WITH_CUDA)
+  SET(LANG_CUDA CUDA)
+else()
+  SET(LANG_CUDA )
+endif()
 
-if (SKBUILD)  
+project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
+
+if (SKBUILD)
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 else()
   set(SKBUILD_PROJECT_NAME massivepcf)
@@ -13,8 +22,11 @@ else()
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
 
-SET(CUDA_SEPARABLE_COMPILATION ON)
-find_package(CUDA 12.0 REQUIRED)
+if (BUILD_WITH_CUDA)
+  SET(CUDA_SEPARABLE_COMPILATION ON)
+  find_package(CUDA 12.0 REQUIRED)
+  target_compile_definitions(mpcf_cpp BUILD_WITH_CUDA)
+endif()
 
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -23,6 +35,18 @@ find_package(pybind11 CONFIG)
 if (NOT ${pybind11_FOUND})
   add_subdirectory(pybind11)
 endif() 
+
+if (BUILD_WITH_CUDA)
+  SET(MPCF_LIB_SOURCES_CUDA
+    src/cuda_matrix_integrate.cu
+    src/cuda_util.h
+    src/cuda_device_array.h
+    src/cuda_functional_support.h
+    src/cuda_matrix_integrate_structs.h
+  )
+else()
+  SET(MPCF_LIB_SOURCES_CUDA "")
+endif()
 
 SET(MPCF_LIB_SOURCES
   include/mpcf/pcf.h
@@ -33,12 +57,8 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/reduce.h
   include/mpcf/algorithms/matrix_integrate.h
   include/mpcf/algorithms/cuda_matrix_integrate.h
-  src/cuda_matrix_integrate.cu
-  src/cuda_util.h
-  src/cuda_device_array.h
-  src/cuda_functional_support.h
-  src/cuda_matrix_integrate_structs.h
   src/block_matrix_support.h
+  ${MPCF_LIB_SOURCES_CUDA}
 )
 
 SET(MPCF_PY_SOURCES 
@@ -69,7 +89,7 @@ target_include_directories(mpcf_cpp PUBLIC "include/")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION})
 
-if (NOT SKBUILD)
+if (NOT SKBUILD AND BUILD_TESTER)
   ######################################################################
   # From: https://google.github.io/googletest/quickstart-cmake.html
   ######################################################################
