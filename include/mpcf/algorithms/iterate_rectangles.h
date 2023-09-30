@@ -6,13 +6,13 @@
 
 namespace mpcf
 {
-  template <typename TPcf, typename FCb>
-  void iterate_rectangles(const TPcf& f, const TPcf& g, 
-    typename TPcf::time_type a, typename TPcf::time_type b,
+  template <typename Point, typename FCb>
+  void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, 
+    typename Point::time_type a, typename Point::time_type b,
     FCb cb)
   {
-    using TTime = typename TPcf::time_type;
-    using TVal = typename TPcf::value_type;
+    using TTime = typename Point::time_type;
+    using TVal = typename Point::value_type;
 
     TTime t = 0;
     TTime tprev = 0;
@@ -22,9 +22,6 @@ namespace mpcf
 
     auto fi = 0; // max_time_prior_to(f, a);
     auto gi = 0; // max_time_prior_to(g, a);
-
-    auto const & fpts = f.points();
-    auto const & gpts = g.points();
 
     auto fsz = fpts.size();
     auto gsz = gpts.size();
@@ -81,6 +78,16 @@ namespace mpcf
 
       cb(rect);
     }
+  }
+
+  template <typename TPcf, typename FCb>
+  void iterate_rectangles(const TPcf& f, const TPcf& g, 
+    typename TPcf::time_type a, typename TPcf::time_type b,
+    FCb cb)
+  {
+    auto const & fpts = f.points();
+    auto const & gpts = g.points();
+    iterate_rectangles(fpts, gpts, a, b, cb);
   }
 }
 

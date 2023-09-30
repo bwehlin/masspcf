@@ -53,6 +53,16 @@ public:
     return mpcf::average(fs);
   }
 
+  static mpcf::Pcf<Tt, Tv> mem_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  {
+    return mpcf::mem_average(fs);
+  }
+
+  static mpcf::Pcf<Tt, Tv> st_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  {
+    return mpcf::st_average(fs);
+  }
+
   static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
     ReductionWrapper<Tt, Tv> reduction(cb);
     return mpcf::parallel_reduce(fs, 
@@ -74,6 +84,18 @@ public:
       });
 #endif
     return matrix;
+  }
+
+  static py::array_t<Tv> matrix_l1_dist(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  {
+    py::array_t<Tv> matrix({fs.size(), fs.size()});
+#ifdef BUILD_WITH_CUDA
+    mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::Executor::Cuda);
+    return matrix;
+#else
+    mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::Executor::Cpu);
+    return matrix;
+#endif
   }
 };
 
@@ -98,8 +120,11 @@ public:
       .def_static("add", &Backend<Tt, Tv>::add)
       .def_static("combine", &Backend<Tt, Tv>::combine)
       .def_static("average", &Backend<Tt, Tv>::average)
+      .def_static("mem_average", &Backend<Tt, Tv>::mem_average)
+      .def_static("st_average", &Backend<Tt, Tv>::st_average)
       .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
       .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
+      .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
       ;
   }
 };

@@ -126,6 +126,14 @@ def average(fs):
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.average(fsdata))
 
+def mem_average(fs):
+  fsdata, backend = _prepare_list(fs)
+  return Pcf(backend.mem_average(fsdata))
+
+def st_average(fs):
+  fsdata, backend = _prepare_list(fs)
+  return Pcf(backend.st_average(fsdata))
+
 def parallel_reduce(fs, cb):
   cb = cb.address
   fsdata, backend = _prepare_list(fs)
@@ -134,3 +142,7 @@ def parallel_reduce(fs, cb):
 def l1_inner_prod(fs):
   fsdata, backend = _prepare_list(fs)
   return backend.l1_inner_prod(fsdata)
+
+def matrix_l1_dist(fs):
+  fsdata, backend = _prepare_list(fs)
+  return backend.matrix_l1_dist(fsdata)

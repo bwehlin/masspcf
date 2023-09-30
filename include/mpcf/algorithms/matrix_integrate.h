@@ -19,13 +19,15 @@ namespace mpcf
   };
   
   template <typename Tt, typename Tv, typename RectangleOp>
-  Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, RectangleOp op, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
+  Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, RectangleOp op, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max(), bool print=false)
   {
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
 
     Tv val = 0.f;
-    iterate_rectangles(f, g, a, b, [&val, &op](const rect_t& rect) -> void {
+    iterate_rectangles(f, g, a, b, [&val, &op, print](const rect_t& rect) -> void {
       val += (rect.right - rect.left) * op(rect);
+      if (print)
+        std::cout << rect.right - rect.left << " " << op(rect) << '\n';
     });
     
     return val;
@@ -60,7 +62,7 @@ namespace mpcf
     default:
       matrix_integrate(out, fs, [](const rect_t& rect) -> Tv {
         return std::abs(rect.top - rect.bottom);
-      });
+      }, true, Tt(0), Tt(6));
     }
   }
 }
