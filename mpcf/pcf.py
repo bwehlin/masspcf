@@ -102,25 +102,15 @@ def _get_backend(f : Pcf):
   else:
     raise TypeError("Unknown PCF type")
 
-def _get_backend(t, v):
-  if isinstance(t, np.ndarray) and isinstance(v, np.ndarray):
-    if t.dtype == np.float32 and v.dtype == np.float32:
-      return backend_f32_f32
-    elif t.dtype == np.float64 and v.dtype == np.float64:
-      return backend_f64_f64
-    else:
-      raise TypeError("Unsupported data types")
-  raise TypeError("Unsupported data types")
-
 def _has_matching_types(f : Pcf, g : Pcf):
-  return f.get_time_value_type() == g.get_time_value_type()
+  return type(f.data_) == type(g.data_)
 
 def _prepare_list(fs):
   fsdata = [None]*len(fs)
   for i, f in enumerate(fs):
     fsdata[i] = f.data_
-    _ensure_same_type(fsdata[0], fsdata[i])
-  backend = _get_backend(fsdata[0])
+    _ensure_same_type(fs[0], fs[i])
+  backend = _get_backend(fs[0])
   return fsdata, backend
 
 def _ensure_same_type(f : Pcf, g : Pcf):
@@ -144,8 +134,3 @@ def parallel_reduce(fs, cb):
 def l1_inner_prod(fs):
   fsdata, backend = _prepare_list(fs)
   return backend.l1_inner_prod(fsdata)
-
-def from_numpy(timeseries, valseries):
-  backend = _get_backend(timeseries, valseries)
-  fsdata = backend.from_numpy(timeseries, valseries)
-  return [Pcf(fdata) for fdata in fsdata]

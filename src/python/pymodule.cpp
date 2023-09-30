@@ -75,12 +75,6 @@ public:
 #endif
     return matrix;
   }
-
-  static std::vector<mpcf::Pcf<Tt, Tv>> from_numpy(const py::array_t<Tt>& timeseries, const py::array_t<Tv>& valseries)
-  {
-    auto ret = std::vector<mpcf::Pcf<Tt, Tv>>();
-    return ret;
-  }
 };
 
 template <typename Tt, typename Tv>
@@ -106,7 +100,6 @@ public:
       .def_static("average", &Backend<Tt, Tv>::average)
       .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
       .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
-      .def_static("from_numpy", &Backend<Tt, Tv>::from_numpy, py::return_value_policy::move)
       ;
   }
 };
