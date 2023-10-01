@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import timeit
 
 m = 5000 # Number of PCFs
-n = 100 # Number of time points in each PCF
+n = 10 # Number of time points in each PCF
 
-#m = 300
+#m = 32
 #n = 5
 
 T = np.random.uniform(0.0, 6.0, size=(m, n))
@@ -24,8 +24,18 @@ favg = average(fs)
 fnp = favg.to_numpy()
 print(fnp.shape)
 
-print(timeit.timeit('average(fs)', globals=globals(), number=10))
-print(timeit.timeit('mem_average(fs)', globals=globals(), number=10))
+#print(timeit.timeit('average(fs)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,2)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,3)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,4)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,8)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,16)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,32)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,64)', globals=globals(), number=10))
+print(timeit.timeit('mem_average(fs,128)', globals=globals(), number=10))
+#mem_average(fs)
+raise SystemExit
+
 #print(timeit.timeit('st_average(fs)', globals=globals(), number=10))
 
 plt.step(fnp[0,:], fnp[1,:], where='post', linewidth=1)

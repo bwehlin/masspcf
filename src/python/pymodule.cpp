@@ -53,9 +53,9 @@ public:
     return mpcf::average(fs);
   }
 
-  static mpcf::Pcf<Tt, Tv> mem_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  static mpcf::Pcf<Tt, Tv> mem_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, size_t chunksz)
   {
-    return mpcf::mem_average(fs);
+    return mpcf::mem_average(fs, chunksz);
   }
 
   static mpcf::Pcf<Tt, Tv> st_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
