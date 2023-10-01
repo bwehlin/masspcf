@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import timeit
 
-m = 5000 # Number of PCFs
+m = 50000 # Number of PCFs
 n = 10 # Number of time points in each PCF
 
 #m = 32

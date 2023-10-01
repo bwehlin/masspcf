@@ -63,10 +63,12 @@ namespace mpcf
   public:
     using point_type = typename TPcf::point_type;
 
-    Accumulator(TOp<TPcf> op)
+    Accumulator(TOp<TPcf> op, size_t sizeHint)
       : m_op(op)
     { 
       m_pts.emplace_back(0, 0);
+      m_pts.reserve(sizeHint);
+      m_pts_temp.reserve(sizeHint);
     }
 
     Accumulator(TOp<TPcf> op, const TPcf& f)
@@ -169,8 +171,10 @@ namespace mpcf
     auto chunksz = 2;
     auto blocks = subdivide(chunkszFirst , fs.size());
 
+    auto nAll = std::accumulate(fs.begin(), fs.end(), 0ul, [](size_t n, const TPcf& f){ return f.points().size() + n; });
+
     std::vector<Accumulator<TPcf>> accumulators;
-    accumulators.resize(blocks.size(), Accumulator<TPcf>(op));
+    accumulators.resize(blocks.size(), Accumulator<TPcf>(op, nAll));
 
     tf::Taskflow taskflow;
     tf::Executor exec;
