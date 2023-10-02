@@ -54,6 +54,7 @@ TEST_P(PcfL1IntegratorFixture, TwoPointPcfL1dist)
   
   EXPECT_EQ(ij(0, 0), 0.f);
   EXPECT_EQ(ij(0, 1), 3.f);
+  EXPECT_EQ(ij(1, 0), 3.f);
   EXPECT_EQ(ij(1, 1), 0.f);
 }
 

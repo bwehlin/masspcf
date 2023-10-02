@@ -310,14 +310,14 @@ namespace
     
     size_t i = iBlock + rowInfo.rowStart;
     
-    if (j < i || i >= params.nPcfs || j >= params.nPcfs)
+    // TODO: figure out how to fill lower triangle when under memory constraints
+    if (/*j < i || */ i >= params.nPcfs || j >= params.nPcfs)
     {
       return;
     }
     
     auto* op = params.op;
-    printf("op %p\n", op);
-    
+
     Tv ret = 0;
     cuda_iterate_rectangles<Tt, Tv>(params, rowInfo, i, j, [&ret, op](Tt l, Tt r, Tv t, Tv b){
       ret += (r - l) * (*op)(l, r, t, b);
@@ -368,8 +368,6 @@ namespace
     auto nEntries = rowHeight * ctx.nPcfs;
 
     ctx.deviceStorages[iGpu].matrix.toHost(target, nEntries);
-    
-    //CHK_CUDA(cudaDeviceSynchronize()); 
   }
   
   template <typename Tt, typename Tv>
@@ -412,7 +410,6 @@ template <>
 void 
 mpcf::cuda_matrix_l1_dist<float, float>(float* out, const std::vector<Pcf<float, float>>& fs)
 {
-  //mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
   cuda_matrix_integrate_impl<float, float>(out, fs, &opf);
 }
 
@@ -420,7 +417,6 @@ template <>
 void 
 mpcf::cuda_matrix_l1_dist<double, double>(double* out, const std::vector<Pcf<double, double>>& fs)
 {
-  //mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
   cuda_matrix_integrate_impl<double, double>(out, fs, &opd);
 }
 
@@ -436,25 +432,14 @@ mpcf::device_ops::l1_inner_prod_f64()
   return &l1_inner_prod_f64_impl;
 }
 
-
-
-
 void
 mpcf::detail::cuda_matrix_integrate_f32(float* out, const std::vector<Pcf_f32>& fs, DeviceOp<float, float> opa)
 {
-  //mpcf::detail::CudaCallableFunctionPointer<op_func_f> f(&opf);
-  //op_func_f hOpPtr;
-  //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opf, sizeof(op_func_f)));
   cuda_matrix_integrate_impl<float, float>(out, fs, &opf);
 }
-
-
 
 void
 mpcf::detail::cuda_matrix_integrate_f64(double* out, const std::vector<Pcf_f64>& fs, DeviceOp<double, double> opa)
 {
-  //mpcf::detail::CudaCallableFunctionPointer<op_func_d> f(&opd);
-  //op_func_d hOpPtr;
-  //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opd, sizeof(op_func_d))); 
   cuda_matrix_integrate_impl<double, double>(out, fs, &opd);
 }

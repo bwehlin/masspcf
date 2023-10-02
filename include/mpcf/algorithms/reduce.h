@@ -11,6 +11,7 @@
 #include <taskflow/taskflow.hpp>
 #include <taskflow/algorithm/reduce.hpp>
 
+
 namespace mpcf
 {
   template <typename TPcf>
@@ -53,6 +54,40 @@ namespace mpcf
     });
     exec.run(taskflow).wait();
     return f;
+  }
+  
+  template <typename T>
+  class VectorStorage
+  {
+  public:
+    struct VectorEntry
+    {
+      std::vector<T> vec;
+      bool isFree;
+    };
+    
+  private:
+    std::vector<
+  };
+  
+  template <typename T>
+  class free_tree_allocator : public std::allocator
+  {
+  public:
+    using value_type = T;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using reference = T&;
+    using const_reference = const T&;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    
+  };
+  
+  template <typename TPcf>
+  TPcf parallel_mem_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op)
+  {
+    
   }
 }
 
