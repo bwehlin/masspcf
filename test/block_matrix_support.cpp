@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../src/block_matrix_support.h"
+#include <mpcf/algorithms/subdivide.h>
 
 void PrintTo(const dim3& d, std::ostream* os)
 {
@@ -9,7 +10,7 @@ void PrintTo(const dim3& d, std::ostream* os)
 
 TEST(BlockMatrixSupport, GetBlockRowBoundaries_1x1)
 {
-  auto boundaries = mpcf::internal::get_block_row_boundaries(1, 1);
+  auto boundaries = mpcf::subdivide(1, 1);
   
   std::vector<std::pair<size_t, size_t>> expected(
     {std::make_pair(0ul, 0ul)});
@@ -19,7 +20,7 @@ TEST(BlockMatrixSupport, GetBlockRowBoundaries_1x1)
 
 TEST(BlockMatrixSupport, GetBlockRowBoundaries_1x2)
 {
-  auto boundaries = mpcf::internal::get_block_row_boundaries(1, 2);
+  auto boundaries = mpcf::subdivide(1, 2);
   
   std::vector<std::pair<size_t, size_t>> expected(
     {std::make_pair(0ul, 0ul), 
@@ -30,7 +31,7 @@ TEST(BlockMatrixSupport, GetBlockRowBoundaries_1x2)
 
 TEST(BlockMatrixSupport, GetBlockRowBoundaries_4x7)
 {
-  auto boundaries = mpcf::internal::get_block_row_boundaries(4, 7);
+  auto boundaries = mpcf::subdivide(4, 7);
   
   std::vector<std::pair<size_t, size_t>> expected(
     {std::make_pair(0ul, 3ul), 

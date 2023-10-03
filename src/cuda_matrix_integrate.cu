@@ -123,7 +123,7 @@ namespace
     auto maxAllocationN = get_max_allocation_n<T>(nGpus);
     auto nSplits = nGpus * 2; // Give the scheduler something to work with
     auto rowHeight = mpcf::internal::get_row_size(maxAllocationN, nSplits, nPcfs);
-    return mpcf::internal::get_block_row_boundaries(rowHeight, nPcfs);
+    return mpcf::subdivide(rowHeight, nPcfs);
   }
   
   template <typename Tt, typename Tv>

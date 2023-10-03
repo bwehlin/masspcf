@@ -6,8 +6,8 @@
 
 namespace mpcf
 {
-
-  std::vector<std::pair<size_t, size_t>> subdivide(size_t blockSize, size_t nItems)
+  inline std::vector<std::pair<size_t, size_t>> 
+  subdivide(size_t blockSize, size_t nItems)
   {
     std::vector<std::pair<size_t, size_t>> boundaries;
     for (size_t i = 0ul;; i += blockSize)

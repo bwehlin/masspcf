@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20...3.26)
 
-set(BUILD_WITH_CUDA OFF)
-set(BUILD_TESTER OFF)
+set(BUILD_WITH_CUDA ON)
+set(BUILD_TESTER ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,21 +12,20 @@ else()
   SET(LANG_CUDA )
 endif()
 
+if (NOT SKBUILD)
+  set(SKBUILD_PROJECT_NAME massivepcf)
+  set(SKBUILD_PROJECT_VERSION "0.0.1")
+endif()
+
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
 if (SKBUILD)
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 else()
-  set(SKBUILD_PROJECT_NAME massivepcf)
-  set(SKBUILD_PROJECT_VERSION "0.0.1")
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
 
-if (BUILD_WITH_CUDA)
-  SET(CUDA_SEPARABLE_COMPILATION ON)
-  find_package(CUDA 12.0 REQUIRED)
-  target_compile_definitions(mpcf_cpp BUILD_WITH_CUDA)
-endif()
+
 
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -71,6 +70,12 @@ if (SKBUILD)
   python_add_library(mpcf_cpp MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
 else()
   python_add_library(mpcf_cpp SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+endif()
+
+if (BUILD_WITH_CUDA)
+  SET(CUDA_SEPARABLE_COMPILATION ON)
+  find_package(CUDA 12.0 REQUIRED)
+  target_compile_definitions(mpcf_cpp PRIVATE -D BUILD_WITH_CUDA=1)
 endif()
 
 #add_library(mpcf SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
