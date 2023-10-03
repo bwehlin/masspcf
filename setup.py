@@ -8,5 +8,8 @@ setup(
     license='TBD',
     packages=['mpcf'],
     python_requires=">=3.9",
-    cmake_args=['-DCMAKE_BUILD_TYPE=Release']
+    cmake_args=['-DCMAKE_BUILD_TYPE=Release'],
+    install_requires=[
+        'numpy', 'numba'
+    ]
 )
