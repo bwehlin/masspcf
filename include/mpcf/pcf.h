@@ -108,7 +108,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> mem_average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz)
+  Pcf<Tt, Tv> mem_average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
     auto f = mem_parallel_reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20...3.26)
 
 set(BUILD_WITH_CUDA ON)
 set(BUILD_TESTER ON)
+set(BUILD_BENCHMARKS ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -78,18 +79,7 @@ if (BUILD_WITH_CUDA)
   target_compile_definitions(mpcf_cpp PRIVATE -D BUILD_WITH_CUDA=1)
 endif()
 
-#add_library(mpcf SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-
 target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
- 
-#add_subdirectory(pybind11)
-
-
-
-#pybind11_add_module(mpcf_py
-#  src/python/pymodule.cpp
-#  src/python/pypcf_support.h
-#  )
 
 target_include_directories(mpcf_cpp PUBLIC "include/")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
@@ -119,5 +109,20 @@ if (NOT SKBUILD AND BUILD_TESTER)
   gtest_discover_tests(mpcf_test)
 endif()
 
-#set_target_properties(mpcf_cpp PROPERTIES SUFFIX "${PYTHON_EXTENSION_MODULE_SUFFIX}")
+if (BUILD_BENCHMARKS)
+  set(Boost_USE_STATIC_LIBS   ON)
+  set(Boost_USE_MULTITHREADED ON)
+  
+  find_package(Boost COMPONENTS program_options system REQUIRED)
+  find_package(Threads REQUIRED)
+  
+  add_executable(mpcf_bench
+    benchmarking/bench.cpp
+    benchmarking/benchmark.h
+    benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
+    )
+  
+  target_link_libraries(mpcf_bench PUBLIC mpcf_cpp ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
+endif()
+
 install(TARGETS mpcf_cpp DESTINATION mpcf)
