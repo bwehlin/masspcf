@@ -79,6 +79,11 @@ namespace mpcf
 
     Accumulator& operator+=(const TPcf& f)
     {
+      if (m_pts.empty() || m_pts[0].t == 0 && m_pts[0].v == 0)
+      {
+        m_pts = f.points();
+        return *this;
+      }
       combine_with_(f.points());
       return *this;
     }
