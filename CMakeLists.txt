@@ -4,6 +4,11 @@ set(BUILD_WITH_CUDA ON)
 set(BUILD_TESTER ON)
 set(BUILD_BENCHMARKS ON)
 
+if (SKBUILD)
+  set(BUILD_TESTER OFF)
+  set(BUILD_BENCHMARKS OFF)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -75,7 +80,6 @@ endif()
 
 if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
-  find_package(CUDA 12.0 REQUIRED)
   target_compile_definitions(mpcf_cpp PRIVATE -D BUILD_WITH_CUDA=1)
 endif()
 
