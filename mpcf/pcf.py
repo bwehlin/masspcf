@@ -124,7 +124,7 @@ def combine(f : Pcf, g : Pcf, cb):
   
 def average(fs):
   fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.average(fsdata))
+  return Pcf(backend.st_average(fsdata))
 
 def mem_average(fs, chunksz=8):
   fsdata, backend = _prepare_list(fs)
