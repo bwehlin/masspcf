@@ -66,7 +66,6 @@ namespace mpcf
     Accumulator(TOp<TPcf> op, size_t sizeHint)
       : m_op(op)
     { 
-      m_pts.emplace_back(0, 0);
       m_pts.reserve(sizeHint);
       m_pts_temp.reserve(sizeHint);
     }
@@ -79,7 +78,7 @@ namespace mpcf
 
     Accumulator& operator+=(const TPcf& f)
     {
-      if (m_pts.empty() || m_pts[0].t == 0 && m_pts[0].v == 0)
+      if (m_pts.empty())
       {
         m_pts = f.points();
         return *this;
@@ -139,23 +138,17 @@ namespace mpcf
     void combine_with_(const std::vector<point_type>& other)
     {
       using rectangle_type = typename TPcf::rectangle_type;
-
-      //std::size_t npts = 0;
-      //iterate_rectangles(m_pts, other, 0, 1000, [&npts](const rectangle_type&){ ++npts; });
-      //m_pts_temp.resize(npts);
       auto i = 0ul;
       m_pts_temp.clear();
       m_pts_temp.resize(m_pts.size() + other.size() + 1);
 
       iterate_rectangles(m_pts, other, 0, 1000, [&i, this](const rectangle_type& rect){
-        //m_pts_temp[i++] = point_type(rect.left, m_op(rect));
         ++i;
         m_pts_temp[i].t = rect.left;
-        m_pts_temp[i].v = m_op(rect); // = point_type(rect.left, m_op(rect));
+        m_pts_temp[i].v = m_op(rect);
       });
 
       m_pts_temp.resize(i + 1);
-
       m_pts_temp.swap(m_pts);
     }
 
