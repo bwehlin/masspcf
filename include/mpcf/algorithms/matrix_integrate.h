@@ -62,7 +62,7 @@ namespace mpcf
     default:
       matrix_integrate(out, fs, [](const rect_t& rect) -> Tv {
         return std::abs(rect.top - rect.bottom);
-      }, true, Tt(0), Tt(6));
+      }, true);
     }
   }
 }

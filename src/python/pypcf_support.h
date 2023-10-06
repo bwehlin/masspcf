@@ -22,7 +22,7 @@ namespace mpcf
       py::buffer_info buf = arr.request();
       if (buf.size == 0)
       {
-        points.emplace_back(0, 0);
+        points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(0));
         return mpcf::Pcf<Tt, Tv>(std::move(points));
       }
 
@@ -86,8 +86,8 @@ namespace mpcf
 
       return py::memoryview::from_buffer(
         reinterpret_cast<const TTime*>(pcf.points().data()), 
-        {ssize_t(2), ssize_t(pcf.points().size())},
-        {ssize_t(sizeof(TTime)), ssize_t(sizeof(TTime) * 2)});
+        { Py_ssize_t(2), Py_ssize_t(pcf.points().size())},
+        { Py_ssize_t(sizeof(TTime)), Py_ssize_t(sizeof(TTime) * 2)});
     }
 
 

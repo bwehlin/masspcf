@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20...3.26)
 
 set(BUILD_WITH_CUDA ON)
 set(BUILD_TESTER ON)
-set(BUILD_BENCHMARKS ON)
+set(BUILD_BENCHMARKS OFF)
 
 if (SKBUILD)
   set(BUILD_TESTER OFF)

@@ -3,6 +3,8 @@
 callgrind.out.*
 _skbuild
 .vscode
+.vs
+CMakeSettings.json
 
 # Temporary local test
 parallel_reduce.py

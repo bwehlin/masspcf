@@ -3,6 +3,7 @@
 
 #include <cuda_runtime.h> // dim3
 #include <string>
+#include <algorithm>
 
 #include <mpcf/algorithms/subdivide.h>
 
@@ -10,11 +11,11 @@ namespace mpcf::internal
 {
   size_t get_row_size(size_t maxAllocationN, size_t nSplits, size_t nPcfs)
   {
-    auto maxRowHeight = maxAllocationN / nPcfs;
+    size_t maxRowHeight = maxAllocationN / nPcfs;
     
     maxRowHeight = std::min(maxRowHeight, nPcfs);
     maxRowHeight /= nSplits;
-    maxRowHeight = std::max(maxRowHeight, 1ul);
+    maxRowHeight = std::max<size_t>(maxRowHeight, 1ul);
     
     return maxRowHeight;
   }

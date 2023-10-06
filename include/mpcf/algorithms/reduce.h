@@ -169,7 +169,7 @@ namespace mpcf
     auto chunksz = 2;
     auto blocks = subdivide(chunkszFirst , fs.size());
 
-    auto nAll = std::accumulate(fs.begin(), fs.end(), 0ul, [](size_t n, const TPcf& f){ return f.points().size() + n; });
+    auto nAll = std::accumulate(fs.begin(), fs.end(), static_cast<size_t>(0ul), [](size_t n, const TPcf& f){ return f.points().size() + n; });
 
     std::vector<Accumulator<TPcf>> accumulators;
     accumulators.resize(blocks.size(), Accumulator<TPcf>(op, nAll));
