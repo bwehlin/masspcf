@@ -301,8 +301,6 @@ namespace
     size_t iBlock = blockDim.x * blockIdx.x + threadIdx.x;
     size_t j = blockDim.y * blockIdx.y + threadIdx.y;
     
-    //printf("Integrate (%d, %d)\n", (int)iBlock, (int)j);
-    
     if (iBlock >= rowInfo.rowHeight)
     {
       return;
@@ -316,14 +314,12 @@ namespace
     }
     
     auto* op = params.op;
-    printf("op %p\n", op);
     
     Tv ret = 0;
     cuda_iterate_rectangles<Tt, Tv>(params, rowInfo, i, j, [&ret, op](Tt l, Tt r, Tv t, Tv b){
       ret += (r - l) * (*op)(l, r, t, b);
     });
     
-    //printf("Integrate (%d, %d) -> %f\n", (int)i, (int)j, ret);
     params.matrix[iBlock * params.nPcfs + j] = ret;
   }
   
