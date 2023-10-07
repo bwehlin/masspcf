@@ -129,8 +129,8 @@ def combine(f : Pcf, g : Pcf, cb):
 def average(fs):
   fsdata, backend = _prepare_list(fs)
   sz = backend.get_input_size(fsdata)
-  if len(fsdata) < 100 or sz < 10000:
-    return Pcf(backend.mem_average(fsdata, 8))
+  #if len(fsdata) < 100 or sz < 10000:
+  #  return Pcf(backend.mem_average(fsdata, 8))
   #print(f'In size: {sz}')
   future = backend.async_average(executor, fsdata)
   while future.wait_for(50) != cpp.FutureStatus.ready:
@@ -138,6 +138,17 @@ def average(fs):
   #print('Wait finished')
   #print(fsdata)
   return Pcf(future.get())
+
+def async_matrix_l1_dist(fs):
+  fsdata, backend = _prepare_list(fs)
+  dtype = np.float64 #fsdata[0].to_numpy().dtype
+  n = len(fs)
+  matrix = np.zeros((n, n), dtype=dtype, order='c')
+  future = backend.async_matrix_l1_dist(executor, matrix, fsdata)
+  while future.wait_for(50) != cpp.FutureStatus.ready:
+    pass #print('HELLO')
+  return matrix
+
 
 async def async_mem_average(fs, chunksz=8):
   fsdata, backend = _prepare_list(fs)

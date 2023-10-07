@@ -118,7 +118,10 @@ public:
   auto get() 
   { 
     //std::cout << "Get. Valid? " << m_future.valid() << std::endl;
-    return m_future.get(); 
+    if constexpr (!std::is_same_v<RetT, void>)
+    {
+      return m_future.get();
+    }
   }
 
 private:
@@ -246,6 +249,17 @@ public:
 #endif
   }
 
+  static Future<void> async_matrix_l1_dist(Executor& e, py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  {
+    return e.async<void>([fs = std::move(fs), &matrix] {
+#ifdef BUILD_WITH_CUDA
+      mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::Executor::Cuda);
+#else
+      mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::Executor::Cpu);
+#endif
+      });
+  }
+
   static Future<mpcf::Pcf<Tt, Tv>> async_average(Executor& e, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
   {
     if (fs.size() < 100)
@@ -296,6 +310,7 @@ public:
       .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
       .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
       .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
+      .def_static("async_matrix_l1_dist", &Backend<Tt, Tv>::async_matrix_l1_dist, py::return_value_policy::move)
       ;
 
     register_bindings_future<TPcf>(m, suffix, backend);
@@ -327,4 +342,8 @@ PYBIND11_MODULE(mpcf_cpp, m) {
     .value("ready", std::future_status::ready)
     .value("timeout", std::future_status::timeout)
     .export_values();
+
+  py::class_<Future<void>>(m, "Future_void")
+    .def(py::init<>())
+    .def("wait_for", &Future<void>::wait_for);
 }

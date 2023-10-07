@@ -1,6 +1,6 @@
 print('1')
 
-from mpcf.pcf import Pcf, average, mem_average, st_average, matrix_l1_dist, back_average
+from mpcf.pcf import Pcf, average, mem_average, st_average, matrix_l1_dist, back_average, async_matrix_l1_dist
 
 print('2')
 
@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import timeit
 
 m = 5000 #00 # Number of PCFs
-n = 10000 # Number of time points in each PCF
+n = 1000 # Number of time points in each PCF
 
 print('3')
 
@@ -35,6 +35,11 @@ def benchmark(stmt, label=''):
 
 #fnp = favg.to_numpy()
 #print(fnp.shape)
+
+print('Running CUDA stuff')
+print(async_matrix_l1_dist(fs))
+
+raise SystemExit
 
 for i in [2, 10, 50, 100, 500, 1000, 5000, 10000]:
     benchmark(f'average(fs[:i+1])',     label=f'async n={i}')
