@@ -29,14 +29,19 @@ for i in range(m):
     X = np.vstack((T[i,:], V[i,:]))
     fs[i] = Pcf(X)
 
+def benchmark(stmt, label=''):
+    times = timeit.repeat(stmt, globals=globals(), repeat=5, number=1)
+    print(f'{label} Mean: {np.mean(times)*1000}ms, sd: {np.std(times)*1000}ms')
 
-print('Averaging...')
-favg = back_average(fs)
-print('Done?')
 #fnp = favg.to_numpy()
 #print(fnp.shape)
 
-#print(timeit.timeit('average(fs)', globals=globals(), number=10))
+for i in [2, 10, 50, 100, 500, 1000, 5000, 10000]:
+    benchmark(f'average(fs[:i+1])',     label=f'async n={i}')
+    benchmark(f'mem_average(fs[:i+1],2)', label=f'st    n={i}')
+#print(timeit.repeat('average(fs)', globals=globals(), repeat=100, number=1))
+
+#print(timeit.timeit('average(fs)', globals=globals(), number=100))
 #print(timeit.timeit('mem_average(fs,2)', globals=globals(), number=10))
 #print(timeit.timeit('mem_average(fs,3)', globals=globals(), number=10))
 #print(timeit.timeit('mem_average(fs,4)', globals=globals(), number=10))

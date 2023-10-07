@@ -128,7 +128,16 @@ def combine(f : Pcf, g : Pcf, cb):
   
 def average(fs):
   fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.st_average(fsdata))
+  sz = backend.get_input_size(fsdata)
+  if len(fsdata) < 100 or sz < 10000:
+    return Pcf(backend.mem_average(fsdata, 8))
+  #print(f'In size: {sz}')
+  future = backend.async_average(executor, fsdata)
+  while future.wait_for(50) != cpp.FutureStatus.ready:
+    pass #print('HELLO')
+  #print('Wait finished')
+  #print(fsdata)
+  return Pcf(future.get())
 
 async def async_mem_average(fs, chunksz=8):
   fsdata, backend = _prepare_list(fs)
@@ -142,8 +151,8 @@ executor = cpp.Executor()
 def back_average(fs):
   fsdata, backend = _prepare_list(fs)
   import time
-  #future = backend.spawn_pcf(executor, lambda : backend.mem_average(fsdata, 200))
-  future = backend.spawn_avg(executor, fsdata)
+  future = backend.spawn_pcf(executor, lambda : backend.mem_average(fsdata, 200))
+  #future = backend.spawn_avg(executor, fsdata)
   #print(future.wait_for(1))
   while True:
     future.wait_for(100)
@@ -167,12 +176,8 @@ def back_average(fs):
   print('Done')
 
 def mem_average(fs, chunksz=8):
-  print('Run memavg')
-  fut = asyncio.run(async_mem_average(fs, chunksz))  
-  
-
-  #fsdata, backend = _prepare_list(fs)
-  #return Pcf(backend.mem_average(fsdata, chunksz))
+  fsdata, backend = _prepare_list(fs)
+  return Pcf(backend.mem_average(fsdata, chunksz))
 
 def st_average(fs):
   fsdata, backend = _prepare_list(fs)

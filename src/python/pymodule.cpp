@@ -108,14 +108,18 @@ public:
 
   std::future_status wait_for(int timeoutMs)
   {
-    std::cout << "Wait for " << timeoutMs << "ms" << std::endl;
+    //std::cout << "Wait for " << timeoutMs << "ms. Valid? " << m_future.valid() << std::endl;
     m_status = m_future.wait_for(std::chrono::milliseconds(timeoutMs));
     return m_status;
   }
 
   std::future_status get_last_status() const { return m_status; }
 
-  auto get() { return m_future.get(); }
+  auto get() 
+  { 
+    //std::cout << "Get. Valid? " << m_future.valid() << std::endl;
+    return m_future.get(); 
+  }
 
 private:
   std::future<RetT> m_future;
@@ -134,15 +138,29 @@ public:
   template <typename RetT>
   Future<RetT> async(std::function<RetT()> fn)
   {
-    auto future = m_executor.async([=]() { return fn(); });
-    return Future<RetT>(std::move(future));
-    while (future.wait_for(std::chrono::milliseconds(1000)) != std::future_status::ready)
+    return Future<RetT>(m_executor.async(fn));
+  }
+
+#if 0
+  template <typename RetT>
+  Future<RetT> async(std::function<RetT()> fn)
+  {
+    std::cout << "async from thread " << std::this_thread::get_id() << std::endl;
+    std::future<RetT> future;
+    future = std::move(m_executor.async([=]() { return fn(); }));
     {
-      std::cout << "C++ wait on thread " << std::this_thread::get_id() << std::endl;
+      py::gil_scoped_release release;
+
+      return Future<RetT>(std::move(future));
+      while (future.wait_for(std::chrono::milliseconds(1000)) != std::future_status::ready)
+      {
+        std::cout << "C++ wait on thread " << std::this_thread::get_id() << std::endl;
+      }
     }
 
     return Future<RetT>(std::move(future));
   }
+#endif
 
 private:
   tf::Executor m_executor;
@@ -150,6 +168,15 @@ private:
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
+
+template <typename T>
+std::future<T> to_future(T&& val)
+{
+  std::promise<T> promise;
+  auto future = promise.get_future();
+  promise.set_value(std::move(val));
+  return future;
+}
 
 template <typename Tt, typename Tv>
 class Backend
@@ -176,40 +203,15 @@ public:
 
   static mpcf::Pcf<Tt, Tv> mem_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, size_t chunksz)
   {
-    std::cout << "Called mem_avg on thread " << std::this_thread::get_id() << std::endl;
     return mpcf::mem_average(fs, chunksz);
-#if 0
-    return Interruptable([&]() { 
-      return mpcf::mem_average(fs, chunksz); 
-      }).run();
-#endif
   }
-
-  static std::future<mpcf::Pcf<Tt, Tv>> async_mem_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, size_t chunksz)
-  {
-    static tf::Executor globalExec;
-    //return std::async([&]() { return mpcf::mem_average(fs, chunksz); });
-    std::future<mpcf::Pcf<Tt, Tv>> future;
-    future = globalExec.async([&]() { return Interruptable([&]() {
-      return mpcf::mem_average(fs, chunksz);
-      }).run(); });
-    return future;
-  }
-
-#if 0
-  static BackgroundJob spawn_average(Executor& exec, const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-  {
-    BackgroundJob job(exec, [&] { return mpcf::mem_average(fs, 2); });
-    return job;
-  }
-#endif
 
   static mpcf::Pcf<Tt, Tv> st_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
   {
     return mpcf::st_average(fs);
   }
 
-  static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
+  static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){
     ReductionWrapper<Tt, Tv> reduction(cb);
     return mpcf::parallel_reduce(fs, 
       [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt 
@@ -244,14 +246,22 @@ public:
 #endif
   }
 
-  static Future<mpcf::Pcf<Tt, Tv>> spawn_pcf(Executor& e, std::function<mpcf::Pcf<Tt, Tv>()> fn)
+  static Future<mpcf::Pcf<Tt, Tv>> async_average(Executor& e, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
   {
-    return e.async<mpcf::Pcf<Tt, Tv>>(fn);
+    if (fs.size() < 100)
+    {
+      using rectangle_type = typename mpcf::Pcf<Tt, Tv>::rectangle_type;
+      auto fAvg = mpcf::mem_reduce(fs.begin(), fs.end(), [](const rectangle_type& rect) { return rect.top + rect.bottom; }, 2);
+      fAvg /= static_cast<Tv>(fs.size());
+      return to_future(std::move(fAvg));
+    }
+
+    return e.async<mpcf::Pcf<Tt, Tv>>([fs = std::move(fs)]() { return mem_average(fs, 2); });
   }
 
-  static Future<mpcf::Pcf<Tt, Tv>> spawn_avg(Executor& e, const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+  static size_t get_input_size(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
   {
-    return e.async<mpcf::Pcf<Tt, Tv>>([=]() { return mem_average(fs, 2); });
+    return std::accumulate(fs.begin(), fs.end(), size_t(0), [](size_t sum, const mpcf::Pcf<Tt, Tv>& f) { return sum + f.points().size(); });
   }
 };
 
@@ -278,11 +288,10 @@ public:
       .def(py::init<>())
       .def_static("add", &Backend<Tt, Tv>::add)
       .def_static("combine", &Backend<Tt, Tv>::combine)
-      .def_static("average", &Backend<Tt, Tv>::average)
+      .def_static("get_input_size", &Backend<Tt, Tv>::get_input_size)
+      .def_static("average", &Backend<Tt, Tv>::average, py::return_value_policy::move)
       .def_static("mem_average", &Backend<Tt, Tv>::mem_average)
-      .def_static("async_mem_average", &Backend<Tt, Tv>::async_mem_average)
-      .def_static("spawn_pcf", &Backend<Tt, Tv>::spawn_pcf)
-      .def_static("spawn_avg", &Backend<Tt, Tv>::spawn_avg)
+      .def_static("async_average", &Backend<Tt, Tv>::async_average, py::return_value_policy::move)
       .def_static("st_average", &Backend<Tt, Tv>::st_average)
       .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
       .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
