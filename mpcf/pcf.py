@@ -1,5 +1,7 @@
+from shlex import join
 from . import mpcf_cpp as cpp
 import numpy as np
+import asyncio
 
 class Rectangle:
   def __init__(self, left, right, top, bottom, dtype=np.float32):
@@ -94,6 +96,8 @@ tPcf_f64_f64 = Pcf(np.array([[0],[0]]).astype(np.float64))
 backend_f32_f32 = cpp.Backend_f32_f32
 backend_f64_f64 = cpp.Backend_f64_f64
 
+
+
 def _get_backend(f : Pcf):
   if _has_matching_types(f, tPcf_f32_f32):
     return backend_f32_f32
@@ -126,9 +130,49 @@ def average(fs):
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.st_average(fsdata))
 
-def mem_average(fs, chunksz=8):
+async def async_mem_average(fs, chunksz=8):
   fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.mem_average(fsdata, chunksz))
+  print('Begin await')
+  await backend.async_mem_average(fsdata, chunksz)
+  print('After await')
+  #return fut
+  
+executor = cpp.Executor()
+
+def back_average(fs):
+  fsdata, backend = _prepare_list(fs)
+  import time
+  #future = backend.spawn_pcf(executor, lambda : backend.mem_average(fsdata, 200))
+  future = backend.spawn_avg(executor, fsdata)
+  #print(future.wait_for(1))
+  while True:
+    future.wait_for(100)
+    status = future.get_last_status()
+    print(status)
+    time.sleep(0.5)
+    if status == cpp.FutureStatus.ready:
+      break
+  #while future.wait_for(10) != cpp.FutureStatus.ready:
+  #  print('HELLO')
+  #print(future.wait_for(1))
+  print('DONE')
+
+  return
+  print(fut)
+  #job = backend.spawn_average(executor, fsdata)
+  job = cpp.BackgroundJob(executor, lambda : backend.mem_average(fsdata, 2))
+  while job.done() == False:
+    job.wait_for(100)
+    print('Hello Darkness')
+  print('Done')
+
+def mem_average(fs, chunksz=8):
+  print('Run memavg')
+  fut = asyncio.run(async_mem_average(fs, chunksz))  
+  
+
+  #fsdata, backend = _prepare_list(fs)
+  #return Pcf(backend.mem_average(fsdata, chunksz))
 
 def st_average(fs):
   fsdata, backend = _prepare_list(fs)

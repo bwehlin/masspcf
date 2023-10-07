@@ -64,6 +64,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/cuda_matrix_integrate.h
   include/mpcf/algorithms/subdivide.h
   src/block_matrix_support.h
+  src/job_manager.h src/job_manager.cpp
   ${MPCF_LIB_SOURCES_CUDA}
 )
 
