@@ -2,6 +2,7 @@
 #define MPCF_ALGORITHM_ITERATE_RECTANGLES_H
 
 #include <algorithm>
+#include <vector>
 #include "../rectangle.h"
 
 namespace mpcf

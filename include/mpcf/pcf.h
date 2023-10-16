@@ -23,7 +23,7 @@ namespace mpcf
 
     Pcf()
     {
-      m_points.emplace_back(0, 0);
+      m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(0));
     }
 
     Pcf(std::vector<Point<Tt, Tv>>&& pts)

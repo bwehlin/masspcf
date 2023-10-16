@@ -338,14 +338,8 @@ namespace
     
     auto const & rowBoundaries = ctx.blockRowBoundaries[iRow];
     
-    auto rowStart = rowBoundaries.first;
-    auto rowEnd = rowBoundaries.second;
-    
-    auto start = rowStart * ctx.nPcfs;
-    auto end = rowEnd * ctx.nPcfs + ctx.nPcfs + 1;
-    
-    auto rowHeight = mpcf::internal::get_row_height_from_boundaries(rowBoundaries);
-    auto gridDims = mpcf::internal::get_grid_dims(ctx.blockDim, rowHeight, ctx.nPcfs);
+    size_t rowHeight = mpcf::internal::get_row_height_from_boundaries(rowBoundaries);
+    dim3 gridDims = mpcf::internal::get_grid_dims(ctx.blockDim, rowHeight, ctx.nPcfs);
     
     mpcf::detail::CudaCallableFunctionPointer<mpcf::DeviceOp<Tt, Tv>> op(ctx.op);
     
@@ -354,18 +348,16 @@ namespace
 
     RowInfo rowInfo;
     rowInfo.rowHeight = rowHeight;
-    rowInfo.rowStart = rowStart;
+    rowInfo.rowStart = rowBoundaries.first;
     rowInfo.iRow = iRow;
     
     cuda_integrate<Tt, Tv><<<gridDims, ctx.blockDim>>>(params, rowInfo);
     CHK_CUDA(cudaPeekAtLastError());
     
-    auto* target = &hostMatrix[rowStart * ctx.nPcfs];
+    Tv* target = &hostMatrix[rowInfo.rowStart * ctx.nPcfs];
     auto nEntries = rowHeight * ctx.nPcfs;
 
     ctx.deviceStorages[iGpu].matrix.toHost(target, nEntries);
-    
-    //CHK_CUDA(cudaDeviceSynchronize()); 
   }
   
   template <typename Tt, typename Tv>
