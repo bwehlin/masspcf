@@ -9,7 +9,7 @@
 
 namespace
 {
-  class PcfL1IntegratorFixture : public ::testing::TestWithParam<mpcf::Executor>
+  class PcfL1IntegratorFixture : public ::testing::TestWithParam<mpcf::Hardware>
   {
   public:
     std::vector<mpcf::Pcf_f32> pcfs;
@@ -29,7 +29,7 @@ namespace
 
 TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
 {
-  auto executor = GetParam();
+  auto& executor = mpcf::default_executor(GetParam());
   
   pcfs.resize(2);
   allocate_matrix();
@@ -44,7 +44,7 @@ TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
 
 TEST_P(PcfL1IntegratorFixture, TwoPointPcfL1dist)
 {
-  auto executor = GetParam();
+  auto& executor = mpcf::default_executor(GetParam());
   
   pcfs.emplace_back(std::vector<mpcf::Point_f32>({ mpcf::Point_f32(0.f, 3.f), mpcf::Point_f32(1.0, 0.0) }));
   pcfs.emplace_back(std::vector<mpcf::Point_f32>({ mpcf::Point_f32(0.f, 1.f), mpcf::Point_f32(2.0, 0.0) }));
@@ -61,12 +61,12 @@ TEST_P(PcfL1IntegratorFixture, TwoPointPcfL1dist)
 INSTANTIATE_TEST_CASE_P(
     PcfL1Integrator,
     PcfL1IntegratorFixture,
-    ::testing::Values(mpcf::Executor::Cpu, mpcf::Executor::Cuda),
-    [](const testing::TestParamInfo<mpcf::Executor>& info) {
+    ::testing::Values(mpcf::Hardware::CPU, mpcf::Hardware::CUDA),
+    [](const testing::TestParamInfo<mpcf::Hardware>& info) {
       switch (info.param)
       {
-      case mpcf::Executor::Cpu: return "CPU";
-      case mpcf::Executor::Cuda: return "CUDA";
+      case mpcf::Hardware::CPU: return "CPU";
+      case mpcf::Hardware::CUDA: return "CUDA";
       }
       return "<<UNKNOWN EXECUTOR>>";
     }

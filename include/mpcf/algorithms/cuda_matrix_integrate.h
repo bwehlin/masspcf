@@ -2,7 +2,7 @@
 #define MPCF_ALGORITHMS_CUDA_MATRIX_COMBINE_H
 
 #include "../pcf.h"
-//#include "reduce.h"
+#include "../executor.h"
 
 #include <functional>
 #include <vector>

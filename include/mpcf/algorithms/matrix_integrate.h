@@ -3,6 +3,7 @@
 
 #include "iterate_rectangles.h"
 #include "../pcf.h"
+#include "../executor.h"
 
 #ifdef BUILD_WITH_CUDA
 #include "cuda_matrix_integrate.h"
@@ -12,12 +13,6 @@
 
 namespace mpcf
 {
-  enum class Executor
-  {
-    Cpu,
-    Cuda
-  };
-  
   template <typename Tt, typename Tv, typename RectangleOp>
   Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, RectangleOp op, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {
@@ -32,7 +27,7 @@ namespace mpcf
   }
   
   template <typename Tt, typename Tv, typename RectangleOp>
-  void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
+  void matrix_integrate(Executor& exec, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {
     auto sz = fs.size();
     for (auto i = 0ul; i < sz; ++i)
@@ -58,15 +53,21 @@ namespace mpcf
     }
   }
   
+  template <typename Tt, typename Tv, typename RectangleOp>
+  void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
+  {
+    matrix_integrate<Tt, Tv, RectangleOp>(default_cpu_executor(), out, fs, op, symmetric, a, b);
+  }
+  
   template <typename Tt, typename Tv>
-  void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Executor executor = Executor::Cpu)
+  void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Executor& executor = default_cpu_executor())
   {
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
     
-    switch (executor)
+    switch (executor.hardware())
     {
 #ifdef BUILD_WITH_CUDA
-    case Executor::Cuda:
+    case Hardware::CUDA:
       cuda_matrix_l1_dist<Tt, Tv>(out, fs);
       break;
 #endif

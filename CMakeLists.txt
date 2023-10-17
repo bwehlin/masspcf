@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.20...3.26)
 
-set(BUILD_WITH_CUDA ON)
+if (APPLE)
+  set(BUILD_WITH_CUDA OFF)
+else()
+  set(BUILD_WITH_CUDA ON)
+endif()
+
 set(BUILD_TESTER ON)
 set(BUILD_BENCHMARKS OFF)
 
@@ -31,8 +36,6 @@ else()
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
 
-
-
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
@@ -57,6 +60,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
+  include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h

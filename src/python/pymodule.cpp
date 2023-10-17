@@ -90,10 +90,10 @@ public:
   {
     py::array_t<Tv> matrix({fs.size(), fs.size()});
 #ifdef BUILD_WITH_CUDA
-    mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::Executor::Cuda);
+    mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::default_cuda_executor());
     return matrix;
 #else
-    mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::Executor::Cpu);
+    mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::default_cpu_executor());
     return matrix;
 #endif
   }
