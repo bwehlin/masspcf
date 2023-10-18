@@ -56,7 +56,7 @@ namespace mpcf
       }
     });
 
-    auto future = exec->run(flow);
+    auto future = exec->run(std::move(flow));
     future.wait();
   }
   

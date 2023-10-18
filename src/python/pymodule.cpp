@@ -1,3 +1,5 @@
+#include <future>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
@@ -5,6 +7,7 @@
 #include <mpcf/pcf.h>
 #include "pypcf_support.h"
 #include <mpcf/algorithm.h>
+#include <mpcf/executor.h>
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/algorithms/cuda_matrix_integrate.h>
@@ -19,6 +22,50 @@ namespace
     bool forceCpu = false;
     
   } g_settings;
+  
+  template <typename RetT>
+  class Future
+  {
+  public:
+    Future() = default;
+    Future(std::future<RetT>&& future)
+      : m_future(std::move(future))
+    {
+  
+    }
+  
+    Future(const Future&) = delete;
+    Future(Future&& other) noexcept
+      : m_future(std::move(other.m_future))
+    { }
+  
+    Future& operator=(const Future&) = delete;
+    Future& operator=(Future&& rhs) noexcept
+    {
+      m_future = std::move(rhs.m_future);
+      return *this;
+    }
+  
+    std::future_status wait_for(int timeoutMs)
+    {
+      return m_future.wait_for(std::chrono::milliseconds(timeoutMs));
+    }
+  
+    auto get()
+    {
+      if constexpr (!std::is_same_v<RetT, void>)
+      {
+        return m_future.get();
+      }
+      else
+      {
+        m_future.get();
+      }
+    }
+  
+  private:
+    std::future<RetT> m_future;
+  };
   
   template <typename Tt, typename Tv>
   class ReductionWrapper
@@ -93,16 +140,19 @@ namespace
       return matrix;
     }
   
-    static py::array_t<Tv> matrix_l1_dist(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    static Future<void> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
-      py::array_t<Tv> matrix({fs.size(), fs.size()});
-  #ifdef BUILD_WITH_CUDA
-      mpcf::Executor& exec = g_settings.forceCpu ? mpcf::default_cpu_executor() : mpcf::default_cuda_executor();
-      mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, exec);
-  #else
-      mpcf::matrix_l1_dist<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::default_cpu_executor());
-  #endif
-      return matrix;
+      auto* out = matrix.mutable_data(0);
+      
+      mpcf::Executor& exec =
+#ifdef BUILD_WITH_CUDA
+        g_settings.forceCpu ? mpcf::default_cpu_executor() : mpcf::default_cuda_executor();
+#else
+        mpcf::default_cpu_executor();       
+#endif
+      return Future<void>(std::async([fs = std::move(fs), out, &exec](){
+        mpcf::matrix_l1_dist<Tt, Tv>(out, fs, exec);
+      }));
     }
   };
   
@@ -112,17 +162,20 @@ namespace
   public:
     void register_bindings(py::handle m, const std::string& suffix)
     {
+      using TPcf = mpcf::Pcf<Tt, Tv>;
+      
       py::class_<mpcf::Pcf<Tt, Tv>>(m, ("Pcf" + suffix).c_str())
         .def(py::init<>())
         .def(py::init<>([](py::array_t<Tt> arr){ return mpcf::detail::construct_pcf<Tt, Tv>(arr); }))
-        .def("get_time_type", [](mpcf::Pcf<Tt, Tv>& /* self */) -> std::string { return STRINGIFY(Tt); })
-        .def("get_value_type", [](mpcf::Pcf<Tt, Tv>& /* self */) -> std::string { return STRINGIFY(Tv); })
-        .def("debug_print", &mpcf::Pcf<Tt, Tv>::debug_print) \
+        .def("get_time_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tt); })
+        .def("get_value_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tv); })
+        .def("debug_print", &TPcf::debug_print) \
         .def("to_numpy", &mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>)
-        .def("div_scalar", [](mpcf::Pcf<Tt, Tv>& self, Tv c){ return self /= c; })
+        .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
         ;
       
-      py::class_<Backend<Tt, Tv>>(m, ("Backend" + suffix).c_str())
+      py::class_<Backend<Tt, Tv>> backend(m, ("Backend" + suffix).c_str());
+      backend  
         .def(py::init<>())
         .def_static("add", &Backend<Tt, Tv>::add)
         .def_static("combine", &Backend<Tt, Tv>::combine)
@@ -133,6 +186,18 @@ namespace
         .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
         ;
+      
+      register_bindings_future<TPcf>(m, suffix, backend);
+    }
+    
+  private:
+    
+    template <typename RetT>
+    void register_bindings_future(py::handle m, const std::string& suffix, py::class_<Backend<Tt, Tv>>& backend)
+    {
+      py::class_<Future<RetT>>(m, ("Future" + suffix).c_str())
+        .def(py::init<>())
+        .def("wait_for", &Future<RetT>::wait_for);
     }
   };
 
@@ -141,6 +206,16 @@ namespace
 PYBIND11_MODULE(mpcf_cpp, m) {
   PyBindings<float, float>().register_bindings(m, "_f32_f32");
   PyBindings<double, double>().register_bindings(m, "_f64_f64");
+  
+  py::enum_<std::future_status>(m, "FutureStatus")
+    .value("deferred", std::future_status::deferred)
+    .value("ready", std::future_status::ready)
+    .value("timeout", std::future_status::timeout)
+    .export_values();
+
+  py::class_<Future<void>>(m, "Future_void")
+    .def(py::init<>())
+    .def("wait_for", &Future<void>::wait_for);
   
   m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
 }

@@ -4,13 +4,13 @@
 #include <cuda_runtime.h>
 #include "cuda_util.h"
 
+#include <iostream>
+
 mpcf::Executor::Executor(Hardware hw, size_t nThreads)
   : m_ownsTfExec(true)
   , m_tfExec(new tf::Executor(nThreads))
   , m_hw(hw)
-{
-  
-}
+{ }
 
 mpcf::Executor::~Executor()
 {

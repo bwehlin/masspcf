@@ -11,10 +11,16 @@ class Pcf:
         self.data_ = cpp.Pcf_f32_f32(arr)
       elif arr.dtype == np.float64:
         self.data_ = cpp.Pcf_f64_f64(arr)
+      self.ttype = arr.dtype
+      self.vtype = arr.dtype
     elif isinstance(arr, cpp.Pcf_f32_f32):
       self.data_ = arr
+      self.ttype = np.float32
+      self.vtype = np.float32
     elif isinstance(arr, cpp.Pcf_f64_f64):
       self.data_ = arr
+      self.ttype = np.float64
+      self.vtype = np.float64
 
   def get_time_type(self):
     return self.data_.get_time_type()
@@ -103,6 +109,31 @@ def l1_inner_prod(fs):
   fsdata, backend = _prepare_list(fs)
   return backend.l1_inner_prod(fsdata)
 
+def long_run_matrix_op(matrix, op):
+  try:
+    future = op(matrix)
+    # Start waiting for only a short while in case the computation is quick.
+    # Should probably use condition variables instead
+    wait_time_ms = 50
+    while future.wait_for(wait_time_ms) != cpp.FutureStatus.ready:
+      wait_time_ms *= 2
+      if wait_time_ms > 500:
+        wait_time_ms = 500
+  finally:
+    pass
+    #cpp.cancel_jobs()
+
 def matrix_l1_dist(fs):
+  if len(fs) == 0:
+    return np.zeros((0,0))
+
   fsdata, backend = _prepare_list(fs)
-  return backend.matrix_l1_dist(fsdata)
+  dtype = fs[0].vtype
+  
+  n = len(fs)
+  matrix = np.zeros((n, n), dtype=dtype, order='c')
+
+  long_run_matrix_op(matrix, lambda matrix: backend.matrix_l1_dist(matrix, fsdata))
+  
+  return matrix
+
