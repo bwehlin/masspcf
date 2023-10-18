@@ -11,6 +11,8 @@
 
 #include <vector>
 
+#include <taskflow/algorithm/for_each.hpp>
+
 namespace mpcf
 {
   template <typename Tt, typename Tv, typename RectangleOp>
@@ -26,31 +28,36 @@ namespace mpcf
     return val;
   }
   
+  template <typename Tv>
+  void make_lower_triangle(Executor& exec, Tv* out, size_t sz)
+  {
+    tf::Taskflow flow;
+    flow.for_each_index(0ul, sz, 1ul, [out, sz](size_t i) {
+      for (size_t j = 0; j < i; ++j)
+      {
+        out[i * sz + j] = out[j * sz + i];
+      }
+    });
+    auto future = exec->run(flow);
+    future.wait();
+  }
+  
   template <typename Tt, typename Tv, typename RectangleOp>
-  void matrix_integrate(Executor& exec, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
+  void matrix_integrate(Executor& exec, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = true, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {
     auto sz = fs.size();
-    for (auto i = 0ul; i < sz; ++i)
-    {
-      auto j = symmetric ? i : 0ul; // For now, fill entire matrix
+    tf::Taskflow flow;
+    
+    flow.for_each_index(0ul, sz, 1ul, [out, &fs, &op, symmetric, a, b, sz](size_t i) {
+      auto j = symmetric ? i : 0ul;
       for (; j < sz; ++j)
       {
         out[i * sz + j] = integrate<Tt, Tv, RectangleOp>(fs[i], fs[j], op, a, b);
       }
-    }
-    
-    if (symmetric)
-    {
-      // Build lower triangle
-      size_t sz = fs.size();
-      for (size_t i = 1; i < sz; ++i)
-      {
-        for (size_t j = 0; j < i; ++j)
-        {
-          out[i * sz + j] = out[j * sz + i];
-        }
-      }
-    }
+    });
+
+    auto future = exec->run(flow);
+    future.wait();
   }
   
   template <typename Tt, typename Tv, typename RectangleOp>
@@ -72,10 +79,13 @@ namespace mpcf
       break;
 #endif
     default:
-      matrix_integrate(out, fs, [](const rect_t& rect) -> Tv {
+      matrix_integrate(executor, out, fs, [](const rect_t& rect) -> Tv {
         return std::abs(rect.top - rect.bottom);
       }, true);
     }
+    
+    auto & cpuExec = executor.hardware() == Hardware::CPU ? executor : default_cpu_executor();
+    make_lower_triangle<Tv>(cpuExec, out, fs.size());
   }
 }
 

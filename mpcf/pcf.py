@@ -1,48 +1,8 @@
 from . import mpcf_cpp as cpp
 import numpy as np
 
-class Rectangle:
-  def __init__(self, left, right, top, bottom, dtype=np.float32):
-    if dtype == np.float32:
-      self.data_ = cpp.Rectangle_f32_f32(np.float32(left), np.float32(right), np.float32(top), np.float32(bottom))
-    elif dtype == np.float64:
-      self.data_ = cpp.Rectangle_f64_f64(np.float64(left), np.float64(right), np.float64(top), np.float64(bottom))
-    else:
-      raise TypeError("dtype must be either np.float32 or np.float64")
-  
-  @property
-  def left(self):
-    return self.data_.left
-  
-  @left.setter
-  def left(self, v):
-    self.data_.left = v
-  
-  @property
-  def right(self):
-    return self.data_.right
-  
-  @right.setter
-  def right(self, v):
-    self.data_.right = v
-
-  @property
-  def top(self):
-    return self.data_.top
-  
-  @top.setter
-  def top(self, v):
-    self.data_.top = v
-
-  @property
-  def bottom(self):
-    return self.data_.bottom
-  
-  @bottom.setter
-  def bottom(self, v):
-    self.data_.bottom = v
-
-
+def force_cpu(on : bool):
+  cpp.force_cpu(on)
 
 class Pcf:
   def __init__(self, arr):
