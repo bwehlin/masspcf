@@ -32,7 +32,7 @@ namespace mpcf
   void make_lower_triangle(Executor& exec, Tv* out, size_t sz)
   {
     tf::Taskflow flow;
-    flow.for_each_index(0ul, sz, 1ul, [out, sz](size_t i) {
+    flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [out, sz](size_t i) {
       for (size_t j = 0; j < i; ++j)
       {
         out[i * sz + j] = out[j * sz + i];
@@ -48,7 +48,7 @@ namespace mpcf
     auto sz = fs.size();
     tf::Taskflow flow;
     
-    flow.for_each_index(0ul, sz, 1ul, [out, &fs, &op, symmetric, a, b, sz](size_t i) {
+    flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [out, &fs, &op, symmetric, a, b, sz](size_t i) {
       auto j = symmetric ? i : 0ul;
       for (; j < sz; ++j)
       {
