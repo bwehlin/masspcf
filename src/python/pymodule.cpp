@@ -203,6 +203,11 @@ namespace
 
 }
 
+// void whatever() {
+//   mpcf::Executor asdf = mpcf::Executor::create_cpu();
+//   asdf.~Executor();
+// }
+
 PYBIND11_MODULE(mpcf_cpp, m) {
   PyBindings<float, float>().register_bindings(m, "_f32_f32");
   PyBindings<double, double>().register_bindings(m, "_f64_f64");
@@ -218,4 +223,5 @@ PYBIND11_MODULE(mpcf_cpp, m) {
     .def("wait_for", &Future<void>::wait_for);
   
   m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
+  // m.def("whatever", &whatever);
 }

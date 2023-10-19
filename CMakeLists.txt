@@ -60,7 +60,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
-  include/mpcf/executor.h src/executor.cpp
+  include/mpcf/executor.h
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
@@ -68,6 +68,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/cuda_matrix_integrate.h
   include/mpcf/algorithms/subdivide.h
   src/block_matrix_support.h
+  src/executor.cpp
   ${MPCF_LIB_SOURCES_CUDA}
 )
 
