@@ -3,6 +3,7 @@
 #ifdef BUILD_WITH_CUDA
 #include <cuda_runtime.h>
 #include "cuda_util.h"
+#endif
 
 #include <iostream>
 
@@ -12,7 +13,7 @@ mpcf::Executor::Executor(Hardware hw, size_t nThreads)
   , m_hw(hw)
 { }
 
-mpcf::Executor::~Executor()
+mpcf::Executor::~Executor() noexcept
 {
   if (m_ownsTfExec)
   {
@@ -20,6 +21,7 @@ mpcf::Executor::~Executor()
   }
 }
 
+#ifdef BUILD_WITH_CUDA
 mpcf::Executor
 mpcf::Executor::create_cuda()
 {
