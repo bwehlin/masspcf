@@ -86,33 +86,31 @@ namespace mpcf
       next_step(totalWorkPerStep, "Computing upper triangle.", "integral");
 
       tf::Taskflow flow;
+      std::vector<tf::Task> tasks;
       
-      auto integrate = flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+      tasks.emplace_back(flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
         if (stop_requested())
         {
           return;
         }
         compute_row(i);
-      });
+      }));
 
       
-      auto nextStep = flow.emplace([this, totalWorkPerStep] {
+      tasks.emplace_back(flow.emplace([this, totalWorkPerStep] {
         next_step(totalWorkPerStep, "Filling in lower triangle.", "element");
-        });
+      }));
 
-      nextStep.succeed(integrate);
-
-      auto lowerTriangle = flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+      tasks.emplace_back(flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
         if (stop_requested())
         {
           return;
         }
         symmetrize_row(i);
-      });
+      }));
 
-      lowerTriangle.succeed(nextStep);
-
-      create_terminal_task(flow).succeed(lowerTriangle);
+      tasks.emplace_back(create_terminal_task(flow));
+      flow.linearize(tasks);
 
       return exec->run(std::move(flow));
     }

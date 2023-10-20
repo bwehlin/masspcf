@@ -102,8 +102,6 @@ namespace mpcf
       });
     }
 
-    
-
   private:
     virtual tf::Future<RetT> run_async(mpcf::Executor& exec) = 0;
     
