@@ -38,6 +38,7 @@ namespace mpcf
     
     StoppableTask& start_async(mpcf::Executor& exec)
     {
+      m_done = false;
       m_stop_requested.store(false);
       m_work_completed.store(0ul);
       m_future = run_async(exec);
@@ -69,6 +70,12 @@ namespace mpcf
       return m_work_step_unit;
     }
 
+    bool wait_for(std::chrono::milliseconds duration)
+    {
+      std::unique_lock<std::mutex> lock(m_mutex);
+      return m_condition.wait_for(lock, duration, [this] { return m_done; });
+    }
+
   protected:
     void add_progress(size_t n_items)
     {
@@ -84,6 +91,19 @@ namespace mpcf
       m_work_completed.store(0);
     }
 
+    tf::Task create_terminal_task(tf::Taskflow& flow)
+    {
+      return flow.emplace([this] {
+        {
+          std::lock_guard<std::mutex> lock(m_mutex);
+          m_done = true;
+        }
+        m_condition.notify_all();
+      });
+    }
+
+    
+
   private:
     virtual tf::Future<RetT> run_async(mpcf::Executor& exec) = 0;
     
@@ -96,6 +116,10 @@ namespace mpcf
     size_t m_work_step = 0ul;
     std::string m_work_step_desc;
     std::string m_work_step_unit;
+
+    std::mutex m_mutex;
+    std::condition_variable m_condition;
+    bool m_done;
   };
 }
 

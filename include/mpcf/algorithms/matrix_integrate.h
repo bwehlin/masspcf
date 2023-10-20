@@ -112,6 +112,8 @@ namespace mpcf
 
       lowerTriangle.succeed(nextStep);
 
+      create_terminal_task(flow).succeed(lowerTriangle);
+
       return exec->run(std::move(flow));
     }
     

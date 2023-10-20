@@ -147,7 +147,7 @@ def wait_for_task(task):
   work_step = task.work_step()
 
   wait_time_ms = 50
-  while task.wait_for(wait_time_ms) != cpp.FutureStatus.ready:
+  while not task.wait_for(wait_time_ms):
     progress.update(task.work_completed() - progress.n)
     new_work_step = task.work_step()
     if new_work_step != work_step:
