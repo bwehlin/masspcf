@@ -24,7 +24,12 @@ namespace
     
   } g_settings;
   
-  tf::Executor g_pyExec(1);
+  tf::Executor& py_exec()
+  {
+    static tf::Executor exec(1);
+    return exec;
+  }
+  
   
   template <typename RetT>
   class Future
@@ -155,7 +160,7 @@ namespace
 #else
         mpcf::default_cpu_executor();       
 #endif
-      return Future<void>(g_pyExec.async([fs = std::move(fs), out, &exec](){
+      return Future<void>(py_exec().async([fs = std::move(fs), out, &exec]() {
         mpcf::matrix_l1_dist<Tt, Tv>(out, fs, exec);
       }));
     }
