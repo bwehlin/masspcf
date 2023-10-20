@@ -78,20 +78,40 @@ namespace mpcf
     { }
     
   private:
-    std::future<void> run_async(Executor& exec) override
+    tf::Future<void> run_async(Executor& exec) override
     {
       auto sz = m_fs.size();
-      set_total_work((sz * (sz - 1)) / 2);
-      
+      auto totalWorkPerStep = (sz * (sz - 1)) / 2;
+
+      next_step(totalWorkPerStep, "Computing upper triangle.", "integral");
+
       tf::Taskflow flow;
       
-      flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+      auto integrate = flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
         if (stop_requested())
         {
           return;
         }
         compute_row(i);
       });
+
+      
+      auto nextStep = flow.emplace([this, totalWorkPerStep] {
+        next_step(totalWorkPerStep, "Filling in lower triangle.", "element");
+        });
+
+      nextStep.succeed(integrate);
+
+      auto lowerTriangle = flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+        if (stop_requested())
+        {
+          return;
+        }
+        symmetrize_row(i);
+      });
+
+      lowerTriangle.succeed(nextStep);
+
       return exec->run(std::move(flow));
     }
     
@@ -101,6 +121,16 @@ namespace mpcf
       for (size_t j = i + 1; j < sz; ++j)
       {
         m_out[i * sz + j] = integrate<Tt, Tv>(m_fs[i], m_fs[j], [](const Rectangle<Tt, Tv>& rect){ return std::abs(rect.top - rect.bottom); }, 0, std::numeric_limits<Tt>::max());
+      }
+      add_progress(sz - i - 1);
+    }
+
+    void symmetrize_row(size_t i)
+    {
+      auto sz = m_fs.size();
+      for (size_t j = 0; j < i; ++j)
+      {
+        m_out[i * sz + j] = m_out[j * sz + i];
       }
       add_progress(sz - i - 1);
     }

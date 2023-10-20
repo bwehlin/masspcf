@@ -2,9 +2,10 @@
 #define MPCF_TASK_H
 
 #include <atomic>
-#include <future>
 #include <functional>
 #include <iostream>
+
+#include <taskflow/taskflow.hpp>
 
 #include "executor.h"
 
@@ -17,6 +18,7 @@ namespace mpcf
     void request_stop()
     {
       m_stop_requested.store(true);
+      // m_future.cancel(); // Some issue with this at the moment.
     }
     
     bool stop_requested() const
@@ -24,12 +26,12 @@ namespace mpcf
       return m_stop_requested.load();
     }
     
-    const std::future<RetT>& future() const
+    const tf::Future<RetT>& future() const
     {
       return m_future;
     }
     
-    std::future<RetT>& future()
+    tf::Future<RetT>& future()
     {
       return m_future;
     }
@@ -51,26 +53,49 @@ namespace mpcf
     {
       return m_work_total;
     }
+
+    size_t work_step() const
+    {
+      return m_work_step;
+    }
+
+    const std::string& work_step_desc() const
+    {
+      return m_work_step_desc;
+    }
     
+    const std::string& work_step_unit() const
+    {
+      return m_work_step_unit;
+    }
+
   protected:
     void add_progress(size_t n_items)
     {
       std::atomic_fetch_add(&m_work_completed, n_items);
     }
     
-    void set_total_work(size_t n_items)
+    void next_step(size_t n_items, std::string_view desc, std::string_view unit)
     {
+      ++m_work_step;
+      m_work_step_desc = desc;
+      m_work_step_unit = unit;
       m_work_total = n_items;
+      m_work_completed.store(0);
     }
-    
+
   private:
-    virtual std::future<RetT> run_async(mpcf::Executor& exec) = 0;
+    virtual tf::Future<RetT> run_async(mpcf::Executor& exec) = 0;
     
-    std::future<RetT> m_future;
+    tf::Future<RetT> m_future;
     std::atomic_bool m_stop_requested = false;
     
     size_t m_work_total = 0ul;
     std::atomic_uint64_t m_work_completed;
+
+    size_t m_work_step = 0ul;
+    std::string m_work_step_desc;
+    std::string m_work_step_unit;
   };
 }
 

@@ -139,11 +139,22 @@ def matrix_l1_dist(fs):
   return matrix
 
 def wait_for_task(task):
-  progress = tqdm(total=task.work_total(), unit_scale=True, unit='integral')
-  
+  def init_progress(task):
+    progress = tqdm(total=task.work_total(), unit_scale=True, unit=task.work_step_unit(), desc=task.work_step_desc())
+    return progress
+
+  progress = init_progress(task)
+  work_step = task.work_step()
+
   wait_time_ms = 50
   while task.wait_for(wait_time_ms) != cpp.FutureStatus.ready:
     progress.update(task.work_completed() - progress.n)
+    new_work_step = task.work_step()
+    if new_work_step != work_step:
+      work_step = new_work_step
+      print('')
+      progress = init_progress(task)
+    
   progress.update(task.work_completed() - progress.n)
 
 def matrix_l1_dist_s(fs):

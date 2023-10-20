@@ -192,6 +192,9 @@ namespace
         .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms){ return self.future().wait_for(std::chrono::milliseconds(ms)); })
         .def("work_total", &mpcf::StoppableTask<RetT>::work_total)
         .def("work_completed", &mpcf::StoppableTask<RetT>::work_completed)
+        .def("work_step", &mpcf::StoppableTask<RetT>::work_step)
+        .def("work_step_desc", &mpcf::StoppableTask<RetT>::work_step_desc)
+        .def("work_step_unit", &mpcf::StoppableTask<RetT>::work_step_unit)
     ;
   }
   
