@@ -60,6 +60,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
+  include/mpcf/task.h
   include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h

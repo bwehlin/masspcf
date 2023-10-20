@@ -8,6 +8,7 @@
 #include "pypcf_support.h"
 #include <mpcf/algorithm.h>
 #include <mpcf/executor.h>
+#include <mpcf/task.h>
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/algorithms/cuda_matrix_integrate.h>
@@ -22,6 +23,8 @@ namespace
     bool forceCpu = false;
     
   } g_settings;
+  
+  tf::Executor g_pyExec(1);
   
   template <typename RetT>
   class Future
@@ -62,6 +65,8 @@ namespace
         m_future.get();
       }
     }
+
+
   
   private:
     std::future<RetT> m_future;
@@ -150,17 +155,43 @@ namespace
 #else
         mpcf::default_cpu_executor();       
 #endif
-      return Future<void>(std::async([fs = std::move(fs), out, &exec](){
+      return Future<void>(g_pyExec.async([fs = std::move(fs), out, &exec](){
         mpcf::matrix_l1_dist<Tt, Tv>(out, fs, exec);
       }));
     }
+    
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist_s(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    {
+      auto* out = matrix.mutable_data(0);
+      auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
+      task->start_async(mpcf::default_cpu_executor());
+      return task;
+    }
   };
+  
+  template <typename RetT>
+  static void register_bindings_future(py::handle m, const std::string& suffix)
+  {
+    py::class_<Future<RetT>>(m, ("Future" + suffix).c_str())
+      .def(py::init<>())
+      .def("wait_for", &Future<RetT>::wait_for);
+  }
+  
+  template <typename RetT>
+  static void register_bindings_stoppable_task(py::handle m, const std::string& suffix)
+  {
+    py::class_<mpcf::StoppableTask<RetT>> cls(m, ("StoppableTask" + suffix).c_str());
+    
+    cls
+        .def("request_stop", &mpcf::StoppableTask<RetT>::request_stop)
+        .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms){ return self.future().wait_for(std::chrono::milliseconds(ms)); });
+  }
   
   template <typename Tt, typename Tv>
   class PyBindings
   {
   public:
-    void register_bindings(py::handle m, const std::string& suffix)
+    static void register_bindings(py::handle m, const std::string& suffix)
     {
       using TPcf = mpcf::Pcf<Tt, Tv>;
       
@@ -185,27 +216,22 @@ namespace
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
         .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
+        .def_static("matrix_l1_dist_s", &Backend<Tt, Tv>::matrix_l1_dist_s, py::return_value_policy::move)
         ;
       
-      register_bindings_future<TPcf>(m, suffix, backend);
-    }
-    
-  private:
-    
-    template <typename RetT>
-    void register_bindings_future(py::handle m, const std::string& suffix, py::class_<Backend<Tt, Tv>>& backend)
-    {
-      py::class_<Future<RetT>>(m, ("Future" + suffix).c_str())
-        .def(py::init<>())
-        .def("wait_for", &Future<RetT>::wait_for);
+      register_bindings_future<TPcf>(m, suffix);
     }
   };
+  
+  
 
 }
 
 PYBIND11_MODULE(mpcf_cpp, m) {
-  PyBindings<float, float>().register_bindings(m, "_f32_f32");
-  PyBindings<double, double>().register_bindings(m, "_f64_f64");
+  PyBindings<float, float>::register_bindings(m, "_f32_f32");
+  PyBindings<double, double>::register_bindings(m, "_f64_f64");
+  
+  register_bindings_stoppable_task<void>(m, "_void");
   
   py::enum_<std::future_status>(m, "FutureStatus")
     .value("deferred", std::future_status::deferred)

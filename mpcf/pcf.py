@@ -137,3 +137,37 @@ def matrix_l1_dist(fs):
   
   return matrix
 
+def wait_for_task(task):
+  # Start waiting for only a short while in case the computation is quick.
+  # Should probably use condition variables instead
+  wait_time_ms = 50
+  print(task.wait_for(wait_time_ms))
+  while task.wait_for(wait_time_ms) != cpp.FutureStatus.ready:
+    print('Wait')
+    wait_time_ms *= 2
+    if wait_time_ms > 500:
+      wait_time_ms = 500
+
+def matrix_l1_dist_s(fs):
+  if len(fs) == 0:
+      return np.zeros((0,0))
+
+  fsdata, backend = _prepare_list(fs)
+  dtype = fs[0].vtype
+  
+  n = len(fs)
+  matrix = np.zeros((n, n), dtype=dtype, order='c')
+
+  task = None
+  try:
+    task = backend.matrix_l1_dist_s(matrix, fsdata)
+    wait_for_task(task)
+    print('Wait finished')
+  finally:
+    if task is not None:
+      task.request_stop()
+      wait_for_task(task)
+      print('finally wait finished')
+
+  print('ret')  
+  return matrix

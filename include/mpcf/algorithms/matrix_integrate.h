@@ -4,6 +4,7 @@
 #include "iterate_rectangles.h"
 #include "../pcf.h"
 #include "../executor.h"
+#include "../task.h"
 
 #ifdef BUILD_WITH_CUDA
 #include "cuda_matrix_integrate.h"
@@ -65,6 +66,47 @@ namespace mpcf
   {
     matrix_integrate<Tt, Tv, RectangleOp>(default_cpu_executor(), out, fs, op, symmetric, a, b);
   }
+  
+  
+  template <typename Tt, typename Tv>
+  class MatrixL1DistCpuTask : public mpcf::StoppableTask<void>
+  {
+  public:
+    MatrixL1DistCpuTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs)
+      : m_fs(std::move(fs))
+      , m_out(out)
+    { }
+    
+  private:
+    std::future<void> run_async(Executor& exec) override
+    {
+      auto sz = m_fs.size();
+      tf::Taskflow flow;
+      
+      flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+        if (stop_requested())
+        {
+          return;
+        }
+        
+        compute_row(i);
+      });
+      std::cout << "Sending off for exec" << std::endl;
+      return exec->run(std::move(flow));
+    }
+    
+    void compute_row(size_t i)
+    {
+      auto sz = m_fs.size();
+      for (size_t j = i + 1; j < sz; ++j)
+      {
+        m_out[i * sz + j] = integrate<Tt, Tv>(m_fs[i], m_fs[j], [](const Rectangle<Tt, Tv>& rect){ return std::abs(rect.top - rect.bottom); }, 0, std::numeric_limits<Tt>::max());
+      }
+    }
+    
+    std::vector<Pcf<Tt, Tv>> m_fs;
+    Tv* m_out;
+  };
   
   template <typename Tt, typename Tv>
   void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Executor& executor = default_cpu_executor())
