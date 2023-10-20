@@ -36,10 +36,31 @@ namespace mpcf
     
     StoppableTask& start_async(mpcf::Executor& exec)
     {
-      std::cout << "Starting async..." << std::endl;
       m_stop_requested.store(false);
+      m_work_completed.store(0ul);
       m_future = run_async(exec);
       return *this;
+    }
+    
+    size_t work_completed() const
+    {
+      return m_work_completed.load();
+    }
+    
+    size_t work_total() const
+    {
+      return m_work_total;
+    }
+    
+  protected:
+    void add_progress(size_t n_items)
+    {
+      std::atomic_fetch_add(&m_work_completed, n_items);
+    }
+    
+    void set_total_work(size_t n_items)
+    {
+      m_work_total = n_items;
     }
     
   private:
@@ -47,6 +68,9 @@ namespace mpcf
     
     std::future<RetT> m_future;
     std::atomic_bool m_stop_requested = false;
+    
+    size_t m_work_total = 0ul;
+    std::atomic_uint64_t m_work_completed;
   };
 }
 

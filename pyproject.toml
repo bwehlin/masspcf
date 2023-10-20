@@ -6,6 +6,7 @@ requires = [
     'ninja',
     'pybind11',
     'numpy>=1.23',
-    'numba>=0.58'
+    'numba>=0.58',
+    'tqdm'
 ]
 build-backend = 'setuptools.build_meta'

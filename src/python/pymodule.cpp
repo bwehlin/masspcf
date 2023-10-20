@@ -184,7 +184,10 @@ namespace
     
     cls
         .def("request_stop", &mpcf::StoppableTask<RetT>::request_stop)
-        .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms){ return self.future().wait_for(std::chrono::milliseconds(ms)); });
+        .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms){ return self.future().wait_for(std::chrono::milliseconds(ms)); })
+        .def("work_total", &mpcf::StoppableTask<RetT>::work_total)
+        .def("work_completed", &mpcf::StoppableTask<RetT>::work_completed)
+    ;
   }
   
   template <typename Tt, typename Tv>

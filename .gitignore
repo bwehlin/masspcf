@@ -5,6 +5,7 @@ _skbuild
 .vscode
 .vs
 CMakeSettings.json
+copypy
 
 # Temporary local test
 parallel_reduce.py

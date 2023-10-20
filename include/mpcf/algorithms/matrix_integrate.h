@@ -81,6 +81,8 @@ namespace mpcf
     std::future<void> run_async(Executor& exec) override
     {
       auto sz = m_fs.size();
+      set_total_work((sz * (sz - 1)) / 2);
+      
       tf::Taskflow flow;
       
       flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
@@ -88,10 +90,8 @@ namespace mpcf
         {
           return;
         }
-        
         compute_row(i);
       });
-      std::cout << "Sending off for exec" << std::endl;
       return exec->run(std::move(flow));
     }
     
@@ -102,6 +102,7 @@ namespace mpcf
       {
         m_out[i * sz + j] = integrate<Tt, Tv>(m_fs[i], m_fs[j], [](const Rectangle<Tt, Tv>& rect){ return std::abs(rect.top - rect.bottom); }, 0, std::numeric_limits<Tt>::max());
       }
+      add_progress(sz - i - 1);
     }
     
     std::vector<Pcf<Tt, Tv>> m_fs;

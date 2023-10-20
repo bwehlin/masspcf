@@ -1,5 +1,6 @@
 from . import mpcf_cpp as cpp
 import numpy as np
+from tqdm import tqdm
 
 def force_cpu(on : bool):
   cpp.force_cpu(on)
@@ -138,15 +139,12 @@ def matrix_l1_dist(fs):
   return matrix
 
 def wait_for_task(task):
-  # Start waiting for only a short while in case the computation is quick.
-  # Should probably use condition variables instead
+  progress = tqdm(total=task.work_total(), unit_scale=True, unit='integral')
+  
   wait_time_ms = 50
-  print(task.wait_for(wait_time_ms))
   while task.wait_for(wait_time_ms) != cpp.FutureStatus.ready:
-    print('Wait')
-    wait_time_ms *= 2
-    if wait_time_ms > 500:
-      wait_time_ms = 500
+    progress.update(task.work_completed() - progress.n)
+  progress.update(task.work_completed() - progress.n)
 
 def matrix_l1_dist_s(fs):
   if len(fs) == 0:
@@ -162,12 +160,9 @@ def matrix_l1_dist_s(fs):
   try:
     task = backend.matrix_l1_dist_s(matrix, fsdata)
     wait_for_task(task)
-    print('Wait finished')
   finally:
     if task is not None:
       task.request_stop()
       wait_for_task(task)
-      print('finally wait finished')
 
-  print('ret')  
   return matrix

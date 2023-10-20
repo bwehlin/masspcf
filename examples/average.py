@@ -36,6 +36,8 @@ for i in range(m):
 
 #favg2 = mem_average(fs)
 
+print(f'Reqd int: {float(m)*float(m-1)/2.0}')
+
 print('Running on CPU')
 force_cpu(True)
 cpu = matrix_l1_dist_s(fs)
