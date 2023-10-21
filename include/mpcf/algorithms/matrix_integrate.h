@@ -7,7 +7,7 @@
 #include "../task.h"
 
 #ifdef BUILD_WITH_CUDA
-#include "cuda_matrix_integrate.h"
+//#include "cuda_matrix_integrate.h"
 #endif
 
 #include <vector>
@@ -146,10 +146,12 @@ namespace mpcf
     
     switch (executor.hardware())
     {
+#if 0
 #ifdef BUILD_WITH_CUDA
     case Hardware::CUDA:
       cuda_matrix_l1_dist<Tt, Tv>(out, fs);
       break;
+#endif
 #endif
     default:
       matrix_integrate(executor, out, fs, [](const rect_t& rect) -> Tv {

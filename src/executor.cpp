@@ -3,7 +3,7 @@
 
 #ifdef BUILD_WITH_CUDA
 #include <cuda_runtime.h>
-#include "cuda_util.h"
+#include <mpcf/cuda/cuda_util.cuh>
 #endif
 
 #include <iostream>

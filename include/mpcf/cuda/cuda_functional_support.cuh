@@ -1,7 +1,7 @@
 #ifndef MPCF_CUDA_FUNCTIONAL_SUPPORT_H
 #define MPCF_CUDA_FUNCTIONAL_SUPPORT_H
 
-#include "cuda_util.h"
+#include "cuda_util.cuh"
 
 #include <cuda_runtime.h>
 

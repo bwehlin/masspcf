@@ -1,11 +1,170 @@
+#ifndef MPCF_CUDA_MATRIX_INTEGRATE_CUH
+#define MPCF_CUDA_MATRIX_INTEGRATE_CUH
+
+#include "../task.h"
+#include "../pcf.h"
+#include "../executor.h"
+
+#include "cuda_util.cuh"
+#include "cuda_matrix_integrate_structs.cuh"
+#include "cuda_device_array.cuh"
+
+#include <taskflow/taskflow.hpp>
+
+#include <vector>
+
+namespace mpcf
+{
+  namespace detail
+  {
+    // Return the maximum number of T's that can be allocated on a single GPU
+    template <typename T>
+    size_t get_max_allocation_n(int nGpus) // Use first nGpus GPUs
+    {
+      constexpr float allocationPct = 0.8f; // Use at most this percentage of free GPU ram for matrix (leave some space for other stuff)
+
+      size_t retVal = std::numeric_limits<size_t>::max();
+
+      for (auto i = 0; i < nGpus; ++i)
+      {
+        CHK_CUDA(cudaSetDevice(i));
+
+        size_t freeMem;
+        size_t totalMem;
+        CHK_CUDA(cudaMemGetInfo(&freeMem, &totalMem));
+
+        size_t maxMatrixAllocSz = static_cast<float>(freeMem) * allocationPct;
+        size_t maxAllocationN = maxMatrixAllocSz / sizeof(float);
+        maxAllocationN = (maxAllocationN / 1024) * 1024;
+
+        if (verbose)
+        {
+          std::cout << "GPU " << i << " has allocation limit " << maxAllocationN << std::endl;
+        }
+
+        retVal = std::min(retVal, maxAllocationN);
+      }
+
+      return retVal;
+    }
+  }
+
+  template <typename Tt, typename Tv>
+  __global__ void testgpu()
+  {
+      printf("Hello from gpu\n");
+  }
+  
+
+  template <typename Tt, typename Tv>
+  struct OperationL1Dist
+  {
+    __host__ __device__ Tv operator()(Tt l, Tt r, Tv t, Tv b) const
+    {
+      return (r - l) * abs(t - b);
+    }
+  };
+
+  template <typename Tt, typename Tv>
+  struct OperationLpDist
+  {
+    Tv p = 2.0;
+    __host__ __device__ Tv operator()(Tt l, Tt r, Tv t, Tv b) const
+    {
+      return (r - l) * pow(abs(t - b), p);
+    }
+  };
+
+  template <typename Tt, typename Tv, typename Operation = OperationL1Dist<Tt, Tv>>
+  class MatrixIntegrateCudaTask : public mpcf::StoppableTask<void>
+  {
+  public:
+    MatrixL1DistCudaTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Operation op = {})
+      : m_fs(std::move(fs))
+      , m_out(out)
+      , m_op(op)
+    { }
+
+  private:
+    tf::Future<void> run_async(Executor& exec) override
+    {
+      tf::Taskflow flow;
+      std::vector<tf::Task> tasks;
+
+      tasks.emplace_back(flow.emplace([this] { exec_gpu(); }));
+      tasks.emplace_back(create_terminal_task(flow));
+      flow.linearize(tasks);
+
+      return exec->run(std::move(flow));
+    }
+
+    void exec_gpu()
+    {
+      testgpu<Tt, Tv><<<2, 2>>>();
+      CHK_CUDA(cudaGetLastError());
+    }
+
+    void init_device_storages()
+    {
+
+    }
+
+    void init_host_offset_data()
+    {
+      auto sz = m_fs.size();
+
+      m_h_offsetData.timePointOffsets.resize(sz + 1);
+
+      // Compute size required for all PCFs
+      auto offset = 0ul;
+      for (auto i = 0ul; i < sz; ++i)
+      {
+        auto const& f = m_fs[i].points();
+        m_h_offsetData.timePointOffsets[i] = offset;
+        offset += f.size();
+      }
+
+      // Store PCFs
+      m_h_offsetData.points.resize(offset);
+      for (auto i = 0ul; i < sz; ++i)
+      {
+        auto const& f = m_fs[i].points();
+        auto csz = f.size();
+        auto coffs = m_h_offsetData.timePointOffsets[i];
+        for (auto j = 0ul; j < csz; ++j)
+        {
+          m_h_offsetData.points[coffs + j].t = f[j].t;
+          m_h_offsetData.points[coffs + j].v = f[j].v;
+        }
+      }
+
+      m_h_offsetData.timePointOffsets[sz] = m_h_offsetData.timePointOffsets[sz - 1] + m_fs[sz - 1].points().size();
+    }
+
+    std::vector<Pcf<Tt, Tv>> m_fs;
+    Tv* m_out;
+    Operation m_op;
+
+    mpcf::internal::HostPcfOffsetData<Tt, Tv> m_h_offsetData;
+
+    std::vector<DeviceStorage<Tt, Tv>> deviceStorages;
+  };
+}
+
+#endif
+
+///////////////////////////////////////////////////////////////////////
+
+#ifdef __INTELLISENSE__
+
 #include "algorithms/cuda_matrix_integrate.h"
 
 #include "point.h"
-#include "cuda_util.h"
-#include "cuda_device_array.h"
+#include "cuda_util.cuh"
+#include "cuda_device_array.cuh"
 #include "block_matrix_support.h"
-#include "cuda_functional_support.h"
-#include "cuda_matrix_integrate_structs.h"
+#include "cuda_functional_support.cuh"
+#include "cuda_matrix_integrate_structs.cuh"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -86,36 +245,7 @@ namespace
     return nGpus;
   }
   
-  // Return the maximum number of T's that can be allocated on a single GPU
-  template <typename T>
-  size_t get_max_allocation_n(int nGpus) // Use first nGpus GPUs
-  {
-    constexpr float allocationPct = 0.8f; // Use at most this percentage of free GPU ram for matrix (leave some space for other stuff)
-    
-    size_t retVal = std::numeric_limits<size_t>::max();
-    
-    for (auto i = 0; i < nGpus; ++i)
-    {
-      CHK_CUDA(cudaSetDevice(i));
-      
-      size_t freeMem;
-      size_t totalMem;
-      CHK_CUDA(cudaMemGetInfo(&freeMem, &totalMem));
-      
-      size_t maxMatrixAllocSz = static_cast<float>(freeMem) * allocationPct;
-      size_t maxAllocationN = maxMatrixAllocSz / sizeof(float);
-      maxAllocationN = (maxAllocationN / 1024) * 1024;
-      
-      if (verbose)
-      {
-        std::cout << "GPU " << i << " has allocation limit " << maxAllocationN << std::endl;
-      }
-      
-      retVal = std::min(retVal, maxAllocationN);
-    }
-    
-    return retVal;
-  }
+  
   
   template <typename T>
   std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(int nGpus, size_t nPcfs)
@@ -446,3 +576,6 @@ mpcf::detail::cuda_matrix_integrate_f64(double* out, const std::vector<Pcf_f64>&
   //CHK_CUDA(cudaMemcpyFromSymbol(&hOpPtr, opd, sizeof(op_func_d))); 
   cuda_matrix_integrate_impl<double, double>(out, fs, &opd);
 }
+
+
+#endif

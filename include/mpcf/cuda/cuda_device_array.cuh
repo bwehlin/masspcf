@@ -6,7 +6,7 @@
 #include <mutex>
 #include <thread>
 
-#include "cuda_util.h"
+#include "cuda_util.cuh"
 
 namespace mpcf
 {

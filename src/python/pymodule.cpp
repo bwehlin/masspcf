@@ -11,7 +11,8 @@
 #include <mpcf/task.h>
 
 #ifdef BUILD_WITH_CUDA
-#include <mpcf/algorithms/cuda_matrix_integrate.h>
+//#include <mpcf/algorithms/cuda_matrix_integrate.h>
+#include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #endif
 
 namespace py = pybind11;
@@ -24,11 +25,13 @@ namespace
     
   } g_settings;
   
+#if 0
   tf::Executor& py_exec()
   {
     static tf::Executor exec(1);
     return exec;
   }
+#endif
   
   
   template <typename RetT>
@@ -140,7 +143,7 @@ namespace
     {
       py::array_t<Tv> matrix({fs.size(), fs.size()});
   #ifdef BUILD_WITH_CUDA
-      mpcf::cuda_matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>());
+//      mpcf::cuda_matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>());
   #else
       mpcf::matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, 
         [](const typename mpcf::Pcf<Tt, Tv>::rectangle_type& rect){ 
@@ -150,6 +153,7 @@ namespace
       return matrix;
     }
   
+#if 0
     static Future<void> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
       auto* out = matrix.mutable_data(0);
@@ -164,10 +168,20 @@ namespace
         mpcf::matrix_l1_dist<Tt, Tv>(out, fs, exec);
       }));
     }
+#endif
     
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist_s(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
       auto* out = matrix.mutable_data(0);
+
+#ifdef BUILD_WITH_CUDA
+      if (!g_settings.forceCpu)
+      {
+        auto task = std::make_unique<mpcf::MatrixL1DistCudaTask<Tt, Tv>>(out, std::move(fs));
+        task->start_async(mpcf::default_cuda_executor());
+        return task;
+      }
+#endif
       auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
       task->start_async(mpcf::default_cpu_executor());
       return task;
@@ -227,7 +241,6 @@ namespace
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
         .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
-        .def_static("matrix_l1_dist_s", &Backend<Tt, Tv>::matrix_l1_dist_s, py::return_value_policy::move)
         ;
       
       register_bindings_future<TPcf>(m, suffix);

@@ -1,8 +1,11 @@
+#if 0
+
 #ifndef MPCF_ALGORITHMS_CUDA_MATRIX_COMBINE_H
 #define MPCF_ALGORITHMS_CUDA_MATRIX_COMBINE_H
 
 #include "../pcf.h"
 #include "../executor.h"
+#include "../task.h"
 
 #include <functional>
 #include <vector>
@@ -64,4 +67,5 @@ namespace mpcf
   
 }
 
+#endif
 #endif

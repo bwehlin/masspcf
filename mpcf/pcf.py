@@ -106,37 +106,6 @@ def parallel_reduce(fs, cb):
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.parallel_reduce(fsdata, cb))
 
-def l1_inner_prod(fs):
-  fsdata, backend = _prepare_list(fs)
-  return backend.l1_inner_prod(fsdata)
-
-def long_run_matrix_op(matrix, op):
-  try:
-    future = op(matrix)
-    # Start waiting for only a short while in case the computation is quick.
-    # Should probably use condition variables instead
-    wait_time_ms = 50
-    while future.wait_for(wait_time_ms) != cpp.FutureStatus.ready:
-      wait_time_ms *= 2
-      if wait_time_ms > 500:
-        wait_time_ms = 500
-  finally:
-    pass
-    #cpp.cancel_jobs()
-
-def matrix_l1_dist(fs):
-  if len(fs) == 0:
-    return np.zeros((0,0))
-
-  fsdata, backend = _prepare_list(fs)
-  dtype = fs[0].vtype
-  
-  n = len(fs)
-  matrix = np.zeros((n, n), dtype=dtype, order='c')
-
-  long_run_matrix_op(matrix, lambda matrix: backend.matrix_l1_dist(matrix, fsdata))
-  
-  return matrix
 
 def wait_for_task(task):
   def init_progress(task):
@@ -157,7 +126,7 @@ def wait_for_task(task):
     
   progress.update(task.work_completed() - progress.n)
 
-def matrix_l1_dist_s(fs):
+def matrix_l1_dist(fs):
   if len(fs) == 0:
       return np.zeros((0,0))
 
@@ -169,7 +138,7 @@ def matrix_l1_dist_s(fs):
 
   task = None
   try:
-    task = backend.matrix_l1_dist_s(matrix, fsdata)
+    task = backend.matrix_l1_dist(matrix, fsdata)
     wait_for_task(task)
   finally:
     if task is not None:

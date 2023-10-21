@@ -1,6 +1,9 @@
 #ifndef MPCF_CUDA_MATRIX_INTEGRATE_STRUCTS
 #define MPCF_CUDA_MATRIX_INTEGRATE_STRUCTS
 
+#include "cuda_device_array.cuh"
+#include "cuda_functional_support.cuh"
+
 namespace mpcf::internal
 {
   // POD version of Point
@@ -60,7 +63,7 @@ namespace mpcf::internal
       size_t* timePointOffsets;
       SimplePoint<Tt, Tv>* points;
       size_t nPcfs;
-      mpcf::DeviceOp<Tt, Tv>* op;
+      //mpcf::DeviceOp<Tt, Tv>* op;
     };
     
     Tv* hostMatrix;
@@ -69,7 +72,7 @@ namespace mpcf::internal
     HostPcfOffsetData<Tt, Tv> hostOffsetData;
     std::vector<std::pair<size_t, size_t>> blockRowBoundaries;
     
-    mpcf::DeviceOp<Tt, Tv>* op;
+    //mpcf::DeviceOp<Tt, Tv>* op;
     
     size_t nPcfs;
     

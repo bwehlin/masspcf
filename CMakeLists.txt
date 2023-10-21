@@ -46,11 +46,11 @@ endif()
 
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
-    src/cuda_matrix_integrate.cu
-    src/cuda_util.h
-    src/cuda_device_array.h
-    src/cuda_functional_support.h
-    src/cuda_matrix_integrate_structs.h
+    include/mpcf/cuda/cuda_matrix_integrate.cuh
+    include/mpcf/cuda/cuda_util.cuh
+    include/mpcf/cuda/cuda_device_array.cuh
+    include/mpcf/cuda/cuda_functional_support.cuh
+    include/mpcf/cuda/cuda_matrix_integrate_structs.cuh
   )
 else()
   SET(MPCF_LIB_SOURCES_CUDA "")
@@ -76,6 +76,10 @@ SET(MPCF_PY_SOURCES
   src/python/pymodule.cpp
   src/python/pypcf_support.h
 )
+
+if (BUILD_WITH_CUDA)
+set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
+endif()
 
 if (SKBUILD)
   python_add_library(mpcf_cpp MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
