@@ -15,6 +15,8 @@ namespace mpcf
   class StoppableTask
   {
   public:
+    virtual ~StoppableTask() = default;
+
     void request_stop()
     {
       m_stop_requested.store(true);
