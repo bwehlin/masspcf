@@ -60,7 +60,7 @@ namespace mpcf
     std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(int nGpus, size_t nPcfs)
     {
       auto maxAllocationN = get_max_allocation_n<T>(nGpus);
-      auto nSplits = nGpus * 2; // Give the scheduler something to work with
+      auto nSplits = nGpus * 32; // Give the scheduler something to work with
       auto rowHeight = mpcf::internal::get_row_size(maxAllocationN, nSplits, nPcfs);
       return mpcf::subdivide(rowHeight, nPcfs);
     }
@@ -178,7 +178,7 @@ namespace mpcf
       cuda_riemann_integrate<Tt, Tv, ComboOp> << <gridDim, blockDim >> > (params, rowInfo, a, b, op);
     }
 
-    template <typename PcfFwdIt, typename ComboOp>
+    template <typename PcfFwdIt, typename ComboOp, typename ProgressCb = std::function<void(size_t)>>
     class CudaMatrixRectangleIterator
     {
     public:
@@ -186,10 +186,11 @@ namespace mpcf
       using time_type = typename pcf_type::time_type;
       using value_type = typename pcf_type::value_type;
 
-      CudaMatrixRectangleIterator(value_type* out, PcfFwdIt begin, PcfFwdIt end)
+      CudaMatrixRectangleIterator(value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
         : m_out(out)
         , m_nGpus(1)
         , m_gpuHostThreads(m_nGpus)
+        , m_progressCb(progressCb)
       {
         init(begin, end);
       }
@@ -200,9 +201,7 @@ namespace mpcf
           call_riemann_integrate<time_type, value_type>(gridDim, blockDim, params, rowInfo, a, b, op);
           });
       }
-
       
-
     private:
 
       void init(PcfFwdIt begin, PcfFwdIt end)
@@ -359,6 +358,9 @@ namespace mpcf
 
         // These are non-overlapping writes so no need to lock the target
         m_deviceStorages[iGpu].matrix.toHost(target, nEntries);
+
+        auto progress = (rowBoundaries.second - rowBoundaries.first + 1) * (2 * m_nPcfs - rowBoundaries.first - rowBoundaries.second) / 2;
+        m_progressCb(progress);
       }
       
       size_t m_nPcfs;
@@ -374,6 +376,8 @@ namespace mpcf
       std::vector<mpcf::internal::DeviceStorage<time_type, value_type>> m_deviceStorages;
 
       dim3 m_blockDim = dim3(128, 1, 1); // TODO
+
+      ProgressCb m_progressCb;
     };
 
   }
@@ -406,12 +410,14 @@ namespace mpcf
       , m_op(op)
       , m_a(a)
       , m_b(b)
-      , m_iterator(out, m_fs.begin(), m_fs.end())
+      , m_iterator(out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
     { }
 
   private:
     tf::Future<void> run_async(Executor& exec) override
     {
+      next_step(m_fs.size() * (m_fs.size() + 1) / 2, "Computing upper triangle", "integral");
+
       tf::Taskflow flow;
       std::vector<tf::Task> tasks;
 
