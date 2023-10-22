@@ -15,7 +15,7 @@
 
 namespace mpcf
 {
-  namespace detail
+  namespace internal
   {
     // Return the maximum number of T's that can be allocated on a single GPU
     template <typename T>
@@ -37,52 +37,289 @@ namespace mpcf
         size_t maxAllocationN = maxMatrixAllocSz / sizeof(float);
         maxAllocationN = (maxAllocationN / 1024) * 1024;
 
-        if (verbose)
-        {
-          std::cout << "GPU " << i << " has allocation limit " << maxAllocationN << std::endl;
-        }
-
         retVal = std::min(retVal, maxAllocationN);
       }
 
       return retVal;
     }
-  }
 
-  template <typename Tt, typename Tv>
-  __global__ void testgpu()
-  {
-      printf("Hello from gpu\n");
+    size_t get_row_size(size_t maxAllocationN, size_t nSplits, size_t nPcfs)
+    {
+      size_t maxRowHeight = maxAllocationN / nPcfs;
+
+      maxRowHeight = std::min(maxRowHeight, nPcfs);
+      maxRowHeight /= nSplits;
+      maxRowHeight = std::max<size_t>(maxRowHeight, 1ul);
+
+      return maxRowHeight;
+    }
+
+    template <typename T>
+    std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(int nGpus, size_t nPcfs)
+    {
+      auto maxAllocationN = get_max_allocation_n<T>(nGpus);
+      auto nSplits = nGpus * 2; // Give the scheduler something to work with
+      auto rowHeight = mpcf::internal::get_row_size(maxAllocationN, nSplits, nPcfs);
+      return mpcf::subdivide(rowHeight, nPcfs);
+    }
+
+    template <typename Tt, typename Tv>
+    struct DeviceKernelParams
+    {
+      Tv* matrix;
+      size_t* timePointOffsets;
+      SimplePoint<Tt, Tv>* points;
+      size_t nPcfs;
+    };
+
+    struct RowInfo
+    {
+      size_t rowStart;
+      size_t rowHeight;
+      size_t iRow;
+    };
+
+    template<typename Tt, typename Tv, typename RectangleCallback>
+    __device__ void cuda_iterate_rectangles(DeviceKernelParams<Tt, Tv> params, size_t fMatrixIdx, size_t gMatrixIdx, Tt a, Tt b, RectangleCallback cb)
+    {
+      Tt t = a;
+      Tt tprev = t;
+
+      Tv fv;
+      Tv gv;
+
+      size_t fi = 0; // max_time_prior_to(f, a);
+      size_t gi = 0; // max_time_prior_to(g, a);
+
+      size_t fOffset = params.timePointOffsets[fMatrixIdx];
+      size_t gOffset = params.timePointOffsets[gMatrixIdx];
+
+      size_t fsz = params.timePointOffsets[fMatrixIdx + 1] - fOffset;
+      size_t gsz = params.timePointOffsets[gMatrixIdx + 1] - gOffset;
+
+      mpcf::internal::SimplePoint<Tt, Tv>* fpts = params.points + fOffset;
+      mpcf::internal::SimplePoint<Tt, Tv>* gpts = params.points + gOffset;
+
+      while (t < b)
+      {
+        tprev = t;
+        fv = fpts[fi].v;
+        gv = gpts[gi].v;
+
+        if (fi + 1 < fsz && gi + 1 < gsz)
+        {
+          auto delta = fpts[fi + 1].t - gpts[gi + 1].t;
+          if (delta <= 0)
+          {
+            ++fi;
+          }
+          if (delta >= 0)
+          {
+            ++gi;
+          }
+        }
+        else
+        {
+          if (fi + 1 < fsz)
+          {
+            ++fi;
+          }
+          else if (gi + 1 < gsz)
+          {
+            ++gi;
+          }
+          else
+          {
+            cb(tprev, b, fv, gv);
+            return;
+          }
+        }
+
+        t = max(fpts[fi].t, gpts[gi].t);
+        cb(tprev, t, fv, gv);
+      }
+    }
+
+    template <typename Tt, typename Tv, typename ComboOp>
+    __global__
+      void cuda_riemann_integrate(
+        DeviceKernelParams<Tt, Tv> params,
+        RowInfo rowInfo, Tt a, Tt b, ComboOp op)
+    {
+      size_t iBlock = blockDim.x * blockIdx.x + threadIdx.x;
+      size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+
+      if (iBlock >= rowInfo.rowHeight)
+      {
+        return;
+      }
+
+      size_t i = iBlock + rowInfo.rowStart;
+
+      if (j < i || i >= params.nPcfs || j >= params.nPcfs)
+      {
+        return;
+      }
+
+      Tv ret = 0;
+      cuda_iterate_rectangles<Tt, Tv>(params, rowInfo, i, j, [&ret, op](Tt l, Tt r, Tv t, Tv b) {
+        ret += (r - l) * op(t, b);
+        });
+
+      params.matrix[iBlock * params.nPcfs + j] = ret;
+    }
+
+    template <typename PcfFwdIt, typename ComboOp>
+    class CudaMatrixRectangleIterator
+    {
+    public:
+      using pcf_type = typename PcfFwdIt::value_type;
+      using time_type = typename pcf_type::time_type;
+      using value_type = typename pcf_type::value_type;
+
+      CudaMatrixRectangleIterator(value_type* out, PcfFwdIt begin, PcfFwdIt end)
+        : m_out(out)
+        , m_nGpus(1)
+        , m_gpuHostThreads(m_nGpus)
+      {
+
+      }
+
+      void riemann_integrate(time_type a, time_type b, ComboOp op)
+      {
+        tf::Taskflow flow;
+
+        flow.for_each_index<size_t, size_t, size_t>(0ul, m_blockRowBoundaries.size(), 1ul, [](size_t i) {
+
+          });
+
+        m_gpuHostThreads.run(std::move(flow));
+        m_gpuHostThreads.wait_for_all();
+      }
+
+      void init(PcfFwdIt begin, PcfFwdIt end)
+      {
+        m_nPcfs = std::distance(begin, end);
+
+        init_host_offset_data(begin, end);
+        init_block_row_boundaries();
+        init_device_storages();
+        copy_offset_data_to_devices();
+      }
+
+    private:
+      void init_host_offset_data(PcfFwdIt begin, PcfFwdIt end)
+      {
+        m_h_offsetData.timePointOffsets.resize(m_nPcfs + 1);
+
+        // Compute size required for all PCFs
+        auto offset = 0ul;
+        for (auto it = begin; it != end; ++it)
+        {
+          auto const& f = (*it).points();
+          m_h_offsetData.timePointOffsets[i] = offset;
+          offset += f.size();
+        }
+
+        // Store PCFs
+        m_h_offsetData.points.resize(offset);
+        auto i = 0ul;
+        for (auto it = begin; it != end; ++it)
+        {
+          auto const& f = (*it).points();
+          auto csz = f.size();
+          auto coffs = m_h_offsetData.timePointOffsets[i++];
+          for (auto j = 0ul; j < csz; ++j)
+          {
+            m_h_offsetData.points[coffs + j].t = f[j].t;
+            m_h_offsetData.points[coffs + j].v = f[j].v;
+          }
+        }
+
+        m_h_offsetData.timePointOffsets[sz] = m_h_offsetData.timePointOffsets[sz - 1] + (*std::prev(end)).points().size();
+      }
+
+      void init_block_row_boundaries()
+      {
+        m_blockRowBoundaries = mpcf::internal::get_block_row_boundaries<Tv>(m_nGpus, m_nPcfs);
+      }
+
+      void init_device_storages()
+      {
+        m_deviceStorages.resize(m_nGpus);
+        auto maxRowHeight = m_blockRowBoundaries[0].second + 1;
+
+        for (auto iGpu = 0; iGpu < m_nGpus; ++iGpu)
+        {
+          init_device_storage(iGpu, maxRowHeight);
+        }
+      }
+
+      void init_device_storage(size_t iGpu, size_t rowHeight)
+      {
+        auto& storage = m_deviceStorages[iGpu];
+
+        CHK_CUDA(cudaSetDevice(iGpu));
+
+        storage.matrix = mpcf::CudaDeviceArray<value_type>(rowHeight * m_nPcfs);
+        storage.points = mpcf::CudaDeviceArray<mpcf::internal::SimplePoint<time_type, value_type>>(m_h_offsetData.points);
+        storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(m_h_offsetData.timePointOffsets);
+      }
+
+      void copy_offset_data_to_devices()
+      {
+        for (auto iGpu = 0; iGpu < m_nGpus; ++iGpu)
+        {
+          CHK_CUDA(cudaSetDevice(iGpu));
+          m_deviceStorages[iGpu].points.toDevice(m_h_offsetData.points);
+          m_deviceStorages[iGpu].timePointOffsets.toDevice(m_h_offsetData.timePointOffsets);
+        }
+      }
+      
+      size_t m_nPcfs;
+
+      value_type* m_out;
+
+      size_t m_nGpus;
+      tf::Executor m_gpuHostThreads;
+
+      mpcf::internal::HostPcfOffsetData<time_type, value_type> m_h_offsetData;
+      std::vector<std::pair<size_t, size_t>> m_blockRowBoundaries;
+
+      std::vector<mpcf::internal::DeviceStorage<time_type, value_type>> m_deviceStorages;
+    };
+
   }
-  
 
   template <typename Tt, typename Tv>
   struct OperationL1Dist
   {
-    __host__ __device__ Tv operator()(Tt l, Tt r, Tv t, Tv b) const
+    __host__ __device__ Tv operator()(Tv t, Tv b) const
     {
-      return (r - l) * abs(t - b);
+      return abs(t - b);
     }
   };
 
   template <typename Tt, typename Tv>
-  struct OperationLpDist
+  struct LpDist
   {
     Tv p = 2.0;
     __host__ __device__ Tv operator()(Tt l, Tt r, Tv t, Tv b) const
     {
-      return (r - l) * pow(abs(t - b), p);
+      return pow(abs(t - b), p);
     }
   };
 
-  template <typename Tt, typename Tv, typename Operation = OperationL1Dist<Tt, Tv>>
+  template <typename Tt, typename Tv, typename ComboOp = OperationL1Dist<Tt, Tv>>
   class MatrixIntegrateCudaTask : public mpcf::StoppableTask<void>
   {
   public:
-    MatrixL1DistCudaTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Operation op = {})
+    MatrixIntegrateCudaTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
       : m_fs(std::move(fs))
-      , m_out(out)
       , m_op(op)
+      , m_a(a)
+      , m_b(b)
+      , m_iterator(out, m_fs.begin(), m_fs.end())
     { }
 
   private:
@@ -91,63 +328,20 @@ namespace mpcf
       tf::Taskflow flow;
       std::vector<tf::Task> tasks;
 
-      tasks.emplace_back(flow.emplace([this] { exec_gpu(); }));
+      tasks.emplace_back(flow.emplace([this] { m_iterator.riemann_integrate(m_a, m_b, m_op); }));
       tasks.emplace_back(create_terminal_task(flow));
       flow.linearize(tasks);
 
       return exec->run(std::move(flow));
     }
 
-    void exec_gpu()
-    {
-      testgpu<Tt, Tv><<<2, 2>>>();
-      CHK_CUDA(cudaGetLastError());
-    }
-
-    void init_device_storages()
-    {
-
-    }
-
-    void init_host_offset_data()
-    {
-      auto sz = m_fs.size();
-
-      m_h_offsetData.timePointOffsets.resize(sz + 1);
-
-      // Compute size required for all PCFs
-      auto offset = 0ul;
-      for (auto i = 0ul; i < sz; ++i)
-      {
-        auto const& f = m_fs[i].points();
-        m_h_offsetData.timePointOffsets[i] = offset;
-        offset += f.size();
-      }
-
-      // Store PCFs
-      m_h_offsetData.points.resize(offset);
-      for (auto i = 0ul; i < sz; ++i)
-      {
-        auto const& f = m_fs[i].points();
-        auto csz = f.size();
-        auto coffs = m_h_offsetData.timePointOffsets[i];
-        for (auto j = 0ul; j < csz; ++j)
-        {
-          m_h_offsetData.points[coffs + j].t = f[j].t;
-          m_h_offsetData.points[coffs + j].v = f[j].v;
-        }
-      }
-
-      m_h_offsetData.timePointOffsets[sz] = m_h_offsetData.timePointOffsets[sz - 1] + m_fs[sz - 1].points().size();
-    }
-
     std::vector<Pcf<Tt, Tv>> m_fs;
-    Tv* m_out;
-    Operation m_op;
-
-    mpcf::internal::HostPcfOffsetData<Tt, Tv> m_h_offsetData;
-
-    std::vector<DeviceStorage<Tt, Tv>> deviceStorages;
+    ComboOp m_op;
+    Tt m_a;
+    Tt m_b;
+    
+    internal::CudaMatrixRectangleIterator<std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
+    
   };
 }
 
