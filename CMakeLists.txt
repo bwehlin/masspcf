@@ -61,7 +61,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/point.h
   include/mpcf/rectangle.h
   include/mpcf/task.h
-  include/mpcf/executor.h src/executor.cpp
+  include/mpcf/executor.h src/executor.cu
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
@@ -73,12 +73,12 @@ SET(MPCF_LIB_SOURCES
 )
 
 SET(MPCF_PY_SOURCES 
-  src/python/pymodule.cpp
+  src/python/pymodule.cu
   src/python/pypcf_support.h
 )
 
 if (BUILD_WITH_CUDA)
-set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
+	#set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
 endif()
 
 if (SKBUILD)
@@ -113,11 +113,12 @@ if (NOT SKBUILD AND BUILD_TESTER)
   ######################################################################
 
   add_executable(mpcf_test
-    test/block_matrix_support.cpp
-    test/basic_l1_dist.cpp)
+    test/block_matrix_support.cu
+    test/basic_l1_dist.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  target_link_libraries(mpcf_test PRIVATE GTest::gtest_main mpcf_cpp ${CUDART_LIBRARY})
+  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_cpp ${CUDART_LIBRARY})
+  target_compile_definitions(mpcf_test PUBLIC -D BUILD_WITH_CUDA=1)
   include(GoogleTest)
   gtest_discover_tests(mpcf_test)
 endif()

@@ -177,7 +177,7 @@ namespace
 #ifdef BUILD_WITH_CUDA
       if (!g_settings.forceCpu)
       {
-        auto task = std::make_unique<mpcf::MatrixIntegrateCudaTask<Tt, Tv>>(out, std::move(fs));
+        auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs));
         task->start_async(mpcf::default_cuda_executor());
         return task;
       }

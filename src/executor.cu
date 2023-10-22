@@ -2,11 +2,15 @@
 #include <taskflow/taskflow.hpp>
 
 #ifdef BUILD_WITH_CUDA
+#pragma message("Building mpcf_cpp with CUDA")
+#else
+#pragma message("Building mpcf_cpp without CUDA")
+#endif
+
+#ifdef BUILD_WITH_CUDA
 #include <cuda_runtime.h>
 #include <mpcf/cuda/cuda_util.cuh>
 #endif
-
-#include <iostream>
 
 mpcf::Executor::Executor(Hardware hw, size_t nThreads)
   : m_ownsTfExec(true)

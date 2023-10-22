@@ -7,6 +7,12 @@
 #include <vector>
 #include <memory>
 
+#ifdef BUILD_WITH_CUDA
+#pragma message("Building tester with CUDA")
+#else
+#pragma message("Building tester without CUDA")
+#endif
+
 namespace
 {
   class PcfL1IntegratorFixture : public ::testing::TestWithParam<mpcf::Hardware>
