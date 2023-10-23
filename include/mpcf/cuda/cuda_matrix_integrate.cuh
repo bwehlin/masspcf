@@ -433,7 +433,7 @@ namespace mpcf
     Tt m_a;
     Tt m_b;
     
-    internal::CudaMatrixRectangleIterator<std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
+    internal::CudaMatrixRectangleIterator<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
     
   };
 
