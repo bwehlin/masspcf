@@ -7,6 +7,8 @@
 #include "../pcf.h"
 #include "../executor.h"
 
+#include "../algorithms/matrix_integrate.h"
+
 #include "cuda_util.cuh"
 #include "cuda_matrix_integrate_structs.cuh"
 #include "cuda_device_array.cuh"
@@ -422,6 +424,7 @@ namespace mpcf
       , m_op(op)
       , m_a(a)
       , m_b(b)
+      , m_out(out)
       , m_iterator(out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
     { }
 
@@ -432,8 +435,17 @@ namespace mpcf
 
       tf::Taskflow flow;
       std::vector<tf::Task> tasks;
-
+      
+      auto sz = m_fs.size();
+      
       tasks.emplace_back(flow.emplace([this] { m_iterator.riemann_integrate(m_a, m_b, m_op); }));
+      tasks.emplace_back(flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this, sz](size_t i) {
+        for (size_t j = 0; j < i; ++j)
+        {
+          m_out[i * sz + j] = m_out[j * sz + i];
+        }
+      }));
+      
       tasks.emplace_back(create_terminal_task(flow));
       flow.linearize(tasks);
 
@@ -451,6 +463,7 @@ namespace mpcf
     ComboOp m_op;
     Tt m_a;
     Tt m_b;
+    Tv* m_out;
     
     internal::CudaMatrixRectangleIterator<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
     

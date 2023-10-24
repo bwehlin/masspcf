@@ -17,12 +17,14 @@
 size_t mpcf::get_num_cuda_devices()
 {
   int nGpus = 0;
+#ifdef BUILD_WITH_CUDA
   CHK_CUDA(cudaGetDeviceCount(&nGpus));
   if (nGpus < 0)
   {
     // Just in case...
     throw std::runtime_error("Negative number (" + std::to_string(nGpus) + ") of GPUs reported!");
   }
+#endif
   return static_cast<size_t>(nGpus);
 }
 

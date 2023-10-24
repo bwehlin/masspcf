@@ -78,8 +78,9 @@ SET(MPCF_PY_SOURCES
   src/python/pypcf_support.h
 )
 
-if (BUILD_WITH_CUDA)
-	#set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
+if (NOT BUILD_WITH_CUDA)
+	set_source_files_properties(src/python/pymodule.cu PROPERTIES LANGUAGE CXX)
+  set_source_files_properties(src/executor.cu PROPERTIES LANGUAGE CXX)
 endif()
 
 if (SKBUILD)
