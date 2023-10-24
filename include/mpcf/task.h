@@ -20,6 +20,7 @@ namespace mpcf
     void request_stop()
     {
       m_stop_requested.store(true);
+      on_stop_requested();
       // m_future.cancel(); // Some issue with this at the moment.
     }
     
@@ -106,6 +107,8 @@ namespace mpcf
 
   private:
     virtual tf::Future<RetT> run_async(mpcf::Executor& exec) = 0;
+    
+    virtual void on_stop_requested() { }
     
     tf::Future<RetT> m_future;
     std::atomic_bool m_stop_requested = false;

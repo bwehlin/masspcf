@@ -12,22 +12,42 @@ namespace mpcf
     CUDA
   };
   
+  size_t get_num_cuda_devices();
+  
+  /// An Executor instance holds a tf::Executor for CPU-based execution,
+  /// and (optionally) a separate tf::Executor for GPU-based execution.
+  /// The GPU executor has the same number of threads as there are GPUs,
+  /// and each thread operates on only one of the GPUs.
   class Executor
   {
-  public:
-    ~Executor() noexcept;
+  public:   
+    /// Construct an Executor from an existing tf::Executor. It is the
+    /// client's responsibility to ensure that the tf::Executor stays
+    /// alive for the entire lifetime of this Executor object.
+    Executor(tf::Executor* tfExec, size_t nCudaDevices = get_num_cuda_devices()) noexcept
+      : m_upCpuExec(nullptr)
+      , m_cpuExec(tfExec)
+      , m_upCudaExec(nCudaDevices > 0 ? std::make_unique<tf::Executor>(nCudaDevices) : nullptr)
+    {
+      
+    }
+    
+    Executor(size_t nThreads = std::thread::hardware_concurrency(), size_t nCudaDevices = get_num_cuda_devices())
+      : m_upCpuExec(std::make_unique<tf::Executor>(nThreads))
+      , m_cpuExec(m_upCpuExec.get())
+      , m_upCudaExec(nCudaDevices > 0 ? std::make_unique<tf::Executor>(nCudaDevices) : nullptr)
+    {
+      
+    }
     
     Executor(const Executor&) = delete;
     Executor& operator=(const Executor&) = delete;
     
     Executor(Executor&& other) noexcept
-      : m_ownsTfExec(other.m_ownsTfExec)
-      , m_tfExec(other.m_tfExec)
-      , m_hw(other.m_hw)
-    {
-      other.m_ownsTfExec = false;
-      other.m_tfExec = nullptr;
-    }
+      : m_upCpuExec(std::move(other.m_cpuExec))
+      , m_cpuExec(other.m_cpuExec)
+      , m_upCudaExec(std::move(other.m_upCudaExec))
+    { }
     
     Executor& operator=(Executor&& rhs) noexcept
     {
@@ -36,62 +56,32 @@ namespace mpcf
         return *this;
       }
       
-      m_ownsTfExec = rhs.m_ownsTfExec;
-      m_tfExec = rhs.m_tfExec;
-      m_hw = rhs.m_hw;
+      m_upCpuExec = std::move(rhs.m_upCpuExec);
+      m_cpuExec = rhs.m_cpuExec;
       
-      rhs.m_ownsTfExec = false;
-      rhs.m_tfExec = nullptr;
+      m_upCudaExec = std::move(rhs.m_upCudaExec);
       
       return *this;
     }
     
-    static Executor create_cpu(size_t nThreads = std::thread::hardware_concurrency())
+    tf::Executor* cpu() noexcept
     {
-      return Executor(Hardware::CPU, nThreads);
+      return m_cpuExec;
     }
     
-    /// Create a CPU executor that is using an existing TaskFlow executor. It is the responsibility
-    /// of the client to keep the TaskFlow executor alive for the duration of the Executor
-    static Executor create_cpu(tf::Executor& tfExec)
+    tf::Executor* cuda() noexcept
     {
-      return Executor(&tfExec);
-    }
-    
-#ifdef BUILD_WITH_CUDA
-    static Executor create_cuda();
-#endif
-    
-    Hardware hardware() const { return m_hw; }
-    
-    tf::Executor* operator->() noexcept
-    {
-      return m_tfExec;
+      return m_upCudaExec.get();
     }
     
   private:
-    Executor(tf::Executor* tfExec) noexcept
-      : m_ownsTfExec(false)
-      , m_tfExec(tfExec)
-      , m_hw(Hardware::CPU)
-    {
-      
-    }
+    std::unique_ptr<tf::Executor> m_upCpuExec;
+    tf::Executor* m_cpuExec;
     
-    Executor(Hardware hw, size_t nThreads);
-    
-    bool m_ownsTfExec;
-    tf::Executor* m_tfExec;
-    Hardware m_hw;
+    std::unique_ptr<tf::Executor> m_upCudaExec;
   };
   
-  Executor& default_cpu_executor();
-  
-#ifdef BUILD_WITH_CUDA
-  Executor& default_cuda_executor();
-#endif
-  
-  Executor& default_executor(Hardware hw);
+  Executor& default_executor();
 }
 
 #endif

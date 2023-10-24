@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (BUILD_WITH_CUDA)
   SET(LANG_CUDA CUDA)
+  add_compile_definitions(BUILD_WITH_CUDA=1)
 else()
   SET(LANG_CUDA )
 endif()

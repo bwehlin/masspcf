@@ -39,7 +39,7 @@ namespace mpcf
         out[i * sz + j] = out[j * sz + i];
       }
     });
-    auto future = exec->run(flow);
+    auto future = exec.cpu()->run(flow);
     future.wait();
   }
   
@@ -57,14 +57,14 @@ namespace mpcf
       }
     });
 
-    auto future = exec->run(std::move(flow));
+    auto future = exec.cpu()->run(std::move(flow));
     future.wait();
   }
   
   template <typename Tt, typename Tv, typename RectangleOp>
   void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {
-    matrix_integrate<Tt, Tv, RectangleOp>(default_cpu_executor(), out, fs, op, symmetric, a, b);
+    matrix_integrate<Tt, Tv, RectangleOp>(default_executor(), out, fs, op, symmetric, a, b);
   }
   
   
@@ -112,7 +112,7 @@ namespace mpcf
       tasks.emplace_back(create_terminal_task(flow));
       flow.linearize(tasks);
 
-      return exec->run(std::move(flow));
+      return exec.cpu()->run(std::move(flow));
     }
     
     void compute_row(size_t i)
@@ -140,11 +140,11 @@ namespace mpcf
   };
   
   template <typename Tt, typename Tv>
-  void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Executor& executor = default_cpu_executor())
+  void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Executor& executor = default_executor(), Hardware hardware = Hardware::CPU)
   {
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
     
-    switch (executor.hardware())
+    switch (hardware)
     {
 #if 0
 #ifdef BUILD_WITH_CUDA
@@ -159,8 +159,7 @@ namespace mpcf
       }, true);
     }
     
-    auto & cpuExec = executor.hardware() == Hardware::CPU ? executor : default_cpu_executor();
-    make_lower_triangle<Tv>(cpuExec, out, fs.size());
+    make_lower_triangle<Tv>(*executor.cpu(), out, fs.size());
   }
 }
 

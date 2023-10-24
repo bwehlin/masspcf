@@ -192,6 +192,7 @@ namespace mpcf
         , m_gpuHostThreads(m_nGpus)
         , m_progressCb(progressCb)
       {
+        m_canceled.store(false);
         init(begin, end);
       }
 
@@ -200,6 +201,11 @@ namespace mpcf
         for_each_block_row([this, a, b, op](dim3 gridDim, dim3 blockDim, const DeviceKernelParams<time_type, value_type>& params, const RowInfo& rowInfo) {
           call_riemann_integrate<time_type, value_type>(gridDim, blockDim, params, rowInfo, a, b, op);
           });
+      }
+      
+      void cancel()
+      {
+        m_canceled.store(true);
       }
       
     private:
@@ -316,6 +322,10 @@ namespace mpcf
         tf::Taskflow flow;
 
         flow.for_each_index<size_t, size_t, size_t>(0ul, m_blockRowBoundaries.size(), 1ul, [this, launchFunc](size_t i) {
+          if (m_canceled.load())
+          {
+            return;
+          }
           exec_block_row(i, launchFunc);
           });
 
@@ -378,6 +388,8 @@ namespace mpcf
       dim3 m_blockDim = dim3(128, 1, 1); // TODO
 
       ProgressCb m_progressCb;
+      
+      std::atomic_bool m_canceled;
     };
 
   }
@@ -425,7 +437,14 @@ namespace mpcf
       tasks.emplace_back(create_terminal_task(flow));
       flow.linearize(tasks);
 
-      return exec->run(std::move(flow));
+      // We run the task as a CPU task. The actual job will spawn additional tasks on the GPU
+      // executor.
+      return exec.cpu()->run(std::move(flow));
+    }
+  
+    void on_stop_requested() override
+    {
+      m_iterator.cancel();
     }
 
     std::vector<Pcf<Tt, Tv>> m_fs;

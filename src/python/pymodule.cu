@@ -24,16 +24,7 @@ namespace
     bool forceCpu = false;
     
   } g_settings;
-  
-#if 0
-  tf::Executor& py_exec()
-  {
-    static tf::Executor exec(1);
-    return exec;
-  }
-#endif
-  
-  
+
   template <typename RetT>
   class Future
   {
@@ -138,37 +129,6 @@ namespace
           return reduction(rect.left, rect.right, rect.top, rect.bottom); 
         });
     }
-  
-    static py::array_t<Tv> l1_inner_prod(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      py::array_t<Tv> matrix({fs.size(), fs.size()});
-  #ifdef BUILD_WITH_CUDA
-//      mpcf::cuda_matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, mpcf::device_ops::l1_inner_prod<Tt, Tv>());
-  #else
-      mpcf::matrix_integrate<Tt, Tv>(matrix.mutable_data(0), fs, 
-        [](const typename mpcf::Pcf<Tt, Tv>::rectangle_type& rect){ 
-          return (rect.right - rect.left) * rect.top * rect.bottom;
-        });
-  #endif
-      return matrix;
-    }
-  
-#if 0
-    static Future<void> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* out = matrix.mutable_data(0);
-      
-      mpcf::Executor& exec =
-#ifdef BUILD_WITH_CUDA
-        g_settings.forceCpu ? mpcf::default_cpu_executor() : mpcf::default_cuda_executor();
-#else
-        mpcf::default_cpu_executor();       
-#endif
-      return Future<void>(py_exec().async([fs = std::move(fs), out, &exec]() {
-        mpcf::matrix_l1_dist<Tt, Tv>(out, fs, exec);
-      }));
-    }
-#endif
     
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
@@ -178,12 +138,12 @@ namespace
       if (!g_settings.forceCpu)
       {
         auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs));
-        task->start_async(mpcf::default_cuda_executor());
+        task->start_async(mpcf::default_executor());
         return task;
       }
 #endif
       auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
-      task->start_async(mpcf::default_cpu_executor());
+      task->start_async(mpcf::default_executor());
       return task;
     }
   };
@@ -236,10 +196,7 @@ namespace
         .def_static("add", &Backend<Tt, Tv>::add)
         .def_static("combine", &Backend<Tt, Tv>::combine)
         .def_static("average", &Backend<Tt, Tv>::average)
-        .def_static("mem_average", &Backend<Tt, Tv>::mem_average)
-        .def_static("st_average", &Backend<Tt, Tv>::st_average)
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
-        .def_static("l1_inner_prod", &Backend<Tt, Tv>::l1_inner_prod, py::return_value_policy::move)
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
         ;
       
