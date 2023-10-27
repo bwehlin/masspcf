@@ -7,7 +7,7 @@
 #include "../task.h"
 
 #ifdef BUILD_WITH_CUDA
-//#include "cuda_matrix_integrate.h"
+#include "../cuda/cuda_matrix_integrate.cuh"
 #endif
 
 #include <vector>
@@ -140,18 +140,16 @@ namespace mpcf
   };
   
   template <typename Tt, typename Tv>
-  void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Executor& executor = default_executor(), Hardware hardware = Hardware::CPU)
+  void matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Hardware hardware = Hardware::CPU, Executor& executor = default_executor())
   {
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
     
     switch (hardware)
     {
-#if 0
 #ifdef BUILD_WITH_CUDA
     case Hardware::CUDA:
       cuda_matrix_l1_dist<Tt, Tv>(out, fs);
       break;
-#endif
 #endif
     default:
       matrix_integrate(executor, out, fs, [](const rect_t& rect) -> Tv {
@@ -159,7 +157,7 @@ namespace mpcf
       }, true);
     }
     
-    make_lower_triangle<Tv>(*executor.cpu(), out, fs.size());
+    make_lower_triangle<Tv>(executor, out, fs.size());
   }
 }
 

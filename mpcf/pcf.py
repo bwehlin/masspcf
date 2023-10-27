@@ -91,21 +91,12 @@ def combine(f : Pcf, g : Pcf, cb):
   
 def average(fs):
   fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.st_average(fsdata))
-
-def mem_average(fs, chunksz=8):
-  fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.mem_average(fsdata, chunksz))
-
-def st_average(fs):
-  fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.st_average(fsdata))
+  return Pcf(backend.average(fsdata))
 
 def parallel_reduce(fs, cb):
   cb = cb.address
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.parallel_reduce(fsdata, cb))
-
 
 def wait_for_task(task):
   def init_progress(task):

@@ -43,25 +43,13 @@ namespace mpcf
       return combine(f, g, op);
     });
   }
-  
-  template <typename TPcf>
-  TPcf parallel_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op)
-  {
-    tf::Taskflow taskflow;
-    tf::Executor exec;
-    TPcf f;
-    /*auto task =*/ taskflow.reduce(fs.begin(), fs.end(), f, [&op](const TPcf& f, const TPcf& g) {
-      return combine(f, g, op);
-    });
-    exec.run(taskflow).wait();
-    return f;
-  }
 
   template <typename TPcf>
   class Accumulator
   {
   public:
     using point_type = typename TPcf::point_type;
+    using time_type = typename TPcf::time_type;
 
     Accumulator(TOp<TPcf> op, size_t sizeHint)
       : m_op(op)
@@ -142,7 +130,7 @@ namespace mpcf
       m_pts_temp.clear();
       m_pts_temp.resize(m_pts.size() + other.size() + 1);
 
-      iterate_rectangles(m_pts, other, 0, 1000, [&i, this](const rectangle_type& rect){
+      iterate_rectangles(m_pts, other, 0, std::numeric_limits<time_type>::max(), [&i, this](const rectangle_type& rect){
         ++i;
         m_pts_temp[i].t = rect.left;
         m_pts_temp[i].v = m_op(rect);
@@ -164,7 +152,7 @@ namespace mpcf
   };
 
   template <typename TPcf>
-  TPcf mem_parallel_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op, size_t chunkszFirst = 8)
+  TPcf parallel_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op, size_t chunkszFirst = 8)
   {
     auto chunksz = 2;
     auto blocks = subdivide(chunkszFirst , fs.size());
@@ -188,7 +176,7 @@ namespace mpcf
         {
           accumulators[iBlock] += fs[i];
         }
-      }); //.name("f" + std::to_string(block.first) + "..." + std::to_string(block.second) + " -> acc" + std::to_string(iBlock));
+      });
     }
 
     std::vector<size_t> tags;
@@ -197,7 +185,6 @@ namespace mpcf
       auto const & prevLevel = taskLevels.back();
       blocks = subdivide(chunksz, prevLevel.size());
       
-      //std::vector<TaskWithTag> tasks(blocks.size());
       auto & tasks = taskLevels.emplace_back(blocks.size());
 
       for (auto iBlock = 0ul; iBlock < blocks.size(); ++iBlock)
@@ -205,25 +192,13 @@ namespace mpcf
         auto const & block = blocks[iBlock];
         auto targetAcc = prevLevel[block.first].tag;
         tasks[iBlock].tag = targetAcc;
-#if 0
-        std::string srcAccs;
-        for (auto i = block.first + 1; i <= block.second; ++i)
-        {
-          auto srcAcc = prevLevel[i].tag;
-          if (i != block.first + 1)
-          {
-            srcAccs += ",";
-          }
-          srcAccs += std::to_string(srcAcc);
-        }
-#endif
         tasks[iBlock].task = taskflow.emplace([targetAcc, block, &accumulators, &prevLevel](){
           for (auto i = block.first + 1; i <= block.second; ++i)
           {
             auto srcAcc = prevLevel[i].tag;
             accumulators[targetAcc] += accumulators[srcAcc];
           }
-        }); //.name(srcAccs + "->" + std::to_string(targetAcc));
+        });
         for (auto iPrev = block.first; iPrev <= block.second; ++iPrev)
         {
           tasks[iBlock].task.succeed(prevLevel[iPrev].task);
@@ -232,60 +207,9 @@ namespace mpcf
 
     }
 
-
-    //taskflow.dump(std::cout);
     exec.run(taskflow).wait();
 
     return TPcf(std::move(accumulators[0].m_pts));
-
-#if 0
-
-    taskflow.for_each_index(0ul, boundaries.size(), 1ul, [&fs, &accumulators, &boundaries](size_t iBlock) {
-      auto const & block = boundaries[iBlock];
-      for (auto i = block.first; i <= block.second; ++i)
-      {
-        accumulators[iBlock] += fs[i];
-      }
-    });
-    exec.run(taskflow).wait();
-    for (auto it = accumulators.begin() + 1; it != accumulators.end(); ++it)
-    {
-      accumulators[0] += *it;
-    }
-    return TPcf(std::move(accumulators[0].m_pts));
-
-    //std::vector<Accumulator<TPcf>> accumulators;
-    accumulators.reserve(fs.size());
-    for (auto const & f : fs)
-    {
-      accumulators.emplace_back(op, f);
-    }
-
-    //tf::Taskflow taskflow;
-    //tf::Executor exec;
-    Accumulator<TPcf> ret(op);
-    /*auto task =*/ taskflow.reduce(accumulators.begin(), accumulators.end(), ret, 
-    [&op](Accumulator<TPcf>& f, Accumulator<TPcf>& g) {
-      return std::move(f += g);
-    });
-    exec.run(taskflow).wait();
-    return TPcf(std::move(ret.m_pts));
-
-#endif
-
-#if 0
-    Accumulator<TPcf> acc(op);
-    for (auto const & f : fs)
-    {
-      acc += f;
-    }
-#endif
-
-    //auto acc = std::reduce(fs.begin(), fs.end(), Accumulator<TPcf>(op), [](Accumulator<TPcf>& lhs, const Accumulator<TPcf>& rhs) {
-     // return lhs += rhs;
-    //});
-    //return TPcf(std::move(acc.m_pts));
-    return fs[0];
   }
 }
 

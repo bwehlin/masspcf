@@ -90,15 +90,6 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs)
-  {
-    auto f = parallel_reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top + rect.bottom;
-    });
-    return f / static_cast<Tv>(fs.size());
-  }
-
-  template <typename Tt, typename Tv>
   Pcf<Tt, Tv> st_average(const std::vector<Pcf<Tt, Tv>>& fs)
   {
     auto f = reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
@@ -108,9 +99,9 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> mem_average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
+  Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
-    auto f = mem_parallel_reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
+    auto f = parallel_reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;
     }, chunksz);
     return f / static_cast<Tv>(fs.size());

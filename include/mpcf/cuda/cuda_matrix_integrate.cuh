@@ -6,8 +6,8 @@
 #include "../task.h"
 #include "../pcf.h"
 #include "../executor.h"
-
-#include "../algorithms/matrix_integrate.h"
+#include "../operations.cuh"
+#include "../block_matrix_support.cuh"
 
 #include "cuda_util.cuh"
 #include "cuda_matrix_integrate_structs.cuh"
@@ -45,17 +45,6 @@ namespace mpcf
       }
 
       return retVal;
-    }
-
-    size_t get_row_size(size_t maxAllocationN, size_t nSplits, size_t nPcfs)
-    {
-      size_t maxRowHeight = maxAllocationN / nPcfs;
-
-      maxRowHeight = std::min(maxRowHeight, nPcfs);
-      maxRowHeight /= nSplits;
-      maxRowHeight = std::max<size_t>(maxRowHeight, 1ul);
-
-      return maxRowHeight;
     }
 
     template <typename T>
@@ -394,26 +383,7 @@ namespace mpcf
       std::atomic_bool m_canceled;
     };
 
-  }
-
-  template <typename Tt, typename Tv>
-  struct OperationL1Dist
-  {
-    __host__ __device__ Tv operator()(Tv t, Tv b) const
-    {
-      return abs(t - b);
-    }
-  };
-
-  template <typename Tt, typename Tv>
-  struct LpDist
-  {
-    Tv p = 2.0;
-    __host__ __device__ Tv operator()(Tt l, Tt r, Tv t, Tv b) const
-    {
-      return pow(abs(t - b), p);
-    }
-  };
+  } // namespace internal
 
   template <typename Tt, typename Tv, typename ComboOp = OperationL1Dist<Tt, Tv>>
   class MatrixIntegrateCudaTask : public mpcf::StoppableTask<void>
@@ -421,6 +391,15 @@ namespace mpcf
   public:
     MatrixIntegrateCudaTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
       : m_fs(std::move(fs))
+      , m_op(op)
+      , m_a(a)
+      , m_b(b)
+      , m_out(out)
+      , m_iterator(out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
+    { }
+  
+    MatrixIntegrateCudaTask(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+      : m_fs(fs)
       , m_op(op)
       , m_a(a)
       , m_b(b)
@@ -474,6 +453,14 @@ namespace mpcf
   std::unique_ptr<StoppableTask<void>> create_matrix_l1_distance_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
   {
     return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>>>(out, std::move(fs), OperationL1Dist<Tt, Tv>(), a, b);
+  }
+  
+  template <typename Tt, typename Tv>
+  void cuda_matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor())
+  {
+    MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>> task(out, fs, OperationL1Dist<Tt, Tv>(), a, b);
+    task.start_async(exec);
+    task.wait();
   }
 }
 

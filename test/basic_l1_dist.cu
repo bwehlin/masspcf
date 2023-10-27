@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/pcf.h>
-#include <mpcf/algorithms/cuda_matrix_integrate.h>
 #include <mpcf/algorithms/matrix_integrate.h>
 
 #include <vector>
@@ -35,12 +34,12 @@ namespace
 
 TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
 {
-  auto& executor = mpcf::default_executor(GetParam());
+  auto hardware = GetParam();
   
   pcfs.resize(2);
   allocate_matrix();
   
-  mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, executor);
+  mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
   
   EXPECT_EQ(ij(0, 0), 0.f);
   EXPECT_EQ(ij(0, 1), 0.f);
@@ -50,13 +49,13 @@ TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
 
 TEST_P(PcfL1IntegratorFixture, TwoPointPcfL1dist)
 {
-  auto& executor = mpcf::default_executor(GetParam());
+  auto hardware = GetParam();
   
   pcfs.emplace_back(std::vector<mpcf::Point_f32>({ mpcf::Point_f32(0.f, 3.f), mpcf::Point_f32(1.0, 0.0) }));
   pcfs.emplace_back(std::vector<mpcf::Point_f32>({ mpcf::Point_f32(0.f, 1.f), mpcf::Point_f32(2.0, 0.0) }));
   allocate_matrix();
   
-  mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, executor);
+  mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
   
   EXPECT_EQ(ij(0, 0), 0.f);
   EXPECT_EQ(ij(0, 1), 3.f);

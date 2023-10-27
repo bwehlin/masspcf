@@ -1,5 +1,5 @@
-#ifndef MPCF_BLOCK_MATRIX_SUPPORT_H
-#define MPCF_BLOCK_MATRIX_SUPPORT_H
+#ifndef MPCF_BLOCK_MATRIX_SUPPORT_CUH
+#define MPCF_BLOCK_MATRIX_SUPPORT_CUH
 
 #include <cuda_runtime.h> // dim3
 #include <string>
@@ -9,7 +9,7 @@
 
 namespace mpcf::internal
 {
-  size_t get_row_size(size_t maxAllocationN, size_t nSplits, size_t nPcfs)
+  inline size_t get_row_size(size_t maxAllocationN, size_t nSplits, size_t nPcfs)
   {
     size_t maxRowHeight = maxAllocationN / nPcfs;
     
@@ -20,7 +20,7 @@ namespace mpcf::internal
     return maxRowHeight;
   }
   
-  dim3 get_grid_dims(dim3 blockSz, size_t rowHeight, size_t nPcfs)
+  inline dim3 get_grid_dims(dim3 blockSz, size_t rowHeight, size_t nPcfs)
   {
     int iover = rowHeight % blockSz.x == 0 ? 0 : 1;
     int jover = nPcfs % blockSz.y == 0 ? 0 : 1;
@@ -28,7 +28,7 @@ namespace mpcf::internal
     return dim3( rowHeight / blockSz.x + iover, nPcfs / blockSz.y + jover, 1 );
   }
   
-  size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)
+  inline size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)
   {
     return boundaries.second - boundaries.first + 1;
   }

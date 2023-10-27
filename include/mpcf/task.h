@@ -78,6 +78,11 @@ namespace mpcf
       std::unique_lock<std::mutex> lock(m_mutex);
       return m_condition.wait_for(lock, duration, [this] { return m_done; });
     }
+    
+    void wait()
+    {
+      m_future.wait();
+    }
 
   protected:
     void add_progress(size_t n_items)

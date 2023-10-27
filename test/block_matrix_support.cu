@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../src/block_matrix_support.h"
+#include <mpcf/block_matrix_support.cuh>
 #include <mpcf/algorithms/subdivide.h>
 
 void PrintTo(const dim3& d, std::ostream* os)

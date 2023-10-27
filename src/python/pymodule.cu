@@ -111,16 +111,6 @@ namespace
       return mpcf::average(fs);
     }
   
-    static mpcf::Pcf<Tt, Tv> mem_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, size_t chunksz)
-    {
-      return mpcf::mem_average(fs, chunksz);
-    }
-  
-    static mpcf::Pcf<Tt, Tv> st_average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      return mpcf::st_average(fs);
-    }
-  
     static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
       ReductionWrapper<Tt, Tv> reduction(cb);
       return mpcf::parallel_reduce(fs, 
