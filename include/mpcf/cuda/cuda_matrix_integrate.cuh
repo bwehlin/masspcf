@@ -177,12 +177,12 @@ namespace mpcf
       using time_type = typename pcf_type::time_type;
       using value_type = typename pcf_type::value_type;
 
-      CudaMatrixRectangleIterator(value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
+      CudaMatrixRectangleIterator(tf::Executor& exec, value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
         : m_out(out)
-        , m_nGpus(1)
-        , m_gpuHostThreads(m_nGpus)
+        , m_gpuHostThreads(exec)
         , m_progressCb(progressCb)
       {
+        m_nGpus = exec.num_workers();
         m_canceled.store(false);
         init(begin, end);
       }
@@ -368,8 +368,8 @@ namespace mpcf
 
       value_type* m_out;
 
+      tf::Executor& m_gpuHostThreads;
       size_t m_nGpus;
-      tf::Executor m_gpuHostThreads;
 
       mpcf::internal::HostPcfOffsetData<time_type, value_type> m_h_offsetData;
       std::vector<std::pair<size_t, size_t>> m_blockRowBoundaries;
@@ -389,22 +389,22 @@ namespace mpcf
   class MatrixIntegrateCudaTask : public mpcf::StoppableTask<void>
   {
   public:
-    MatrixIntegrateCudaTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
       : m_fs(std::move(fs))
       , m_op(op)
       , m_a(a)
       , m_b(b)
       , m_out(out)
-      , m_iterator(out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
+      , m_iterator(cudaThreads, out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
     { }
   
-    MatrixIntegrateCudaTask(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
       : m_fs(fs)
       , m_op(op)
       , m_a(a)
       , m_b(b)
       , m_out(out)
-      , m_iterator(out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
+      , m_iterator(cudaThreads, out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
     { }
 
   private:
@@ -452,13 +452,14 @@ namespace mpcf
   template <typename Tt, typename Tv>
   std::unique_ptr<StoppableTask<void>> create_matrix_l1_distance_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
   {
-    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>>>(out, std::move(fs), OperationL1Dist<Tt, Tv>(), a, b);
+    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>>>(*default_executor().cuda(), out, std::move(fs), OperationL1Dist<Tt, Tv>(), a, b);
   }
   
   template <typename Tt, typename Tv>
   void cuda_matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor())
   {
-    MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>> task(out, fs, OperationL1Dist<Tt, Tv>(), a, b);
+    // MatrixIntegrateCudaTask(Executor& exec, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+    MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>> task(*exec.cuda(), out, fs, OperationL1Dist<Tt, Tv>(), a, b);
     task.start_async(exec);
     task.wait();
   }
