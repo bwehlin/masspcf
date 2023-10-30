@@ -11,7 +11,6 @@
 #include <mpcf/task.h>
 
 #ifdef BUILD_WITH_CUDA
-//#include <mpcf/algorithms/cuda_matrix_integrate.h>
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #endif
 
@@ -22,6 +21,10 @@ namespace
   struct Settings
   {
     bool forceCpu = false;
+
+#ifdef BUILD_WITH_CUDA
+    dim3 blockDim = dim3(32, 1, 1);
+#endif
     
   } g_settings;
 
@@ -128,6 +131,7 @@ namespace
       if (!g_settings.forceCpu)
       {
         auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs));
+        task->set_block_dim(g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
       }
@@ -178,6 +182,7 @@ namespace
         .def("debug_print", &TPcf::debug_print) \
         .def("to_numpy", &mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>)
         .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
+        .def("size", [](TPcf& self){ return self.points().size(); })
         ;
       
       py::class_<Backend<Tt, Tv>> backend(m, ("Backend" + suffix).c_str());
@@ -215,4 +220,7 @@ PYBIND11_MODULE(mpcf_cpp, m) {
     .def("wait_for", &Future<void>::wait_for);
   
   m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
+#ifdef BUILD_WITH_CUDA
+  m.def("set_block_dim", [](size_t x, size_t y) { g_settings.blockDim = dim3(x, y, 1); });
+#endif
 }

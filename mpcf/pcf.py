@@ -5,6 +5,9 @@ from tqdm import tqdm
 def force_cpu(on : bool):
   cpp.force_cpu(on)
 
+def set_block_size(x : int, y : int):
+  cpp.set_block_dim(x, y)
+
 class Pcf:
   def __init__(self, arr):
     if isinstance(arr, np.ndarray):
@@ -54,6 +57,9 @@ class Pcf:
   def __truediv__(self, c):
     self.data_ = self.data_.div_scalar(c)
     return self
+  
+  def size(self):
+    return self.data_.size()
 
 tPcf_f32_f32 = Pcf(np.array([[0],[0]]).astype(np.float32))
 tPcf_f64_f64 = Pcf(np.array([[0],[0]]).astype(np.float64))

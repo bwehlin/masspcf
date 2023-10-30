@@ -16,6 +16,7 @@
 #include <taskflow/taskflow.hpp>
 
 #include <vector>
+#include <iostream>
 
 namespace mpcf
 {
@@ -198,6 +199,11 @@ namespace mpcf
       {
         m_canceled.store(true);
       }
+
+      void set_block_dim(const dim3& dim)
+      {
+        m_blockDim = dim;
+      }
       
     private:
 
@@ -376,7 +382,7 @@ namespace mpcf
 
       std::vector<mpcf::internal::DeviceStorage<time_type, value_type>> m_deviceStorages;
 
-      dim3 m_blockDim = dim3(128, 1, 1); // TODO
+      dim3 m_blockDim = dim3(32, 1, 1);
 
       ProgressCb m_progressCb;
       
@@ -410,6 +416,8 @@ namespace mpcf
   private:
     tf::Future<void> run_async(Executor& exec) override
     {
+      m_iterator.set_block_dim(get_block_dim());
+
       next_step(m_fs.size() * (m_fs.size() + 1) / 2, "Computing upper triangle", "integral");
 
       tf::Taskflow flow;

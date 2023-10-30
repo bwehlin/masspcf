@@ -6,6 +6,9 @@ _skbuild
 .vs
 CMakeSettings.json
 copypy
+examples/*.png
+vsbuild*
+copypy.bat
 
 # Temporary local test
 parallel_reduce.py
