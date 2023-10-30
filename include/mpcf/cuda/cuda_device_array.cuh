@@ -21,7 +21,7 @@ namespace mpcf
       allocate(sz, blockSz);
     }
     
-    CudaDeviceArray(const std::vector<T> data, const dim3& blockSz = dim3(1, 1, 1))
+    CudaDeviceArray(const std::vector<T>& data, const dim3& blockSz = dim3(1, 1, 1))
     {
       allocate(data.size(), blockSz);
       toDevice(data);
