@@ -4,6 +4,10 @@
 #include <vector>
 
 #include "../executor.h"
+#include "subdivide.h"
+
+#include <taskflow/taskflow.hpp>
+#include <taskflow/algorithm/for_each.hpp>
 
 namespace mpcf
 {
@@ -69,7 +73,7 @@ namespace mpcf
     };
 
     template <typename Tv, typename Indexer>
-    inline void apply_matrix_reverse_cycle(Tv* matrix, size_t n, std::vector<Tv>& tmp, const std::vector<size_t>& cycle, Indexer idx, Executor& exec) 
+    inline void apply_matrix_reverse_cycle(Tv* matrix, size_t n, size_t jFirst, size_t jLast, std::vector<Tv>& tmp, const std::vector<size_t>& cycle, Indexer idx, Executor& exec) 
     {
       // This code is written as if we are flipping rows of the matrix, but the indexer allows for flipping columns instead.
 
@@ -77,7 +81,7 @@ namespace mpcf
       size_t i = *cycle.rbegin();
 
       // Copy the first "row"
-      for (size_t j = 0ul; j < n; ++j)
+      for (size_t j = jFirst; j <= jLast; ++j)
       {
         tmp[j] = matrix[idx(i, j, n)];
       }
@@ -88,7 +92,7 @@ namespace mpcf
       {
         i = *it;
         iNext = *std::next(it);
-        for (size_t j = 0ul; j < n; ++j)
+        for (size_t j = jFirst; j <= jLast; ++j)
         {
           matrix[idx(i, j, n)] = matrix[idx(iNext, j, n)];
         }
@@ -96,7 +100,7 @@ namespace mpcf
 
       i = *cycle.rbegin();
       iNext = *last;
-      for (size_t j = 0ul; j < n; ++j)
+      for (size_t j = jFirst; j <= jLast; ++j)
       {
         matrix[idx(iNext, j, n)] = tmp[j];
       }
@@ -110,7 +114,7 @@ namespace mpcf
   /// 
   /// All cycles are expected to be nonempty.
   template <typename Tv>
-  inline void reverse_permute_in_place(Tv* matrix, std::vector<size_t> permutation, Executor& exec = default_executor())
+  inline void reverse_permute_in_place(Tv* matrix, std::vector<size_t> permutation, Executor& exec = default_executor(), size_t blockSz = 100ul)
   {
     auto n = permutation.size();
 
@@ -118,18 +122,31 @@ namespace mpcf
     detail::ColumnIndexer cols;
 
     auto cycles = get_cycles(permutation);
+    auto divs = subdivide(blockSz, n);
 
     std::vector<Tv> tmp(n);
-    for (auto const& cycle : cycles)
+
+    tf::Taskflow rowFlow;
+    
+    for (auto const& div : divs)
     {
-      detail::apply_matrix_reverse_cycle(matrix, n, tmp, cycle, rows, exec);
+      rowFlow.for_each(cycles.begin(), cycles.end(), [matrix, n, &tmp, &rows, &exec, &div](const std::vector<size_t>& cycle) {
+        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, tmp, cycle, rows, exec);
+        });
     }
 
-    for (auto const& cycle : cycles)
+    exec.cpu()->run(std::move(rowFlow)).wait();
+
+    tf::Taskflow colFlow;
+
+    for (auto const& div : divs)
     {
-      detail::apply_matrix_reverse_cycle(matrix, n, tmp, cycle, cols, exec);
+      colFlow.for_each(cycles.begin(), cycles.end(), [matrix, n, &tmp, &cols, &exec, &div](const std::vector<size_t>& cycle) {
+        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, tmp, cycle, cols, exec);
+        });
     }
 
+    exec.cpu()->run(std::move(colFlow)).wait();
   }
 }
 
