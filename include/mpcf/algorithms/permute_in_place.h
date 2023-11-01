@@ -12,29 +12,32 @@ namespace mpcf
     auto seen = permutation.size(); // Sentinel value
     std::vector<std::vector<size_t>> cycles;
 
-    std::vector<size_t> cycle;
+    std::vector<size_t> cycle; // Kept outside the loop for performance
+    size_t n = 0;
+    size_t nextN = 0;
     for (size_t i = 0ul; i < permutation.size(); ++i)
     {
       if (permutation[i] == seen) 
       {
+        // This item is already part of a cycle
         continue;
       }
 
       cycle.clear();
       cycle.emplace_back(i);
-      auto n = permutation[i];
+      n = permutation[i]; // n follows the start element 'i' around its orbit
       while (n != seen && n != i)
       {
         cycle.emplace_back(n);
 
-        auto nextn = permutation[n];
+        nextN = permutation[n];
         permutation[n] = seen;
-
-        n = nextn;
+        n = nextN;
       }
 
       if (cycle.size() > 1)
       {
+        // We only care about nontrivial cycles
         cycles.emplace_back();
         cycles.back().swap(cycle);
       }
