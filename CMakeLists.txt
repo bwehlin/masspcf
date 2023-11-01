@@ -129,9 +129,10 @@ if (NOT SKBUILD AND BUILD_TESTER)
   endif()
 
   add_executable(mpcf_test
-    test/block_matrix_support.cu
-    test/basic_l1_dist.cu
-    test/permutations.cu)
+    test/test_block_matrix_support.cu
+    test/test_l1_dist.cu
+    test/test_permutations.cu
+    test/test_permute_in_place.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
 
   target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
