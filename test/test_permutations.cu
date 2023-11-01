@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <mpcf/algorithms/permute_in_place.h>
+#include <mpcf/algorithms/permute_in_place.cuh>
 
 TEST(Permutations, EmptyPermutationHasNoCycles)
 {

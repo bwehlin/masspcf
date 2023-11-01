@@ -80,7 +80,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/reduce.h
   include/mpcf/algorithms/matrix_integrate.h
   include/mpcf/algorithms/subdivide.h
-  include/mpcf/algorithms/permute_in_place.h
+  include/mpcf/algorithms/permute_in_place.cuh
   include/mpcf/block_matrix_support.cuh
   ${MPCF_LIB_SOURCES_CUDA}
 )
@@ -109,7 +109,7 @@ target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 
 target_include_directories(mpcf_cpp PUBLIC "include/")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
-target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION})
+target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (NOT SKBUILD AND BUILD_TESTER)
   set(BUILD_GMOCK OFF)
