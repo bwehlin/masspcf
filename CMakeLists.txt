@@ -46,7 +46,6 @@ endif()
 
 message(STATUS "Python executable: ${Python_EXECUTABLE} ")
 
-
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
@@ -110,6 +109,13 @@ target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 target_include_directories(mpcf_cpp PUBLIC "include/")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
+
+if (MSVC)
+  # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
+  # by using VC++ Include Directories instead of on the compiler-level
+  get_filename_component(taskflow_DIR "taskflow" REALPATH)
+  set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+endif()
 
 if (NOT SKBUILD AND BUILD_TESTER)
   set(BUILD_GMOCK OFF)
