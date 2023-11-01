@@ -5,6 +5,8 @@
 
 namespace mpcf
 {
+  /// Returns a cycle decomposition of the given permutation. It is assumed that
+  /// if 'permutation' has size n, then all values 0,1,...,n-1 occur in 'permutation'
   std::vector<std::vector<size_t>> get_cycles(std::vector<size_t> permutation)
   {
     auto seen = permutation.size(); // Sentinel value
