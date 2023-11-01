@@ -1,6 +1,7 @@
 #ifndef MPCF_EXECUTOR_H
 #define MPCF_EXECUTOR_H
 
+#include "platform.h"
 #include <taskflow/core/executor.hpp>
 #include <memory>
 
@@ -81,7 +82,7 @@ namespace mpcf
     std::unique_ptr<tf::Executor> m_upCudaExec;
   };
   
-  Executor& default_executor();
+  MPCF_EXPORT_API Executor& default_executor();
 }
 
 #endif

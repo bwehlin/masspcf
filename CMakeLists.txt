@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20...3.27)
 
+include(FetchContent)
+
 if (APPLE)
   set(BUILD_WITH_CUDA OFF)
 else()
@@ -16,6 +18,11 @@ endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if (WIN32)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+endif() 
 
 if (BUILD_WITH_CUDA)
   SET(LANG_CUDA CUDA)
@@ -36,6 +43,9 @@ if (SKBUILD)
 else()
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
+
+message(STATUS "Python executable: ${Python_EXECUTABLE} ")
+
 
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -62,6 +72,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/point.h
   include/mpcf/rectangle.h
   include/mpcf/operations.cuh
+  include/mpcf/platform.h
   include/mpcf/task.h
   include/mpcf/executor.h src/executor.cu
   include/mpcf/algorithm.h
@@ -69,6 +80,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/reduce.h
   include/mpcf/algorithms/matrix_integrate.h
   include/mpcf/algorithms/subdivide.h
+  include/mpcf/algorithms/permute_in_place.h
   include/mpcf/block_matrix_support.cuh
   ${MPCF_LIB_SOURCES_CUDA}
 )
@@ -91,7 +103,6 @@ endif()
 
 if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
-  target_compile_definitions(mpcf_cpp PRIVATE -D BUILD_WITH_CUDA=1)
 endif()
 
 target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
@@ -101,28 +112,36 @@ target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION})
 
 if (NOT SKBUILD AND BUILD_TESTER)
-  ######################################################################
-  # From: https://google.github.io/googletest/quickstart-cmake.html
-  ######################################################################
-  include(FetchContent)
+  set(BUILD_GMOCK OFF)
+  set(INSTALL_GTEST OFF)
+  set(gtest_force_shared_crt ON)
+
   FetchContent_Declare(
     googletest
-    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
   )
-  # For Windows: Prevent overriding the parent project's compiler/linker settings
-  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-  FetchContent_MakeAvailable(googletest)
-  ######################################################################
+  
+  FetchContent_GetProperties(googletest)
+  if(NOT googletest_POPULATED)
+    FetchContent_Populate(googletest)
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+  endif()
 
   add_executable(mpcf_test
     test/block_matrix_support.cu
     test/basic_l1_dist.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_cpp ${CUDART_LIBRARY})
-  target_compile_definitions(mpcf_test PUBLIC -D BUILD_WITH_CUDA=1)
-  include(GoogleTest)
-  gtest_discover_tests(mpcf_test)
+  target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
+  
+  #include(GoogleTest)
+  #gtest_discover_tests(mpcf_test)
+
+  if (WIN32)
+    get_filename_component(python_dir "${Python_EXECUTABLE}" DIRECTORY)
+    set_target_properties(mpcf_test PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${python_dir}")
+  endif()
 endif()
 
 if (BUILD_BENCHMARKS)
@@ -140,5 +159,17 @@ if (BUILD_BENCHMARKS)
   
   target_link_libraries(mpcf_bench PUBLIC mpcf_cpp ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
 endif()
+
+#set_target_properties(mpcf_cpp PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+
+if (WIN32) 
+  #set_property(TARGET mpcf_cpp PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  #set_property(TARGET mpcf_test PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  #set_property(TARGET gtest_main PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  #set_property(TARGET gtest PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  #set_property(TARGET mpcf_bench PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif() 
+
+
 
 install(TARGETS mpcf_cpp DESTINATION mpcf)
