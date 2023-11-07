@@ -48,6 +48,7 @@ int main(int argc, char** argv)
       ("reps,r", po::value<int>(&nReps)->default_value(1), "number of repetitions")
       ("test", po::value<std::string>(&testName), "specifies which test to run")
       ("chunksz", po::value<int>(), "chunk size")
+      ("newCode", "use new code")
     ;
     
     

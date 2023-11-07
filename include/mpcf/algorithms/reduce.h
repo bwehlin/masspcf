@@ -3,6 +3,7 @@
 
 #include "iterate_rectangles.h"
 #include "subdivide.h"
+#include "../executor.h"
 
 #include <functional>
 #include <vector>
@@ -51,7 +52,7 @@ namespace mpcf
     using point_type = typename TPcf::point_type;
     using time_type = typename TPcf::time_type;
 
-    Accumulator(TOp<TPcf> op, size_t sizeHint)
+    Accumulator(TOp<TPcf> op, size_t sizeHint = 0ul)
       : m_op(op)
     { 
       m_pts.reserve(sizeHint);
@@ -77,6 +78,11 @@ namespace mpcf
 
     Accumulator& operator+=(const Accumulator& other)
     {
+      if (m_pts.empty())
+      {
+        m_pts = other.m_pts;
+        return *this;
+      }
       combine_with_(other.m_pts);
       return *this;
     }
@@ -125,15 +131,33 @@ namespace mpcf
 
     void combine_with_(const std::vector<point_type>& other)
     {
+      if (other.empty())
+      {
+        return;
+      }
+
+      if (m_pts.empty())
+      {
+        m_pts.emplace_back(0, 0);
+      }
+
       using rectangle_type = typename TPcf::rectangle_type;
       auto i = 0ul;
       m_pts_temp.clear();
       m_pts_temp.resize(m_pts.size() + other.size() + 1);
 
-      iterate_rectangles(m_pts, other, 0, std::numeric_limits<time_type>::max(), [&i, this](const rectangle_type& rect){
-        ++i;
-        m_pts_temp[i].t = rect.left;
-        m_pts_temp[i].v = m_op(rect);
+      auto old_val = m_pts.front().v;
+
+      iterate_rectangles(m_pts, other, 0, std::numeric_limits<time_type>::max(), [&i, &old_val, this](const rectangle_type& rect) {
+
+        auto new_val = m_op(rect);
+        if (new_val != old_val)
+        {
+          ++i;
+          m_pts_temp[i].t = rect.left;
+          m_pts_temp[i].v = m_op(rect);
+          old_val = new_val;
+        }
       });
 
       m_pts_temp.resize(i + 1);
@@ -145,12 +169,67 @@ namespace mpcf
     std::vector<point_type> m_pts_temp;
   };
 
+  template <typename TPcf>
+  Accumulator<TPcf> operator+(const Accumulator<TPcf>& lhs, const Accumulator<TPcf>& rhs)
+  {
+    Accumulator<TPcf> ret(lhs);
+    ret += rhs;
+    return ret;
+  }
+
   struct TaskWithTag
   {
     tf::Task task;
     size_t tag;
   };
 
+  template <typename T>
+  class ThreadLocalStorage
+  {
+  public:
+    ThreadLocalStorage(Executor& exec, const T& init = {})
+      : m_data(exec.cpu()->num_workers(), init)
+      , m_exec(exec)
+    { }
+
+    T& local()
+    {
+      return m_data[m_exec.cpu()->this_worker_id()];
+    }
+
+    tf::Task parallel_reduce(tf::Taskflow& flow, T& result)
+    {
+      return flow.reduce(m_data.begin(), m_data.end(), result, [](const T& lhs, const T& rhs) { return lhs + rhs; });
+    }
+
+  private:
+    std::vector<T> m_data;
+    Executor& m_exec;
+  };
+
+  template <typename TPcf>
+  TPcf parallel_reduce_2(const std::vector<TPcf>& fs, TOp<TPcf> op, Executor& exec)
+  {
+    auto nAll = std::accumulate(fs.begin(), fs.end(), static_cast<size_t>(0ul), [](size_t n, const TPcf& f) { return f.points().size() + n; });
+
+    ThreadLocalStorage<Accumulator<TPcf>> accumulators(exec, Accumulator<TPcf>(op, nAll));
+    tf::Taskflow flow;
+    std::vector<tf::Task> tasks;
+    Accumulator<TPcf> retAcc(op, nAll);
+
+    tasks.emplace_back(flow.for_each(fs.begin(), fs.end(), [&accumulators](const TPcf& f) {
+      accumulators.local() += f;
+      }));
+
+    tasks.emplace_back(accumulators.parallel_reduce(flow, retAcc));
+
+    flow.linearize(tasks);
+    
+    exec.cpu()->run(std::move(flow)).wait();
+
+    return TPcf(std::move(retAcc.m_pts));
+  }
+  
   template <typename TPcf>
   TPcf parallel_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op, size_t chunkszFirst = 8)
   {

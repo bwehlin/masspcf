@@ -11,6 +11,12 @@ BenchmarkReduction::init(const boost::program_options::variables_map& vm)
     m_chunksz = vm["chunksz"].as<int>();
     std::cout << "Using chunksz " << m_chunksz << std::endl;
   }
+
+  if (vm.count("newCode"))
+  {
+    m_useNewCode = true;
+    std::cout << "Using new code" << std::endl;
+  }
   
   size_t nUpperTimeLimit = 100;
   size_t nLowerTimeLimit = 2;
@@ -44,5 +50,5 @@ BenchmarkReduction::init(const boost::program_options::variables_map& vm)
 void
 BenchmarkReduction::run()
 {
-  mpcf::mem_average(m_pcfs32, m_chunksz);
+  mpcf::average(m_pcfs32, m_useNewCode, m_chunksz);
 }

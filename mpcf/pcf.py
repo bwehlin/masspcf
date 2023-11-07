@@ -95,9 +95,9 @@ def combine(f : Pcf, g : Pcf, cb):
   backend = _get_backend(f)
   return Pcf(backend.combine(f.data_, g.data_, cb))
   
-def average(fs):
+def average(fs, useNewCode : bool):
   fsdata, backend = _prepare_list(fs)
-  return Pcf(backend.average(fsdata))
+  return Pcf(backend.average(fsdata, useNewCode))
 
 def parallel_reduce(fs, cb):
   cb = cb.address

@@ -9,7 +9,7 @@ else()
 endif()
 
 set(BUILD_TESTER ON)
-set(BUILD_BENCHMARKS OFF)
+set(BUILD_BENCHMARKS ON)
 
 if (SKBUILD)
   set(BUILD_TESTER OFF)
@@ -165,6 +165,7 @@ if (BUILD_BENCHMARKS)
     benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
     )
   
+  target_include_directories(mpcf_bench PUBLIC ${Boost_INCLUDE_DIRS}) 
   target_link_libraries(mpcf_bench PUBLIC mpcf_cpp ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
 endif()
 

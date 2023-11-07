@@ -14,6 +14,7 @@ public:
 private:
   std::vector<mpcf::Pcf_f32> m_pcfs32;
   size_t m_chunksz = 2ul;
+  bool m_useNewCode = false;
 };
 
 #endif

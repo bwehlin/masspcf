@@ -109,9 +109,9 @@ namespace
         });
     }
   
-    static mpcf::Pcf<Tt, Tv> average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    static mpcf::Pcf<Tt, Tv> average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, bool useNewStrategy)
     { 
-      return mpcf::average(fs);
+      return mpcf::average(fs, useNewStrategy);
     }
   
     static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
