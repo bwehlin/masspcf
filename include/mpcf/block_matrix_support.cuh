@@ -22,10 +22,13 @@ namespace mpcf::internal
   
   inline dim3 get_grid_dims(dim3 blockSz, size_t rowHeight, size_t nPcfs)
   {
-    int iover = rowHeight % blockSz.x == 0 ? 0 : 1;
-    int jover = nPcfs % blockSz.y == 0 ? 0 : 1;
+    size_t iover = rowHeight % blockSz.x == 0 ? 0 : 1;
+    size_t jover = nPcfs % blockSz.y == 0 ? 0 : 1;
     
-    return dim3( rowHeight / blockSz.x + iover, nPcfs / blockSz.y + jover, 1 );
+    auto x = rowHeight / static_cast<size_t>(blockSz.x) + iover;
+    auto y = nPcfs / static_cast<size_t>(blockSz.y) + jover;
+
+    return dim3(static_cast<unsigned int>(x), static_cast<unsigned int>(y), 1);
   }
   
   inline size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)

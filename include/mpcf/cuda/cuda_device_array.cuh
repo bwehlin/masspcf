@@ -16,14 +16,14 @@ namespace mpcf
   public:
     CudaDeviceArray() = default;
     
-    CudaDeviceArray(std::size_t sz, const dim3& blockSz = dim3(1, 1, 1))
+    CudaDeviceArray(std::size_t sz)
     {
-      allocate(sz, blockSz);
+      allocate(sz);
     }
     
-    CudaDeviceArray(const std::vector<T>& data, const dim3& blockSz = dim3(1, 1, 1))
+    CudaDeviceArray(const std::vector<T>& data)
     {
-      allocate(data.size(), blockSz);
+      allocate(data.size());
       toDevice(data);
     }
     
@@ -115,7 +115,7 @@ namespace mpcf
       }
     }
     
-    void allocate(std::size_t sz, const dim3& blockSz)
+    void allocate(std::size_t sz)
     {
       CHK_CUDA(cudaMalloc(&m_devPtr, sizeof(T) * sz));
       m_sz = sz;

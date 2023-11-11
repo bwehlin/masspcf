@@ -24,7 +24,7 @@ namespace mpcf
   {
     // Return the maximum number of T's that can be allocated on a single GPU
     template <typename T>
-    size_t get_max_allocation_n(int nGpus) // Use first nGpus GPUs
+    size_t get_max_allocation_n(size_t nGpus) // Use first nGpus GPUs
     {
       constexpr float allocationPct = 0.8f; // Use at most this percentage of free GPU ram for matrix (leave some space for other stuff)
 
@@ -32,13 +32,13 @@ namespace mpcf
 
       for (auto i = 0; i < nGpus; ++i)
       {
-        CHK_CUDA(cudaSetDevice(i));
+        CHK_CUDA(cudaSetDevice(static_cast<int>(i)));
 
         size_t freeMem;
         size_t totalMem;
         CHK_CUDA(cudaMemGetInfo(&freeMem, &totalMem));
 
-        size_t maxMatrixAllocSz = static_cast<float>(freeMem) * allocationPct;
+        size_t maxMatrixAllocSz = static_cast<size_t>(static_cast<float>(freeMem) * allocationPct);
         size_t maxAllocationN = maxMatrixAllocSz / sizeof(float);
         maxAllocationN = (maxAllocationN / 1024) * 1024;
 
@@ -49,7 +49,7 @@ namespace mpcf
     }
 
     template <typename T>
-    std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(int nGpus, size_t nPcfs)
+    std::vector<std::pair<size_t, size_t>> get_block_row_boundaries(size_t nGpus, size_t nPcfs)
     {
       auto maxAllocationN = get_max_allocation_n<T>(nGpus);
       auto nSplits = nGpus * 32; // Give the scheduler something to work with
@@ -221,9 +221,9 @@ namespace mpcf
       {
         m_h_offsetData.timePointOffsets.resize(m_nPcfs + 1);
 
-        auto i = 0ul;
+        size_t i = 0ul;
         // Compute size required for all PCFs
-        auto offset = 0ul;
+        size_t offset = 0ul;
         for (auto it = begin; it != end; ++it)
         {
           auto const& f = (*it).points();
@@ -269,7 +269,7 @@ namespace mpcf
       {
         auto& storage = m_deviceStorages[iGpu];
 
-        CHK_CUDA(cudaSetDevice(iGpu));
+        CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
 
         storage.matrix = mpcf::CudaDeviceArray<value_type>(rowHeight * m_nPcfs);
         storage.points = mpcf::CudaDeviceArray<mpcf::internal::SimplePoint<time_type, value_type>>(m_h_offsetData.points);
@@ -280,7 +280,7 @@ namespace mpcf
       {
         for (auto iGpu = 0; iGpu < m_nGpus; ++iGpu)
         {
-          CHK_CUDA(cudaSetDevice(iGpu));
+          CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
           m_deviceStorages[iGpu].points.toDevice(m_h_offsetData.points);
           m_deviceStorages[iGpu].timePointOffsets.toDevice(m_h_offsetData.timePointOffsets);
         }
@@ -289,14 +289,6 @@ namespace mpcf
       size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)
       {
         return boundaries.second - boundaries.first + 1;
-      }
-
-      dim3 get_grid_dim(size_t rowHeight)
-      {
-        int iover = rowHeight % m_blockDim.x == 0 ? 0 : 1;
-        int jover = m_nPcfs % m_blockDim.y == 0 ? 0 : 1;
-
-        return dim3(rowHeight / m_blockDim.x + iover, m_nPcfs / m_blockDim.y + jover, 1);
       }
 
       DeviceKernelParams<time_type, value_type> make_kernel_params(size_t iGpu) const
@@ -338,17 +330,16 @@ namespace mpcf
 
         auto iGpu = m_gpuHostThreads.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
 
-        CHK_CUDA(cudaSetDevice(iGpu));
+        CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
 
         m_deviceStorages[iGpu].matrix.clear();
 
         value_type* hostMatrix = m_out;
-        value_type* deviceMatrix = m_deviceStorages[iGpu].matrix.get();
 
         auto const& rowBoundaries = m_blockRowBoundaries[iRow];
 
         size_t rowHeight = get_row_height_from_boundaries(rowBoundaries);
-        dim3 gridDim = get_grid_dim(rowHeight);
+        dim3 gridDim = mpcf::internal::get_grid_dims(m_blockDim, rowHeight, m_nPcfs);
 
         auto const & params = make_kernel_params(iGpu);
         

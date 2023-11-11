@@ -9,7 +9,7 @@ namespace mpcf
 {
   template <typename Point, typename FCb>
   void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, 
-    typename Point::time_type a, typename Point::time_type b,
+    typename Point::time_type /*a*/, typename Point::time_type b,
     FCb cb)
   {
     using TTime = typename Point::time_type;

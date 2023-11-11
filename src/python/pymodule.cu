@@ -221,6 +221,6 @@ PYBIND11_MODULE(mpcf_cpp, m) {
   
   m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
 #ifdef BUILD_WITH_CUDA
-  m.def("set_block_dim", [](size_t x, size_t y) { g_settings.blockDim = dim3(x, y, 1); });
+  m.def("set_block_dim", [](unsigned int x, unsigned int y) { g_settings.blockDim = dim3(x, y, 1); });
 #endif
 }
