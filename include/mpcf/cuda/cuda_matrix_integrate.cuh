@@ -171,29 +171,35 @@ namespace mpcf
     }
 
     template <typename PcfFwdIt, typename ComboOp, typename ProgressCb = std::function<void(size_t)>>
-    class CudaMatrixRectangleIterator
+    class CudaMatrixRectangleIteratorBase
     {
     public:
       using pcf_type = typename PcfFwdIt::value_type;
       using time_type = typename pcf_type::time_type;
       using value_type = typename pcf_type::value_type;
 
-      CudaMatrixRectangleIterator(tf::Executor& exec, value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
+      CudaMatrixRectangleIteratorBase(tf::Executor& exec, value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
         : m_out(out)
         , m_gpuHostThreads(exec)
         , m_progressCb(progressCb)
       {
+        m_nPcfs = std::distance(begin, end);
         m_nGpus = exec.num_workers();
         m_canceled.store(false);
-        init(begin, end);
       }
-
-      void riemann_integrate(time_type a, time_type b, ComboOp op)
+      
+      void init(PcfFwdIt begin, PcfFwdIt end)
       {
-        for_each_block_row([this, a, b, op](dim3 gridDim, dim3 blockDim, const DeviceKernelParams<time_type, value_type>& params, const RowInfo& rowInfo) {
-          call_riemann_integrate<time_type, value_type>(gridDim, blockDim, params, rowInfo, a, b, op);
-          });
+        init_storage_requirements();
+        
+        init_host_offset_data(begin, end);
+        init_device_storages();
+        copy_offset_data_to_devices();
       }
+      
+      virtual ~CudaMatrixRectangleIteratorBase() = default;
+
+      virtual void riemann_integrate(time_type a, time_type b, ComboOp op) = 0;
       
       void cancel()
       {
@@ -206,16 +212,11 @@ namespace mpcf
       }
       
     private:
+      
+      virtual void init_storage_requirements() = 0;
+      virtual size_t get_device_matrix_allocation_size() = 0;
 
-      void init(PcfFwdIt begin, PcfFwdIt end)
-      {
-        m_nPcfs = std::distance(begin, end);
-
-        init_host_offset_data(begin, end);
-        init_block_row_boundaries();
-        init_device_storages();
-        copy_offset_data_to_devices();
-      }
+      
 
       void init_host_offset_data(PcfFwdIt begin, PcfFwdIt end)
       {
@@ -249,32 +250,24 @@ namespace mpcf
         m_h_offsetData.timePointOffsets[m_nPcfs] = m_h_offsetData.timePointOffsets[m_nPcfs - 1] + (*std::prev(end)).points().size();
       }
 
-      void init_block_row_boundaries()
-      {
-        m_blockRowBoundaries = mpcf::internal::get_block_row_boundaries<value_type>(m_nGpus, m_nPcfs);
-      }
-
       void init_device_storages()
       {
         m_deviceStorages.resize(m_nGpus);
-        auto maxRowHeight = m_blockRowBoundaries[0].second + 1;
-
+        auto matrixSz = get_device_matrix_allocation_size();
+        
         for (size_t iGpu = 0; iGpu < m_nGpus; ++iGpu)
         {
-          init_device_storage(iGpu, maxRowHeight);
+          auto& storage = m_deviceStorages[iGpu];
+  
+          CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
+  
+          storage.matrix = mpcf::CudaDeviceArray<value_type>(matrixSz);
+          storage.points = mpcf::CudaDeviceArray<mpcf::internal::SimplePoint<time_type, value_type>>(m_h_offsetData.points);
+          storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(m_h_offsetData.timePointOffsets);
         }
       }
 
-      void init_device_storage(size_t iGpu, size_t rowHeight)
-      {
-        auto& storage = m_deviceStorages[iGpu];
 
-        CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
-
-        storage.matrix = mpcf::CudaDeviceArray<value_type>(rowHeight * m_nPcfs);
-        storage.points = mpcf::CudaDeviceArray<mpcf::internal::SimplePoint<time_type, value_type>>(m_h_offsetData.points);
-        storage.timePointOffsets = mpcf::CudaDeviceArray<size_t>(m_h_offsetData.timePointOffsets);
-      }
 
       void copy_offset_data_to_devices()
       {
@@ -284,11 +277,6 @@ namespace mpcf
           m_deviceStorages[iGpu].points.toDevice(m_h_offsetData.points);
           m_deviceStorages[iGpu].timePointOffsets.toDevice(m_h_offsetData.timePointOffsets);
         }
-      }
-
-      size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)
-      {
-        return boundaries.second - boundaries.first + 1;
       }
 
       DeviceKernelParams<time_type, value_type> make_kernel_params(size_t iGpu) const
@@ -305,61 +293,7 @@ namespace mpcf
         return params;
       }
 
-      /// Run the supplied kernel launch function on each block row. 'for_each_block_row' blocks until the whole operation is complete.
-      void for_each_block_row(std::function<void(dim3, dim3, const DeviceKernelParams<time_type, value_type>&, const RowInfo&)> launchFunc)
-      {
-        tf::Taskflow flow;
-
-        flow.for_each_index<size_t, size_t, size_t>(0ul, m_blockRowBoundaries.size(), 1ul, [this, launchFunc](size_t i) {
-          if (m_canceled.load())
-          {
-            return;
-          }
-          exec_block_row(i, launchFunc);
-          });
-
-        m_gpuHostThreads.run(std::move(flow));
-
-        // Keep in mind 'this' runs on a separate thread from main already, so it is OK to block here.
-        m_gpuHostThreads.wait_for_all();
-      }
-
-      void exec_block_row(size_t iRow, std::function<void(dim3, dim3, const DeviceKernelParams<time_type, value_type>&, const RowInfo&)> launchFunc)
-      {
-        // This function executes on a CPU thread that drives one GPU
-
-        auto iGpu = m_gpuHostThreads.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
-
-        CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
-
-        m_deviceStorages[iGpu].matrix.clear();
-
-        value_type* hostMatrix = m_out;
-
-        auto const& rowBoundaries = m_blockRowBoundaries[iRow];
-
-        size_t rowHeight = get_row_height_from_boundaries(rowBoundaries);
-        dim3 gridDim = mpcf::internal::get_grid_dims(m_blockDim, rowHeight, m_nPcfs);
-
-        auto const & params = make_kernel_params(iGpu);
-        
-        RowInfo rowInfo;
-        rowInfo.rowHeight = rowHeight;
-        rowInfo.rowStart = rowBoundaries.first;
-        rowInfo.iRow = iRow;
-
-        launchFunc(gridDim, m_blockDim, params, rowInfo);
-        CHK_CUDA(cudaPeekAtLastError());
-
-        value_type* target = &hostMatrix[rowInfo.rowStart * m_nPcfs];
-        auto nEntries = rowHeight * m_nPcfs;
-
-        // These are non-overlapping writes so no need to lock the target
-        m_deviceStorages[iGpu].matrix.toHost(target, nEntries);
-
-        auto progress = (rowBoundaries.second - rowBoundaries.first + 1) * (2 * m_nPcfs - rowBoundaries.first - rowBoundaries.second) / 2;
-        m_progressCb(progress);
-      }
+      
       
       size_t m_nPcfs;
 
@@ -369,8 +303,6 @@ namespace mpcf
       size_t m_nGpus;
 
       mpcf::internal::HostPcfOffsetData<time_type, value_type> m_h_offsetData;
-      std::vector<std::pair<size_t, size_t>> m_blockRowBoundaries;
-
       std::vector<mpcf::internal::DeviceStorage<time_type, value_type>> m_deviceStorages;
 
       dim3 m_blockDim = dim3(32, 1, 1);
@@ -378,8 +310,123 @@ namespace mpcf
       ProgressCb m_progressCb;
       
       std::atomic_bool m_canceled;
+      
+      // Not pretty but does the job
+      template <typename A, typename B, typename C> friend class CudaMatrixRectangleIteratorFull;
+      template <typename A, typename B, typename C> friend class CudaMatrixRectangleIteratorCondensed;
     };
 
+    // Iterator for full matrix
+    template <typename PcfFwdIt, typename ComboOp, typename ProgressCb = std::function<void(size_t)>>
+    class CudaMatrixRectangleIteratorFull : public CudaMatrixRectangleIteratorBase<PcfFwdIt, ComboOp, ProgressCb>
+    {
+    public:
+      using pcf_type = typename PcfFwdIt::value_type;
+      using time_type = typename pcf_type::time_type;
+      using value_type = typename pcf_type::value_type;
+      
+      CudaMatrixRectangleIteratorFull(tf::Executor& exec, value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
+        : CudaMatrixRectangleIteratorBase<PcfFwdIt, ComboOp, ProgressCb>(exec, out, begin, end, progressCb)
+      { 
+        this->init(begin, end);
+      }
+      
+      void riemann_integrate(time_type a, time_type b, ComboOp op) override
+      {
+        for_each_block_row([this, a, b, op](dim3 gridDim, dim3 blockDim, const DeviceKernelParams<time_type, value_type>& params, const RowInfo& rowInfo) {
+          call_riemann_integrate<time_type, value_type>(gridDim, blockDim, params, rowInfo, a, b, op);
+          });
+      }
+      
+    private:
+      
+      void init_storage_requirements() override
+      {
+        m_blockRowBoundaries = mpcf::internal::get_block_row_boundaries<value_type>(this->m_nGpus, this->m_nPcfs);
+      }
+      
+      size_t get_device_matrix_allocation_size() override
+      {
+        auto maxRowHeight = m_blockRowBoundaries[0].second + 1;
+        return maxRowHeight * this->m_nPcfs;
+      }
+      
+      /// Run the supplied kernel launch function on each block row. 'for_each_block_row' blocks until the whole operation is complete.
+      void for_each_block_row(std::function<void(dim3, dim3, const DeviceKernelParams<time_type, value_type>&, const RowInfo&)> launchFunc)
+      {
+        tf::Taskflow flow;
+
+        flow.for_each_index<size_t, size_t, size_t>(0ul, m_blockRowBoundaries.size(), 1ul, [this, launchFunc](size_t i) {
+          if (this->m_canceled.load())
+          {
+            return;
+          }
+          exec_block_row(i, launchFunc);
+          });
+
+        this->m_gpuHostThreads.run(std::move(flow));
+
+        // Keep in mind 'this' runs on a separate thread from main already, so it is OK to block here.
+        this->m_gpuHostThreads.wait_for_all();
+      }
+
+      void exec_block_row(size_t iRow, std::function<void(dim3, dim3, const DeviceKernelParams<time_type, value_type>&, const RowInfo&)> launchFunc)
+      {
+        // This function executes on a CPU thread that drives one GPU
+
+        auto iGpu = this->m_gpuHostThreads.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
+
+        CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
+
+        this->m_deviceStorages[iGpu].matrix.clear();
+
+        value_type* hostMatrix = this->m_out;
+
+        auto const& rowBoundaries = m_blockRowBoundaries[iRow];
+
+        size_t rowHeight = mpcf::internal::get_row_height_from_boundaries(rowBoundaries);
+        dim3 gridDim = mpcf::internal::get_grid_dims(this->m_blockDim, rowHeight, this->m_nPcfs);
+
+        auto const & params = this->make_kernel_params(iGpu);
+        
+        RowInfo rowInfo;
+        rowInfo.rowHeight = rowHeight;
+        rowInfo.rowStart = rowBoundaries.first;
+        rowInfo.iRow = iRow;
+
+        launchFunc(gridDim, this->m_blockDim, params, rowInfo);
+        CHK_CUDA(cudaPeekAtLastError());
+
+        value_type* target = &hostMatrix[rowInfo.rowStart * this->m_nPcfs];
+        auto nEntries = rowHeight * this->m_nPcfs;
+
+        // These are non-overlapping writes so no need to lock the target
+        this->m_deviceStorages[iGpu].matrix.toHost(target, nEntries);
+
+        auto progress = (rowBoundaries.second - rowBoundaries.first + 1) * (2 * this->m_nPcfs - rowBoundaries.first - rowBoundaries.second) / 2;
+        this->m_progressCb(progress);
+      }
+      
+      std::vector<std::pair<size_t, size_t>> m_blockRowBoundaries;
+      
+    };
+    
+    // Iterator for condensed matrix
+    template <typename PcfFwdIt, typename ComboOp, typename ProgressCb = std::function<void(size_t)>>
+    class CudaMatrixRectangleIteratorCondensed : CudaMatrixRectangleIteratorBase<PcfFwdIt, ComboOp, ProgressCb>
+    {
+    public:
+      using pcf_type = typename PcfFwdIt::value_type;
+      using time_type = typename pcf_type::time_type;
+      using value_type = typename pcf_type::value_type;
+      
+      CudaMatrixRectangleIteratorCondensed(tf::Executor& exec, value_type* out, PcfFwdIt begin, PcfFwdIt end, ProgressCb progressCb = [](size_t) {})
+        : CudaMatrixRectangleIteratorBase<PcfFwdIt, ComboOp, ProgressCb>(exec, out, begin, end, progressCb)
+      { 
+        init(begin, end);
+      }
+    };
+    
   } // namespace internal
 
   template <typename Tt, typename Tv, typename ComboOp = OperationL1Dist<Tt, Tv>>
@@ -443,7 +490,7 @@ namespace mpcf
     Tt m_b;
     Tv* m_out;
     
-    internal::CudaMatrixRectangleIterator<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
+    internal::CudaMatrixRectangleIteratorFull<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
     
   };
 
