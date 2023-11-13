@@ -363,11 +363,15 @@ namespace mpcf
         launchFunc(gridDim, m_blockDim, params, rowInfo);
         CHK_CUDA(cudaPeekAtLastError());
 
+        CHK_CUDA(cudaDeviceSynchronize());
+
         value_type* target = &hostMatrix[rowInfo.rowStart * m_nPcfs];
         auto nEntries = rowHeight * m_nPcfs;
 
         // These are non-overlapping writes so no need to lock the target
         m_deviceStorages[iGpu].matrix.toHost(target, nEntries);
+
+        CHK_CUDA(cudaDeviceSynchronize());
 
         auto progress = (rowBoundaries.second - rowBoundaries.first + 1) * (2 * m_nPcfs - rowBoundaries.first - rowBoundaries.second) / 2;
         m_progressCb(progress);
