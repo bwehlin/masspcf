@@ -181,7 +181,7 @@ endif()
 if(MSVC)
   target_compile_options(mpcf_cpp PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
 else()
-  target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra)
 endif()
 
 

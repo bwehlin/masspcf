@@ -21,11 +21,11 @@ namespace mpcf
     TVal fv = 0;
     TVal gv = 0;
 
-    auto fi = 0; // max_time_prior_to(f, a);
-    auto gi = 0; // max_time_prior_to(g, a);
+    size_t fi = 0; // max_time_prior_to(f, a);
+    size_t gi = 0; // max_time_prior_to(g, a);
 
-    auto fsz = fpts.size();
-    auto gsz = gpts.size();
+    size_t fsz = fpts.size();
+    size_t gsz = gpts.size();
 
     Rectangle<TTime, TVal> rect;
 

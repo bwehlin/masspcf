@@ -30,7 +30,7 @@ namespace mpcf
 
       size_t retVal = std::numeric_limits<size_t>::max();
 
-      for (auto i = 0; i < nGpus; ++i)
+      for (size_t i = 0; i < nGpus; ++i)
       {
         CHK_CUDA(cudaSetDevice(static_cast<int>(i)));
 
@@ -259,7 +259,7 @@ namespace mpcf
         m_deviceStorages.resize(m_nGpus);
         auto maxRowHeight = m_blockRowBoundaries[0].second + 1;
 
-        for (auto iGpu = 0; iGpu < m_nGpus; ++iGpu)
+        for (size_t iGpu = 0; iGpu < m_nGpus; ++iGpu)
         {
           init_device_storage(iGpu, maxRowHeight);
         }
@@ -278,7 +278,7 @@ namespace mpcf
 
       void copy_offset_data_to_devices()
       {
-        for (auto iGpu = 0; iGpu < m_nGpus; ++iGpu)
+        for (size_t iGpu = 0; iGpu < m_nGpus; ++iGpu)
         {
           CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
           m_deviceStorages[iGpu].points.toDevice(m_h_offsetData.points);
