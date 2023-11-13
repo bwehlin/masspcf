@@ -44,6 +44,9 @@ namespace mpcf
 
         size_t maxMatrixAllocSz = static_cast<size_t>(static_cast<float>(freeMem) * allocationPct);
         size_t maxAllocationN = maxMatrixAllocSz / sizeof(T);
+
+        std::cout << "maxAllocationN " << maxAllocationN << " on GPU #" << i << std::endl;
+
         maxAllocationN = (maxAllocationN / 1024) * 1024;
 
         retVal = std::min(retVal, maxAllocationN);
@@ -256,6 +259,11 @@ namespace mpcf
       void init_block_row_boundaries()
       {
         m_blockRowBoundaries = mpcf::internal::get_block_row_boundaries<value_type>(m_nGpus, m_nPcfs);
+
+        for (auto i = 0; i < m_blockRowBoundaries.size() && i < 10; ++i)
+        {
+          std::cout << "block row " << i << " has boundary " << m_blockRowBoundaries[i].first << " -> " << m_blockRowBoundaries[i].second << std::endl;
+        }
       }
 
       void init_device_storages()
