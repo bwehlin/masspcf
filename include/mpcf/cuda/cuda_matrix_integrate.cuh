@@ -338,6 +338,8 @@ namespace mpcf
 
       void exec_block_row(size_t iRow, std::function<void(dim3, dim3, const DeviceKernelParams<time_type, value_type>&, const RowInfo&)> launchFunc)
       {
+        dim3 gridDim;
+
         try
         {
           // This function executes on a CPU thread that drives one GPU
@@ -355,7 +357,7 @@ namespace mpcf
           auto const& rowBoundaries = m_blockRowBoundaries[iRow];
 
           size_t rowHeight = get_row_height_from_boundaries(rowBoundaries);
-          dim3 gridDim = mpcf::internal::get_grid_dims(m_blockDim, rowHeight, m_nPcfs);
+          gridDim = mpcf::internal::get_grid_dims(m_blockDim, rowHeight, m_nPcfs);
 
           auto const& params = make_kernel_params(iGpu);
 
@@ -382,7 +384,7 @@ namespace mpcf
         }
         catch (const std::exception& ex)
         {
-          std::cout << "EXECPTION: " << ex.what() << std::endl;
+          std::cout << "EXECPTION: " << ex.what() << " gridDim " << gridDim.x << ", " << gridDim.y << ", " << gridDim.z << " == " << m_blockDim.x << ", " << m_blockDim.y << ", " << m_blockDim.z << std::endl;
         }
         catch (...)
         {
