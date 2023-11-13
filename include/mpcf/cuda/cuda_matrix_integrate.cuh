@@ -338,43 +338,56 @@ namespace mpcf
 
       void exec_block_row(size_t iRow, std::function<void(dim3, dim3, const DeviceKernelParams<time_type, value_type>&, const RowInfo&)> launchFunc)
       {
-        // This function executes on a CPU thread that drives one GPU
+        try
+        {
+          // This function executes on a CPU thread that drives one GPU
 
-        auto iGpu = m_gpuHostThreads.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
+          auto iGpu = m_gpuHostThreads.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
 
-        CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
+          std::cout << "Schedule row " << iRow << " on GPU " << iGpu << std::endl;
 
-        m_deviceStorages[iGpu].matrix.clear();
+          CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
 
-        value_type* hostMatrix = m_out;
+          m_deviceStorages[iGpu].matrix.clear();
 
-        auto const& rowBoundaries = m_blockRowBoundaries[iRow];
+          value_type* hostMatrix = m_out;
 
-        size_t rowHeight = get_row_height_from_boundaries(rowBoundaries);
-        dim3 gridDim = mpcf::internal::get_grid_dims(m_blockDim, rowHeight, m_nPcfs);
+          auto const& rowBoundaries = m_blockRowBoundaries[iRow];
 
-        auto const & params = make_kernel_params(iGpu);
-        
-        RowInfo rowInfo;
-        rowInfo.rowHeight = rowHeight;
-        rowInfo.rowStart = rowBoundaries.first;
-        rowInfo.iRow = iRow;
+          size_t rowHeight = get_row_height_from_boundaries(rowBoundaries);
+          dim3 gridDim = mpcf::internal::get_grid_dims(m_blockDim, rowHeight, m_nPcfs);
 
-        launchFunc(gridDim, m_blockDim, params, rowInfo);
-        CHK_CUDA(cudaPeekAtLastError());
+          auto const& params = make_kernel_params(iGpu);
 
-        CHK_CUDA(cudaDeviceSynchronize());
+          RowInfo rowInfo;
+          rowInfo.rowHeight = rowHeight;
+          rowInfo.rowStart = rowBoundaries.first;
+          rowInfo.iRow = iRow;
 
-        value_type* target = &hostMatrix[rowInfo.rowStart * m_nPcfs];
-        auto nEntries = rowHeight * m_nPcfs;
+          launchFunc(gridDim, m_blockDim, params, rowInfo);
+          CHK_CUDA(cudaPeekAtLastError());
 
-        // These are non-overlapping writes so no need to lock the target
-        m_deviceStorages[iGpu].matrix.toHost(target, nEntries);
+          CHK_CUDA(cudaDeviceSynchronize());
 
-        CHK_CUDA(cudaDeviceSynchronize());
+          value_type* target = &hostMatrix[rowInfo.rowStart * m_nPcfs];
+          auto nEntries = rowHeight * m_nPcfs;
 
-        auto progress = (rowBoundaries.second - rowBoundaries.first + 1) * (2 * m_nPcfs - rowBoundaries.first - rowBoundaries.second) / 2;
-        m_progressCb(progress);
+          // These are non-overlapping writes so no need to lock the target
+          m_deviceStorages[iGpu].matrix.toHost(target, nEntries);
+
+          CHK_CUDA(cudaDeviceSynchronize());
+
+          auto progress = (rowBoundaries.second - rowBoundaries.first + 1) * (2 * m_nPcfs - rowBoundaries.first - rowBoundaries.second) / 2;
+          m_progressCb(progress);
+        }
+        catch (const std::exception& ex)
+        {
+          std::cout << "EXECPTION: " << ex.what() << std::endl;
+        }
+        catch (...)
+        {
+          std::cout << "UNKNOWN EXCEPTION!" << std::endl;
+        }
       }
       
       size_t m_nPcfs;
