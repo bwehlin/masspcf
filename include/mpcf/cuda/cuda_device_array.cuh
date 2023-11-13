@@ -117,6 +117,7 @@ namespace mpcf
     
     void allocate(std::size_t sz)
     {
+      std::cout << "Try to allocate " << ((sz * sizeof(T)) / (8 * 1024 * 1024)) << " MB on GPU belonging to thread " << std::this_thread::get_id() << std::endl;
       CHK_CUDA(cudaMalloc(&m_devPtr, sizeof(T) * sz));
       m_sz = sz;
     }

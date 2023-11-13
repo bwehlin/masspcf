@@ -38,8 +38,12 @@ namespace mpcf
         size_t totalMem;
         CHK_CUDA(cudaMemGetInfo(&freeMem, &totalMem));
 
+        auto toMB = [](size_t n) { return n * sizeof(T) / (8 * 1024 * 1024); };
+
+        std::cout << "CUDA reports " << toMB(freeMem) << "/" << toMB(totalMem) << " MB free on GPU #" << i << std::endl;
+
         size_t maxMatrixAllocSz = static_cast<size_t>(static_cast<float>(freeMem) * allocationPct);
-        size_t maxAllocationN = maxMatrixAllocSz / sizeof(float);
+        size_t maxAllocationN = maxMatrixAllocSz / sizeof(T);
         maxAllocationN = (maxAllocationN / 1024) * 1024;
 
         retVal = std::min(retVal, maxAllocationN);
