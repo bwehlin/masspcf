@@ -174,6 +174,7 @@ namespace mpcf
     template <typename Tt, typename Tv, typename ComboOp>
     void call_riemann_integrate(dim3 gridDim, dim3 blockDim, const DeviceKernelParams<Tt, Tv>& params, const RowInfo& rowInfo, Tt a, Tt b, ComboOp op)
     {
+      std::cout << " gridDim " << gridDim.x << ", " << gridDim.y << ", " << gridDim.z << " == " << blockDim.x << ", " << blockDim.y << ", " << blockDim.z << std::endl;
       cuda_riemann_integrate<Tt, Tv, ComboOp> << <gridDim, blockDim >> > (params, rowInfo, a, b, op);
     }
 
@@ -346,7 +347,7 @@ namespace mpcf
 
           auto iGpu = m_gpuHostThreads.this_worker_id(); // Worker IDs are guaranteed to be 0...(n-1) for n threads.
 
-          std::cout << "Schedule row " << iRow << " on GPU " << iGpu << std::endl;
+          //std::cout << "Schedule row " << iRow << " on GPU " << iGpu << std::endl;
 
           CHK_CUDA(cudaSetDevice(static_cast<int>(iGpu)));
 

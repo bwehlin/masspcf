@@ -26,8 +26,8 @@ namespace mpcf::internal
     size_t jover = nPcfs % blockSz.y == 0 ? 0 : 1;
     
     auto x = rowHeight / static_cast<size_t>(blockSz.x) + iover;
-    auto y = nPcfs / static_cast<size_t>(blockSz.y) + jover;
-
+    //auto y = nPcfs / static_cast<size_t>(blockSz.y) + jover;
+    auto y = 1;
     return dim3(static_cast<unsigned int>(x), static_cast<unsigned int>(y), 1);
   }
   
