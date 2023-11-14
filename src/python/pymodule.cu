@@ -123,7 +123,7 @@ namespace
         });
     }
     
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, bool condensed)
     {
       auto* out = matrix.mutable_data(0);
 
@@ -136,7 +136,7 @@ namespace
         return task;
       }
 #endif
-      auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
+      auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs), condensed);
       task->start_async(mpcf::default_executor());
       return task;
     }

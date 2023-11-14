@@ -305,7 +305,7 @@ namespace mpcf
       mpcf::internal::HostPcfOffsetData<time_type, value_type> m_h_offsetData;
       std::vector<mpcf::internal::DeviceStorage<time_type, value_type>> m_deviceStorages;
 
-      dim3 m_blockDim = dim3(32, 1, 1);
+      dim3 m_blockDim = dim3(1, 32, 1);
 
       ProgressCb m_progressCb;
       
@@ -424,6 +424,18 @@ namespace mpcf
         : CudaMatrixRectangleIteratorBase<PcfFwdIt, ComboOp, ProgressCb>(exec, out, begin, end, progressCb)
       { 
         init(begin, end);
+      }
+      
+    private:
+      void init_storage_requirements() override
+      {
+        m_blockRowBoundaries = mpcf::internal::get_block_row_boundaries<value_type>(this->m_nGpus, this->m_nPcfs);
+      }
+      
+      size_t get_device_matrix_allocation_size() override
+      {
+        auto maxRowHeight = m_blockRowBoundaries[0].second + 1;
+        return maxRowHeight * this->m_nPcfs;
       }
     };
     

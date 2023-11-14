@@ -67,18 +67,35 @@ namespace mpcf
     matrix_integrate<Tt, Tv, RectangleOp>(default_executor(), out, fs, op, symmetric, a, b);
   }
   
-  
   template <typename Tt, typename Tv>
   class MatrixL1DistCpuTask : public mpcf::StoppableTask<void>
   {
   public:
-    MatrixL1DistCpuTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs)
+    MatrixL1DistCpuTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, bool condensed)
       : m_fs(std::move(fs))
       , m_out(out)
+      , m_condensed(condensed)
     { }
     
   private:
     tf::Future<void> run_async(Executor& exec) override
+    {
+      if (m_condensed)
+      {
+        return run_async_condensed(exec);
+      }
+      else
+      {
+        return run_async_full(exec);
+      }
+    }
+    
+    tf::Future<void> run_async_condensed(Executor& exec)
+    {
+      auto sz = m_fs.size();
+    }
+    
+    tf::Future<void> run_async_full(Executor& exec)
     {
       auto sz = m_fs.size();
       auto totalWorkPerStep = (sz * (sz - 1)) / 2;
@@ -137,6 +154,7 @@ namespace mpcf
     
     std::vector<Pcf<Tt, Tv>> m_fs;
     Tv* m_out;
+    bool m_condensed;
   };
   
   template <typename Tt, typename Tv>

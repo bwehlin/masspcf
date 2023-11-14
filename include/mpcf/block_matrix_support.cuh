@@ -7,8 +7,16 @@
 
 #include <mpcf/algorithms/subdivide.h>
 
+#include "platform.h"
+
 namespace mpcf::internal
 {
+  __host__ __device__
+  inline size_t condensed_matrix_pos(size_t i, size_t j, size_t n)
+  {
+    return ((n-1)*n)/2 - ((n-2)*(n-1))/2 + j - i - 1;
+  }
+  
   inline size_t get_row_size(size_t maxAllocationN, size_t nSplits, size_t nPcfs)
   {
     size_t maxRowHeight = maxAllocationN / nPcfs;
