@@ -23,7 +23,7 @@ namespace
     bool forceCpu = false;
 
 #ifdef BUILD_WITH_CUDA
-    dim3 blockDim = dim3(32, 1, 1);
+    dim3 blockDim = dim3(1, 32, 1);
 #endif
     
   } g_settings;
