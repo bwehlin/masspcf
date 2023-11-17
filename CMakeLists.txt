@@ -33,7 +33,7 @@ endif()
 
 if (NOT SKBUILD)
   set(SKBUILD_PROJECT_NAME massivepcf)
-  set(SKBUILD_PROJECT_VERSION "0.0.1")
+  set(SKBUILD_PROJECT_VERSION "0.1.0")
 endif()
 
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
@@ -186,4 +186,4 @@ endif()
 
 
 
-install(TARGETS mpcf_cpp DESTINATION mpcf)
+install(TARGETS mpcf_cpp DESTINATION masspcf)

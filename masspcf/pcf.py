@@ -123,7 +123,7 @@ def wait_for_task(task):
     
   progress.update(task.work_completed() - progress.n)
 
-def matrix_l1_dist(fs):
+def matrix_l1_dist(fs, condensed=True):
   if len(fs) == 0:
       return np.zeros((0,0))
 
@@ -131,11 +131,14 @@ def matrix_l1_dist(fs):
   dtype = fs[0].vtype
   
   n = len(fs)
-  matrix = np.zeros((n, n), dtype=dtype, order='c')
+
+  #shape = ((n*(n-1)) / 2,) if condensed else (n, n)
+  shape = (n,n)
+  matrix = np.zeros(shape, dtype=dtype, order='c')
 
   task = None
   try:
-    task = backend.matrix_l1_dist(matrix, fsdata)
+    task = backend.matrix_l1_dist(matrix, fsdata) #, condensed)
     wait_for_task(task)
   finally:
     if task is not None:

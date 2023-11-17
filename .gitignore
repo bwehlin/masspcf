@@ -5,7 +5,6 @@ _skbuild
 .vscode
 .vs
 CMakeSettings.json
-copypy
 examples/*.png
 vsbuild*
 copypy.bat
