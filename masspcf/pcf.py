@@ -2,6 +2,8 @@ from . import mpcf_cpp as cpp
 import numpy as np
 from tqdm import tqdm
 
+__all__ = ['Pcf']
+
 def force_cpu(on : bool):
   cpp.force_cpu(on)
 
@@ -123,7 +125,7 @@ def wait_for_task(task):
     
   progress.update(task.work_completed() - progress.n)
 
-def matrix_l1_dist(fs, condensed=True):
+def matrix_l1_dist(fs : list[Pcf], condensed=True):
   if len(fs) == 0:
       return np.zeros((0,0))
 
