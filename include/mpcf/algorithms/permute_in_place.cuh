@@ -2,6 +2,7 @@
 #define MPCF_ALGORITHM_PERMUTE_IN_PLACE_H
 
 #include <vector>
+#include <memory>
 
 #include "../executor.h"
 #include "subdivide.h"
@@ -73,10 +74,12 @@ namespace mpcf
     };
 
     template <typename Tv, typename Indexer>
-    inline void apply_matrix_reverse_cycle(Tv* matrix, size_t n, size_t jFirst, size_t jLast, std::vector<Tv>& tmp, const std::vector<size_t>& cycle, Indexer idx, Executor& exec) 
+    inline void apply_matrix_reverse_cycle(Tv* matrix, size_t n, size_t jFirst, size_t jLast, const std::vector<size_t>& cycle, Indexer idx) 
     {
       // This code is written as if we are flipping rows of the matrix, but the indexer allows for flipping columns instead.
 
+      std::vector<Tv> tmp(n);
+      
       // The inverse of a cycle is the cycle in reverse.
       size_t i = *cycle.rbegin();
 
@@ -108,45 +111,65 @@ namespace mpcf
 
   }
 
-  /// Given a 'matrix' that has been computed along a 'permutation', this function applies the inverse
-  /// permutation of the rows and columns, respectively. Computations are done in-place, i.e., there is
-  /// no new matrix allocated (although O(n) additional memory is required to complete the operation).
-  /// 
-  /// All cycles are expected to be nonempty.
+  namespace detail
+  {
+    // Ugly hack to keep flows alive across function boundaries
+    struct ReversePermutationFlows
+    {
+      tf::Taskflow flow;
+
+      tf::Taskflow rowFlow;
+      tf::Taskflow colFlow;
+    };
+  }
+  
   template <typename Tv>
-  inline void reverse_permute_in_place(Tv* matrix, std::vector<size_t> permutation, Executor& exec = default_executor(), size_t blockSz = 100ul)
+  inline detail::ReversePermutationFlows construct_reverse_permute_in_place_flow(Tv* matrix, std::vector<size_t> permutation, size_t blockSz /*= 128ul*/)
   {
     auto n = permutation.size();
 
     detail::RowIndexer rows;
     detail::ColumnIndexer cols;
 
-    auto cycles = get_cycles(permutation);
+    auto cycles = std::make_shared<std::vector<std::vector<size_t>>>(std::move(get_cycles(permutation)));
     auto divs = subdivide(blockSz, n);
 
-    std::vector<Tv> tmp(n);
+    detail::ReversePermutationFlows flows;
 
-    tf::Taskflow rowFlow;
+    for (auto const& div : divs)
+    {
+      flows.rowFlow.for_each_index(0ul, cycles->size(), 1ul, [matrix, n, rows, div, cycles](size_t i) {
+        auto const & cycle = (*cycles)[i];
+        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, cycle, rows);
+        });
+    }
     
     for (auto const& div : divs)
     {
-      rowFlow.for_each(cycles.begin(), cycles.end(), [matrix, n, &tmp, &rows, &exec, &div](const std::vector<size_t>& cycle) {
-        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, tmp, cycle, rows, exec);
+      flows.colFlow.for_each_index(0ul, cycles->size(), 1ul, [matrix, n, cols, div, cycles](size_t i) {
+        auto const & cycle = (*cycles)[i];
+        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, cycle, cols);
         });
     }
-
-    exec.cpu()->run(std::move(rowFlow)).wait();
-
-    tf::Taskflow colFlow;
-
-    for (auto const& div : divs)
-    {
-      colFlow.for_each(cycles.begin(), cycles.end(), [matrix, n, &tmp, &cols, &exec, &div](const std::vector<size_t>& cycle) {
-        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, tmp, cycle, cols, exec);
-        });
-    }
-
-    exec.cpu()->run(std::move(colFlow)).wait();
+    
+    auto rowTask = flows.flow.composed_of(flows.rowFlow);
+    auto colTask = flows.flow.composed_of(flows.colFlow);
+    
+    colTask.succeed(rowTask);
+    
+    return flows;
+  }
+  
+  /// Given a 'matrix' that has been computed along a 'permutation', this function applies the inverse
+  /// permutation of the rows and columns, respectively. Computations are done in-place, i.e., there is
+  /// no new matrix allocated (although O(n) additional memory is required to complete the operation).
+  /// 
+  /// All cycles are expected to be nonempty.
+  template <typename Tv>
+  inline void reverse_permute_in_place(Tv* matrix, std::vector<size_t> permutation, Executor& exec = default_executor(), size_t blockSz = 128ul)
+  {
+    auto flows = construct_reverse_permute_in_place_flow(matrix, permutation, blockSz);
+    exec.cpu()->run(std::move(flows.flow)).wait();
   }
 }
 
