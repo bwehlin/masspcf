@@ -182,7 +182,8 @@ namespace
         .def("debug_print", &TPcf::debug_print) \
         .def("to_numpy", &mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>)
         .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
-        .def("size", [](TPcf& self){ return self.points().size(); })
+        .def("size", [](const TPcf& self){ return self.points().size(); })
+        .def("copy", [](const TPcf& self){ return TPcf(self); })
         ;
       
       py::class_<Backend<Tt, Tv>> backend(m, ("Backend" + suffix).c_str());

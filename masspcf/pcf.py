@@ -47,12 +47,13 @@ class Pcf:
     if not _has_matching_types(self, rhs):
       raise TypeError('Mismatched PCF types')
 
-    params = (self.data_, rhs.data_)
+    temp = self.data_.copy()
+    params = (temp, rhs.data_)
 
     if _has_matching_types(self, tPcf_f32_f32):
-      self.data_ = cpp.Backend_f32_f32.add(*params)
+      return Pcf(cpp.Backend_f32_f32.add(*params))
     elif _has_matching_types(self, tPcf_f64_f64):
-      self.data_ = cpp.Backend_f64_f64.add(*params)
+      return Pcf(cpp.Backend_f64_f64.add(*params))
     
     return self
   
