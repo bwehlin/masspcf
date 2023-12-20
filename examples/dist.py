@@ -5,8 +5,8 @@ import timeit
 
 
 
-m = 10000 # Number of PCFs
-n = 100 # Number of time points in each PCF
+m = 130000 # Number of PCFs
+n = 5000 # Number of time points in each PCF
 
 #m = 32
 #n = 5
@@ -21,13 +21,13 @@ V[:,-1] = 0
 fs = [None]*m
 for i in range(m):
     X = np.vstack((T[i,:], V[i,:]))
-    fs[i] = Pcf(X)
+    fs[i] = Pcf(X.astype(np.float32))
 
 
 
-favg = average(fs)
-fnp = favg.to_numpy()
-print(fnp.shape)
+#favg = average(fs)
+#fnp = favg.to_numpy()
+#print(fnp.shape)
 
 
 #print(timeit.timeit('st_average(fs)', globals=globals(), number=10))
@@ -40,8 +40,10 @@ print(f'Reqd int: {float(m)*float(m-1)/2.0}')
 
 print('Running on GPU')
 force_cpu(False)
-gpu = matrix_l1_dist(fs)
-print(gpu)
+gpu = matrix_l1_dist(fs, condensed=False)
+#print(gpu)
+
+raise SystemExit
 
 print('Running on CPU')
 force_cpu(True)

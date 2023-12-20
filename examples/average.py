@@ -1,11 +1,11 @@
-from mpcf.pcf import Pcf, average, mem_average, st_average, matrix_l1_dist, force_cpu, matrix_l1_dist_s
+from mpcf.pcf import Pcf, average, matrix_l1_dist, force_cpu
 import numpy as np
 import matplotlib.pyplot as plt
 import timeit
 
 
 
-m = 20000 # Number of PCFs
+m = 10000 # Number of PCFs
 n = 100 # Number of time points in each PCF
 
 #m = 32
@@ -25,9 +25,9 @@ for i in range(m):
 
 
 
-#favg = average(fs)
-#fnp = favg.to_numpy()
-#print(fnp.shape)
+favg = average(fs)
+fnp = favg.to_numpy()
+print(fnp.shape)
 
 
 #print(timeit.timeit('st_average(fs)', globals=globals(), number=10))
@@ -38,19 +38,21 @@ for i in range(m):
 
 print(f'Reqd int: {float(m)*float(m-1)/2.0}')
 
-print('Running on CPU')
-force_cpu(True)
-cpu = matrix_l1_dist_s(fs)
-
-print(cpu)
-raise SystemExit
 print('Running on GPU')
 force_cpu(False)
 gpu = matrix_l1_dist(fs)
+print(gpu)
+
+print('Running on CPU')
+force_cpu(True)
+cpu = matrix_l1_dist(fs)
+print(cpu)
+
+
 
 print('Norm diff:')
 print(np.linalg.norm(cpu - gpu))
-
+print(np.max(np.max(np.abs(cpu - gpu))))
 print(cpu)
 print(gpu)
 

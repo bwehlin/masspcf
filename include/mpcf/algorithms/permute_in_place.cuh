@@ -52,6 +52,30 @@ namespace mpcf
 
     return cycles;
   }
+  
+  inline void invert_permutation(std::vector<std::vector<size_t>>& cycles)
+  {
+    for (auto & cycle : cycles)
+    {
+      std::reverse(cycle.begin(), cycle.end());
+    }
+  }
+  
+  template <typename RandomAccessIt>
+  void apply_permutation(RandomAccessIt begin, const std::vector<std::vector<size_t>>& cycles)
+  {
+    using value_type = typename RandomAccessIt::value_type;
+    auto tmp = *begin;
+    for (auto const & cycle : cycles)
+    {
+      tmp = *(begin + cycle.back());
+      for (auto cit = cycle.rbegin(); cit != std::prev(cycle.rend()); ++cit)
+      {
+        *(begin + *cit) = *(begin + *std::next(cit));
+      }
+      (begin + cycle.front())->swap(tmp);
+    }
+  }
 
 
   namespace detail
@@ -123,32 +147,43 @@ namespace mpcf
     };
   }
   
+  /// Important! cycles must stay alive for the duration of the flow
   template <typename Tv>
-  inline detail::ReversePermutationFlows construct_reverse_permute_in_place_flow(Tv* matrix, std::vector<size_t> permutation, size_t blockSz /*= 128ul*/)
+  inline detail::ReversePermutationFlows construct_reverse_permute_in_place_flow(Tv* matrix, size_t n, const std::vector<std::vector<size_t>>& cycles, size_t blockSz = 128ul)
   {
-    auto n = permutation.size();
-
     detail::RowIndexer rows;
     detail::ColumnIndexer cols;
 
-    auto cycles = std::make_shared<std::vector<std::vector<size_t>>>(std::move(get_cycles(permutation)));
+    //auto cycles = std::make_shared<std::vector<std::vector<size_t>>>(std::move(get_cycles(permutation)));
     auto divs = subdivide(blockSz, n);
 
     detail::ReversePermutationFlows flows;
 
-    for (auto const& div : divs)
-    {
-      flows.rowFlow.for_each_index(0ul, cycles->size(), 1ul, [matrix, n, rows, div, cycles](size_t i) {
-        auto const & cycle = (*cycles)[i];
-        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, cycle, rows);
-        });
-    }
+    flows.rowFlow.for_each(cycles.begin(), cycles.end(), [matrix](const std::vector<size_t>& cycle){
+      std::cout << "Cycle of len " << cycle.size() << std::endl;
+      
+    });
+    flows.flow.composed_of(flows.rowFlow);
     
+#if 0
     for (auto const& div : divs)
     {
-      flows.colFlow.for_each_index(0ul, cycles->size(), 1ul, [matrix, n, cols, div, cycles](size_t i) {
-        auto const & cycle = (*cycles)[i];
+      flows.rowFlow.for_each(cycles.begin(), cycles.end(), [matrix, n, rows, div](const std::vector<size_t>& cycle) {
+        std::cout << "Unpermute ROW cycle of length " << cycle.size() << std::endl; 
+        detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, cycle, rows);
+        std::cout << "Done unpermute ROW cycle of length " << cycle.size() << std::endl;
+        });
+      
+    }
+    flows.flow.composed_of(flows.rowFlow);
+    #endif
+    #if 0
+    for (auto const& div : divs)
+    {
+      flows.colFlow.for_each(cycles.begin(), cycles.end(), [matrix, n, cols, div](const std::vector<size_t>& cycle) {
+        std::cout << "Unpermute COL cycle of length " << cycle.size() << std::endl; 
         detail::apply_matrix_reverse_cycle(matrix, n, div.first, div.second, cycle, cols);
+        std::cout << "Done unpermute COL cycle of length " << cycle.size() << std::endl;
         });
     }
     
@@ -156,7 +191,7 @@ namespace mpcf
     auto colTask = flows.flow.composed_of(flows.colFlow);
     
     colTask.succeed(rowTask);
-    
+#endif
     return flows;
   }
   
@@ -168,7 +203,9 @@ namespace mpcf
   template <typename Tv>
   inline void reverse_permute_in_place(Tv* matrix, std::vector<size_t> permutation, Executor& exec = default_executor(), size_t blockSz = 128ul)
   {
-    auto flows = construct_reverse_permute_in_place_flow(matrix, permutation, blockSz);
+    auto cycles = get_cycles(permutation);
+    auto n = permutation.size();
+    auto flows = construct_reverse_permute_in_place_flow(matrix, n, cycles, blockSz);
     exec.cpu()->run(std::move(flows.flow)).wait();
   }
 }

@@ -42,3 +42,23 @@ TEST(Permutations, TwoCyclesWithSpace)
   EXPECT_EQ(cycles[1], std::vector<size_t>({ 5, 6 }));
 }
 
+TEST(Permutations, ApplyPermutation)
+{
+  std::vector<std::string> vec{"a", "b", "c", "d"};
+  std::vector<size_t> perm{0,2,1,3};
+  auto cycles = mpcf::get_cycles(perm);
+  mpcf::apply_permutation(vec.begin(), cycles);
+  std::vector<std::string> expected{"a", "c", "b", "d"};
+  EXPECT_EQ(vec, expected);
+}
+
+TEST(Permutations, ApplyPermutationLarger)
+{
+  std::vector<std::string> vec{"a", "b", "c", "d", "e", "f", "g", "h"};
+  std::vector<size_t> perm{5,2,3,4,1,0,7,6};
+  auto cycles = mpcf::get_cycles(perm);
+  mpcf::invert_permutation(cycles);
+  mpcf::apply_permutation(vec.begin(), cycles);
+  std::vector<std::string> expected{"f", "c", "d", "e", "b", "a", "h", "g"};
+  EXPECT_EQ(vec, expected);
+}

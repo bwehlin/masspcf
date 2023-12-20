@@ -89,3 +89,5 @@ TEST(PermuteInPlace, ReversePermute7x7MatrixWithTwoCycles)
   mpcf::reverse_permute_in_place(matrix.data(), permutation);
   EXPECT_EQ(matrix, target) << pretty_matrix(matrix) << "\n vs \n" << pretty_matrix(target);
 }
+
+

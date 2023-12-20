@@ -8,6 +8,7 @@
 #include "../executor.h"
 #include "../operations.cuh"
 #include "../block_matrix_support.cuh"
+#include "../algorithms/permute_in_place.cuh"
 
 #include "cuda_util.cuh"
 #include "cuda_matrix_integrate_structs.cuh"
@@ -185,14 +186,16 @@ namespace mpcf
       {
         m_nGpus = exec.num_workers();
         m_canceled.store(false);
-        init(begin, end);
+        //init(begin, end);
       }
 
       void riemann_integrate(time_type a, time_type b, ComboOp op)
       {
+        std::cout << "Start riemann integrate" << std::endl;
         for_each_block_row([this, a, b, op](dim3 gridDim, dim3 blockDim, const DeviceKernelParams<time_type, value_type>& params, const RowInfo& rowInfo) {
           call_riemann_integrate<time_type, value_type>(gridDim, blockDim, params, rowInfo, a, b, op);
           });
+        std::cout << "Done riemann integrate" << std::endl;
       }
       
       void cancel()
@@ -205,8 +208,6 @@ namespace mpcf
         m_blockDim = dim;
       }
       
-    private:
-
       void init(PcfFwdIt begin, PcfFwdIt end)
       {
         m_nPcfs = std::distance(begin, end);
@@ -216,7 +217,8 @@ namespace mpcf
         init_device_storages();
         copy_offset_data_to_devices();
       }
-
+      
+    private:
       void init_host_offset_data(PcfFwdIt begin, PcfFwdIt end)
       {
         m_h_offsetData.timePointOffsets.resize(m_nPcfs + 1);
@@ -386,22 +388,24 @@ namespace mpcf
   class MatrixIntegrateCudaTask : public mpcf::StoppableTask<void>
   {
   public:
-    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), bool usePermutations = true)
       : m_fs(std::move(fs))
       , m_op(op)
       , m_a(a)
       , m_b(b)
       , m_out(out)
       , m_iterator(cudaThreads, out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
+      , m_use_permutations(usePermutations)
     { }
   
-    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), bool usePermutations = true)
       : m_fs(fs)
       , m_op(op)
       , m_a(a)
       , m_b(b)
       , m_out(out)
       , m_iterator(cudaThreads, out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
+      , m_use_permutations(usePermutations)
     { }
 
   private:
@@ -409,6 +413,13 @@ namespace mpcf
     {
       m_iterator.set_block_dim(get_block_dim());
 
+      if (m_use_permutations)
+      {
+        init_permutation();
+      }
+      
+      m_iterator.init(m_fs.begin(), m_fs.end());
+      
       next_step(m_fs.size() * (m_fs.size() + 1) / 2, "Computing upper triangle", "integral");
 
       tf::Taskflow flow;
@@ -424,12 +435,87 @@ namespace mpcf
         }
       }));
       
+      
+      if (m_use_permutations)
+      {
+        //m_permutation_flows = construct_reverse_permute_in_place_flow(m_out, sz, m_permutation_cycles);
+        //tasks.emplace_back(flow.composed_of(m_permutation_flows.flow));
+        
+        std::cout << "Cycles: ";
+        for (auto const & cycle : m_permutation_cycles)
+        {
+          std::cout << "(";
+          for (auto i : cycle)
+          {
+            std::cout << i;
+          }
+          std::cout << ")" << std::endl;
+        }
+        
+        detail::RowIndexer rows;
+        detail::ColumnIndexer cols;
+
+        constexpr size_t blockSz = 128;
+        auto divs = subdivide(blockSz, m_fs.size());
+        
+        for (auto const& div : divs)
+        {
+          m_permutation_flows.rowFlow.for_each(m_permutation_cycles.begin(), m_permutation_cycles.end(), [this, rows, div](const std::vector<size_t>& cycle) {
+            detail::apply_matrix_reverse_cycle(m_out, m_fs.size(), div.first, div.second, cycle, rows);
+            });
+        }
+        
+        tasks.emplace_back(flow.composed_of(m_permutation_flows.rowFlow));
+        
+        for (auto const& div : divs)
+        {
+          m_permutation_flows.colFlow.for_each(m_permutation_cycles.begin(), m_permutation_cycles.end(), [this, cols, div](const std::vector<size_t>& cycle) {
+            detail::apply_matrix_reverse_cycle(m_out, m_fs.size(), div.first, div.second, cycle, cols);
+            });
+        }
+        
+        tasks.emplace_back(flow.composed_of(m_permutation_flows.colFlow));
+        
+      }
+      
       tasks.emplace_back(create_terminal_task(flow));
       flow.linearize(tasks);
 
       // We run the task as a CPU task. The actual job will spawn additional tasks on the GPU
       // executor.
       return exec.cpu()->run(std::move(flow));
+      //return exec.cpu()->run(std::move(m_permutation_flows.flow));
+    }
+    
+    void init_permutation()
+    {
+      std::cout << "Using permutations" << std::endl;
+      //return;
+
+      std::cout << "Pre-sort" << std::endl;
+      for (auto const & f : m_fs)
+      {
+        //std::cout << f.size() << std::endl;
+      }
+
+      //std::sort(m_fs.begin(), m_fs.end(), [](const Pcf<Tt, Tv>& a, const Pcf<Tt, Tv>& b){ return a.size() > b.size(); });
+      
+      //return;
+      std::vector<size_t> permutation;
+      permutation.resize(m_fs.size());
+      std::iota(permutation.begin(), permutation.end(), 0ul);
+      std::sort(permutation.begin(), permutation.end(), [this](size_t i, size_t j){
+        return m_fs[i].size() < m_fs[j].size();
+      });
+      m_permutation_cycles = mpcf::get_cycles(permutation);
+      mpcf::invert_permutation(m_permutation_cycles);
+      mpcf::apply_permutation(m_fs.begin(), m_permutation_cycles);
+
+      std::cout << "Post-sort" << std::endl;
+      for (auto const & f : m_fs)
+      {
+        //std::cout << f.size() << std::endl;
+      }
     }
   
     void on_stop_requested() override
@@ -438,6 +524,9 @@ namespace mpcf
     }
 
     std::vector<Pcf<Tt, Tv>> m_fs;
+    std::vector<std::vector<size_t>> m_permutation_cycles;
+    detail::ReversePermutationFlows m_permutation_flows;
+    
     ComboOp m_op;
     Tt m_a;
     Tt m_b;
@@ -445,20 +534,21 @@ namespace mpcf
     
     internal::CudaMatrixRectangleIterator<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
     
+    bool m_use_permutations = true;
   };
 
   /// Convenience function that returns an asynchronous task to Riemann integrate the L1 distance between the supplied functions
   template <typename Tt, typename Tv>
-  std::unique_ptr<StoppableTask<void>> create_matrix_l1_distance_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+  std::unique_ptr<StoppableTask<void>> create_matrix_l1_distance_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), bool usePermutations = true)
   {
-    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>>>(*default_executor().cuda(), out, std::move(fs), OperationL1Dist<Tt, Tv>(), a, b);
+    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>>>(*default_executor().cuda(), out, std::move(fs), OperationL1Dist<Tt, Tv>(), a, b, usePermutations);
   }
   
   template <typename Tt, typename Tv>
-  void cuda_matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor())
+  void cuda_matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor(), bool usePermutations = true)
   {
     // MatrixIntegrateCudaTask(Executor& exec, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
-    MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>> task(*exec.cuda(), out, fs, OperationL1Dist<Tt, Tv>(), a, b);
+    MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>> task(*exec.cuda(), out, fs, OperationL1Dist<Tt, Tv>(), a, b, usePermutations);
     task.start_async(exec);
     task.wait();
   }

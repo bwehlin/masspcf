@@ -22,7 +22,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if (WIN32)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
-endif() 
+endif()
 
 if (BUILD_WITH_CUDA)
   SET(LANG_CUDA CUDA)
@@ -183,7 +183,5 @@ if(MSVC)
 else()
   target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra)
 endif()
-
-
 
 install(TARGETS mpcf_cpp DESTINATION masspcf)

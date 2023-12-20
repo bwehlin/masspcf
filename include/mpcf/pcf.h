@@ -56,8 +56,14 @@ namespace mpcf
       return *this;
     }
 
-    const std::vector<point_type>& points() const { return m_points; }
-
+    [[nodiscard]] const std::vector<point_type>& points() const { return m_points; }
+    [[nodiscard]] size_t size() const noexcept { return m_points.size(); }
+    
+    void swap(Pcf& other) noexcept
+    {
+      m_points.swap(other.m_points);
+    }
+    
   private:
     std::vector<point_type> m_points;
   };
@@ -66,7 +72,7 @@ namespace mpcf
   using Pcf_f64 = Pcf<double, double>;
   
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
+  [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;
@@ -74,7 +80,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
+  [[nodiscard]] Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top - rect.bottom;
@@ -82,7 +88,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv, typename Tdiv>
-  Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Tdiv val)
+  [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Tdiv val)
   {
     Pcf<Tt, Tv> ret = f;
     ret /= val;
@@ -90,7 +96,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> st_average(const std::vector<Pcf<Tt, Tv>>& fs)
+  [[nodiscard]] Pcf<Tt, Tv> st_average(const std::vector<Pcf<Tt, Tv>>& fs)
   {
     auto f = reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;
@@ -99,7 +105,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
+  [[nodiscard]] Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
     auto f = parallel_reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;

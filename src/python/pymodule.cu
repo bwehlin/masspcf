@@ -14,6 +14,8 @@
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #endif
 
+#include <iostream>
+
 namespace py = pybind11;
 
 namespace
@@ -21,6 +23,7 @@ namespace
   struct Settings
   {
     bool forceCpu = false;
+    bool usePermutations = true;
 
 #ifdef BUILD_WITH_CUDA
     dim3 blockDim = dim3(1, 32, 1);
@@ -130,7 +133,7 @@ namespace
 #ifdef BUILD_WITH_CUDA
       if (!g_settings.forceCpu)
       {
-        auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs));
+        auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs), 0., std::numeric_limits<Tv>::max(), g_settings.usePermutations);
         task->set_block_dim(g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
@@ -173,6 +176,7 @@ namespace
     static void register_bindings(py::handle m, const std::string& suffix)
     {
       using TPcf = mpcf::Pcf<Tt, Tv>;
+      using point_type = typename TPcf::point_type;
       
       py::class_<mpcf::Pcf<Tt, Tv>>(m, ("Pcf" + suffix).c_str())
         .def(py::init<>())
@@ -184,6 +188,21 @@ namespace
         .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
         .def("size", [](const TPcf& self){ return self.points().size(); })
         .def("copy", [](const TPcf& self){ return TPcf(self); })
+          
+        // We (un-)pickle the raw bytes stored in points()
+        .def(py::pickle([](TPcf& self) {
+            const unsigned char* data = reinterpret_cast<const unsigned char*>(self.points().data());
+            std::vector<unsigned char> buf;
+            buf.resize(sizeof(point_type) * self.points().size());
+            memcpy(buf.data(), data, buf.size());
+            return buf;
+          }, [](const std::vector<unsigned char>& t){
+            std::vector<point_type> pts;
+            pts.resize(t.size() / sizeof(point_type));
+            memcpy(pts.data(), t.data(), t.size());
+            TPcf f(std::move(pts));
+            return f;
+          }))
         ;
       
       py::class_<Backend<Tt, Tv>> backend(m, ("Backend" + suffix).c_str());
@@ -221,6 +240,7 @@ PYBIND11_MODULE(mpcf_cpp, m) {
     .def("wait_for", &Future<void>::wait_for);
   
   m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
+  m.def("use_permutations", [](bool on){ g_settings.usePermutations = on; });
 #ifdef BUILD_WITH_CUDA
   m.def("set_block_dim", [](unsigned int x, unsigned int y) { g_settings.blockDim = dim3(x, y, 1); });
 #endif
