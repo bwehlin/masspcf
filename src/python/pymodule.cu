@@ -128,6 +128,7 @@ namespace
     
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
+      std::cout << "Here" << std::endl;
       auto* out = matrix.mutable_data(0);
 
 #ifdef BUILD_WITH_CUDA
@@ -243,5 +244,9 @@ PYBIND11_MODULE(mpcf_cpp, m) {
   m.def("use_permutations", [](bool on){ g_settings.usePermutations = on; });
 #ifdef BUILD_WITH_CUDA
   m.def("set_block_dim", [](unsigned int x, unsigned int y) { g_settings.blockDim = dim3(x, y, 1); });
+  m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
 #endif
+  
+  m.def("limit_cpus", [](size_t n){ mpcf::default_executor().limit_cpu_workers(n); });
+  
 }

@@ -18,7 +18,10 @@ size_t mpcf::get_num_cuda_devices()
 {
   int nGpus = 0;
 #ifdef BUILD_WITH_CUDA
-  CHK_CUDA(cudaGetDeviceCount(&nGpus));
+  if (cudaGetDeviceCount(&nGpus) != cudaSuccess)
+  {
+    return 0;
+  }
   if (nGpus < 0)
   {
     // Just in case...

@@ -75,6 +75,35 @@ namespace mpcf
       return m_upCudaExec.get();
     }
     
+    void limit_cpu_workers(size_t nWorkers)
+    {
+      if (m_upCpuExec)
+      {
+        m_upCpuExec->wait_for_all();
+        m_cpuExec = nullptr;
+        m_upCpuExec = std::make_unique<tf::Executor>(nWorkers);
+        m_cpuExec = m_upCpuExec.get();
+      }
+      else
+      {
+        throw std::runtime_error("Unable to set worker count on external pool.");
+      }
+    }
+    
+    void limit_cuda_workers(size_t nWorkers)
+    {
+      if (nWorkers > get_num_cuda_devices())
+      {
+        throw std::runtime_error("Requested more CUDA workers than there are GPUs.");
+      }
+      
+      if (m_upCudaExec)
+      {
+        m_upCpuExec->wait_for_all();
+      }
+      m_upCpuExec = std::make_unique<tf::Executor>(nWorkers);
+    }
+    
   private:
     std::unique_ptr<tf::Executor> m_upCpuExec;
     tf::Executor* m_cpuExec;

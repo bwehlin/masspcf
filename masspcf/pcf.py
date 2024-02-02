@@ -13,9 +13,19 @@ def use_permutations(on: bool):
 def set_block_size(x : int, y : int):
   cpp.set_block_dim(x, y)
 
+def limit_cpus(n : int):
+  cpp.limit_cpus(n)
+
+def limit_gpus(n : int):
+  cpp.limit_gpus(n)
+
 class Pcf:
-  def __init__(self, arr):
+  def __init__(self, arr, dtype=None):
     if isinstance(arr, np.ndarray):
+      if dtype is not None:
+          if arr.dtype != dtype:
+              arr = arr.astype(dtype)
+
       if arr.dtype == np.float32:
         self.data_ = cpp.Pcf_f32_f32(arr)
       elif arr.dtype == np.float64:
@@ -113,26 +123,29 @@ def parallel_reduce(fs, cb):
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.parallel_reduce(fsdata, cb))
 
-def wait_for_task(task):
+def wait_for_task(task, verbose=True):
   def init_progress(task):
     progress = tqdm(total=task.work_total(), unit_scale=True, unit=task.work_step_unit(), desc=task.work_step_desc())
     return progress
 
-  progress = init_progress(task)
-  work_step = task.work_step()
+  if verbose:
+    progress = init_progress(task)
+    work_step = task.work_step()
 
   wait_time_ms = 50
   while not task.wait_for(wait_time_ms):
-    progress.update(task.work_completed() - progress.n)
-    new_work_step = task.work_step()
-    if new_work_step != work_step:
-      work_step = new_work_step
-      print('')
-      progress = init_progress(task)
+    if verbose:
+      progress.update(task.work_completed() - progress.n)
+      new_work_step = task.work_step()
+      if new_work_step != work_step:
+        work_step = new_work_step
+        print('')
+        progress = init_progress(task)
     
-  progress.update(task.work_completed() - progress.n)
+  if verbose:
+    progress.update(task.work_completed() - progress.n)
 
-def pdist(fs : list[Pcf], condensed=True):
+def pdist(fs : list[Pcf], verbose=True, condensed=True):
   if len(fs) == 0:
       return np.zeros((0,0))
 
@@ -148,10 +161,10 @@ def pdist(fs : list[Pcf], condensed=True):
   task = None
   try:
     task = backend.matrix_l1_dist(matrix, fsdata) #, condensed)
-    wait_for_task(task)
+    wait_for_task(task, verbose=verbose)
   finally:
     if task is not None:
       task.request_stop()
-      wait_for_task(task)
+      wait_for_task(task, verbose=verbose)
 
   return matrix

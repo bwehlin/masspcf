@@ -191,11 +191,9 @@ namespace mpcf
 
       void riemann_integrate(time_type a, time_type b, ComboOp op)
       {
-        std::cout << "Start riemann integrate" << std::endl;
         for_each_block_row([this, a, b, op](dim3 gridDim, dim3 blockDim, const DeviceKernelParams<time_type, value_type>& params, const RowInfo& rowInfo) {
           call_riemann_integrate<time_type, value_type>(gridDim, blockDim, params, rowInfo, a, b, op);
           });
-        std::cout << "Done riemann integrate" << std::endl;
       }
       
       void cancel()
