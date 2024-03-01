@@ -7,9 +7,6 @@ __all__ = ['Pcf']
 def force_cpu(on : bool):
   cpp.force_cpu(on)
 
-def use_permutations(on: bool):
-  cpp.use_permutations(on)
-
 def set_block_size(x : int, y : int):
   cpp.set_block_dim(x, y)
 

@@ -23,7 +23,6 @@ namespace
   struct Settings
   {
     bool forceCpu = false;
-    bool usePermutations = true;
 
 #ifdef BUILD_WITH_CUDA
     dim3 blockDim = dim3(1, 32, 1);
@@ -133,7 +132,7 @@ namespace
 #ifdef BUILD_WITH_CUDA
       if (!g_settings.forceCpu)
       {
-        auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs), 0., std::numeric_limits<Tv>::max(), g_settings.usePermutations);
+        auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs), 0., std::numeric_limits<Tv>::max());
         task->set_block_dim(g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
@@ -240,7 +239,6 @@ PYBIND11_MODULE(mpcf_cpp, m) {
     .def("wait_for", &Future<void>::wait_for);
   
   m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
-  m.def("use_permutations", [](bool on){ g_settings.usePermutations = on; });
 #ifdef BUILD_WITH_CUDA
   m.def("set_block_dim", [](unsigned int x, unsigned int y) { g_settings.blockDim = dim3(x, y, 1); });
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
