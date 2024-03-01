@@ -80,6 +80,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/matrix_integrate.h
   include/mpcf/algorithms/subdivide.h
   include/mpcf/algorithms/permute_in_place.cuh
+  include/mpcf/algorithms/apply_functional.h
   include/mpcf/block_matrix_support.cuh
   ${MPCF_LIB_SOURCES_CUDA}
 )
@@ -138,7 +139,8 @@ if (NOT SKBUILD AND BUILD_TESTER)
     test/test_block_matrix_support.cu
     test/test_l1_dist.cu
     test/test_permutations.cu
-    test/test_permute_in_place.cu)
+    test/test_permute_in_place.cu
+    test/test_norms.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
 
   target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
