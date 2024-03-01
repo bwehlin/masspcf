@@ -16,6 +16,19 @@ namespace mpcf
       : left(l), right(r), top(t), bottom(b)
     { }
   };
+
+  template <typename Tt, typename Tv>
+  struct Segment
+  {
+    Tt left = 0;
+    Tt right = 0;
+    Tv value = 0;
+
+    Segment() = default;
+    Segment(Tt l, Tt r, Tv v)
+      : left(l), right(r), value(v)
+    { }
+  };
 }
 
 #endif

@@ -20,6 +20,7 @@ namespace mpcf
 
     using reduction_functional_type = value_type(time_type, time_type, value_type, value_type);
     using rectangle_type = Rectangle<Tt, Tv>;
+    using segment_type = Segment<Tt, Tv>;
 
     Pcf()
     {

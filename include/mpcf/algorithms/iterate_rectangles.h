@@ -7,6 +7,31 @@
 
 namespace mpcf
 {
+  template <typename T>
+  constexpr T infinity()
+  {
+    if constexpr (std::numeric_limits<T>::has_infinity)
+    {
+      return std::numeric_limits<T>::infinity();
+    }
+    else
+    {
+      return (std::numeric_limits<T>::max)();
+    }
+  }
+
+  template <typename PcfT>
+  constexpr PcfT::value_type infinite_value()
+  {
+    return infinity<typename PcfT::value_type>();
+  }
+
+  template <typename PcfT>
+  constexpr PcfT::time_type infinite_time()
+  {
+    return infinity<typename PcfT::time_type>();
+  }
+
   template <typename Point, typename FCb>
   void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, 
     typename Point::time_type /*a*/, typename Point::time_type b,
@@ -89,6 +114,46 @@ namespace mpcf
     auto const & fpts = f.points();
     auto const & gpts = g.points();
     iterate_rectangles(fpts, gpts, a, b, cb);
+  }
+
+  template <typename PointFwdIterator, typename FCb>
+  inline void iterate_segments(PointFwdIterator beginPoints, PointFwdIterator endPoints, 
+    typename std::iterator_traits<PointFwdIterator>::value_type::time_type a, 
+    typename std::iterator_traits<PointFwdIterator>::value_type::time_type b, 
+    FCb cb)
+  {
+    using TPoint = typename std::iterator_traits<PointFwdIterator>::value_type;
+    using TTime = typename TPoint::time_type;
+    using TVal = typename TPoint::value_type;
+
+    if (beginPoints == endPoints)
+    {
+      return;
+    }
+
+    // TODO: start at 'a', end at 'b'
+
+    TTime tprev = beginPoints->t;
+    TVal vprev = beginPoints->v;
+
+    Segment<TTime, TVal> seg;
+    for (auto it = std::next(beginPoints); it != endPoints; ++it)
+    {
+      seg.left = tprev;
+      seg.right = it->t;
+      seg.value = vprev;
+
+      cb(seg);
+
+      tprev = seg.right;
+    }
+
+    seg.left = tprev;
+    seg.right = infinity<TTime>();
+    seg.value = vprev;
+
+    cb(seg);
+    
   }
 }
 
