@@ -33,6 +33,15 @@ namespace mpcf
 
     }
 
+    Pcf(std::initializer_list<std::pair<Tt, Tv>> pts)
+    {
+      m_points.reserve(pts.size());
+      for (auto const& pt : pts)
+      {
+        m_points.emplace_back(pt.first, pt.second);
+      }
+    }
+
     void debug_print() const
     {
       for (auto i = 0ul; i < m_points.size(); ++i)

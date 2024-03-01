@@ -146,10 +146,11 @@ namespace mpcf
       cb(seg);
 
       tprev = seg.right;
+      vprev = it->v;
     }
 
     seg.left = tprev;
-    seg.right = infinity<TTime>();
+    seg.right = (std::numeric_limits<TTime>::max)(); // float (0 * inf) does not produce 0, so use max instead.
     seg.value = vprev;
 
     cb(seg);

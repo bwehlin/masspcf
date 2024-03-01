@@ -33,9 +33,7 @@ namespace mpcf
   inline typename PcfT::value_type l1_norm(const PcfT& f)
   {
     typename PcfT::value_type out{ 0 };
-    iterate_segments(f.points().cbegin(), f.points().cend(), 0.f, 0.f, [&out](typename PcfT::segment_type& seg) {
-      out += (seg.right - seg.left) * std::abs(seg.value);
-      });
+
     iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](typename PcfT::segment_type& seg) {
       out += (seg.right - seg.left) * std::abs(seg.value);
       });
