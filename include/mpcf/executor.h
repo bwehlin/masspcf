@@ -94,14 +94,14 @@ namespace mpcf
     {
       if (nWorkers > get_num_cuda_devices())
       {
-        throw std::runtime_error("Requested more CUDA workers than there are GPUs.");
+        throw std::runtime_error("Requested more CUDA workers than there are GPUs. (requested " + std::to_string(nWorkers) + " workers but there are only " + std::to_string(get_num_cuda_devices()) + " available");
       }
       
       if (m_upCudaExec)
       {
-        m_upCpuExec->wait_for_all();
+        m_upCudaExec->wait_for_all();
       }
-      m_upCpuExec = std::make_unique<tf::Executor>(nWorkers);
+      m_upCudaExec = std::make_unique<tf::Executor>(nWorkers);
     }
     
   private:

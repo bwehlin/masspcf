@@ -128,7 +128,6 @@ namespace
     
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
-      std::cout << "Here" << std::endl;
       auto* out = matrix.mutable_data(0);
 
 #ifdef BUILD_WITH_CUDA
