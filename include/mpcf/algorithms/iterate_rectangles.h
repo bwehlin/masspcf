@@ -21,13 +21,13 @@ namespace mpcf
   }
 
   template <typename PcfT>
-  constexpr PcfT::value_type infinite_value()
+  constexpr typename PcfT::value_type infinite_value()
   {
     return infinity<typename PcfT::value_type>();
   }
 
   template <typename PcfT>
-  constexpr PcfT::time_type infinite_time()
+  constexpr typename PcfT::time_type infinite_time()
   {
     return infinity<typename PcfT::time_type>();
   }

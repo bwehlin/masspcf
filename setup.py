@@ -7,7 +7,7 @@ setup(
     author='Bjorn H. Wehlin',
     license='TBD',
     packages=['masspcf'],
-    python_requires=">=3.9",
+    python_requires=">=3.8",
     cmake_args=['-DCMAKE_BUILD_TYPE=Release'],
     install_requires=[
         'numpy', 'numba', 'tqdm'
