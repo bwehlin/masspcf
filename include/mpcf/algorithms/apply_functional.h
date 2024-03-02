@@ -28,7 +28,6 @@ namespace mpcf
     exec.cpu()->run(std::move(flow));
   }
 
-  //iterate_segments(PointFwdIterator beginPoints, PointFwdIterator endPoints, typename decltype(*beginPoints)::time_type a, typename decltype(*beginPoints)::time_type b, FCb cb)
   template <typename PcfT>
   inline typename PcfT::value_type l1_norm(const PcfT& f)
   {
@@ -40,65 +39,41 @@ namespace mpcf
 
     return out;
   }
-#if 0
+
   template <typename PcfT>
   inline typename PcfT::value_type l2_norm(const PcfT& f)
   {
-    if (f.points().empty())
-    {
-      return typename PcfT::value_type{ 0 };
-    }
-
-    if (f.points().back().v != 0)
-    {
-      return infinite_value<PcfT>();
-    }
-
-    typename PcfT::time_type tLast{ 0 };
-    typename PcfT::value_type vLast{ 0 };
     typename PcfT::value_type out{ 0 };
 
-    for (auto const& pt : f.points())
-    {
-      out += (pt.t - tLast) * std::abs(vLast);
-      tLast = pt.t;
-      vLast = pt.v;
-    }
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](typename PcfT::segment_type& seg) {
+      out += (seg.right - seg.left) * seg.value * seg.value;
+      });
 
-    return out;
-  }
-
-  template <typename PcfT>
-  inline typename PcfT::value_type linfinity_norm(const PcfT& f)
-  {
-    
+    return std::sqrt(out);
   }
 
   template <typename PcfT>
   inline typename PcfT::value_type lp_norm(const PcfT& f, typename PcfT::value_type p)
   {
-    if (p == infinite_value<PcfT>())
-    {
-      return linfinity_norm(f);
-    }
+    typename PcfT::value_type out{ 0 };
 
-    if (f.points().back().v != 0)
-    {
-      return infinite_value<PcfT>();
-    }
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out, p](typename PcfT::segment_type& seg) {
+      out += (seg.right - seg.left) * std::pow(std::abs(seg.value), p);
+      });
 
-    typename PcfT::time_type tLast{ 0 };
-    typename PcfT::value_type val{ 0 };
-    for (auto const& pt : f.points())
-    {
-      val += (pt.t - tLast) * std::pow(pt.v, p);
-      tLast = pt.t;
-    }
-
-    return std::pow(val, PcfT::value_type{ 1 } / p);
+    return std::pow(out, typename PcfT::value_type{1} / p);
   }
 
-#endif
+  template <typename PcfT>
+  inline typename PcfT::value_type linfinity_norm(const PcfT& f)
+  {
+    typename PcfT::value_type out{ 0 }; // No PCF should be empty, but if that happens we adopt the convention that L_inf=0
+    for (auto const & pt : f.points())
+    {
+      out = std::max(out, std::abs(pt.v));
+    }
+    return out;
+  }
 
 }
 

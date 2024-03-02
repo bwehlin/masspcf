@@ -124,6 +124,26 @@ namespace
           return reduction(rect.left, rect.right, rect.top, rect.bottom); 
         });
     }
+
+    static Tv single_l1_norm(const mpcf::Pcf<Tt, Tv>& f)
+    {
+      return mpcf::l1_norm(f);
+    }
+
+    static Tv single_l2_norm(const mpcf::Pcf<Tt, Tv>& f)
+    {
+      return mpcf::l2_norm(f);
+    }
+
+    static Tv single_lp_norm(const mpcf::Pcf<Tt, Tv>& f, /* let's stick with double here to make life a bit easier */ double p)
+    {
+      return mpcf::lp_norm(f, Tv(p));
+    }
+
+    static Tv single_linfinity_norm(const mpcf::Pcf<Tt, Tv>& f)
+    {
+      return mpcf::linfinity_norm(f);
+    }
     
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
@@ -211,7 +231,13 @@ namespace
         .def_static("combine", &Backend<Tt, Tv>::combine)
         .def_static("average", &Backend<Tt, Tv>::average)
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
+
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
+
+        .def_static("single_l1_norm", &Backend<Tt, Tv>::single_l1_norm)
+        .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)
+        .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)
+        .def_static("single_linfinity_norm", &Backend<Tt, Tv>::single_linfinity_norm)
         ;
       
       register_bindings_future<TPcf>(m, suffix);
