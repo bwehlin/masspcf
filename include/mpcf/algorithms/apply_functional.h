@@ -25,7 +25,7 @@ namespace mpcf
       return functional(pcf);
       });
 
-    exec.cpu()->run(std::move(flow));
+    exec.cpu()->run(std::move(flow)).wait();
   }
 
   template <typename PcfT>

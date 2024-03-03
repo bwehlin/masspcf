@@ -144,7 +144,25 @@ namespace
     {
       return mpcf::linfinity_norm(f);
     }
+
+    static void list_l1_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    {
+      auto* outdata = out.mutable_data(0);
+      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::l1_norm<mpcf::Pcf<Tt, Tv>>);
+    }
     
+    static void list_l2_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    {
+      auto* outdata = out.mutable_data(0);
+      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::l2_norm<mpcf::Pcf<Tt, Tv>>);
+    }
+
+    static void list_linfinity_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    {
+      auto* outdata = out.mutable_data(0);
+      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::linfinity_norm<mpcf::Pcf<Tt, Tv>>);
+    }
+
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
     {
       auto* out = matrix.mutable_data(0);
@@ -238,6 +256,11 @@ namespace
         .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)
         .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)
         .def_static("single_linfinity_norm", &Backend<Tt, Tv>::single_linfinity_norm)
+
+        .def_static("list_l1_norm", &Backend<Tt, Tv>::list_l1_norm)
+        .def_static("list_l2_norm", &Backend<Tt, Tv>::list_l2_norm)
+        //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
+        .def_static("list_linfinity_norm", &Backend<Tt, Tv>::list_linfinity_norm)
         ;
       
       register_bindings_future<TPcf>(m, suffix);
