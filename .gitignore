@@ -8,6 +8,7 @@ CMakeSettings.json
 examples/*.png
 vsbuild*
 copypy.bat
+.DS_Store
 
 # Temporary local test
 parallel_reduce.py
