@@ -4,6 +4,7 @@
 #include "point.h"
 #include "rectangle.h"
 #include "algorithms/reduce.h"
+#include "reduce_ops.cuh"
 
 #include <vector>
 #include <iostream>
@@ -74,6 +75,16 @@ namespace mpcf
       m_points.swap(other.m_points);
     }
     
+    [[nodiscard]] bool operator==(const Pcf& rhs) const noexcept
+    {
+      return m_points == rhs.m_points;
+    }
+    
+    [[nodiscard]] bool operator!=(const Pcf& rhs) const noexcept
+    {
+      return m_points != rhs.m_points;
+    }
+    
   private:
     std::vector<point_type> m_points;
   };
@@ -82,7 +93,7 @@ namespace mpcf
   using Pcf_f64 = Pcf<double, double>;
   
   template <typename Tt, typename Tv>
-  [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
+  [[nodiscard]] inline Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;
@@ -90,7 +101,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  [[nodiscard]] Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
+  [[nodiscard]] inline Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top - rect.bottom;
@@ -98,7 +109,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv, typename Tdiv>
-  [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Tdiv val)
+  [[nodiscard]] inline Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Tdiv val)
   {
     Pcf<Tt, Tv> ret = f;
     ret /= val;
@@ -106,7 +117,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  [[nodiscard]] Pcf<Tt, Tv> st_average(const std::vector<Pcf<Tt, Tv>>& fs)
+  [[nodiscard]] inline Pcf<Tt, Tv> st_average(const std::vector<Pcf<Tt, Tv>>& fs)
   {
     auto f = reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;
@@ -115,7 +126,7 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  [[nodiscard]] Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
+  [[nodiscard]] inline Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
     auto f = parallel_reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
       return rect.top + rect.bottom;

@@ -204,11 +204,9 @@ namespace mpcf
           tasks[iBlock].task.succeed(prevLevel[iPrev].task);
         }
       }
-
     }
 
     exec.run(taskflow).wait();
-
     return TPcf(std::move(accumulators[0].m_pts));
   }
 }

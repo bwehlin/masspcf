@@ -86,6 +86,11 @@ namespace mpcf
       return m_shape;
     }
     
+    [[nodiscard]] Pcf<Tt, Tv>& operator()(const std::vector<size_t>& pos)
+    {
+      return m_data[0];
+    }
+    
 #if 0
     [[nodiscard]] const_reference at(const std::vector<size_t>& pos) const
     {
