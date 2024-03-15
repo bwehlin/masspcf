@@ -27,8 +27,53 @@ namespace mpcf
       : m_shape(dims)
     {
       init_strides(dims);
-      auto sz = std::accumulate(dims.begin(), dims.end(), size_t(1), std::multiplies<size_t>());
+      auto sz = get_linear_size();
       m_data = std::make_unique<value_type[]>(sz);
+    }
+    
+    Array(const Array& other)
+      : m_shape(other.m_shape)
+      , m_strides(other.m_strides)
+    {
+      auto sz = get_linear_size();
+      m_data = std::make_unique<value_type[]>(sz);
+      for (size_t i = 0; i < sz; ++i)
+      {
+        m_data[i] = other.m_data[i];
+      }
+    }
+    
+    Array(Array&& other) noexcept
+      : m_shape(std::move(other.m_shape))
+      , m_strides(std::move(other.m_strides))
+      , m_data(std::move(other.m_data))
+    { }
+    
+    Array& operator=(const Array& rhs)
+    {
+      if (this == &rhs)
+      {
+        return *this;
+      }
+      
+      m_shape = rhs.m_shape;
+      m_strides = rhs.m_strides;
+      auto sz = get_linear_size();
+      for (size_t i = 0; i < sz; ++i)
+      {
+        m_data[i] = rhs.m_data[i];
+      }
+      
+      return *this;
+    }
+    
+    Array& operator=(Array&& rhs) noexcept
+    {
+      m_shape = std::move(rhs.m_shape);
+      m_strides = std::move(rhs.m_strides);
+      m_data = std::move(rhs.m_data);
+      
+      return *this;
     }
     
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept 
@@ -58,8 +103,17 @@ namespace mpcf
       return std::inner_product(pos.begin(), pos.end(), m_strides.begin(), 0, std::plus<>(), std::multiplies<>());
     }
     
+    [[nodiscard]] size_t get_linear_size() const noexcept
+    {
+      return get_linear_size(m_shape);
+    }
+    
   private:
     
+    [[nodiscard]] size_t get_linear_size(const std::vector<size_t>& dims) const noexcept
+    {
+      return std::accumulate(dims.begin(), dims.end(), size_t(1), std::multiplies<size_t>());
+    }
     
     void init_strides(const std::vector<size_t> dims)
     {

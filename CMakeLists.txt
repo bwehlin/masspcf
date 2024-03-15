@@ -75,12 +75,14 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/platform.h
   include/mpcf/task.h
   include/mpcf/executor.h src/executor.cu
+  include/mpcf/reduce_ops.cuh
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
   include/mpcf/algorithms/matrix_integrate.h
   include/mpcf/algorithms/subdivide.h
   include/mpcf/algorithms/apply_functional.h
+  include/mpcf/algorithms/array_reduce.h
   include/mpcf/block_matrix_support.cuh
   ${MPCF_LIB_SOURCES_CUDA}
 )
@@ -137,6 +139,7 @@ if (NOT SKBUILD AND BUILD_TESTER)
 
   add_executable(mpcf_test
     test/test_array.cu
+    test/test_array_reduce.cu
     test/test_block_matrix_support.cu
     test/test_l1_dist.cu
     test/test_norms.cu)
