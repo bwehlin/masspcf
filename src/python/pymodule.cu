@@ -9,6 +9,7 @@
 #include <mpcf/algorithm.h>
 #include <mpcf/executor.h>
 #include <mpcf/task.h>
+//#include <mpcf/array.h>
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>

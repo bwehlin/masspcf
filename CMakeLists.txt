@@ -67,6 +67,7 @@ else()
 endif()
 
 SET(MPCF_LIB_SOURCES
+  include/mpcf/array.h
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
@@ -135,6 +136,7 @@ if (NOT SKBUILD AND BUILD_TESTER)
   endif()
 
   add_executable(mpcf_test
+    test/test_array.cu
     test/test_block_matrix_support.cu
     test/test_l1_dist.cu
     test/test_norms.cu)
