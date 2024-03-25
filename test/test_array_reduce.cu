@@ -39,3 +39,44 @@ TEST(ArrayReduce, Add3x2)
   
   EXPECT_EQ(x({0}), f00 + f10 + f11);
 }
+
+TEST(ArrayReduce, NextIndex)
+{
+  std::vector<size_t> shape{2, 3, 2};
+  std::vector<size_t> index{0, 0, 0};
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 000";
+  EXPECT_EQ(index, std::vector<size_t>({1, 0, 0})) << "From 000";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 100";
+  EXPECT_EQ(index, std::vector<size_t>({0, 1, 0})) << "From 100";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 010";
+  EXPECT_EQ(index, std::vector<size_t>({1, 1, 0})) << "From 010";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 110";
+  EXPECT_EQ(index, std::vector<size_t>({0, 2, 0})) << "From 110";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 020";
+  EXPECT_EQ(index, std::vector<size_t>({1, 2, 0})) << "From 020";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 120";
+  EXPECT_EQ(index, std::vector<size_t>({0, 0, 1})) << "From 120";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 001";
+  EXPECT_EQ(index, std::vector<size_t>({1, 0, 1})) << "From 001";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 101";
+  EXPECT_EQ(index, std::vector<size_t>({0, 1, 1})) << "From 101";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 011";
+  EXPECT_EQ(index, std::vector<size_t>({1, 1, 1})) << "From 011";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 111";
+  EXPECT_EQ(index, std::vector<size_t>({0, 2, 1})) << "From 111";
+  
+  ASSERT_TRUE(mpcf::next_array_index(index, shape)) << "From 021";
+  EXPECT_EQ(index, std::vector<size_t>({1, 2, 1})) << "From 021";
+  
+  ASSERT_FALSE(mpcf::next_array_index(index, shape)) << "From 121";
+}
