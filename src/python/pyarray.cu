@@ -127,4 +127,4 @@ void register_array_bindings(py::handle m)
       .def(py::init<>())
       .def("append", [](xt::xstrided_slice_vector& self, size_t i){ self.push_back(i); })
       .def("append_all", [](xt::xstrided_slice_vector& self){ self.push_back(xt::all()); });
-}
+} 

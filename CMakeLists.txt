@@ -100,7 +100,7 @@ SET(MPCF_PY_SOURCES
 )
 
 if (NOT BUILD_WITH_CUDA)
-	set_source_files_properties(src/python/pymodule.cu PROPERTIES LANGUAGE CXX)
+	set_source_files_properties(src/python/pymodule.cu src/python/pyarray.cu PROPERTIES LANGUAGE CXX)
   set_source_files_properties(src/executor.cu PROPERTIES LANGUAGE CXX)
 endif()
 
