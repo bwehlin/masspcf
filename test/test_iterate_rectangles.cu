@@ -22,6 +22,9 @@
 
 #include <vector>
 
+#include <xtensor/xarray.hpp>
+#include <xtensor/xview.hpp>
+
 class IterateRectanglesFixture : public ::testing::Test
 {
 protected:
@@ -90,4 +93,28 @@ TEST_F(IterateRectanglesFixture, StartAfterEverything)
   ASSERT_EQ(rectangles.size(), 1);
 
   EXPECT_EQ(rectangles[0], Rectangle().l(10.).r(Point::infinite_time()).fv(0.).gv(3.));
+}
+
+TEST_F(IterateRectanglesFixture, asdf)
+{
+  auto const & f = pcfs[0];
+  auto const & g = pcfs[1];
+  
+  xt::xarray<mpcf::Pcf_f32> arr{
+    {f     , g         , f + g},
+    {g + g , f         , f + f},
+    {g,      f + f + g , f * 2.0}
+  };
+  
+  auto view = xt::view(arr, xt::all(), 0);
+  
+  for (auto i = 0; i < view.shape(0); ++i)
+  {
+    view(i).debug_print();
+  }
+  
+  EXPECT_EQ(view(0), f);
+  EXPECT_EQ(view(1), g + g);
+  EXPECT_EQ(view(2), g);
+  
 }

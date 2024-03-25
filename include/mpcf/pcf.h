@@ -58,17 +58,23 @@ namespace mpcf
       }
     }
 
-    void debug_print() const
+    std::string to_string() const
     {
+      std::stringstream ss;
       for (auto i = 0ul; i < m_points.size(); ++i)
       {
         if (i != 0ul)
         {
-          std::cout << ", ";
+          ss << ", ";
         }
-        std::cout << "f(" << m_points[i].t << ") = " << m_points[i].v;
+        ss << "f(" << m_points[i].t << ") = " << m_points[i].v;
       }
-      std::cout << std::endl;
+      return ss.str();
+    }
+    
+    void debug_print() const
+    {
+      std::cout << to_string() << std::endl;
     }
 
     template <typename T>
@@ -80,6 +86,27 @@ namespace mpcf
         pt.v /= v;
       }
       return *this;
+    }
+    
+    template <typename T>
+    Pcf& operator*=(T v)
+    {
+      static_assert(std::is_arithmetic<T>::value, "Multiplication by non-arithmetic type");
+      for (auto & pt : m_points)
+      {
+        pt.v *= v;
+      }
+      return *this;
+    }
+    
+    bool operator==(const Pcf& rhs) const
+    {
+      return m_points == rhs.m_points;
+    }
+    
+    bool operator!=(const Pcf& rhs) const
+    {
+      return m_points != rhs.m_points;
     }
 
     [[nodiscard]] const std::vector<point_type>& points() const { return m_points; }
@@ -118,6 +145,22 @@ namespace mpcf
   {
     Pcf<Tt, Tv> ret = f;
     ret /= val;
+    return ret;
+  }
+  
+  template <typename Tt, typename Tv, typename Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, Ts val)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret *= val;
+    return ret;
+  }
+  
+  template <typename Tt, typename Tv, typename Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator*(Ts val, const Pcf<Tt, Tv>& f)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret *= val;
     return ret;
   }
 

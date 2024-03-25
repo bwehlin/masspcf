@@ -54,6 +54,14 @@ if (NOT ${pybind11_FOUND})
   add_subdirectory(pybind11)
 endif() 
 
+add_subdirectory(xtl)
+add_subdirectory(xtensor)
+set(xtl_DIR "xtl")
+set(xtensor_DIR "xtensor")
+
+find_package(xtl REQUIRED)
+find_package(xtensor REQUIRED)
+
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
     include/mpcf/cuda/cuda_matrix_integrate.cuh
@@ -67,6 +75,7 @@ else()
 endif()
 
 SET(MPCF_LIB_SOURCES
+  include/mpcf/ndarray.h
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
@@ -85,6 +94,7 @@ SET(MPCF_LIB_SOURCES
 )
 
 SET(MPCF_PY_SOURCES 
+  src/python/pyarray.cu
   src/python/pymodule.cu
   src/python/pypcf_support.h
 )
@@ -107,7 +117,8 @@ endif()
 target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 
 target_include_directories(mpcf_cpp PUBLIC "include/")
-target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
+#target_include_directories(mpcf_cpp PUBLIC "xtensor/include/")
+target_link_libraries(mpcf_cpp PRIVATE pybind11::headers xtensor)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (MSVC)
@@ -141,7 +152,7 @@ if (NOT SKBUILD AND BUILD_TESTER)
     test/test_norms.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
+  target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY} xtensor)
   
   #include(GoogleTest)
   #gtest_discover_tests(mpcf_test)

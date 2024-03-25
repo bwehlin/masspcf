@@ -34,6 +34,8 @@
 
 namespace py = pybind11;
 
+void register_array_bindings(py::handle m);
+
 namespace
 {
   struct Settings
@@ -114,10 +116,10 @@ namespace
   {
   public:
     static mpcf::Pcf<Tt, Tv> add(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g)
-    { 
+    {
       return f + g;
     }
-  
+
     static mpcf::Pcf<Tt, Tv> combine(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g, unsigned long long cb)
     {
       ReductionWrapper<Tt, Tv> reduction(cb);
@@ -310,5 +312,7 @@ PYBIND11_MODULE(mpcf_cpp, m) {
 #endif
   
   m.def("limit_cpus", [](size_t n){ mpcf::default_executor().limit_cpu_workers(n); });
+  
+  register_array_bindings(m);
   
 }

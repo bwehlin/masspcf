@@ -14,7 +14,13 @@
     limitations under the License.
 '''
 
+import numpy as np
 
-from .pcf import Pcf, average, pdist, l1_norm, l2_norm, lp_norm, linfinity_norm
-from .array import Array, zeros
-from .typing import float32, float64
+__all__ = ['float32', 'float64']
+
+# mpcf type aliases
+
+float32 = np.float32
+float64 = np.float64
+
+

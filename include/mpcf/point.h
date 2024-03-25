@@ -54,6 +54,16 @@ namespace mpcf
     Point() = default;
     Point(Tt it, Tv iv)
       : t(it), v(iv) { }
+    
+    bool operator==(const Point& rhs) const
+    {
+      return t == rhs.t && v == rhs.v;
+    }
+    
+    bool operator!=(const Point& rhs) const
+    {
+      return t != rhs.t || v != rhs.v;
+    }
   };
   
   using Point_f32 = Point<float, float>;
