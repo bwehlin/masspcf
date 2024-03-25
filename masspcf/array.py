@@ -49,6 +49,9 @@ class Array:
     def shape(self):
         return Shape(self.data.shape())
 
+    def __getitem__(self, pos):
+        return f'Item at {pos}'
+
 def _get_array_class(dtype):
     if dtype == dt.float32:
         return cpp.NdArray_f32_f32
