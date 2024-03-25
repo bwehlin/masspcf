@@ -1,4 +1,4 @@
-This license applies to the entire repository except for subfolders that have their own license file (at the moment: taskflow, pybind11). In such cases, the license file in the subfolder takes precedence.
+This license applies to the entire repository except for subfolders that have their own license file (at the moment: pybind11, taskflow, xtensor, xtl). In such cases, the license file in the subfolder takes precedence.
 
 ----------
 

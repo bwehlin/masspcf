@@ -59,8 +59,8 @@ add_subdirectory(xtensor)
 set(xtl_DIR "xtl")
 set(xtensor_DIR "xtensor")
 
-find_package(xtl REQUIRED)
-find_package(xtensor REQUIRED)
+#find_package(xtl REQUIRED)
+#find_package(xtensor REQUIRED)
 
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
@@ -114,11 +114,11 @@ if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
-target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
+target_include_directories(mpcf_cpp PRIVATE "include/mpcf" "xtensor/include" "xtl/include")
 
 target_include_directories(mpcf_cpp PUBLIC "include/")
 #target_include_directories(mpcf_cpp PUBLIC "xtensor/include/")
-target_link_libraries(mpcf_cpp PRIVATE pybind11::headers xtensor)
+target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (MSVC)
