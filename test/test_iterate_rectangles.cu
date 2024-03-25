@@ -1,0 +1,77 @@
+#include <gtest/gtest.h>
+
+#include <mpcf/pcf.h>
+#include <mpcf/algorithms/matrix_integrate.h>
+#include <mpcf/algorithms/iterate_rectangles.h>
+
+#include <vector>
+
+class IterateRectanglesFixture : public ::testing::Test
+{
+protected:
+  using Rectangle = typename mpcf::Pcf_f32::rectangle_type;
+  using Point = typename mpcf::Pcf_f32::point_type;
+  
+  void SetUp() override
+  {
+    collectRectangle = [this](const Rectangle& rect){ rectangles.emplace_back(rect); };
+    
+    pcfs.emplace_back(mpcf::Pcf_f32{{0., 3.}, {1., 2.}, {4., 5.}, {6., 0.}});
+    pcfs.emplace_back(mpcf::Pcf_f32{{0., 2.}, {3., 4.}, {4., 2.}, {5., 1.}, {8., 3.}});
+  }
+  
+  std::vector<mpcf::Pcf_f32> pcfs;
+  std::vector<Rectangle> rectangles;
+  
+  std::function<void(const Rectangle&)> collectRectangle;
+};
+
+TEST_F(IterateRectanglesFixture, Full)
+{
+  mpcf::iterate_rectangles(pcfs[0].points(), pcfs[1].points(), collectRectangle);
+  
+  ASSERT_EQ(rectangles.size(), 7);
+  
+  EXPECT_EQ(rectangles[0], Rectangle().l(0.).r(1.).fv(3.).gv(2.));
+  EXPECT_EQ(rectangles[1], Rectangle().l(1.).r(3.).fv(2.).gv(2.));
+  EXPECT_EQ(rectangles[2], Rectangle().l(3.).r(4.).fv(2.).gv(4.));
+  EXPECT_EQ(rectangles[3], Rectangle().l(4.).r(5.).fv(5.).gv(2.));
+  EXPECT_EQ(rectangles[4], Rectangle().l(5.).r(6.).fv(5.).gv(1.));
+  EXPECT_EQ(rectangles[5], Rectangle().l(6.).r(8.).fv(0.).gv(1.));
+  EXPECT_EQ(rectangles[6], Rectangle().l(8.).r(Point::infinite_time()).fv(0.).gv(3.));
+}
+
+TEST_F(IterateRectanglesFixture, EndEarly)
+{
+  mpcf::iterate_rectangles(pcfs[0].points(), pcfs[1].points(), collectRectangle, 0, 4.5);
+  
+  ASSERT_EQ(rectangles.size(), 4);
+  
+  EXPECT_EQ(rectangles[0], Rectangle().l(0.).r(1.).fv(3.).gv(2.));
+  EXPECT_EQ(rectangles[1], Rectangle().l(1.).r(3.).fv(2.).gv(2.));
+  EXPECT_EQ(rectangles[2], Rectangle().l(3.).r(4.).fv(2.).gv(4.));
+  EXPECT_EQ(rectangles[3], Rectangle().l(4.).r(4.5).fv(5.).gv(2.));
+}
+
+TEST_F(IterateRectanglesFixture, StartLate)
+{
+  mpcf::iterate_rectangles(pcfs[0].points(), pcfs[1].points(), collectRectangle, 2.);
+  
+  ASSERT_EQ(rectangles.size(), 6);
+  
+  EXPECT_EQ(rectangles[0], Rectangle().l(2.).r(3.).fv(2.).gv(2.));
+  EXPECT_EQ(rectangles[1], Rectangle().l(3.).r(4.).fv(2.).gv(4.));
+  EXPECT_EQ(rectangles[2], Rectangle().l(4.).r(5.).fv(5.).gv(2.));
+  EXPECT_EQ(rectangles[3], Rectangle().l(5.).r(6.).fv(5.).gv(1.));
+  EXPECT_EQ(rectangles[4], Rectangle().l(6.).r(8.).fv(0.).gv(1.));
+  EXPECT_EQ(rectangles[5], Rectangle().l(8.).r(Point::infinite_time()).fv(0.).gv(3.));
+}
+
+TEST_F(IterateRectanglesFixture, StartAfterEverything)
+{
+  mpcf::iterate_rectangles(pcfs[0].points(), pcfs[1].points(), collectRectangle, 10.);
+  
+  ASSERT_EQ(rectangles.size(), 1);
+
+  EXPECT_EQ(rectangles[0], Rectangle().l(10.).r(Point::infinite_time()).fv(0.).gv(3.));
+}

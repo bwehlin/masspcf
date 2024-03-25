@@ -26,10 +26,10 @@ namespace mpcf
 
     std::vector<point_type> retPts;
     std::size_t npts = 0;
-    iterate_rectangles(f, g, 0, 1000, [&npts](const rectangle_type&){ ++npts; });
+    iterate_rectangles(f.points(), g.points(), [&npts](const rectangle_type&){ ++npts; });
     retPts.resize(npts);
     auto i = 0ul;
-    iterate_rectangles(f, g, 0, 1000, [&retPts, &i, &op](const rectangle_type& rect){
+    iterate_rectangles(f.points(), g.points(), [&retPts, &i, &op](const rectangle_type& rect){
       retPts[i++] = point_type(rect.left, op(rect));
     });
 
@@ -130,7 +130,7 @@ namespace mpcf
       m_pts_temp.clear();
       m_pts_temp.resize(m_pts.size() + other.size() + 1);
 
-      iterate_rectangles(m_pts, other, 0, std::numeric_limits<time_type>::max(), [&i, this](const rectangle_type& rect){
+      iterate_rectangles(m_pts, other, [&i, this](const rectangle_type& rect){
         ++i;
         m_pts_temp[i].t = rect.left;
         m_pts_temp[i].v = m_op(rect);

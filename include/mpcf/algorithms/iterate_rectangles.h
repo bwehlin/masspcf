@@ -7,19 +7,6 @@
 
 namespace mpcf
 {
-  template <typename T>
-  constexpr T infinity()
-  {
-    if constexpr (std::numeric_limits<T>::has_infinity)
-    {
-      return std::numeric_limits<T>::infinity();
-    }
-    else
-    {
-      return (std::numeric_limits<T>::max)();
-    }
-  }
-
   template <typename PcfT>
   constexpr typename PcfT::value_type infinite_value()
   {
@@ -32,22 +19,31 @@ namespace mpcf
     return infinity<typename PcfT::time_type>();
   }
 
+  template <typename Point>
+  size_t max_time_index_prior_to(const std::vector<Point>& fpts, typename Point::time_type t)
+  {
+    size_t i = 1;
+    auto sz = fpts.size();
+    for (; i < sz && fpts[i].t < t; ++i) { }
+    
+    return --i;
+  }
+  
   template <typename Point, typename FCb>
-  void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, 
-    typename Point::time_type /*a*/, typename Point::time_type b,
-    FCb cb)
+  void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, FCb cb,
+    typename Point::time_type a = Point::zero_time(), typename Point::time_type b = Point::infinite_time())
   {
     using TTime = typename Point::time_type;
     using TVal = typename Point::value_type;
 
-    TTime t = 0;
+    TTime t = a;
     TTime tprev = 0;
 
     TVal fv = 0;
     TVal gv = 0;
 
-    size_t fi = 0; // max_time_prior_to(f, a);
-    size_t gi = 0; // max_time_prior_to(g, a);
+    size_t fi = max_time_index_prior_to(fpts, a);
+    size_t gi = max_time_index_prior_to(gpts, a);
 
     size_t fsz = fpts.size();
     size_t gsz = gpts.size();
@@ -95,7 +91,7 @@ namespace mpcf
         }
       }
 
-      t = std::max(fpts[fi].t, gpts[gi].t);
+      t = std::min(std::max(fpts[fi].t, gpts[gi].t), b);
 
       rect.left = tprev;
       rect.right = t;
@@ -104,16 +100,6 @@ namespace mpcf
 
       cb(rect);
     }
-  }
-
-  template <typename TPcf, typename FCb>
-  void iterate_rectangles(const TPcf& f, const TPcf& g, 
-    typename TPcf::time_type a, typename TPcf::time_type b,
-    FCb cb)
-  {
-    auto const & fpts = f.points();
-    auto const & gpts = g.points();
-    iterate_rectangles(fpts, gpts, a, b, cb);
   }
 
   template <typename PointFwdIterator, typename FCb>

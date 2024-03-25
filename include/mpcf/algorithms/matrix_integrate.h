@@ -22,9 +22,9 @@ namespace mpcf
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
 
     Tv val = 0.f;
-    iterate_rectangles(f, g, a, b, [&val, &op](const rect_t& rect) -> void {
+    iterate_rectangles(f.points(), g.points(), [&val, &op](const rect_t& rect) -> void {
       val += (rect.right - rect.left) * op(rect);
-    });
+    }, a, b);
     
     return val;
   }

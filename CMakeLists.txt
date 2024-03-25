@@ -136,6 +136,7 @@ if (NOT SKBUILD AND BUILD_TESTER)
 
   add_executable(mpcf_test
     test/test_block_matrix_support.cu
+    test/test_iterate_rectangles.cu
     test/test_l1_dist.cu
     test/test_norms.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
