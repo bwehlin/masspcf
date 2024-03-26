@@ -43,29 +43,7 @@ class Shape:
 class Container:
     def shape(self):
         return Shape(self.data.shape())
-
-class View(Container):
-    def __init__(self, v):
-        self.data = v
     
-    #def shape(self):
-    #    return Shape(self.data.shape())
-
-def _get_underlying_shape(s):
-    if isinstance(s, Shape):
-        return s.data
-    elif isinstance(s, cpp.Shape):
-        return s
-    else:
-        return Shape(s).data
-
-class Array(Container):
-    def __init__(self, data):
-        self.data = data
-    
-    #def shape(self):
-    #    return Shape(self.data.shape())
-
     def _get_slice_vec(self, pos):
         sv = cpp.StridedSliceVector()
         i = 0
@@ -89,6 +67,32 @@ class Array(Container):
     def __getitem__(self, pos):
         sv = self._get_slice_vec(pos)
         return View(self.data.view(sv))
+
+class View(Container):
+    def __init__(self, v):
+        self.data = v
+    
+    #def shape(self):
+    #    return Shape(self.data.shape())
+    
+    
+
+def _get_underlying_shape(s):
+    if isinstance(s, Shape):
+        return s.data
+    elif isinstance(s, cpp.Shape):
+        return s
+    else:
+        return Shape(s).data
+
+class Array(Container):
+    def __init__(self, data):
+        self.data = data
+    
+    #def shape(self):
+    #    return Shape(self.data.shape())
+    
+    
 
 def _get_array_class(dtype):
     if dtype == dt.float32:

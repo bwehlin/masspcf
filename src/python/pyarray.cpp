@@ -128,6 +128,9 @@ namespace
     
     template <typename xarray_type>
     using xstrided_view = decltype(detail::get_view_helper<xarray_type>(std::declval<xarray_type>()));
+
+    template <typename xarray_type>
+    using xstrided_view_view = decltype(detail::get_view_helper<xstrided_view<xarray_type>>(std::declval<xstrided_view<xarray_type>>()));
   }
   
   namespace detail
@@ -156,6 +159,7 @@ namespace
   {
   public:
     using self_type = StridedView;
+    using xshape_type = typename ArrayT::xshape_type;
     using xarray_type = typename ArrayT::xarray_type;
     using xview_type = typename ArrayT::xstrided_view_type;
     using value_type = typename ArrayT::value_type;
@@ -194,7 +198,37 @@ namespace
     
     xview_type m_data;
   };
-  
+
+#if 0
+  template <typename NdArrayT>
+  class StridedViewZ
+  {
+  public:
+    using self_type = StridedView;
+    using xarray_type = typename NdArrayT::xarray_type;
+    using xview_type = detail::xstrided_view_view<xarray_type>;
+
+    StridedView(xview_type data)
+      : m_data(data)
+    { }
+
+    Shape shape() const
+    {
+      return detail::to_Shape<NdArrayT>(m_data.shape());
+    }
+
+    self_type view(const StridedSliceVector& sv)
+    {
+      auto v = xt::strided_view(m_data, sv.data);
+      xview_type view = xt::strided_view(m_data, sv.data);
+
+      return self_type(xt::strided_view(m_data, sv.data));
+    }
+
+  private:
+    xview_type m_data;
+  };
+#endif
   
   template <typename Tt, typename Tv>
   class NdArray
@@ -222,9 +256,23 @@ namespace
     
     StridedView<self_type> view(const StridedSliceVector& sv)
     {
-      xstrided_view_type view = get_xview(sv);
-      return StridedView<self_type>(view);
+      return StridedView<self_type>(get_xview(sv));
     }
+
+#if 0
+    StridedView<StridedView<self_type>> view(const StridedSliceVector& sv)
+    {
+      auto view = get_xview(sv);
+      xt::xstrided_slice_vector svInner;
+      for (auto _ : view.shape())
+      {
+        svInner.emplace_back(xt::all());
+      }
+
+      auto viewInner = xt::strided_view(view, svInner);
+      return StridedView<StridedView<self_type>>(viewInner);
+    }
+#endif
     
   private:
     auto get_xview(const StridedSliceVector& sv)
@@ -235,6 +283,30 @@ namespace
     xarray_type m_data;
   };
   
+  template <typename ViewT, int levels, int curLevel = 0>
+  void register_typed_view_bindings(py::handle m, const std::string& suffix)
+  {
+    // xtensor returns different data types for a view of a view as opposed to the view type itself.
+    // Here, we declare *_0, *_1, etc., to refer to the "level" of iterated view. It's not pretty
+    // but it lets us work with things like
+    //
+    // v = A[0, :, :]
+    // v1 = v[2, :]
+    //
+    // in Python.
+
+    using strided_view_type = StridedView<ViewT>;
+
+    py::class_<strided_view_type>(m, ("StridedView" + suffix + "_" + std::to_string(curLevel)).c_str())
+      .def("shape", &strided_view_type::shape)
+      .def("view", &strided_view_type::view, py::keep_alive<0, 1>()); // The top-level view keeps the NdArray alive, so keeping the child view (returned from this function) alive will keep the NdArray alive
+
+    if constexpr (curLevel < levels)
+    {
+      register_typed_view_bindings<StridedView<ViewT>, levels, curLevel + 1>(m, suffix);
+    }
+  }
+
   template <typename Tt, typename Tv>
   void register_typed_array_bindings(py::handle m, const std::string& suffix)
   {
@@ -248,9 +320,7 @@ namespace
         .def("view", &array_type::view, py::keep_alive<0, 1>()) // keep NdArray alive for at least as long as View
         .def_static("make_zeros", &NdArray<Tt, Tv>::make_zeros);
     
-    py::class_<strided_view_type>(m, ("StridedView" + suffix).c_str())
-      .def("shape", &strided_view_type::shape)
-      .def("view", &strided_view_type::view, py::keep_alive<0, 1>()); // The top-level view keeps the NdArray alive, so keeping the child view (returned from this function) alive will keep the NdArray alive
+    register_typed_view_bindings<array_type, 4>(m, suffix);
   }
 
 }
