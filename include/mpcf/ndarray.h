@@ -29,9 +29,9 @@ namespace mpcf
   class NdArray
   {
   public:
-    auto array_type = xt::xarray<mpcf::Pcf<Tt, Tv>>;
-    auto shape_type = typename array_type::shape_type;
-    auto pcf_type = Pcf<Tt, Tv>;
+    using array_type = xt::xarray<mpcf::Pcf<Tt, Tv>>;
+    using shape_type = typename array_type::shape_type;
+    using pcf_type = Pcf<Tt, Tv>;
     
     static NdArray zeroes(const shape_type& shape)
     {

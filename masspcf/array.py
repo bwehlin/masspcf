@@ -34,6 +34,12 @@ class Shape:
     def __str__(self):
         return 'Shape(' + ', '.join([ str(self.data.at(i)) for i in range(self.data.size()) ]) + ')'
 
+    def __len__(self):
+        return self.data.size()
+
+    def __getitem__(self, i):
+        return self.data.at(i)
+
 def _get_underlying_shape(s):
     if isinstance(s, Shape):
         return s.data
@@ -49,7 +55,29 @@ class Array:
     def shape(self):
         return Shape(self.data.shape())
 
+    def _get_slice_vec(self, pos):
+        sv = cpp.StridedSliceVector()
+        i = 0
+        shape = self.shape()
+        for p in pos:
+            if isinstance(p, int):
+                sv.append(p)
+            elif p == Ellipsis:
+                sv.append_all()
+            elif isinstance(p, slice):
+                start = 0 if p.start is None else p.start
+                stop = shape[i] if p.stop is None else p.stop
+                step = 1 if p.step is None else p.step
+                print(f'Start: {start}, stop {stop}, step {step}')
+                sv.append_range(start, stop, step)
+            else:
+                raise ValueError(f'Unsupported range construct {p}.')
+            i += 1
+
+        return sv
+
     def __getitem__(self, pos):
+        sv = self._get_slice_vec(pos)
         return f'Item at {pos}'
 
 def _get_array_class(dtype):

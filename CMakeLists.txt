@@ -114,9 +114,10 @@ if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
-target_include_directories(mpcf_cpp PRIVATE "include/mpcf" "xtensor/include" "xtl/include")
-
+target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 target_include_directories(mpcf_cpp PUBLIC "include/")
+
+target_include_directories(mpcf_cpp SYSTEM PRIVATE "xtensor/include" "xtl/include")
 #target_include_directories(mpcf_cpp PUBLIC "xtensor/include/")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
