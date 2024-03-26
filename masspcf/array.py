@@ -40,12 +40,16 @@ class Shape:
     def __getitem__(self, i):
         return self.data.at(i)
 
-class View:
+class Container:
+    def shape(self):
+        return Shape(self.data.shape())
+
+class View(Container):
     def __init__(self, v):
         self.data = v
     
-    def shape(self):
-        return Shape(self.data.shape())
+    #def shape(self):
+    #    return Shape(self.data.shape())
 
 def _get_underlying_shape(s):
     if isinstance(s, Shape):
@@ -55,12 +59,12 @@ def _get_underlying_shape(s):
     else:
         return Shape(s).data
 
-class Array:
+class Array(Container):
     def __init__(self, data):
         self.data = data
     
-    def shape(self):
-        return Shape(self.data.shape())
+    #def shape(self):
+    #    return Shape(self.data.shape())
 
     def _get_slice_vec(self, pos):
         sv = cpp.StridedSliceVector()
@@ -75,7 +79,6 @@ class Array:
                 start = 0 if p.start is None else p.start
                 stop = shape[i] if p.stop is None else p.stop
                 step = 1 if p.step is None else p.step
-                print(f'Start: {start}, stop {stop}, step {step}')
                 sv.append_range(start, stop, step)
             else:
                 raise ValueError(f'Unsupported range construct {p}.')
@@ -99,6 +102,3 @@ def zeros(shape, dtype=dt.float32):
     ac = _get_array_class(dtype)
     return Array(ac.make_zeros(_get_underlying_shape(shape)))
 
-
-#def zeros(size : _ShapeLike, dtype=):
-#    return Array(np.zeros(size, dtype=))
