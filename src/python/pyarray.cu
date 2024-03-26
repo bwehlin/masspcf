@@ -64,16 +64,16 @@ namespace
   namespace detail
   {
     template <typename ArrayT>
-    inline typename ArrayT::shape_type to_shape(const Shape& in)
+    inline typename ArrayT::xshape_type to_xshape(const Shape& in)
     {
-      typename ArrayT::shape_type s;
+      typename ArrayT::xshape_type s;
       s.resize(in.size());
       std::copy(in.data().begin(), in.data().end(), s.begin());
       return s;
     }
     
     template <typename ArrayT>
-    inline Shape to_Shape(const typename ArrayT::shape_type& in)
+    inline Shape to_Shape(const typename ArrayT::xshape_type& in)
     {
       std::vector<size_t> s;
       s.resize(in.size());
@@ -86,9 +86,9 @@ namespace
   class StridedView
   {
   public:
-    using view_type = typename ArrayT::strided_view_type;
+    using xview_type = typename ArrayT::xstrided_view_type;
     
-    StridedView(view_type data)
+    StridedView(xview_type data)
       : m_data(data)
     { }
     
@@ -98,10 +98,21 @@ namespace
     }
     
   private:
-    view_type m_data;
+    xview_type m_data;
   };
   
 
+  namespace detail
+  {
+    // This function is purely for type inference in decltype
+    template <typename XArrayT>
+    auto get_view_helper(XArrayT&& arr)
+    {
+      const xt::xstrided_slice_vector sv;
+      return xt::strided_view(arr, sv);
+    }
+  }
+  
   
   struct StridedSliceVector
   {
@@ -113,15 +124,17 @@ namespace
   {
   public:
     using self_type = NdArray;
-    using array_type = xt::xarray<mpcf::Pcf<Tt, Tv>>;
-    using shape_type = typename array_type::shape_type;
-    using pcf_type = mpcf::Pcf<Tt, Tv>;
-    using strided_view_type = decltype(xt::strided_view(std::declval<array_type>(), std::declval<xt::xstrided_slice_vector>()));
+    using value_type = mpcf::Pcf<Tt, Tv>;
     
+    using xarray_type = xt::xarray<value_type>;
+    using xshape_type = typename xarray_type::shape_type;
+    
+    using xstrided_view_type = decltype(detail::get_view_helper<xarray_type>(std::declval<xarray_type>()));
+
     static NdArray make_zeros(const Shape& shape)
     {
       NdArray arr;
-      arr.m_data = array_type(detail::to_shape<self_type>(shape));
+      arr.m_data = xarray_type(detail::to_xshape<self_type>(shape));
       return arr;
     }
     
@@ -130,14 +143,20 @@ namespace
       return detail::to_Shape<self_type>(m_data.shape());
     }
     
-    strided_view_type view(const StridedSliceVector& sv)
+    auto get_xview(const StridedSliceVector& sv)
     {
-      auto view = xt::strided_view(m_data, sv.data);
-      std::string asdf = view;
+      return xt::strided_view(m_data, sv.data);
+    }
+    
+    StridedView<self_type> view(const StridedSliceVector& sv)
+    {
+      xstrided_view_type view = get_xview(sv);
       return StridedView<self_type>(view);
     }
     
   private:
+    
+    
 
     /*
     static shape_type conv_shape(const Shape& in)
@@ -156,13 +175,13 @@ namespace
       return Shape(std::move(s));
     }*/
     
-    array_type m_data;
+    xarray_type m_data;
   };
   
   template <typename Tt, typename Tv>
   void register_typed_array_bindings(py::handle m, const std::string& suffix)
   {
-    using shape_type = typename NdArray<Tt, Tv>::shape_type;
+    using xshape_type = typename NdArray<Tt, Tv>::xshape_type;
     using array_type = NdArray<Tt, Tv>;
     using strided_view_type = StridedView<array_type>;
     

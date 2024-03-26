@@ -75,7 +75,6 @@ else()
 endif()
 
 SET(MPCF_LIB_SOURCES
-  include/mpcf/ndarray.h
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
@@ -152,8 +151,9 @@ if (NOT SKBUILD AND BUILD_TESTER)
     test/test_l1_dist.cu
     test/test_norms.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
+  target_include_directories(mpcf_test SYSTEM PRIVATE "xtensor/include" "xtl/include")
 
-  target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY} xtensor)
+  target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
   
   #include(GoogleTest)
   #gtest_discover_tests(mpcf_test)

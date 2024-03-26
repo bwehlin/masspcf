@@ -40,6 +40,13 @@ class Shape:
     def __getitem__(self, i):
         return self.data.at(i)
 
+class View:
+    def __init__(self, v):
+        self.data = v
+    
+    def shape(self):
+        return Shape(self.data.shape())
+
 def _get_underlying_shape(s):
     if isinstance(s, Shape):
         return s.data
@@ -78,7 +85,7 @@ class Array:
 
     def __getitem__(self, pos):
         sv = self._get_slice_vec(pos)
-        return f'Item at {pos}'
+        return View(self.data.view(sv))
 
 def _get_array_class(dtype):
     if dtype == dt.float32:
