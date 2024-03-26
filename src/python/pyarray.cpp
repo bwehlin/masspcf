@@ -159,7 +159,7 @@ namespace
     using xarray_type = typename ArrayT::xarray_type;
     using xview_type = typename ArrayT::xstrided_view_type;
     using value_type = typename ArrayT::value_type;
-    using xstrided_view_type = detail::xstrided_view<xarray_type>;
+    using xstrided_view_type = detail::xstrided_view<xview_type>;
     
     StridedView(xview_type data)
       : m_data(data)
@@ -249,8 +249,8 @@ namespace
         .def_static("make_zeros", &NdArray<Tt, Tv>::make_zeros);
     
     py::class_<strided_view_type>(m, ("StridedView" + suffix).c_str())
-        .def("shape", &strided_view_type::shape)
-        .def("view", &strided_view_type::view, py::keep_alive<0, 1>()); // The top-level view keeps the NdArray alive, so keeping the child view (returned from this function) alive will keep the NdArray alive
+      .def("shape", &strided_view_type::shape)
+      .def("view", &strided_view_type::view, py::keep_alive<0, 1>()); // The top-level view keeps the NdArray alive, so keeping the child view (returned from this function) alive will keep the NdArray alive
   }
 
 }

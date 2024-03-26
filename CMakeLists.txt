@@ -33,7 +33,7 @@ endif()
 
 if (NOT SKBUILD)
   set(SKBUILD_PROJECT_NAME massivepcf)
-  set(SKBUILD_PROJECT_VERSION "0.1.0")
+  set(SKBUILD_PROJECT_VERSION "0.2.0")
 endif()
 
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
@@ -93,13 +93,13 @@ SET(MPCF_LIB_SOURCES
 )
 
 SET(MPCF_PY_SOURCES 
-  src/python/pyarray.cu
+  src/python/pyarray.cpp
   src/python/pymodule.cu
   src/python/pypcf_support.h
 )
 
 if (NOT BUILD_WITH_CUDA)
-	set_source_files_properties(src/python/pymodule.cu src/python/pyarray.cu PROPERTIES LANGUAGE CXX)
+	set_source_files_properties(src/python/pymodule.cu PROPERTIES LANGUAGE CXX)
   set_source_files_properties(src/executor.cu PROPERTIES LANGUAGE CXX)
 endif()
 
