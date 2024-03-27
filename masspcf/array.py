@@ -45,9 +45,13 @@ class Container:
         return Shape(self.data.shape())
     
     def _get_slice_vec(self, pos):
-        sv = cpp.StridedSliceVector()
-        i = 0
         shape = self.shape()
+        sv = cpp.StridedSliceVector()
+        
+        if isinstance(pos, slice):
+            pos = (pos,)
+
+        i = 0
         for p in pos:
             if isinstance(p, int):
                 sv.append(p)
