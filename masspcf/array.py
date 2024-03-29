@@ -67,6 +67,9 @@ class Container:
             i += 1
 
         return sv
+    
+    def at(self, pos):
+        return self.data.at(pos)
 
     def __getitem__(self, pos):
         sv = self._get_slice_vec(pos)
@@ -95,8 +98,6 @@ class Array(Container):
     
     #def shape(self):
     #    return Shape(self.data.shape())
-    
-    
 
 def _get_array_class(dtype):
     if dtype == dt.float32:
@@ -105,6 +106,7 @@ def _get_array_class(dtype):
         return cpp.NdArray_f64_f64
     else:
         raise TypeError('Only float32 and float64 dtypes are supported.')
+
 
 def zeros(shape, dtype=dt.float32):
     ac = _get_array_class(dtype)

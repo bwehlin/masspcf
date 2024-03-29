@@ -93,6 +93,7 @@ namespace mpcf
       return mpcf::Pcf<Tt, Tv>(std::move(points));
     }
 
+#if 0
     template <typename TPcf>
     py::memoryview to_numpy(const TPcf& pcf)
     {
@@ -104,6 +105,25 @@ namespace mpcf
         reinterpret_cast<const TTime*>(pcf.points().data()), 
         { Py_ssize_t(2), Py_ssize_t(pcf.points().size())},
         { Py_ssize_t(sizeof(TTime)), Py_ssize_t(sizeof(TTime) * 2)});
+    }
+#endif
+
+    template <typename TPcf>
+    py::buffer_info to_numpy(const TPcf& pcf)
+    {
+      using TTime = typename TPcf::time_type;
+      using TVal = typename TPcf::value_type;
+      static_assert(std::is_same<TTime, TVal>::value, "time and value type must be the same");
+
+      return py::buffer_info(
+        const_cast<void*>(reinterpret_cast<const void*>(pcf.points().data())),
+        sizeof(TVal),
+        py::format_descriptor<TVal>::format(),
+        py::ssize_t(2),
+        { py::ssize_t(pcf.points().size()), py::ssize_t(2) },
+        { py::ssize_t(2 * sizeof(TVal)), py::ssize_t(sizeof(TVal)) },
+        true
+      );
     }
 
 

@@ -65,6 +65,15 @@ namespace mpcf
       return t != rhs.t || v != rhs.v;
     }
   };
+
+  template <typename Tt, typename Tv>
+  struct OrderByTimeAscending
+  {
+    [[nodiscard]] bool operator()(const mpcf::Point<Tt, Tv>& a, const mpcf::Point<Tt, Tv>& b) const noexcept
+    {
+      return a.t < b.t;
+    }
+  };
   
   using Point_f32 = Point<float, float>;
   using Point_f64 = Point<double, double>;

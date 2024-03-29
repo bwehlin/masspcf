@@ -14,11 +14,25 @@
     limitations under the License.
 '''
 
-import matplotlib.pyplot as plt
-from .pcf import Pcf
-import numpy as np
+from . import mpcf_cpp as cpp
+from .pcf import Pcf, tPcf_f32_f32, tPcf_f64_f64
+from .array import zeros
 
-def plot(f : Pcf, ax=None, **kwargs):
-    ax = plt if ax is None else ax
-    X = np.array(f)
-    ax.step(X[:,0], X[:,1], where='post', **kwargs)
+from . import typing as dt
+
+def noisy_sin(nPoints=20, dtype=dt.float32):
+    backend = _get_random_class(dtype)
+
+    A = zeros((nPoints, ), dtype=dtype)
+    backend.noisy_sin(A.data, nPoints)
+
+    return A
+
+
+def _get_random_class(dtype):
+    if dtype == dt.float32:
+        return cpp.Random_f32_f32
+    elif dtype == dt.float64:
+        return cpp.Random_f64_f64
+    else:
+        raise TypeError('Only float32 and float64 dtypes are supported.')

@@ -80,8 +80,9 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/rectangle.h
   include/mpcf/operations.cuh
   include/mpcf/platform.h
+  include/mpcf/random.h src/random.cpp
   include/mpcf/task.h
-  include/mpcf/executor.h src/executor.cu
+  include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
@@ -93,8 +94,9 @@ SET(MPCF_LIB_SOURCES
 )
 
 SET(MPCF_PY_SOURCES 
-  src/python/pyarray.cpp
+  src/python/pyarray.h src/python/pyarray.cpp
   src/python/pymodule.cu
+  src/python/pyrandom.cpp
   src/python/pypcf_support.h
 )
 

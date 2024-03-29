@@ -35,6 +35,7 @@
 namespace py = pybind11;
 
 void register_array_bindings(py::handle m);
+void register_random_bindings(py::handle m);
 
 namespace
 {
@@ -233,13 +234,13 @@ namespace
       using TPcf = mpcf::Pcf<Tt, Tv>;
       using point_type = typename TPcf::point_type;
       
-      py::class_<mpcf::Pcf<Tt, Tv>>(m, ("Pcf" + suffix).c_str())
+      py::class_<mpcf::Pcf<Tt, Tv>>(m, ("Pcf" + suffix).c_str(), py::buffer_protocol())
         .def(py::init<>())
         .def(py::init<>([](py::array_t<Tt> arr){ return mpcf::detail::construct_pcf<Tt, Tv>(arr); }))
         .def("get_time_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tt); })
         .def("get_value_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tv); })
         .def("debug_print", &TPcf::debug_print) \
-        .def("to_numpy", &mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>)
+        .def_buffer([](TPcf& self) { return mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>(self); })
         .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
         .def("size", [](const TPcf& self){ return self.points().size(); })
         .def("copy", [](const TPcf& self){ return TPcf(self); })
@@ -314,5 +315,5 @@ PYBIND11_MODULE(mpcf_cpp, m) {
   m.def("limit_cpus", [](size_t n){ mpcf::default_executor().limit_cpu_workers(n); });
   
   register_array_bindings(m);
-  
+  register_random_bindings(m);
 }
