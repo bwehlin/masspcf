@@ -73,7 +73,7 @@ class Container:
 
     def __getitem__(self, pos):
         sv = self._get_slice_vec(pos)
-        return View(self.data.view(sv))
+        return View(self.data.strided_view(sv))
 
 class View(Container):
     def __init__(self, v):

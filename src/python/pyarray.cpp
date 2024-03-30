@@ -60,14 +60,19 @@ namespace
     using xshape_type = typename mpcf_py::NdArray<Tt, Tv>::xshape_type;
     using array_type = mpcf_py::NdArray<Tt, Tv>;
     using strided_view_type = mpcf_py::StridedView<array_type>;
-    
+    using view_type = mpcf_py::View<array_type>;
+
     py::class_<array_type>(m, ("NdArray" + suffix).c_str())
         .def(py::init<>())
         .def("shape", &array_type::shape)
-        .def("view", &array_type::view, py::keep_alive<0, 1>()) // keep NdArray alive for at least as long as View
+        .def("strided_view", &array_type::strided_view, py::keep_alive<0, 1>()) // keep NdArray alive for at least as long as View
         .def("at", &array_type::at, py::keep_alive<0, 1>())
         .def_static("make_zeros", &mpcf_py::NdArray<Tt, Tv>::make_zeros);
     
+    py::class_<view_type>(m, ("View" + suffix).c_str())
+      .def("strided_view", &view_type::strided_view, py::keep_alive<0, 1>())
+      .def("shape", &view_type::get_shape);
+
     register_typed_view_bindings<array_type, 4>(m, suffix);
   }
 

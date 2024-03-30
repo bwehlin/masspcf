@@ -9,9 +9,12 @@ import matplotlib.pyplot as plt
 z = mpcf.zeros((3, 4, 6))
 print(z.shape())
 
+#%%%
+
 #print(z[:,:2])
 v = z[0, 1:3, :]
 
+#%%%
 
 print(v.shape())
 print(v.data)

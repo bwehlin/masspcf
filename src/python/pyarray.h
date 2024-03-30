@@ -21,6 +21,7 @@
 #include <xtensor/xbuilder.hpp>
 #include <xtensor/xlayout.hpp>
 
+#include <variant>
 #include <vector>
 
 namespace mpcf_py
@@ -147,7 +148,71 @@ namespace mpcf_py
       std::copy(in.begin(), in.end(), s.begin());
       return Shape(std::move(s));
     }
+
+    template <typename XShapeT>
+    inline Shape to_Shape2(const XShapeT& in)
+    {
+      std::vector<size_t> s;
+      s.resize(in.size());
+      std::copy(in.begin(), in.end(), s.begin());
+      return Shape(std::move(s));
+    }
   }
+
+  namespace detail
+  {
+
+  }
+
+  template <typename ArrayT>
+  class View
+  {
+  private:
+    using xarray_type = typename ArrayT::xarray_type;
+
+    using xv = detail::xstrided_view<xarray_type>;
+    template <typename T> using xvv = detail::xstrided_view<T>;
+
+  public:
+    using self_type = View;
+
+    template <typename T>
+    static View<ArrayT> create(T xview)
+    {
+      View<ArrayT> view;
+      view.m_data = xview;
+      return view;
+    }
+
+    View<ArrayT> strided_view(const StridedSliceVector& sv)
+    {
+      return std::visit([](auto&& arg)
+        {
+          return create(arg);
+        }, m_data);
+    }
+
+    Shape get_shape() const
+    {
+      return std::visit([](auto&& arg) -> Shape
+        {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
+          {
+            return detail::to_Shape2(arg.shape());
+          }
+          else
+          {
+            throw std::runtime_error("Unsupported operation on this type of view.");
+          }
+        }, m_data);
+    }
+
+  private:
+
+    std::variant<std::monostate,
+      xv, xvv<xv>, xvv<xvv<xv>>, xvv<xvv<xvv<xv>>>, xvv<xvv<xvv<xvv<xv>>>>
+    > m_data;
+  };
 
   template <typename ArrayT>
   class StridedView
@@ -218,10 +283,18 @@ namespace mpcf_py
       return detail::to_Shape<self_type>(m_data.shape());
     }
 
+    View<self_type> strided_view(const StridedSliceVector& sv)
+    {
+      auto xview = get_xview(sv);
+      return View<self_type>::create(xview);
+    }
+
+#if 0
     StridedView<self_type> view(const StridedSliceVector& sv)
     {
       return StridedView<self_type>(get_xview(sv));
     }
+#endif
 
 #if 0
     StridedView<StridedView<self_type>> view(const StridedSliceVector& sv)
