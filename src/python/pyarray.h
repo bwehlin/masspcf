@@ -21,6 +21,7 @@
 #include <xtensor/xbuilder.hpp>
 #include <xtensor/xlayout.hpp>
 
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -161,7 +162,18 @@ namespace mpcf_py
 
   namespace detail
   {
-
+    template <typename T>
+    std::remove_pointer_t<T>* ptr(T& v)
+    {
+      if constexpr (std::is_pointer_v<T>)
+      {
+        return v;
+      }
+      else
+      {
+        return &v;
+      }
+    }
   }
 
   template <typename ArrayT>
@@ -173,8 +185,12 @@ namespace mpcf_py
     using xv = detail::xstrided_view<xarray_type>;
     template <typename T> using xvv = detail::xstrided_view<T>;
 
+    using xvend = xvv<xvv<xvv<xvv<xv>>>>;
+
   public:
     using self_type = View;
+    using array_type = ArrayT;
+    using xarray_type = typename array_type::xarray_type;
 
     template <typename T>
     static View<ArrayT> create(T xview)
@@ -184,21 +200,29 @@ namespace mpcf_py
       return view;
     }
 
-    View<ArrayT> strided_view(const StridedSliceVector& sv)
+    View strided_view(const StridedSliceVector& sv)
     {
-      return std::visit([](auto&& arg)
+      return std::visit([&sv](auto&& arg) -> View
         {
-          return create(arg);
+          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>  && !std::is_same_v<std::decay_t<decltype(arg)>, xvend > )
+          {
+            return View<ArrayT>::create(
+              xt::strided_view(*detail::ptr(arg), sv.data));
+          }
+          else
+          {
+            throw std::runtime_error("Unsupported operation on this type of view.");
+          }
         }, m_data);
     }
 
     Shape get_shape() const
     {
-      return std::visit([](auto&& arg) -> Shape
+      return std::visit([this](auto&& arg) -> Shape
         {
           if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
           {
-            return detail::to_Shape2(arg.shape());
+            return detail::to_Shape2((detail::ptr(arg))->shape());
           }
           else
           {
@@ -209,7 +233,9 @@ namespace mpcf_py
 
   private:
 
-    std::variant<std::monostate,
+    std::variant<
+      std::monostate,
+      xarray_type*,
       xv, xvv<xv>, xvv<xvv<xv>>, xvv<xvv<xvv<xv>>>, xvv<xvv<xvv<xvv<xv>>>>
     > m_data;
   };
@@ -281,6 +307,11 @@ namespace mpcf_py
     Shape shape() const
     {
       return detail::to_Shape<self_type>(m_data.shape());
+    }
+    
+    View<self_type> as_view()
+    {
+      return View<self_type>::create(&m_data);
     }
 
     View<self_type> strided_view(const StridedSliceVector& sv)

@@ -23,6 +23,7 @@ print(v1.shape())
 print(v1.data)
 v2 = v1[1:2]
 print(v2.data)
+print(v2.shape())
 
 A = noisy_sin(10)
 

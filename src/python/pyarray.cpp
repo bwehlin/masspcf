@@ -64,6 +64,7 @@ namespace
 
     py::class_<array_type>(m, ("NdArray" + suffix).c_str())
         .def(py::init<>())
+        .def("as_view", &array_type::as_view, py::keep_alive<0, 1>())
         .def("shape", &array_type::shape)
         .def("strided_view", &array_type::strided_view, py::keep_alive<0, 1>()) // keep NdArray alive for at least as long as View
         .def("at", &array_type::at, py::keep_alive<0, 1>())
