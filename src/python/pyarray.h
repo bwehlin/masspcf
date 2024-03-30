@@ -216,6 +216,22 @@ namespace mpcf_py
         }, m_data);
     }
 
+    View transpose()
+    {
+      return std::visit([](auto&& arg) -> View
+        {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate> && !std::is_same_v<std::decay_t<decltype(arg)>, xvend >)
+          {
+            return View<ArrayT>::create(
+              xt::transpose(*detail::ptr(arg)));
+          }
+          else
+          {
+            throw std::runtime_error("Unsupported operation on this type of view.");
+          }
+        }, m_data);
+    }
+
     Shape get_shape() const
     {
       return std::visit([this](auto&& arg) -> Shape
