@@ -179,19 +179,19 @@ namespace mpcf_py
   template <typename ArrayT>
   class View
   {
-  private:
-    using xarray_type = typename ArrayT::xarray_type;
+  public:
+    using self_type = View;
+    using array_type = ArrayT;
+    using xarray_type = typename array_type::xarray_type;
 
+  private:
     using xv = detail::xstrided_view<xarray_type>;
     template <typename T> using xvv = detail::xstrided_view<T>;
 
     using xvend = xvv<xvv<xvv<xvv<xv>>>>;
 
   public:
-    using self_type = View;
-    using array_type = ArrayT;
-    using xarray_type = typename array_type::xarray_type;
-
+  
     template <typename T>
     static View<ArrayT> create(T xview)
     {

@@ -17,6 +17,8 @@
 #ifndef MPCF_POINT_H
 #define MPCF_POINT_H
 
+#include <limits>
+
 namespace mpcf
 {
   template <typename T>
