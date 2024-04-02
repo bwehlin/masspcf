@@ -208,6 +208,7 @@ namespace mpcf_py
   public:
     using self_type = View;
     using array_type = ArrayT;
+    using value_type = typename array_type::value_type;
     using xarray_type = typename array_type::xarray_type;
 
   private:
@@ -297,6 +298,21 @@ namespace mpcf_py
             throw std::runtime_error("Unsupported operation on this type of view (to view).");
           }
 
+        }, m_data);
+    }
+
+    value_type& at(const std::vector<size_t>& pos)
+    {
+      return std::visit([this, &pos](auto&& arg) -> value_type&
+        {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
+          {
+            return detail::ref(arg)[pos];
+          }
+          else
+          {
+            throw std::runtime_error("Unsupported operation on this type of view.");
+          }
         }, m_data);
     }
 

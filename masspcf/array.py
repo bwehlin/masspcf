@@ -68,8 +68,16 @@ class Container:
         return self.data.at(pos)
 
     def __getitem__(self, pos):
+        if isinstance(pos, int):
+            return self._as_view().at([0])
+
         sv = self._get_slice_vec(pos)
-        return View(self.data.strided_view(sv))
+        view = View(self.data.strided_view(sv))
+        
+        if len(view.shape) == 0:
+            return view.at([0])
+        else:
+            return view
     
     def __setitem__(self, pos, val):
         sv = self._get_slice_vec(pos)

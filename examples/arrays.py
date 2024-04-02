@@ -14,7 +14,7 @@ print(A.shape)
 
 z[0,:] = A
 
-print(np.array(A.at([1])))
-print(np.array(z.at([0, 0])))
+print(np.array(A[1]))
+print(np.array(z[0, 0]))
 
 #print(v)
