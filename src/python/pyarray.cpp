@@ -28,38 +28,11 @@ namespace py = pybind11;
 
 namespace
 {
-  
-  
-  template <typename ViewT, int levels, int curLevel = 0>
-  void register_typed_view_bindings(py::handle m, const std::string& suffix)
-  {
-    // xtensor returns different data types for a view of a view as opposed to the view type itself.
-    // Here, we declare *_0, *_1, etc., to refer to the "level" of iterated view. It's not pretty
-    // but it lets us work with things like
-    //
-    // v = A[0, :, :]
-    // v1 = v[2, :]
-    //
-    // in Python.
-
-    using strided_view_type = mpcf_py::StridedView<ViewT>;
-
-    py::class_<strided_view_type>(m, ("StridedView" + suffix + "_" + std::to_string(curLevel)).c_str())
-      .def("shape", &strided_view_type::shape)
-      .def("view", &strided_view_type::view, py::keep_alive<0, 1>()); // The top-level view keeps the NdArray alive, so keeping the child view (returned from this function) alive will keep the NdArray alive
-
-    if constexpr (curLevel < levels)
-    {
-      register_typed_view_bindings<mpcf_py::StridedView<ViewT>, levels, curLevel + 1>(m, suffix);
-    }
-  }
-
   template <typename Tt, typename Tv>
   void register_typed_array_bindings(py::handle m, const std::string& suffix)
   {
     using xshape_type = typename mpcf_py::NdArray<Tt, Tv>::xshape_type;
     using array_type = mpcf_py::NdArray<Tt, Tv>;
-    using strided_view_type = mpcf_py::StridedView<array_type>;
     using view_type = mpcf_py::View<array_type>;
 
     py::class_<array_type>(m, ("NdArray" + suffix).c_str())
@@ -74,8 +47,6 @@ namespace
       .def("strided_view", &view_type::strided_view, py::keep_alive<0, 1>())
       .def("shape", &view_type::get_shape)
       .def("transpose", &view_type::transpose);
-
-    register_typed_view_bindings<array_type, 4>(m, suffix);
   }
 
 }

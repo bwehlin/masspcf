@@ -256,51 +256,6 @@ namespace mpcf_py
     > m_data;
   };
 
-  template <typename ArrayT>
-  class StridedView
-  {
-  public:
-    using self_type = StridedView;
-    using xshape_type = typename ArrayT::xshape_type;
-    using xarray_type = typename ArrayT::xarray_type;
-    using xview_type = typename ArrayT::xstrided_view_type;
-    using value_type = typename ArrayT::value_type;
-    using xstrided_view_type = detail::xstrided_view<xview_type>;
-
-    StridedView(xview_type data)
-      : m_data(data)
-    { }
-
-    Shape shape() const
-    {
-      return detail::to_Shape<ArrayT>(m_data.shape());
-    }
-
-    StridedView<self_type> view(const StridedSliceVector& sv)
-    {
-      xstrided_view_type view = get_xview(sv);
-      return StridedView<self_type>(view);
-    }
-
-    void assign_element(const Index& index, const value_type& val)
-    {
-      m_data.element(index.begin(), index.end()) = val;
-    }
-
-    const value_type& get_element(const Index& index) const
-    {
-      return m_data.element(index.begin(), index.end());
-    }
-
-  private:
-    auto get_xview(const StridedSliceVector& sv)
-    {
-      return xt::strided_view(m_data, sv.data);
-    }
-
-    xview_type m_data;
-  };
-
   template <typename Tt, typename Tv>
   class NdArray
   {
@@ -335,28 +290,6 @@ namespace mpcf_py
       auto xview = get_xview(sv);
       return View<self_type>::create(xview);
     }
-
-#if 0
-    StridedView<self_type> view(const StridedSliceVector& sv)
-    {
-      return StridedView<self_type>(get_xview(sv));
-    }
-#endif
-
-#if 0
-    StridedView<StridedView<self_type>> view(const StridedSliceVector& sv)
-    {
-      auto view = get_xview(sv);
-      xt::xstrided_slice_vector svInner;
-      for (auto _ : view.shape())
-      {
-        svInner.emplace_back(xt::all());
-      }
-
-      auto viewInner = xt::strided_view(view, svInner);
-      return StridedView<StridedView<self_type>>(viewInner);
-    }
-#endif
 
     xarray_type& data() { return m_data; }
     const xarray_type& data() const { return m_data; }
