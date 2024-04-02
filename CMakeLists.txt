@@ -19,11 +19,6 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (WIN32)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
-endif()
-
 if (BUILD_WITH_CUDA)
   SET(LANG_CUDA CUDA)
   add_compile_definitions(BUILD_WITH_CUDA=1)
@@ -149,7 +144,7 @@ if (NOT SKBUILD AND BUILD_TESTER)
 
   add_executable(mpcf_test
     test/test_block_matrix_support.cu
-    test/test_iterate_rectangles.cu
+    test/test_iterate_rectangles.cpp
     test/test_l1_dist.cu
     test/test_norms.cu)
   target_include_directories(mpcf_test PRIVATE "include/")
