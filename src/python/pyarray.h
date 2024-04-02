@@ -174,6 +174,32 @@ namespace mpcf_py
         return &v;
       }
     }
+
+    template <typename T>
+    std::remove_pointer_t<T>& ref(T& v)
+    {
+      if constexpr (std::is_pointer_v<T>)
+      {
+        return *v;
+      }
+      else
+      {
+        return v;
+      }
+    }
+
+    template <typename T>
+    const std::remove_pointer_t<T>& cref(T& v)
+    {
+      if constexpr (std::is_pointer_v<T>)
+      {
+        return *v;
+      }
+      else
+      {
+        return v;
+      }
+    }
   }
 
   template <typename ArrayT>
@@ -244,6 +270,33 @@ namespace mpcf_py
           {
             throw std::runtime_error("Unsupported operation on this type of view.");
           }
+        }, m_data);
+    }
+
+    void assign(const View& from)
+    {
+      std::visit([this, &from](auto&& toArg) {
+
+          if constexpr (!std::is_same_v<std::decay_t<decltype(toArg)>, std::monostate>)
+          {
+            std::visit([&toArg](auto&& fromArg) {
+
+              if constexpr (!std::is_same_v<std::decay_t<decltype(fromArg)>, std::monostate>)
+              {
+                detail::ref(toArg) = detail::cref(fromArg);
+              }
+              else
+              {
+                throw std::runtime_error("Unsupported operation on this type of view (from view).");
+              }
+
+              }, from.m_data);
+          }
+          else
+          {
+            throw std::runtime_error("Unsupported operation on this type of view (to view).");
+          }
+
         }, m_data);
     }
 

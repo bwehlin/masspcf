@@ -41,30 +41,26 @@ class Shape:
         return self.data.at(i)
 
 class Container:
+    @property
     def shape(self):
-        return Shape(self.data.shape())
+        return Shape(self._get_data().shape())
     
     def _get_slice_vec(self, pos):
-        shape = self.shape()
         sv = cpp.StridedSliceVector()
         
         if isinstance(pos, slice):
             pos = (pos,)
 
-        i = 0
         for p in pos:
             if isinstance(p, int):
                 sv.append(p)
+            elif isinstance(p, slice):
+                if p.start is None and p.stop is None:
+                    sv.append_all()
             elif p == Ellipsis:
                 sv.append_all()
-            elif isinstance(p, slice):
-                start = 0 if p.start is None else p.start
-                stop = shape[i] if p.stop is None else p.stop
-                step = 1 if p.step is None else p.step
-                sv.append_range(start, stop, step)
             else:
                 raise ValueError(f'Unsupported range construct {p}.')
-            i += 1
 
         return sv
     
@@ -74,15 +70,21 @@ class Container:
     def __getitem__(self, pos):
         sv = self._get_slice_vec(pos)
         return View(self.data.strided_view(sv))
+    
+    def __setitem__(self, pos, val):
+        sv = self._get_slice_vec(pos)
+        self._get_data().strided_view(sv).assign(val._as_view().data)
+    
+    def _get_data(self):
+        return self._as_view().data
+        
 
 class View(Container):
     def __init__(self, v):
         self.data = v
     
-    #def shape(self):
-    #    return Shape(self.data.shape())
-    
-    
+    def _as_view(self):
+        return self
 
 def _get_underlying_shape(s):
     if isinstance(s, Shape):
@@ -96,8 +98,8 @@ class Array(Container):
     def __init__(self, data):
         self.data = data
     
-    #def shape(self):
-    #    return Shape(self.data.shape())
+    def _as_view(self):
+        return View(self.data.as_view())
 
 def _get_array_class(dtype):
     if dtype == dt.float32:

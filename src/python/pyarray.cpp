@@ -46,7 +46,8 @@ namespace
     py::class_<view_type>(m, ("View" + suffix).c_str())
       .def("strided_view", &view_type::strided_view, py::keep_alive<0, 1>())
       .def("shape", &view_type::get_shape)
-      .def("transpose", &view_type::transpose);
+      .def("transpose", &view_type::transpose)
+      .def("assign", &view_type::assign);
   }
 
 }
