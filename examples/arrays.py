@@ -27,3 +27,9 @@ plotpcf(Abar[1], color='r', linewidth=2)
 
 plt.show()
 
+raise SystemExit
+
+B = noisy_cos((10000,10), nPoints=50)
+print(B.shape)
+
+Bbar = mean(B, 1)

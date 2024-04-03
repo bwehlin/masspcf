@@ -150,7 +150,8 @@ if (NOT SKBUILD AND BUILD_TESTER)
     test/test_block_matrix_support.cu
     test/test_iterate_rectangles.cpp
     test/test_l1_dist.cu
-    test/test_norms.cu)
+    test/test_norms.cu
+    test/test_parallel_reduce.cpp)
   target_include_directories(mpcf_test PRIVATE "include/")
   target_include_directories(mpcf_test SYSTEM PRIVATE "xtensor/include" "xtl/include")
 

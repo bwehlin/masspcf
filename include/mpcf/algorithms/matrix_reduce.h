@@ -21,13 +21,29 @@
 #include <xtensor/xaxis_iterator.hpp>
 #include <xtensor/xview.hpp>
 
-#include <iostream>
+#include <taskflow/algorithm/for_each.hpp>
 
 #include "../pcf.h"
 #include "../executor.h"
+#include "reduce.h"
 
 namespace mpcf
 {
+  namespace detail
+  {
+    template <typename XArrayT>
+    class SliceBasePointIterator
+    {
+    public:
+      using value_type = typename XArrayT::value_type;
+      using difference_type = std::ptrdiff_t;
+      using iterator_category = std::forward_iterator_tag;
+
+
+
+    };
+  }
+
   template <typename XArrayT, typename XExpressionT>
   XArrayT parallel_matrix_reduce(const XExpressionT& in, size_t dim, Executor& exec = default_executor())
   {
@@ -37,10 +53,37 @@ namespace mpcf
     auto inBegin = xt::axis_begin(in, dim);
     auto inEnd = xt::axis_end(in, dim);
 
+    auto nAlongAxis = std::distance(inBegin, inEnd);
+
     XArrayT ret = xt::zeros_like(*inBegin);
 
     auto retFlat = xt::flatten(ret);
     auto flatShape = retFlat.shape(0);
+
+#if 1
+
+    // TODO: this is bad!
+    std::vector<pcf_type> fs;
+
+    for (auto i = 0; i < flatShape; ++i)
+    {
+      fs.clear();
+      fs.resize(nAlongAxis);
+      auto j = size_t(0);
+      for (auto it = inBegin; it != inEnd; ++it)
+      {
+        auto flat = xt::flatten(*it);
+        fs.at(j) = flat[{i}];
+        ++j;
+      }
+      retFlat[{i}] = parallel_reduce(fs.begin(), fs.end(), [](const typename pcf_type::rectangle_type& rect) {
+        return rect.top + rect.bottom;
+        });
+    }
+
+#endif
+
+#if 0
 
     for (auto it = inBegin; it != inEnd; ++it)
     {
@@ -50,6 +93,24 @@ namespace mpcf
         retFlat[{i}] += flat.at(i);
       }
     }
+#endif
+    
+#if 0
+    for (auto it = inBegin; it != inEnd; ++it)
+    {
+      tf::Taskflow flow;
+
+      auto flat = xt::flatten(*it);
+      flow.for_each_index(size_t(0), size_t(flatShape), size_t(1), [&retFlat, &flat](size_t i) {
+        retFlat[{i}] += flat.at(i);
+        });
+
+
+
+      exec.cpu()->run(std::move(flow)).wait();
+    }
+
+#endif
 
     for (auto i = 0; i < retFlat.shape()[{0}]; ++i)
     {

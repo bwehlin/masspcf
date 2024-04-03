@@ -144,17 +144,31 @@ namespace mpcf
     void combine_with_(const std::vector<point_type>& other)
     {
       using rectangle_type = typename TPcf::rectangle_type;
+      using value_type = typename point_type::value_type;
+
       auto i = 0ul;
       m_pts_temp.clear();
       m_pts_temp.resize(m_pts.size() + other.size() + 1);
 
-      iterate_rectangles(m_pts, other, [&i, this](const rectangle_type& rect){
-        ++i;
-        m_pts_temp[i].t = rect.left;
-        m_pts_temp[i].v = m_op(rect);
+      value_type vLast = 0;
+
+      iterate_rectangles(m_pts, other, [&i, &vLast, this](const rectangle_type& rect){
+
+        auto t = rect.left;
+        auto v = m_op(rect);
+        
+        if (v != vLast || rect.left == 0)
+        {
+          m_pts_temp[i].t = t;
+          m_pts_temp[i].v = v;
+
+          ++i;
+        }
+
+        vLast = v;
       });
 
-      m_pts_temp.resize(i + 1);
+      m_pts_temp.resize(i);
       m_pts_temp.swap(m_pts);
     }
 

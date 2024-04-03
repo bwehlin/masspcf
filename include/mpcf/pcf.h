@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <iostream>
+#include <ostream>
 
 namespace mpcf
 {
@@ -130,6 +131,10 @@ namespace mpcf
       m_points.swap(other.m_points);
     }
     
+    template <typename Ut, typename Uv>
+    friend void PrintTo(const Pcf& f, std::ostream* os);
+    
+
   private:
     std::vector<point_type> m_points;
   };
@@ -195,6 +200,11 @@ namespace mpcf
     return f / static_cast<Tv>(fs.size());
   }
   
+  template <typename Tt, typename Tv>
+  void PrintTo(const Pcf<Tt, Tv>& f, std::ostream* os)
+  {
+    *os << f.to_string();
+  }
 }
 
 #endif
