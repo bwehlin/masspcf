@@ -43,6 +43,11 @@ namespace mpcf
       m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(0));
     }
 
+    Pcf(value_type v)
+    {
+      m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(v));
+    }
+
     Pcf(std::vector<Point<Tt, Tv>>&& pts)
       : m_points(std::move(pts))
     {
@@ -75,6 +80,14 @@ namespace mpcf
     void debug_print() const
     {
       std::cout << to_string() << std::endl;
+    }
+
+    Pcf& operator+=(const Pcf& rhs)
+    {
+      *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
+        return rect.top + rect.bottom;
+        });
+      return *this;
     }
 
     template <typename T>

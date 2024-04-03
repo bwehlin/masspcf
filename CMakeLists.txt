@@ -39,8 +39,6 @@ else()
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
 
-message(STATUS "Python executable: ${Python_EXECUTABLE} ")
-
 include_directories("taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
@@ -82,6 +80,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
   include/mpcf/algorithms/matrix_integrate.h
+  include/mpcf/algorithms/matrix_reduce.h
   include/mpcf/algorithms/subdivide.h
   include/mpcf/algorithms/apply_functional.h
   include/mpcf/block_matrix_support.cuh

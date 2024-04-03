@@ -48,7 +48,9 @@ namespace
       .def("shape", &view_type::get_shape)
       .def("transpose", &view_type::transpose)
       .def("assign", &view_type::assign)
-      .def("at", &view_type::at);
+      .def("at", &view_type::at)
+
+      .def("reduce_mean", &view_type::reduce_mean);
   }
 
 }
@@ -73,4 +75,4 @@ void register_array_bindings(py::handle m)
         else
           self.data.emplace_back(xt::range(start, stop, step));
       });
-} 
+}

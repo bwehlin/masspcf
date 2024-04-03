@@ -20,14 +20,21 @@ from .array import zeros
 
 from . import typing as dt
 
-def noisy_sin(nPoints=20, dtype=dt.float32):
+def noisy_sin(shape, nPoints=20, dtype=dt.float32):
     backend = _get_random_class(dtype)
 
-    A = zeros((nPoints, ), dtype=dtype)
+    A = zeros(shape, dtype=dtype)
     backend.noisy_sin(A.data, nPoints)
 
     return A
 
+def noisy_cos(shape, nPoints=20, dtype=dt.float32):
+    backend = _get_random_class(dtype)
+
+    A = zeros(shape, dtype=dtype)
+    backend.noisy_cos(A.data, nPoints)
+
+    return A
 
 def _get_random_class(dtype):
     if dtype == dt.float32:

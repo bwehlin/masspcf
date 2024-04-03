@@ -69,7 +69,7 @@ class Container:
 
     def __getitem__(self, pos):
         if isinstance(pos, int):
-            return self._as_view().at([0])
+            return self._as_view().at([pos])
 
         sv = self._get_slice_vec(pos)
         view = View(self.data.strided_view(sv))
@@ -122,3 +122,5 @@ def zeros(shape, dtype=dt.float32):
     ac = _get_array_class(dtype)
     return Array(ac.make_zeros(_get_underlying_shape(shape)))
 
+def mean(A, dim):
+    return Array(A._as_view().data.reduce_mean(dim))

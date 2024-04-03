@@ -15,6 +15,7 @@
 */
 
 #include <mpcf/pcf.h>
+#include <mpcf/algorithms/matrix_reduce.h>
 
 #include <xtensor/xarray.hpp>
 #include <xtensor/xview.hpp>
@@ -316,6 +317,23 @@ namespace mpcf_py
         }, m_data);
     }
 
+    array_type reduce_mean(int dim)
+    {
+      return std::visit([this, dim](auto&& arg) -> array_type
+        {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
+          {
+            return array_type(std::move(mpcf::parallel_matrix_reduce<xarray_type>(detail::cref(arg), dim)));
+          }
+          else
+          {
+            throw std::runtime_error("Unsupported operation on this type of view.");
+          }
+        }, m_data);
+
+      
+    }
+
   private:
 
     std::variant<
@@ -336,6 +354,13 @@ namespace mpcf_py
     using xshape_type = typename xarray_type::shape_type;
 
     using xstrided_view_type = detail::xstrided_view<xarray_type>;
+
+    NdArray() = default;
+    NdArray(xarray_type&& arr)
+      : m_data(std::move(arr))
+    {
+
+    }
 
     static NdArray make_zeros(const Shape& shape)
     {
