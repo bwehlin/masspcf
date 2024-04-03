@@ -112,6 +112,28 @@ namespace mpcf_py
   struct StridedSliceVector
   {
     xt::xstrided_slice_vector data;
+
+    void append_all()
+    {
+      data.emplace_back(xt::all());
+    }
+
+    void append_range(size_t start, size_t stop, size_t step)
+    {
+      data.emplace_back(xt::range(start, stop, step));
+    }
+
+    void append_range_from(size_t start, size_t step)
+    {
+      using namespace xt::placeholders;
+      data.emplace_back(xt::range(start, _, step));
+    }
+
+    void append_range_to(size_t stop, size_t step)
+    {
+      using namespace xt::placeholders;
+      data.emplace_back(xt::range(_, stop, step));
+    }
   };
 
   namespace detail

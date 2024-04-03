@@ -51,8 +51,15 @@ class Container:
             if isinstance(p, int):
                 sv.append(p)
             elif isinstance(p, slice):
+                step = 1 if p.step is None else p.step
                 if p.start is None and p.stop is None:
                     sv.append_all()
+                elif p.start is None and p.stop is not None:
+                    sv.append_range_to(p.stop, step)
+                elif p.start is not None and p.stop is None:
+                    sv.append_range_from(p.start, step)
+                else:
+                    sv.append_range(p.start, p.stop, step)
             elif p == Ellipsis:
                 sv.append_all()
             else:
