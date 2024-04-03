@@ -15,10 +15,6 @@
 '''
 
 from . import mpcf_cpp as cpp
-from .pcf import Pcf, tPcf_f32_f32, tPcf_f64_f64
-import numpy as np
-#from numpy.typing import _ShapeLike
-
 from . import typing as dt
 
 class Shape:

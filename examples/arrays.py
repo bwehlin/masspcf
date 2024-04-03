@@ -1,9 +1,6 @@
 import masspcf as mpcf
 from masspcf.random import noisy_sin, noisy_cos
 from masspcf.plotting import plot as plotpcf
-from masspcf.array import mean
-
-import numpy as np
 
 import matplotlib.pyplot as plt
 
@@ -20,16 +17,20 @@ for j in range(A.shape[1]):
 for j in range(A.shape[1]):
     plotpcf(A[1, j], color='r', linewidth=0.5)
 
-Abar = mean(A, 1)
+Abar = mpcf.mean(A, 1)
 
 plotpcf(Abar[0], color='b', linewidth=2)
 plotpcf(Abar[1], color='r', linewidth=2)
 
 plt.show()
 
-raise SystemExit
-
-B = noisy_cos((10000,10), nPoints=50)
+B = noisy_cos((10000,1000), nPoints=50)
 print(B.shape)
 
-Bbar = mean(B, 1)
+Bbar = mpcf.mean(B, 1)
+print(Bbar.shape)
+
+for j in range(100):
+    plotpcf(Bbar[j], color='r', linewidth=2)
+    
+plt.show()
