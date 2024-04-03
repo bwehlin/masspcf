@@ -137,7 +137,7 @@ namespace
   
     static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
       ReductionWrapper<Tt, Tv> reduction(cb);
-      return mpcf::parallel_reduce(fs, 
+      return mpcf::parallel_reduce(fs.begin(), fs.end(),
         [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt 
         { 
           return reduction(rect.left, rect.right, rect.top, rect.bottom); 

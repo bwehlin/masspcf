@@ -19,11 +19,13 @@
 
 #include "iterate_rectangles.h"
 #include "subdivide.h"
+#include "../executor.h"
 
 #include <functional>
 #include <vector>
 #include <numeric>
 #include <algorithm>
+#include <iterator>
 
 #include <taskflow/taskflow.hpp>
 #include <taskflow/algorithm/reduce.hpp>
@@ -167,19 +169,22 @@ namespace mpcf
     size_t tag;
   };
 
-  template <typename TPcf>
-  TPcf parallel_reduce(const std::vector<TPcf>& fs, TOp<TPcf> op, size_t chunkszFirst = 8)
+  // TODO: FwdIt
+  template <typename RandomAccessIt>
+  typename std::iterator_traits<RandomAccessIt>::value_type parallel_reduce(RandomAccessIt begin, RandomAccessIt end, TOp<typename std::iterator_traits<RandomAccessIt>::value_type> op, size_t chunkszFirst = 8, Executor& exec = default_executor())
   {
+    using pcf_type = typename std::iterator_traits<RandomAccessIt>::value_type;
+
     auto chunksz = 2;
-    auto blocks = subdivide(chunkszFirst , fs.size());
+    auto sz = std::distance(begin, end);
+    auto blocks = subdivide(chunkszFirst , sz);
 
-    auto nAll = std::accumulate(fs.begin(), fs.end(), static_cast<size_t>(0ul), [](size_t n, const TPcf& f){ return f.points().size() + n; });
+    auto nAll = std::accumulate(begin, end, static_cast<size_t>(0ul), [](size_t n, const pcf_type& f){ return f.points().size() + n; });
 
-    std::vector<Accumulator<TPcf>> accumulators;
-    accumulators.resize(blocks.size(), Accumulator<TPcf>(op, nAll));
+    std::vector<Accumulator<pcf_type>> accumulators;
+    accumulators.resize(blocks.size(), Accumulator<pcf_type>(op, nAll));
 
     tf::Taskflow taskflow;
-    tf::Executor exec;
 
     std::list<std::vector<TaskWithTag>> taskLevels;
     auto & topLevelTasks = taskLevels.emplace_back(accumulators.size());
@@ -187,10 +192,10 @@ namespace mpcf
     {
       auto const & block = blocks[iBlock];
       topLevelTasks[iBlock].tag = iBlock; // Accumulator id
-      topLevelTasks[iBlock].task = taskflow.emplace([iBlock, block, &accumulators, &fs](){
+      topLevelTasks[iBlock].task = taskflow.emplace([iBlock, block, &accumulators, begin](){
         for (auto i = block.first; i <= block.second; ++i)
         {
-          accumulators[iBlock] += fs[i];
+          accumulators[iBlock] += *(begin + i); // TODO: FwdIt
         }
       });
     }
@@ -223,9 +228,9 @@ namespace mpcf
 
     }
 
-    exec.run(taskflow).wait();
+    exec.cpu()->run(taskflow).wait();
 
-    return TPcf(std::move(accumulators[0].m_pts));
+    return pcf_type(std::move(accumulators[0].m_pts));
   }
 }
 

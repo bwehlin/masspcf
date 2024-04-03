@@ -26,6 +26,11 @@ else()
   SET(LANG_CUDA )
 endif()
 
+if (WIN32)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /bigobj")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
+endif()
+
 if (NOT SKBUILD)
   set(SKBUILD_PROJECT_NAME massivepcf)
   set(SKBUILD_PROJECT_VERSION "0.2.0")
