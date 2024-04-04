@@ -48,11 +48,13 @@ namespace mpcf
       std::transform(ts.begin(), ts.end(), pts.begin(), [](Tt t) { return mpcf::Point<Tt, Tv>(t, 0.); });
       std::sort(pts.begin(), pts.end(), byTimeAscending);
 
+      pts[0].t = 0;
+      
       for (size_t i = 0; i < pts.size(); ++i)
       {
         pts[i].v = func(pts[i].t) + vnoises(i);
       }
-
+      
       f = mpcf::Pcf<Tt, Tv>(std::move(pts));
     }
   }
