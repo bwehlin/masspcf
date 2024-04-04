@@ -14,17 +14,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #mpcf.system.force_cpu(True)
-mpcf.system.set_device_verbose(True)
+mpcf.system.set_device_verbose(False)
 mpcf.system.set_cuda_threshold(1)
-mpcf.system.force_cpu(True)
+mpcf.system.force_cpu(False)
 
 f = mpcf.Pcf(np.array([[0, 4], [2, 3], [3, 1], [5, 0]]))
 g = mpcf.Pcf(np.array([[0, 2], [6, 1], [7, 0]]))
 
-
 print(mpcf.l2_kernel([f, g], verbose=False))
 
-raise SystemExit
 
 plotpcf(f)
 plotpcf(g)
@@ -33,6 +31,8 @@ plt.show()
 ps = np.linspace(1.0, 10.0)
 ds = np.zeros_like(ps)
 print(ds.shape)
+
+print(mpcf.pdist([f, g], p=1, verbose=False))
 
 for i, p in enumerate(ps):
     ds[i] = mpcf.pdist([f, g], p=p, verbose=False)[0,1]
