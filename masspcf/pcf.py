@@ -44,6 +44,15 @@ class Pcf:
         self.data_ = cpp.Pcf_f32_f32(arr)
       elif arr.dtype == np.float64:
         self.data_ = cpp.Pcf_f64_f64(arr)
+      elif arr.dtype == np.int64:
+        arr = arr.astype(np.float64)
+        self.data_ = cpp.Pcf_f64_f64(arr)
+      elif arr.dtype == np.int32:
+        arr = arr.astype(np.float32)
+        self.data_ = cpp.Pcf_f32_f32(arr)
+      else:
+        raise ValueError('Unsupported array type (must be np.float32/64 or np.int32/64)')
+
       self.ttype = arr.dtype
       self.vtype = arr.dtype
     elif isinstance(arr, cpp.Pcf_f32_f32):
@@ -54,6 +63,8 @@ class Pcf:
       self.data_ = arr
       self.ttype = np.float64
       self.vtype = np.float64
+    else:
+      raise ValueError('Unsupported type')
 
   def get_time_type(self):
     return self.data_.get_time_type()
@@ -93,6 +104,10 @@ class Pcf:
   
   def save(self):
     return self.data_.to_numpy().save()
+  
+  def __array__(self):
+    return np.array(self.data_)
+
 
 tPcf_f32_f32 = Pcf(np.array([[0],[0]]).astype(np.float32))
 tPcf_f64_f64 = Pcf(np.array([[0],[0]]).astype(np.float64))
