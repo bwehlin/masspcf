@@ -65,7 +65,7 @@ namespace mpcf
     // TODO: this is bad!
     std::vector<pcf_type> fs;
 
-    for (auto i = 0; i < flatShape; ++i)
+    for (size_t i = 0; i < flatShape; ++i)
     {
       fs.clear();
       fs.resize(nAlongAxis);
@@ -112,7 +112,7 @@ namespace mpcf
 
 #endif
 
-    for (auto i = 0; i < retFlat.shape()[{0}]; ++i)
+    for (size_t i = 0; i < retFlat.shape()[{0}]; ++i)
     {
       retFlat[{i}] /= static_cast<pcf_value_type>(std::distance(xt::axis_begin(in, dim), xt::axis_end(in, dim)));
     }

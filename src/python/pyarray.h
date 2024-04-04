@@ -284,7 +284,7 @@ namespace mpcf_py
 
     Shape get_shape() const
     {
-      return std::visit([this](auto&& arg) -> Shape
+      return std::visit([](auto&& arg) -> Shape
         {
           if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
           {
@@ -299,7 +299,7 @@ namespace mpcf_py
 
     void assign(const View& from)
     {
-      std::visit([this, &from](auto&& toArg) {
+      std::visit([&from](auto&& toArg) {
 
           if constexpr (!std::is_same_v<std::decay_t<decltype(toArg)>, std::monostate>)
           {
@@ -326,7 +326,7 @@ namespace mpcf_py
 
     value_type& at(const std::vector<size_t>& pos)
     {
-      return std::visit([this, &pos](auto&& arg) -> value_type&
+      return std::visit([&pos](auto&& arg) -> value_type&
         {
           if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
           {
@@ -341,7 +341,7 @@ namespace mpcf_py
 
     array_type reduce_mean(int dim)
     {
-      return std::visit([this, dim](auto&& arg) -> array_type
+      return std::visit([dim](auto&& arg) -> array_type
         {
           if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
           {

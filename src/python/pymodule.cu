@@ -210,8 +210,9 @@ namespace
       {
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
-      
-      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<Tt, Tv, TOperation>>(out, std::move(fs), op);
+
+      using iterator_type = decltype(std::make_move_iterator(fs.begin()));
+      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<TOperation, iterator_type>>(out, std::make_move_iterator(fs.begin()), std::make_move_iterator(fs.end()), op);
       task->start_async(mpcf::default_executor());
       return task;
     }
