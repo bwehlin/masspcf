@@ -174,7 +174,7 @@ def wait_for_task(task, verbose=True):
   if verbose:
     progress.update(task.work_completed() - progress.n)
 
-def pdist(fs : list[Pcf], verbose=True, condensed=True):
+def pdist(fs : list[Pcf], p=1, verbose=True, condensed=True):
   if len(fs) == 0:
       return np.zeros((0,0))
 
@@ -189,7 +189,10 @@ def pdist(fs : list[Pcf], verbose=True, condensed=True):
 
   task = None
   try:
-    task = backend.matrix_l1_dist(matrix, fsdata) #, condensed)
+    if p == 1:
+      task = backend.matrix_l1_dist(matrix, fsdata) #, condensed)
+    else:
+      task = backend.matrix_lp_dist(matrix, fsdata, p)
     wait_for_task(task, verbose=verbose)
   finally:
     if task is not None:

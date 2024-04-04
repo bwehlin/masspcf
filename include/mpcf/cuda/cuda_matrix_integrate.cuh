@@ -177,7 +177,7 @@ namespace mpcf
         ret += (r - l) * op(f, g);
         });
 
-      params.matrix[iBlock * params.nPcfs + j] = ret;
+      params.matrix[iBlock * params.nPcfs + j] = op(ret);
     }
 
     // For some reason, calling cuda_riemann_integrate directly from within a class raises a syntax error on MSVC
@@ -464,6 +464,23 @@ namespace mpcf
     internal::CudaMatrixRectangleIterator<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
   };
 
+
+  template <typename Tt, typename Tv, typename TOperation>
+  std::unique_ptr<StoppableTask<void>> create_matrix_integrate_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, TOperation op, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+  {
+    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, TOperation>>(*default_executor().cuda(), out, std::move(fs), op, a, b);
+  }
+  
+  template <typename Tt, typename Tv, typename TOperation>
+  void cuda_matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, TOperation op, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor())
+  {
+    MatrixIntegrateCudaTask<Tt, Tv, TOperation> task(*exec.cuda(), out, fs, op, a, b);
+    task.start_async(exec);
+    task.wait();
+  }
+  
+  
+    
   /// Convenience function that returns an asynchronous task to Riemann integrate the L1 distance between the supplied functions
   template <typename Tt, typename Tv>
   std::unique_ptr<StoppableTask<void>> create_matrix_l1_distance_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
@@ -478,6 +495,7 @@ namespace mpcf
     task.start_async(exec);
     task.wait();
   }
+
 }
 
 #endif

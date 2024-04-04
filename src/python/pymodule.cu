@@ -26,6 +26,8 @@
 #include <mpcf/executor.h>
 #include <mpcf/task.h>
 
+#include <mpcf/operations.cuh>
+
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #endif
@@ -199,6 +201,24 @@ namespace
       task->start_async(mpcf::default_executor());
       return task;
     }
+    
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_lp_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, Tv p)
+    {
+      auto* out = matrix.mutable_data(0);
+
+#ifdef BUILD_WITH_CUDA
+      if (!g_settings.forceCpu)
+      {
+        auto task = mpcf::create_matrix_integrate_cuda_task<Tt, Tv>(out, std::move(fs), mpcf::OperationLpDist<Tt, Tv>(p), 0., std::numeric_limits<Tv>::max());
+        task->set_block_dim(g_settings.blockDim);
+        task->start_async(mpcf::default_executor());
+        return task;
+      }
+#endif
+      auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
+      task->start_async(mpcf::default_executor());
+      return task;
+    }
   };
   
   template <typename RetT>
@@ -270,6 +290,7 @@ namespace
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
 
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
+        .def_static("matrix_lp_dist", &Backend<Tt, Tv>::matrix_lp_dist, py::return_value_policy::move)
 
         .def_static("single_l1_norm", &Backend<Tt, Tv>::single_l1_norm)
         .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)

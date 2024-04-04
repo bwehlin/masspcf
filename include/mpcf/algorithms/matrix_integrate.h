@@ -175,6 +175,28 @@ namespace mpcf
     
     make_lower_triangle<Tv>(executor, out, fs.size());
   }
+  
+  template <typename Tt, typename Tv, typename TOperation>
+  void integrate_matrix(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, TOperation op, Tv a = Tv(0), Tv b = std::numeric_limits<Tv>::max(), Hardware hardware = Hardware::CPU, Executor& executor = default_executor())
+  {
+    using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
+    
+    switch (hardware)
+    {
+#ifdef BUILD_WITH_CUDA
+    case Hardware::CUDA:
+      cuda_matrix_integrate<Tt, Tv, TOperation>(out, fs, op, a, b, executor);
+      break;
+#endif
+    default:
+      // TODO
+      matrix_integrate(executor, out, fs, [](const rect_t& rect) -> Tv {
+        return std::abs(rect.top - rect.bottom);
+      }, true);
+    }
+    
+    make_lower_triangle<Tv>(executor, out, fs.size());
+  }
 }
 
 #endif

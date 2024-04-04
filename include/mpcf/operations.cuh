@@ -37,15 +37,30 @@ namespace mpcf
     {
       return abs(t - b);
     }
+    
+    __host__ __device__ Tv operator()(Tv x) const
+    {
+      return x;
+    }
   };
   
   template <typename Tt, typename Tv>
-  struct LpDist
+  struct OperationLpDist
   {
     Tv p = 2.0;
-    __host__ __device__ Tv operator()(Tt l, Tt r, Tv t, Tv b) const
+    OperationLpDist() = default;
+    OperationLpDist(Tv pv)
+      : p(pv)
+    { }
+    
+    __host__ __device__ Tv operator()(Tv t, Tv b) const
     {
       return pow(abs(t - b), p);
+    }
+    
+    __host__ __device__ Tv operator()(Tv x) const
+    {
+      return pow(x, Tv(1) / p);
     }
   };
 }
