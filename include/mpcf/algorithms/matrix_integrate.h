@@ -84,13 +84,14 @@ namespace mpcf
   }
   
   
-  template <typename Tt, typename Tv>
-  class MatrixL1DistCpuTask : public mpcf::StoppableTask<void>
+  template <typename Tt, typename Tv, typename TOperation>
+  class MatrixIntegrateCpuTask : public mpcf::StoppableTask<void>
   {
   public:
-    MatrixL1DistCpuTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs)
+    MatrixIntegrateCpuTask(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, TOperation op)
       : m_fs(std::move(fs))
       , m_out(out)
+      , m_op(op)
     { }
     
   private:
@@ -136,7 +137,9 @@ namespace mpcf
       auto sz = m_fs.size();
       for (size_t j = i + 1; j < sz; ++j)
       {
-        m_out[i * sz + j] = integrate<Tt, Tv>(m_fs[i], m_fs[j], [](const Rectangle<Tt, Tv>& rect){ return std::abs(rect.top - rect.bottom); }, 0, std::numeric_limits<Tt>::max());
+        m_out[i * sz + j] = m_op(integrate<Tt, Tv>(m_fs[i], m_fs[j], [this](const Rectangle<Tt, Tv>& rect){ 
+                                                                return m_op(rect.top, rect.bottom); 
+                                                              }, 0, std::numeric_limits<Tt>::max()));
       }
       add_progress(sz - i - 1);
     }
@@ -153,6 +156,7 @@ namespace mpcf
     
     std::vector<Pcf<Tt, Tv>> m_fs;
     Tv* m_out;
+    TOperation m_op;
   };
   
   template <typename Tt, typename Tv>

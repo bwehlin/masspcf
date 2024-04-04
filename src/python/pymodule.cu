@@ -183,41 +183,36 @@ namespace
       auto* outdata = out.mutable_data(0);
       mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::linfinity_norm<mpcf::Pcf<Tt, Tv>>);
     }
-
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    
+    template <typename TOperation>
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, TOperation op)
     {
       auto* out = matrix.mutable_data(0);
-
+      
 #ifdef BUILD_WITH_CUDA
       if (!g_settings.forceCpu)
       {
-        auto task = mpcf::create_matrix_l1_distance_cuda_task<Tt, Tv>(out, std::move(fs), 0., std::numeric_limits<Tv>::max());
+        auto task = mpcf::create_matrix_integrate_cuda_task<Tt, Tv>(out, std::move(fs), op, 0., std::numeric_limits<Tv>::max());
         task->set_block_dim(g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
       }
 #endif
-      auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
+      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<Tt, Tv, TOperation>>(out, std::move(fs), op);
       task->start_async(mpcf::default_executor());
       return task;
     }
     
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    {
+      auto op = mpcf::OperationL1Dist<Tt, Tv>();
+      return matrix_integrate(matrix, fs, op);
+    }
+    
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_lp_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, Tv p)
     {
-      auto* out = matrix.mutable_data(0);
-
-#ifdef BUILD_WITH_CUDA
-      if (!g_settings.forceCpu)
-      {
-        auto task = mpcf::create_matrix_integrate_cuda_task<Tt, Tv>(out, std::move(fs), mpcf::OperationLpDist<Tt, Tv>(p), 0., std::numeric_limits<Tv>::max());
-        task->set_block_dim(g_settings.blockDim);
-        task->start_async(mpcf::default_executor());
-        return task;
-      }
-#endif
-      auto task = std::make_unique<mpcf::MatrixL1DistCpuTask<Tt, Tv>>(out, std::move(fs));
-      task->start_async(mpcf::default_executor());
-      return task;
+      auto op = mpcf::OperationLpDist<Tt, Tv>(p);
+      return matrix_integrate(matrix, fs, op);
     }
   };
   
