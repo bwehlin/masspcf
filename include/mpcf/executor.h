@@ -26,7 +26,8 @@ namespace mpcf
   enum class Hardware
   {
     CPU,
-    CUDA
+    CUDA,
+    PREFER_CUDA
   };
   
   size_t get_num_cuda_devices();

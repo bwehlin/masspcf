@@ -21,17 +21,6 @@ from typing import Union
 
 __all__ = ['Pcf']
 
-def force_cpu(on : bool):
-  cpp.force_cpu(on)
-
-def set_block_size(x : int, y : int):
-  cpp.set_block_dim(x, y)
-
-def limit_cpus(n : int):
-  cpp.limit_cpus(n)
-
-def limit_gpus(n : int):
-  cpp.limit_gpus(n)
 
 class Pcf:
   def __init__(self, arr, dtype=None):

@@ -14,8 +14,23 @@
     limitations under the License.
 '''
 
-from .pcf import Pcf, average, pdist, l1_norm, l2_norm, lp_norm, linfinity_norm
-from .array import Array, zeros, mean
-from .typing import float32, float64
+from . import mpcf_cpp as cpp
 
-from . import system
+def force_cpu(on : bool):
+  cpp.force_cpu(on)
+
+def set_block_size(x : int, y : int):
+  cpp.set_block_dim(x, y)
+
+def limit_cpus(n : int):
+  cpp.limit_cpus(n)
+
+def limit_gpus(n : int):
+  cpp.limit_gpus(n)
+
+def set_cuda_threshold(n : int):
+  cpp.set_cuda_threshold(n)
+
+def set_device_verbose(on : bool):
+  cpp.set_device_verbose(on)
+
