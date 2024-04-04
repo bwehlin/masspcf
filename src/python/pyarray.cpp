@@ -68,11 +68,9 @@ void register_array_bindings(py::handle m)
   py::class_<mpcf_py::StridedSliceVector>(m, "StridedSliceVector")
       .def(py::init<>())
       .def("append", [](mpcf_py::StridedSliceVector& self, size_t i){ self.data.emplace_back(i); })
-      .def("append_all", [](mpcf_py::StridedSliceVector& self){ self.data.emplace_back(xt::all()); })
-      .def("append_range", [](mpcf_py::StridedSliceVector& self, long start, long stop, long step){
-        if (step == 1)
-          self.data.emplace_back(xt::range(start, stop)); 
-        else
-          self.data.emplace_back(xt::range(start, stop, step));
-      });
+      .def("append_all", &mpcf_py::StridedSliceVector::append_all)
+      .def("append_range", &mpcf_py::StridedSliceVector::append_range)
+      .def("append_range_from", &mpcf_py::StridedSliceVector::append_range_from)
+      .def("append_range_to", &mpcf_py::StridedSliceVector::append_range_to)
+      ;
 }

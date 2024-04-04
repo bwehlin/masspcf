@@ -3,28 +3,46 @@ from masspcf.random import noisy_sin, noisy_cos
 from masspcf.plotting import plot as plotpcf
 
 import matplotlib.pyplot as plt
+import scienceplots
+plt.style.use('science')
 
-n = 10
+X = mpcf.zeros((10, 5, 4))
+print(X[3, :, :].shape)
+print(X[2:9:3, 1:, 2].shape) # [2,5,8] x [1,...,4] x [2]
 
-A = mpcf.zeros((2,n))
+M = 10
+A = mpcf.zeros((2,M))
 
-A[0,:] = noisy_sin((n,), nPoints=50)
-A[1,:] = noisy_cos((n,), nPoints=50)
+# Generate 'M' noisy sin/cos functions @ 100 resp. 15 time points each.
+# Assign the sin(x) functions into the first row of 'A' and cos(x)
+# into the second row.
+A[0,:] = noisy_sin((M,), n_points=100)
+A[1,:] = noisy_cos((M,), n_points=15)
 
-for j in range(A.shape[1]):
-    plotpcf(A[0, j], color='b', linewidth=0.5)
+fig, ax = plt.subplots(1, 1, figsize=(10,4))
 
-for j in range(A.shape[1]):
-    plotpcf(A[1, j], color='r', linewidth=0.5)
+# Plot individual noisy sin/cos functions
+for j in range(A.shape[1]): plotpcf(A[0, j], ax=ax, color='b', linewidth=0.5)
+for j in range(A.shape[1]): plotpcf(A[1, j], ax=ax, color='r', linewidth=0.5)
 
-Abar = mpcf.mean(A, 1)
+# Means across first axis of 'A'
+Aavg = mpcf.mean(A, dim=1)
 
-plotpcf(Abar[0], color='b', linewidth=2)
-plotpcf(Abar[1], color='r', linewidth=2)
+# Plot means
+plotpcf(Aavg[0], ax=ax, color='b', linewidth=2, label='$\\sin(2\\pi x)$')
+plotpcf(Aavg[1], ax=ax, color='r', linewidth=2, label='$\\cos(2\\pi x)$')
+
+plt.xlabel('$x$')
+plt.ylabel('$f(x)$')
+plt.legend()
+
+plt.savefig('means.png', dpi=300)
 
 plt.show()
 
-B = noisy_cos((10000,1000), nPoints=50)
+raise SystemExit
+
+B = noisy_cos((10000,500), nPoints=30)
 print(B.shape)
 
 Bbar = mpcf.mean(B, 1)
