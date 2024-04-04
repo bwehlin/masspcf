@@ -100,7 +100,7 @@ SET(MPCF_PY_SOURCES
 )
 
 if (NOT BUILD_WITH_CUDA)
-	set_source_files_properties(src/python/pymodule.cu PROPERTIES LANGUAGE CXX)
+  set_source_files_properties(src/python/pymodule.cu PROPERTIES LANGUAGE CXX)
   set_source_files_properties(src/executor.cu PROPERTIES LANGUAGE CXX)
 endif()
 
@@ -118,7 +118,6 @@ target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 target_include_directories(mpcf_cpp PUBLIC "include/")
 
 target_include_directories(mpcf_cpp SYSTEM PRIVATE "xtensor/include" "xtl/include")
-#target_include_directories(mpcf_cpp PUBLIC "xtensor/include/")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
@@ -182,7 +181,7 @@ if (BUILD_BENCHMARKS)
   target_link_libraries(mpcf_bench PUBLIC mpcf_cpp ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
 endif()
 
-#set_target_properties(mpcf_cpp PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+set_target_properties(mpcf_cpp PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
 
 if (WIN32) 
   #set_property(TARGET mpcf_cpp PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
