@@ -163,7 +163,7 @@ def wait_for_task(task, verbose=True):
   if verbose:
     progress.update(task.work_completed() - progress.n)
 
-def pdist(fs : list[Pcf], p=1, verbose=True, condensed=True):
+def _compute_matrix(fs : list[Pcf], task_factory, verbose):
   if len(fs) == 0:
       return np.zeros((0,0))
 
@@ -178,17 +178,31 @@ def pdist(fs : list[Pcf], p=1, verbose=True, condensed=True):
 
   task = None
   try:
-    if p == 1:
-      task = backend.matrix_l1_dist(matrix, fsdata) #, condensed)
-    else:
-      task = backend.matrix_lp_dist(matrix, fsdata, p)
+    task = task_factory(backend, matrix, fsdata)
     wait_for_task(task, verbose=verbose)
   finally:
     if task is not None:
       task.request_stop()
       wait_for_task(task, verbose=verbose)
-
+  
   return matrix
+
+def pdist(fs : list[Pcf], p=1, verbose=True, condensed=True):
+  
+  def task_factory(backend, matrix, fsdata):
+    if p == 1:
+      return backend.matrix_l1_dist(matrix, fsdata) #, condensed)
+    else:
+      return backend.matrix_lp_dist(matrix, fsdata, p)
+  
+  return _compute_matrix(fs, task_factory, verbose)
+
+
+def l2_kernel(fs : list[Pcf], verbose=True):
+  def task_factory(backend, matrix, fsdata):
+    return backend.matrix_l2_kernel(matrix, fsdata)
+  
+  return _compute_matrix(fs, task_factory, verbose)
 
 def lp_norm(fs : Union[Pcf, list[Pcf]], p : Union[int, float]):
   if isinstance(fs, list):

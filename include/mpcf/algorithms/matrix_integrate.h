@@ -60,24 +60,6 @@ namespace mpcf
   }
   
   template <typename Tt, typename Tv, typename RectangleOp>
-  void matrix_integrate(Executor& exec, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = true, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
-  {
-    auto sz = fs.size();
-    tf::Taskflow flow;
-    
-    flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [out, &fs, &op, symmetric, a, b, sz](size_t i) {
-      auto j = symmetric ? i : 0ul;
-      for (; j < sz; ++j)
-      {
-        out[i * sz + j] = integrate<Tt, Tv, RectangleOp>(fs[i], fs[j], op, a, b);
-      }
-    });
-
-    auto future = exec.cpu()->run(std::move(flow));
-    future.wait();
-  }
-  
-  template <typename Tt, typename Tv, typename RectangleOp>
   void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {
     matrix_integrate<Tt, Tv, RectangleOp>(default_executor(), out, fs, op, symmetric, a, b);
@@ -135,7 +117,7 @@ namespace mpcf
     void compute_row(size_t i)
     {
       auto sz = m_fs.size();
-      for (size_t j = i + 1; j < sz; ++j)
+      for (size_t j = i; j < sz; ++j)
       {
         m_out[i * sz + j] = m_op(integrate<Tt, Tv>(m_fs[i], m_fs[j], [this](const Rectangle<Tt, Tv>& rect){ 
                                                                 return m_op(rect.top, rect.bottom); 

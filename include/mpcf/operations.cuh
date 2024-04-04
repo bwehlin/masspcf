@@ -63,6 +63,20 @@ namespace mpcf
       return pow(x, Tv(1) / p);
     }
   };
+  
+  template <typename Tt, typename Tv>
+  struct OperationL2InnerProduct
+  {
+    __host__ __device__ Tv operator()(Tv t, Tv b) const
+    {
+      return t * b;
+    }
+    
+    __host__ __device__ Tv operator()(Tv x) const
+    {
+      return x;
+    }
+  };
 }
 
 #endif

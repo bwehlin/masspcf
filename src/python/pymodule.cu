@@ -196,7 +196,7 @@ namespace
       {
         if (g_settings.deviceVerbose)
         {
-          std::cout << "Distance computation on CUDA device(s)" << std::endl;
+          std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
         
         auto task = mpcf::create_matrix_integrate_cuda_task<Tt, Tv>(out, std::move(fs), op, 0., std::numeric_limits<Tv>::max());
@@ -208,7 +208,7 @@ namespace
       
       if (g_settings.deviceVerbose)
       {
-        std::cout << "Distance computation on CPU(s)" << std::endl;
+        std::cout << "Integral computation on CPU(s)" << std::endl;
       }
       
       auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<Tt, Tv, TOperation>>(out, std::move(fs), op);
@@ -225,6 +225,12 @@ namespace
     static std::unique_ptr<mpcf::StoppableTask<void>> matrix_lp_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, Tv p)
     {
       auto op = mpcf::OperationLpDist<Tt, Tv>(p);
+      return matrix_integrate(matrix, fs, op);
+    }
+    
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l2_kernel(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    {
+      auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
       return matrix_integrate(matrix, fs, op);
     }
   };
@@ -299,6 +305,7 @@ namespace
 
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
         .def_static("matrix_lp_dist", &Backend<Tt, Tv>::matrix_lp_dist, py::return_value_policy::move)
+        .def_static("matrix_l2_kernel", &Backend<Tt, Tv>::matrix_l2_kernel, py::return_value_policy::move)
 
         .def_static("single_l1_norm", &Backend<Tt, Tv>::single_l1_norm)
         .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)
