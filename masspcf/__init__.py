@@ -15,8 +15,9 @@
 '''
 
 
-from .pcf import Pcf, average, pdist, l2_kernel, l1_norm, l2_norm, lp_norm, linfinity_norm
+from .pcf import Pcf, average, l1_norm, l2_norm, lp_norm, linfinity_norm
 from .array import Array, zeros, mean
+from .matrix_computations import pdist, l2_kernel
 from .typing import float32, float64
 
 from . import system

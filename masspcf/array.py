@@ -41,6 +41,10 @@ class Container:
     def shape(self):
         return Shape(self._get_data().shape())
     
+    @property
+    def strides(self):
+        return Shape(self._get_data().strides())
+
     def _get_slice_vec(self, pos):
         sv = cpp.StridedSliceVector()
         

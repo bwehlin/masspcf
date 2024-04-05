@@ -164,17 +164,8 @@ namespace mpcf_py
       return s;
     }
 
-    template <typename ArrayT>
-    inline Shape to_Shape(const typename ArrayT::xshape_type& in)
-    {
-      std::vector<size_t> s;
-      s.resize(in.size());
-      std::copy(in.begin(), in.end(), s.begin());
-      return Shape(std::move(s));
-    }
-
     template <typename XShapeT>
-    inline Shape to_Shape2(const XShapeT& in)
+    inline Shape to_Shape(const XShapeT& in)
     {
       std::vector<size_t> s;
       s.resize(in.size());
@@ -225,6 +216,25 @@ namespace mpcf_py
     }
   }
 
+  namespace detail
+  {
+    template <typename T, typename TRet>
+    struct throw_unsupported
+    {
+      [[noreturn]] TRet operator()(T) const
+      {
+        throw std::runtime_error("Unsupported operation on this type of view.");
+      }
+    };
+
+
+    template<class... Ts>
+    struct overloaded : Ts... { using Ts::operator()...; };
+    template<class... Ts>
+    overloaded(Ts...) -> overloaded<Ts...>;
+  }
+
+
   template <typename ArrayT>
   class View
   {
@@ -252,109 +262,86 @@ namespace mpcf_py
 
     View strided_view(const StridedSliceVector& sv)
     {
-      return std::visit([&sv](auto&& arg) -> View
-        {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>  && !std::is_same_v<std::decay_t<decltype(arg)>, xvend > )
-          {
-            return View<ArrayT>::create(
-              xt::strided_view(*detail::ptr(arg), sv.data));
-          }
-          else
-          {
-            throw std::runtime_error("Unsupported operation on this type of view.");
-          }
-        }, m_data);
+      return std::visit(detail::overloaded {
+          [&sv](auto&& arg) -> View { return View<ArrayT>::create(xt::strided_view(*detail::ptr(arg), sv.data)); },
+          detail::throw_unsupported<std::monostate, View>(),
+          detail::throw_unsupported<xvend, View>()
+      }, m_data);
     }
 
     View transpose()
     {
-      return std::visit([](auto&& arg) -> View
-        {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate> && !std::is_same_v<std::decay_t<decltype(arg)>, xvend >)
-          {
-            return View<ArrayT>::create(
-              xt::transpose(*detail::ptr(arg)));
-          }
-          else
-          {
-            throw std::runtime_error("Unsupported operation on this type of view.");
-          }
-        }, m_data);
+      return std::visit(detail::overloaded {
+          [](auto&& arg) -> View { return View<ArrayT>::create(xt::transpose(*detail::ptr(arg))); },
+          detail::throw_unsupported<std::monostate, View>(),
+          detail::throw_unsupported<xvend, View>()
+      }, m_data);
     }
 
     Shape get_shape() const
     {
-      return std::visit([](auto&& arg) -> Shape
-        {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
-          {
-            return detail::to_Shape2((detail::ptr(arg))->shape());
-          }
-          else
-          {
-            throw std::runtime_error("Unsupported operation on this type of view.");
-          }
-        }, m_data);
+      return std::visit(detail::overloaded {
+          [](auto&& arg) -> Shape { return detail::to_Shape((detail::ptr(arg))->shape()); },
+          detail::throw_unsupported<std::monostate, Shape>()
+      }, m_data);
     }
 
     void assign(const View& from)
     {
-      std::visit([&from](auto&& toArg) {
-
-          if constexpr (!std::is_same_v<std::decay_t<decltype(toArg)>, std::monostate>)
-          {
-            std::visit([&toArg](auto&& fromArg) {
-
-              if constexpr (!std::is_same_v<std::decay_t<decltype(fromArg)>, std::monostate>)
-              {
-                detail::ref(toArg) = detail::cref(fromArg);
-              }
-              else
-              {
-                throw std::runtime_error("Unsupported operation on this type of view (from view).");
-              }
-
-              }, from.m_data);
-          }
-          else
-          {
-            throw std::runtime_error("Unsupported operation on this type of view (to view).");
-          }
-
-        }, m_data);
+      std::visit(detail::overloaded{
+        [&from](auto&& toArg) {
+          std::visit(detail::overloaded{
+            [&toArg](auto&& fromArg) {
+              detail::ref(toArg) = detail::cref(fromArg);
+            },
+            detail::throw_unsupported<std::monostate, void>()
+          }, from.m_data);
+        },
+        detail::throw_unsupported<std::monostate, void>()
+      }, m_data);
     }
 
     value_type& at(const std::vector<size_t>& pos)
     {
-      return std::visit([&pos](auto&& arg) -> value_type&
-        {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
-          {
-            return detail::ref(arg)[pos];
-          }
-          else
-          {
-            throw std::runtime_error("Unsupported operation on this type of view.");
-          }
-        }, m_data);
+      return std::visit(detail::overloaded {
+          [&pos](auto&& arg) -> value_type& { return detail::ref(arg)[pos]; },
+          detail::throw_unsupported<std::monostate, value_type&>()
+      }, m_data);
     }
 
     array_type reduce_mean(int dim)
     {
-      return std::visit([dim](auto&& arg) -> array_type
-        {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(arg)>, std::monostate>)
-          {
-            return array_type(std::move(mpcf::parallel_matrix_reduce<xarray_type>(detail::cref(arg), dim)));
-          }
-          else
-          {
-            throw std::runtime_error("Unsupported operation on this type of view.");
-          }
-        }, m_data);
-
-      
+      return std::visit(detail::overloaded {
+        [dim](auto&& arg) -> array_type { return array_type(std::move(mpcf::parallel_matrix_reduce<xarray_type>(detail::cref(arg), dim))); },
+        detail::throw_unsupported<std::monostate, array_type>()
+      }, m_data);
     }
+
+    value_type* buffer()
+    {
+      return std::visit(detail::overloaded {
+        [](auto&& arg) -> value_type* { return detail::ptr(arg)->data(); },
+        detail::throw_unsupported<std::monostate, value_type*>()
+      }, m_data);
+    }
+
+    size_t offset()
+    {
+      return std::visit(detail::overloaded {
+          [](auto&& arg) -> size_t { return detail::ptr(arg)->data_offset(); },
+          [](xarray_type*) -> size_t { return 0; },
+          detail::throw_unsupported<std::monostate, size_t>()
+      }, m_data);
+    }
+
+    Shape strides()
+    {
+      return std::visit(detail::overloaded {
+          [](auto&& arg) -> Shape { return detail::to_Shape(detail::ptr(arg)->strides()); },
+          detail::throw_unsupported<std::monostate, Shape>()
+      }, m_data);
+    }
+
 
   private:
 
@@ -393,7 +380,7 @@ namespace mpcf_py
 
     Shape shape() const
     {
-      return detail::to_Shape<self_type>(m_data.shape());
+      return detail::to_Shape(m_data.shape());
     }
     
     View<self_type> as_view()
