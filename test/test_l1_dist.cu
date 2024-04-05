@@ -54,7 +54,18 @@ TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
   
   pcfs.resize(2);
   allocate_matrix();
-  
+
+  auto task = [hardware](){
+
+#ifdef BUILD_WITH_CUDA
+    if (hardware == mpcf::Hardware::CUDA)
+    {
+      return mpcf::create_matrix_l1_distance_cuda_task()
+    }
+#endif
+
+  };
+
   mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
   
   EXPECT_EQ(ij(0, 0), 0.f);

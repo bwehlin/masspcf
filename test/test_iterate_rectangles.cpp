@@ -17,15 +17,9 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/pcf.h>
-#include <mpcf/algorithms/matrix_integrate.h>
 #include <mpcf/algorithms/iterate_rectangles.h>
 
 #include <vector>
-
-#include <xtensor/xarray.hpp>
-#include <xtensor/xview.hpp>
-
-#include <type_traits>
 
 class IterateRectanglesFixture : public ::testing::Test
 {
@@ -95,40 +89,4 @@ TEST_F(IterateRectanglesFixture, StartAfterEverything)
   ASSERT_EQ(rectangles.size(), 1);
 
   EXPECT_EQ(rectangles[0], Rectangle().l(10.).r(Point::infinite_time()).fv(0.).gv(3.));
-}
-
-auto xv(xt::xarray<mpcf::Pcf_f32>& arr)
-{
-  const xt::xstrided_slice_vector sv;
-  return xt::strided_view(arr, sv); 
-}
-
-
-TEST_F(IterateRectanglesFixture, asdf)
-{
-  auto const & f = pcfs[0];
-  auto const & g = pcfs[1];
-  
-  xt::xarray<mpcf::Pcf_f32> arr{
-    {f     , g         , f + g},
-    {g + g , f         , f + f},
-    {g,      f + f + g , f * 2.0}
-  };
-  
-  xt::xstrided_slice_vector sv = {xt::all(), 0};
-  //using my_view_type = decltype(xt::strided_view(std::declval<xt::xarray<mpcf::Pcf_f32>&&>(), sv));
-  using my_view_type = decltype(xv(std::declval<xt::xarray<mpcf::Pcf_f32>&>()));
-  my_view_type view = xt::strided_view(arr, sv); 
-
-  for (auto i = 0; i < view.shape(0); ++i)
-  {
-    view(i).debug_print();
-  }
-  
-  auto v2 = xt::strided_view(view, {xt::range(1, 2)});
-  
-  EXPECT_EQ(view(0), f);
-  EXPECT_EQ(view(1), g + g);
-  EXPECT_EQ(view(2), g);
-  
 }

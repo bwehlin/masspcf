@@ -39,9 +39,9 @@ endif()
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
 if (SKBUILD)
-  find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+  find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
 else()
-  find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
+  find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
 
 include_directories("3rd/taskflow")
@@ -181,7 +181,8 @@ set_target_properties(mpcf_cpp PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
 if(MSVC)
   target_compile_options(mpcf_cpp PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
 else()
-  target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra)
+  #target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra)
+  set( CMAKE_CXX_FLAGS "-Wall -Wextra" )
 endif()
 
 

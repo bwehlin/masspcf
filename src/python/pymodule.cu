@@ -199,7 +199,7 @@ namespace
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
         
-        auto task = mpcf::create_matrix_integrate_cuda_task<Tt, Tv>(out, std::move(fs), op, 0., std::numeric_limits<Tv>::max());
+        auto task = mpcf::create_matrix_integrate_cuda_task(out, std::make_move_iterator(fs.begin()), std::make_move_iterator(fs.end()), op, 0., std::numeric_limits<Tv>::max());
         task->set_block_dim(g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;

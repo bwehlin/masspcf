@@ -30,6 +30,8 @@
 #include "cuda_matrix_integrate_structs.cuh"
 #include "cuda_device_array.cuh"
 
+#include "cuda_runtime.h"
+
 #include <taskflow/taskflow.hpp>
 
 #include <vector>
@@ -398,21 +400,25 @@ namespace mpcf
 
   } // namespace internal
 
-  template <typename Tt, typename Tv, typename ComboOp = OperationL1Dist<Tt, Tv>>
+  template <typename PcfIt>
+  struct PcfIteratorTraits
+  {
+    using pcf_type = typename PcfIt::value_type;
+    using point_type = typename pcf_type::point_type;
+    using time_type = typename point_type::time_type;
+    using value_type = typename point_type::value_type;
+  };
+
+  template <typename PcfFwdIt, typename ComboOp>
   class MatrixIntegrateCudaTask : public mpcf::StoppableTask<void>
   {
   public:
-    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, ComboOp op = {}, Tt a = 0, Tt b = infinity<Tt>())
-      : m_fs(std::move(fs))
-      , m_op(op)
-      , m_a(a)
-      , m_b(b)
-      , m_out(out)
-      , m_iterator(cudaThreads, out, m_fs.begin(), m_fs.end(), [this](size_t n) { add_progress(n); })
-    { }
-  
-    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, ComboOp op = {}, Tt a = 0, Tt b = infinity<Tt>())
-      : m_fs(fs)
+    using pcf_type = typename PcfIteratorTraits<PcfFwdIt>::pcf_type;
+    using time_type = typename PcfIteratorTraits<PcfFwdIt>::time_type;
+    using value_type = typename PcfIteratorTraits<PcfFwdIt>::value_type;
+
+    MatrixIntegrateCudaTask(tf::Executor& cudaThreads, value_type* out, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, ComboOp op = {}, time_type a = 0, time_type b = std::numeric_limits<time_type>::max())
+      : m_fs(beginPcfs, endPcfs)
       , m_op(op)
       , m_a(a)
       , m_b(b)
@@ -454,46 +460,26 @@ namespace mpcf
       m_iterator.cancel();
     }
 
-    std::vector<Pcf<Tt, Tv>> m_fs;
+    std::vector<pcf_type> m_fs;
 
     ComboOp m_op;
-    Tt m_a;
-    Tt m_b;
-    Tv* m_out;
+    time_type m_a;
+    time_type m_b;
+    value_type* m_out;
     
-    internal::CudaMatrixRectangleIterator<typename std::vector<Pcf<Tt, Tv>>::const_iterator, ComboOp> m_iterator;
+    internal::CudaMatrixRectangleIterator<typename std::vector<pcf_type>::const_iterator, ComboOp> m_iterator;
   };
 
-
-  template <typename Tt, typename Tv, typename TOperation>
-  std::unique_ptr<StoppableTask<void>> create_matrix_integrate_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, TOperation op, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
+  template <typename PcfFwdIt, typename TOperation>
+  std::unique_ptr<StoppableTask<void>> create_matrix_integrate_cuda_task(
+      typename PcfIteratorTraits<PcfFwdIt>::value_type* out,
+      PcfFwdIt beginPcfs,
+      PcfFwdIt endPcfs,
+      TOperation op,
+      typename PcfIteratorTraits<PcfFwdIt>::time_type a = 0,
+      typename PcfIteratorTraits<PcfFwdIt>::time_type b = std::numeric_limits<typename PcfIteratorTraits<PcfFwdIt>::time_type>::max())
   {
-    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, TOperation>>(*default_executor().cuda(), out, std::move(fs), op, a, b);
-  }
-  
-  template <typename Tt, typename Tv, typename TOperation>
-  void cuda_matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, TOperation op, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor())
-  {
-    MatrixIntegrateCudaTask<Tt, Tv, TOperation> task(*exec.cuda(), out, fs, op, a, b);
-    task.start_async(exec);
-    task.wait();
-  }
-  
-  
-    
-  /// Convenience function that returns an asynchronous task to Riemann integrate the L1 distance between the supplied functions
-  template <typename Tt, typename Tv>
-  std::unique_ptr<StoppableTask<void>> create_matrix_l1_distance_cuda_task(Tv* out, std::vector<Pcf<Tt, Tv>>&& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max())
-  {
-    return std::make_unique<MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>>>(*default_executor().cuda(), out, std::move(fs), OperationL1Dist<Tt, Tv>(), a, b);
-  }
-  
-  template <typename Tt, typename Tv>
-  void cuda_matrix_l1_dist(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, Tt a = 0, Tt b = std::numeric_limits<Tt>::max(), Executor& exec = default_executor())
-  {
-    MatrixIntegrateCudaTask<Tt, Tv, OperationL1Dist<Tt, Tv>> task(*exec.cuda(), out, fs, OperationL1Dist<Tt, Tv>(), a, b);
-    task.start_async(exec);
-    task.wait();
+    return std::make_unique<MatrixIntegrateCudaTask<PcfFwdIt, TOperation>>(*default_executor().cuda(), out, beginPcfs, endPcfs, op, a, b);
   }
 
 }

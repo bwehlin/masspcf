@@ -9,6 +9,8 @@ examples/*.png
 vsbuild*
 copypy.bat
 .DS_Store
+.idea
+cmake-build-*
 
 # Temporary local test
 parallel_reduce.py
