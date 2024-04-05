@@ -10,6 +10,22 @@ X = mpcf.zeros((10, 5, 4))
 print(X[3, :, :].shape)
 print(X[2:9:3, 1:, 2].shape) # [2,5,8] x [1,...,4] x [2]
 
+v = X._as_view()
+v1 = X[3, :, :]
+v2 = v1[2:3,1:4]
+
+print(v.data.buffer())
+print(v.data.offset())
+print(v.strides)
+
+print(v1.data.buffer())
+print(v1.data.offset())
+print(v1.strides)
+
+print(v2.data.buffer())
+print(v2.data.offset())
+print(v2.strides)
+
 M = 10
 A = mpcf.zeros((2,M))
 

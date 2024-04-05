@@ -11,6 +11,7 @@ copypy.bat
 .DS_Store
 .idea
 cmake-build-*
+errors.txt
 
 # Temporary local test
 parallel_reduce.py

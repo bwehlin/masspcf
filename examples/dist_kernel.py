@@ -14,9 +14,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #mpcf.system.force_cpu(True)
-mpcf.system.set_device_verbose(True)
+mpcf.system.set_device_verbose(False)
 mpcf.system.set_cuda_threshold(1)
-mpcf.system.force_cpu(False)
+mpcf.system.force_cpu(True)
 
 f = mpcf.Pcf(np.array([[0, 4], [2, 3], [3, 1], [5, 0]]))
 g = mpcf.Pcf(np.array([[0, 2], [6, 1], [7, 0]]))

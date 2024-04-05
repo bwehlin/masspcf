@@ -21,6 +21,7 @@
 #include <pybind11/stl.h>
 
 #include <mpcf/pcf.h>
+#include <mpcf/strided_buffer.h>
 #include "pypcf_support.h"
 #include <mpcf/algorithm.h>
 #include <mpcf/executor.h>
@@ -318,6 +319,8 @@ namespace
         //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
         .def_static("list_linfinity_norm", &Backend<Tt, Tv>::list_linfinity_norm)
         ;
+
+      py::class_<mpcf::StridedBuffer<TPcf>>(m, ("StridedBuffer" + suffix).c_str());
       
       register_bindings_future<TPcf>(m, suffix);
     }

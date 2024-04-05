@@ -16,6 +16,7 @@
 
 #include <mpcf/pcf.h>
 #include <mpcf/algorithms/matrix_reduce.h>
+#include <mpcf/strided_buffer.h>
 
 #include <xtensor/xarray.hpp>
 #include <xtensor/xview.hpp>
@@ -340,6 +341,17 @@ namespace mpcf_py
           [](auto&& arg) -> Shape { return detail::to_Shape(detail::ptr(arg)->strides()); },
           detail::throw_unsupported<std::monostate, Shape>()
       }, m_data);
+    }
+
+    mpcf::StridedBuffer<value_type> strided_buffer()
+    {
+      mpcf::StridedBuffer<value_type> ret;
+
+      ret.buffer = buffer();
+      ret.offset = offset();
+      ret.strides = strides().data();
+
+      return ret;
     }
 
 

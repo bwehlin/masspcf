@@ -49,8 +49,7 @@ namespace
       .def("transpose", &view_type::transpose)
       .def("assign", &view_type::assign)
       .def("at", &view_type::at)
-      .def("buffer", [](view_type& self){ std::cout << "ptr: " << self.buffer() << std::endl; })
-      .def("offset", [](view_type& self){ std::cout << "offset: " << self.offset() << std::endl; })
+      .def("strided_buffer", &view_type::strided_buffer)
       .def("strides", &view_type::strides)
 
       .def("reduce_mean", &view_type::reduce_mean);

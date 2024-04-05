@@ -71,6 +71,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
+  include/mpcf/strided_buffer.h
   include/mpcf/operations.cuh
   include/mpcf/platform.h
   include/mpcf/random.h src/random.cpp
