@@ -49,7 +49,7 @@ namespace
       .def("transpose", &view_type::transpose)
       .def("assign", &view_type::assign)
       .def("at", &view_type::at)
-      .def("strided_buffer", &view_type::strided_buffer)
+      .def("strided_buffer", &view_type::strided_buffer, py::keep_alive<0, 1>())
       .def("strides", &view_type::strides)
 
       .def("reduce_mean", &view_type::reduce_mean);

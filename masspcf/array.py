@@ -100,6 +100,15 @@ class View(Container):
     
     def _as_view(self):
         return self
+    
+    @property
+    def dtype(self):
+        if isinstance(self.data, cpp.View_f32_f32):
+            return dt.float32
+        elif isinstance(self.data, cpp.View_f64_f64):
+            return dt.float64
+        else:
+            raise TypeError('Unknown dtype')
 
 def _get_underlying_shape(s):
     if isinstance(s, Shape):
@@ -113,6 +122,15 @@ class Array(Container):
     def __init__(self, data):
         self.data = data
     
+    @property
+    def dtype(self):
+        if isinstance(self.data, cpp.NdArray_f32_f32):
+            return dt.float32
+        elif isinstance(self.data, cpp.NdArray_f64_f64):
+            return dt.float64
+        else:
+            raise TypeError('Unknown dtype')
+
     def _as_view(self):
         return View(self.data.as_view())
 

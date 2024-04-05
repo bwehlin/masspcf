@@ -347,8 +347,8 @@ namespace mpcf_py
     {
       mpcf::StridedBuffer<value_type> ret;
 
-      ret.buffer = buffer();
-      ret.offset = offset();
+      ret.buffer = buffer() + offset();
+      ret.shape = get_shape().data();
       ret.strides = strides().data();
 
       return ret;

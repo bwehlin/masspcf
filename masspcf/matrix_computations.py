@@ -14,8 +14,10 @@
     limitations under the License.
 '''
 
+from . import mpcf_cpp as cpp
 from .pcf import _prepare_list, Pcf
 from .array import Array, View
+from .typing import float32, float64
 
 import numpy as np
 from tqdm import tqdm
@@ -68,7 +70,7 @@ def _compute_matrix(fs : list[Pcf], task_factory, verbose):
   return matrix
 
 def pdist(fs : list[Pcf], p=1, verbose=True, condensed=True):
-  
+
   def task_factory(backend, matrix, fsdata):
     if p == 1:
       return backend.matrix_l1_dist(matrix, fsdata) #, condensed)
@@ -76,6 +78,31 @@ def pdist(fs : list[Pcf], p=1, verbose=True, condensed=True):
       return backend.matrix_lp_dist(matrix, fsdata, p)
   
   return _compute_matrix(fs, task_factory, verbose)
+
+def pdist2(fs, p=1, verbose=False):
+  if fs.dtype == float32:
+    backend = cpp.Backend_f32_f32
+    npdtype = np.float32
+  else:
+    backend = cpp.Backend_f64_f64
+    npdtype = np.float64
+
+  matrix = np.zeros((fs.shape[0], fs.shape[0]), dtype=npdtype)
+  buf = fs.data.strided_buffer()
+
+  task = None
+  try:
+    task = backend.calc_pdist(matrix, buf)
+    wait_for_task(task, verbose=verbose)
+  finally:
+    if task is not None:
+      task.request_stop()
+      wait_for_task(task, verbose=verbose)
+  
+  return matrix
+
+
+
 
 
 def l2_kernel(fs : list[Pcf], verbose=True):

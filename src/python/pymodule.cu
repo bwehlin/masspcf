@@ -235,6 +235,41 @@ namespace
       auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
       return matrix_integrate(matrix, fs, op);
     }
+
+    static std::unique_ptr<mpcf::StoppableTask<void>> pdist(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
+    {
+      std::cout << "NEW pdist" << std::endl;
+      //std::cout << "pdist with buffer @ " << fs.buffer << " shape " << fs.shape.size() << " " << std::endl;
+      for (auto s : fs.shape)
+      {
+        std::cout << " " << s;
+      }
+      std::cout << std::endl;
+
+      std::vector<mpcf::Pcf<Tt, Tv>> fss;
+
+      auto begin = fs.begin(0);
+      auto end = fs.end(0);
+
+
+      for (auto it = begin; it != end; ++it)
+      {
+        std::cout << "PCF " << std::endl;
+        std::cout << it->to_string() << std::endl;
+        fss.emplace_back(*it);
+      }
+
+      std::cout << "Here" << std::endl;
+
+
+      auto op = mpcf::OperationL1Dist<Tt, Tv>();
+
+      std::cout << "Mint" << std::endl;
+      return matrix_integrate(matrix, fss, op);
+
+
+    }
+
   };
   
   template <typename RetT>
@@ -318,6 +353,8 @@ namespace
         .def_static("list_l2_norm", &Backend<Tt, Tv>::list_l2_norm)
         //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
         .def_static("list_linfinity_norm", &Backend<Tt, Tv>::list_linfinity_norm)
+
+        .def_static("calc_pdist", &Backend<Tt, Tv>::pdist)
         ;
 
       py::class_<mpcf::StridedBuffer<TPcf>>(m, ("StridedBuffer" + suffix).c_str());
