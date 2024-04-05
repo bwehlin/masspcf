@@ -121,6 +121,12 @@ namespace mpcf
         return *this;
       }
 
+      difference_type operator-(const Iterator& rhs) const
+      {
+        return m_n - rhs.m_n;
+      }
+
+
     private:
       friend StridedBuffer;
 
@@ -135,6 +141,7 @@ namespace mpcf
       it.m_buffer = buffer;
       it.m_stride = strides[axis];
       it.m_n = 0;
+      return it;
     }
 
     Iterator end(size_t axis)
@@ -142,10 +149,12 @@ namespace mpcf
       Iterator it;
       it.m_buffer = buffer;
       it.m_stride = strides[axis];
-      it.m_n = shape[axis] + 1;
+      it.m_n = shape[axis];
+      return it;
     }
 
   };
+
 
 }
 

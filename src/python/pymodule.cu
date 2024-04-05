@@ -186,59 +186,68 @@ namespace
       auto* outdata = out.mutable_data(0);
       mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::linfinity_norm<mpcf::Pcf<Tt, Tv>>);
     }
-    
-    template <typename TOperation>
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, TOperation op)
+
+    template <typename TOperation, typename PcfFwdIt>
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
     {
       auto* out = matrix.mutable_data(0);
-      
+
 #ifdef BUILD_WITH_CUDA
-      if (!g_settings.forceCpu && fs.size() >= g_settings.cudaThreshold)
+      if (!g_settings.forceCpu && std::distance(beginPcfs, endPcfs) >= g_settings.cudaThreshold)
       {
         if (g_settings.deviceVerbose)
         {
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
-        
-        auto task = mpcf::create_matrix_integrate_cuda_task(out, std::make_move_iterator(fs.begin()), std::make_move_iterator(fs.end()), op, 0., std::numeric_limits<Tv>::max());
+
+        auto task = mpcf::create_matrix_integrate_cuda_task(out, beginPcfs, endPcfs, op, 0., std::numeric_limits<Tv>::max());
         task->set_block_dim(g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
       }
 #endif
-      
+
       if (g_settings.deviceVerbose)
       {
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
 
-      using iterator_type = decltype(std::make_move_iterator(fs.begin()));
-      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<TOperation, iterator_type>>(out, std::make_move_iterator(fs.begin()), std::make_move_iterator(fs.end()), op);
+      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<TOperation, PcfFwdIt>>(out, beginPcfs, endPcfs, op);
       task->start_async(mpcf::default_executor());
       return task;
     }
+#if 0
+    template <typename TOperation>
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs, TOperation op)
+    {
+      return matrix_integrate(matrix, std::make_move_iterator(fs.begin()), std::make_move_iterator(fs.end()), op);
+    }
     
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs)
     {
       auto op = mpcf::OperationL1Dist<Tt, Tv>();
       return matrix_integrate(matrix, fs, op);
     }
     
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_lp_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs, Tv p)
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_lp_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs, Tv p)
     {
       auto op = mpcf::OperationLpDist<Tt, Tv>(p);
       return matrix_integrate(matrix, fs, op);
     }
     
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l2_kernel(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
+    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l2_kernel(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs)
     {
       auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
       return matrix_integrate(matrix, fs, op);
     }
+#endif
 
     static std::unique_ptr<mpcf::StoppableTask<void>> pdist(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
     {
       std::cout << "NEW pdist" << std::endl;
+      std::vector<mpcf::Pcf<Tt, Tv>> fss;
+      auto op = mpcf::OperationL1Dist<Tt, Tv>();
+
       //std::cout << "pdist with buffer @ " << fs.buffer << " shape " << fs.shape.size() << " " << std::endl;
       for (auto s : fs.shape)
       {
@@ -246,7 +255,7 @@ namespace
       }
       std::cout << std::endl;
 
-      std::vector<mpcf::Pcf<Tt, Tv>> fss;
+
 
       auto begin = fs.begin(0);
       auto end = fs.end(0);
@@ -260,12 +269,8 @@ namespace
       }
 
       std::cout << "Here" << std::endl;
+      return matrix_integrate(matrix, begin, end, op);
 
-
-      auto op = mpcf::OperationL1Dist<Tt, Tv>();
-
-      std::cout << "Mint" << std::endl;
-      return matrix_integrate(matrix, fss, op);
 
 
     }
@@ -340,10 +345,11 @@ namespace
         .def_static("average", &Backend<Tt, Tv>::average)
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
 
+#if 0
         .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
         .def_static("matrix_lp_dist", &Backend<Tt, Tv>::matrix_lp_dist, py::return_value_policy::move)
         .def_static("matrix_l2_kernel", &Backend<Tt, Tv>::matrix_l2_kernel, py::return_value_policy::move)
-
+#endif
         .def_static("single_l1_norm", &Backend<Tt, Tv>::single_l1_norm)
         .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)
         .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)

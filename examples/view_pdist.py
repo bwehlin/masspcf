@@ -15,6 +15,6 @@ A[0,:] = noisy_sin((M,), n_points=100)
 A[1,:] = noisy_cos((M,), n_points=15)
 
 print('A')
-pdist2(A[1,:])
+print(pdist2(A[1,:]))
 print('B')
-#pdist2(A[:,0])
+print(pdist2(A[:,0]))
