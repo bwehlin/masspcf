@@ -1,0 +1,21 @@
+#!/bin/bash
+
+function echo3p() {
+    echo "" >> LICENSE
+    echo "$1 ($2)" >> LICENSE
+    echo "=====================================" >> LICENSE
+    echo "" >> LICENSE
+    cat $2 >> LICENSE
+    echo "" >> LICENSE
+    echo "=====================================" >> LICENSE
+    echo "" >> LICENSE
+}
+
+echo "" > LICENSE
+
+cat mpcf.LICENSE.input >> LICENSE
+
+echo3p taskflow 3rd/taskflow/LICENSE
+echo3p xtensor 3rd/xtensor/LICENSE
+echo3p xtl 3rd/xtl/LICENSE
+echo3p pybind11 3rd/pybind11/LICENSE
