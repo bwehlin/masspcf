@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #mpcf.system.force_cpu(True)
-mpcf.system.set_device_verbose(False)
+mpcf.system.set_device_verbose(True)
 mpcf.system.set_cuda_threshold(1)
 mpcf.system.force_cpu(False)
 

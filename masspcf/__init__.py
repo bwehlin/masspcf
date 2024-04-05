@@ -15,12 +15,6 @@
 '''
 
 
-import platform
-if platform.system() == 'Windows' or platform.system() == "Linux":
-    from os import add_dll_directory, path
-    import sysconfig
-    add_dll_directory(path.join(sysconfig.get_paths()["purelib"], 'nvidia', 'cuda_runtime', 'bin'))
-
 from .pcf import Pcf, average, pdist, l2_kernel, l1_norm, l2_norm, lp_norm, linfinity_norm
 from .array import Array, zeros, mean
 from .typing import float32, float64

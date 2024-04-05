@@ -1,12 +1,12 @@
-[submodule "pybind11"]
-	path = pybind11
-	url = https://github.com/pybind/pybind11
-[submodule "taskflow"]
-	path = taskflow
+[submodule "3rd/taskflow"]
+	path = 3rd/taskflow
 	url = git@github.com:taskflow/taskflow.git
-[submodule "xtensor"]
-	path = xtensor
-	url = git@github.com:xtensor-stack/xtensor.git
-[submodule "xtl"]
-	path = xtl
-	url = git@github.com:xtensor-stack/xtl.git
+[submodule "3rd/xtensor"]
+	path = 3rd/xtensor
+	url = git@github.com:xtensor-stack/xtensor
+[submodule "3rd/xtl"]
+	path = 3rd/xtl
+	url = git@github.com:xtensor-stack/xtl
+[submodule "3rd/pybind11"]
+	path = 3rd/pybind11
+	url = git@github.com:pybind/pybind11

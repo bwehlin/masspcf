@@ -30,7 +30,7 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /bigobj")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
 endif()
-
+ 
 if (NOT SKBUILD)
   set(SKBUILD_PROJECT_NAME massivepcf)
   set(SKBUILD_PROJECT_VERSION "0.2.0")
@@ -44,21 +44,16 @@ else()
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed)
 endif()
 
-include_directories("taskflow")
+include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-find_package(pybind11 CONFIG)
-if (NOT ${pybind11_FOUND})
-  add_subdirectory(pybind11)
-endif() 
 
-add_subdirectory(xtl)
-add_subdirectory(xtensor)
-set(xtl_DIR "xtl")
-set(xtensor_DIR "xtensor")
+add_subdirectory(3rd/pybind11)
+add_subdirectory(3rd/xtl)
+add_subdirectory(3rd/xtensor)
 
-#find_package(xtl REQUIRED)
-#find_package(xtensor REQUIRED)
+set(xtl_DIR "3rd/xtl")
+set(xtensor_DIR "3rd/xtensor")
 
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
@@ -117,14 +112,14 @@ endif()
 target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 target_include_directories(mpcf_cpp PUBLIC "include/")
 
-target_include_directories(mpcf_cpp SYSTEM PRIVATE "xtensor/include" "xtl/include")
+target_include_directories(mpcf_cpp SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (MSVC)
   # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
   # by using VC++ Include Directories instead of on the compiler-level
-  get_filename_component(taskflow_DIR "taskflow" REALPATH)
+  get_filename_component(taskflow_DIR "3rd/taskflow" REALPATH)
   set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 endif()
 
@@ -152,7 +147,7 @@ if (NOT SKBUILD AND BUILD_TESTER)
     test/test_norms.cu
     test/test_parallel_reduce.cpp)
   target_include_directories(mpcf_test PRIVATE "include/")
-  target_include_directories(mpcf_test SYSTEM PRIVATE "xtensor/include" "xtl/include")
+  target_include_directories(mpcf_test SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
 
   target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
   
@@ -183,18 +178,23 @@ endif()
 
 set_target_properties(mpcf_cpp PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
 
-if (WIN32) 
-  #set_property(TARGET mpcf_cpp PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  #set_property(TARGET mpcf_test PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  #set_property(TARGET gtest_main PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  #set_property(TARGET gtest PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  #set_property(TARGET mpcf_bench PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif() 
-
 if(MSVC)
   target_compile_options(mpcf_cpp PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
 else()
   target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra)
 endif()
 
+
 install(TARGETS mpcf_cpp DESTINATION masspcf)
+
+if (BUILD_WITH_CUDA)
+
+  find_package(CUDAToolkit REQUIRED)
+  message("CUDART: ${CUDAToolkit_LIBRARY_DIR}")
+  set(CUDART_LIB ${CUDAToolkit_LIBRARY_DIR}/libcudart.so)
+  file(GLOB cudart_libs ${CUDAToolkit_LIBRARY_DIR}/libcudart.so*)
+  message("cudart_libs: ${cudart_libs}")
+  
+  install(FILES ${cudart_libs} DESTINATION masspcf)
+
+endif()
