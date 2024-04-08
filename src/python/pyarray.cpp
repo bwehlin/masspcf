@@ -54,7 +54,9 @@ namespace
       .def("strided_buffer", &view_type::strided_buffer, py::keep_alive<0, 1>())
       .def("strides", &view_type::strides)
 
-      .def("reduce_mean", &view_type::reduce_mean);
+      .def("reduce_mean", &view_type::reduce_mean)
+
+      .def("reduce_max_time", &view_type::reduce_max_time);
   }
 
 }

@@ -163,5 +163,8 @@ def zeros(shape, dtype=dt.float32):
     ac = _get_array_class(dtype)
     return Array(ac.make_zeros(_get_underlying_shape(shape)))
 
-def mean(A, dim):
+def mean(A, dim=0):
     return Array(A._as_view().data.reduce_mean(dim))
+
+def max_time(A, dim=0):
+    return A._as_view().data.reduce_max_time(dim)

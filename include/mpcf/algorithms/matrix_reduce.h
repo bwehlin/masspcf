@@ -29,20 +29,64 @@
 
 namespace mpcf
 {
-  namespace detail
+  template <typename PcfT>
+  struct TimeOpMaxTime
   {
-    template <typename XArrayT>
-    class SliceBasePointIterator
+    using time_type = typename PcfT::time_type;
+    time_type get_time_of_interest(const PcfT& f) const
     {
-    public:
-      using value_type = typename XArrayT::value_type;
-      using difference_type = std::ptrdiff_t;
-      using iterator_category = std::forward_iterator_tag;
+      return f.points().back().t;
+    }
+
+    time_type operator()(time_type a, time_type b) const
+    {
+      return std::max(a, b);
+    }
+
+  };
 
 
+  template <typename XExpressionT, typename Op>
+  xt::xarray<typename XExpressionT::value_type::time_type> matrix_time_reduce(const XExpressionT& in, size_t dim, Op op, Executor& exec = default_executor())
+  {
+    using pcf_type = typename XExpressionT::value_type;
+    using pcf_time_type = typename pcf_type::time_type;
 
-    };
+    auto inBegin = xt::axis_begin(in, dim);
+    auto inEnd = xt::axis_end(in, dim);
+
+    typename xt::xarray<pcf_time_type>::shape_type targetShape;
+    targetShape.reserve(in.shape().size());
+    for (auto d : (*inBegin).shape())
+    {
+      targetShape.push_back(d);
+    }
+
+    xt::xarray<pcf_time_type> ret(targetShape);
+
+    auto retFlat = xt::flatten(ret);
+    auto flatShape = retFlat.shape(0);
+
+    auto nAlongAxis = std::distance(inBegin, inEnd);
+
+    std::vector<pcf_time_type> timesAlongAxis;
+    timesAlongAxis.resize(nAlongAxis);
+    for (size_t i = 0; i < flatShape; ++i)
+    {
+      size_t j = 0;
+      for (auto it = inBegin; it != inEnd; ++it)
+      {
+        auto flat = xt::flatten(*it);
+        timesAlongAxis[j] = op.get_time_of_interest(flat[j]);
+        ++j;
+      }
+
+      retFlat[i] = std::reduce(timesAlongAxis.begin(), timesAlongAxis.end(), timesAlongAxis[0], op);
+    }
+
+    return ret;
   }
+
 
   template <typename XArrayT, typename XExpressionT>
   XArrayT parallel_matrix_reduce(const XExpressionT& in, size_t dim, Executor& exec = default_executor())
@@ -59,8 +103,6 @@ namespace mpcf
 
     auto retFlat = xt::flatten(ret);
     auto flatShape = retFlat.shape(0);
-
-#if 1
 
     // TODO: this is bad!
     std::vector<pcf_type> fs;
@@ -80,37 +122,6 @@ namespace mpcf
         return rect.top + rect.bottom;
         });
     }
-
-#endif
-
-#if 0
-
-    for (auto it = inBegin; it != inEnd; ++it)
-    {
-      auto flat = xt::flatten(*it);
-      for (auto i = 0; i < flatShape; ++i)
-      {
-        retFlat[{i}] += flat.at(i);
-      }
-    }
-#endif
-    
-#if 0
-    for (auto it = inBegin; it != inEnd; ++it)
-    {
-      tf::Taskflow flow;
-
-      auto flat = xt::flatten(*it);
-      flow.for_each_index(size_t(0), size_t(flatShape), size_t(1), [&retFlat, &flat](size_t i) {
-        retFlat[{i}] += flat.at(i);
-        });
-
-
-
-      exec.cpu()->run(std::move(flow)).wait();
-    }
-
-#endif
 
     for (size_t i = 0; i < retFlat.shape()[{0}]; ++i)
     {

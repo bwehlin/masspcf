@@ -5,6 +5,7 @@ from masspcf.matrix_computations import pdist
 import numpy as np
 import matplotlib.pyplot as plt
 from masspcf.plotting import plot as plotpcf
+from masspcf.array import max_time
 
 import matplotlib.pyplot as plt
 
@@ -33,9 +34,13 @@ B[1] = g
 B[2] = h
 B[3] = k
 
+
 print(pdist(B))
 print(B.shape)
 print(len(B.shape))
+
+print(np.array(max_time(B, 0)))
+
 plotpcf(B)
 plt.legend()
 #plotpcf(g)

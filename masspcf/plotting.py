@@ -16,21 +16,24 @@
 
 import matplotlib.pyplot as plt
 from .pcf import Pcf
-from .array import Container
+from .array import Array, View, Container, max_time
 import numpy as np
+from typing import Union
 
-def plot(f : Pcf, ax=None, **kwargs):
+def plot(f : Union[Pcf, Array, View, Container], fmt='', ax=None, **kwargs):
     ax = plt if ax is None else ax
 
-    def plot_single_(f, **kwargs):
+    def plot_single_(f, maxtime, **kwargs):
         X = np.array(f)
-        ax.step(X[:,0], X[:,1], where='post', **kwargs)
+        if maxtime is not None and X[-1,0] != maxtime:
+            X = np.vstack((X, [maxtime, X[-1,1]]))
+        ax.step(X[:,0], X[:,1], fmt, where='post', **kwargs)
 
     if isinstance(f, Container):
         if len(f.shape) != 1:
             raise ValueError(f'Expected 1-dimensional array (got array with {f.shape})')
         for i in range(f.shape[0]):
-            plot_single_(f[i], label=f'f{i}')
+            plot_single_(f[i], max_time(f), label=f'f{i}')
     else:
-        plot_single_(f)
+        plot_single_(f, None)
 

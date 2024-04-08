@@ -27,6 +27,10 @@
 #include <variant>
 #include <vector>
 
+#include <pybind11/numpy.h>
+
+namespace py = pybind11;
+
 namespace mpcf_py
 {
 
@@ -243,6 +247,7 @@ namespace mpcf_py
     using self_type = View;
     using array_type = ArrayT;
     using pcf_type = typename array_type::value_type;
+    using time_type = typename pcf_type::time_type;
     using xarray_type = typename array_type::xarray_type;
 
   private:
@@ -324,6 +329,29 @@ namespace mpcf_py
         [dim](auto&& arg) -> array_type { return array_type(std::move(mpcf::parallel_matrix_reduce<xarray_type>(detail::cref(arg), dim))); },
         detail::throw_unsupported<std::monostate, array_type>()
       }, m_data);
+    }
+
+    py::array_t<time_type> reduce_max_time(int dim)
+    {
+      using xtime_type = xt::xarray<time_type>;
+
+      xtime_type timeArr = std::visit(detail::overloaded {
+          [dim](auto&& arg) -> xtime_type { return mpcf::matrix_time_reduce<xarray_type>(detail::cref(arg), dim, mpcf::TimeOpMaxTime<pcf_type>()); },
+          detail::throw_unsupported<std::monostate, xtime_type>()
+      }, m_data);
+
+      py::array_t<time_type> ret(timeArr.shape(), timeArr.strides());
+      auto* retData = ret.mutable_data();
+
+      auto flat = xt::flatten(timeArr);
+      auto len = flat.shape(0);
+
+      for (size_t i = 0; i < len; ++i)
+      {
+        retData[i] = flat[{i}];
+      }
+
+      return ret;
     }
 
     pcf_type* buffer()
