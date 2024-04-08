@@ -16,6 +16,7 @@
 
 from . import mpcf_cpp as cpp
 from . import typing as dt
+from .pcf import Pcf, _is_convertible_to_pcf_data, _pcf_as_data
 
 class Shape:
     def __init__(self, s):
@@ -35,6 +36,8 @@ class Shape:
 
     def __getitem__(self, i):
         return self.data.at(i)
+
+
 
 class Container:
     @property
@@ -76,7 +79,7 @@ class Container:
 
     def __getitem__(self, pos):
         if isinstance(pos, int):
-            return self._as_view().at([pos])
+            return Pcf(self._as_view().at([pos]))
 
         sv = self._get_slice_vec(pos)
         view = View(self.data.strided_view(sv))
@@ -87,9 +90,22 @@ class Container:
             return view
     
     def __setitem__(self, pos, val):
-        sv = self._get_slice_vec(pos)
-        self._get_data().strided_view(sv).assign(val._as_view().data)
-    
+        data = self._get_data()
+
+        if _is_convertible_to_pcf_data(val):
+            pcf_data = _pcf_as_data(val)
+
+            if isinstance(pos, int):
+                idx = cpp.Index([pos])
+                data.assign_pcf_at_index(idx, pcf_data)
+            else:
+                sv = self._get_slice_vec(pos)
+                data.assign_pcf_at_slice_vector(sv, pcf_data)
+
+        else:
+            sv = self._get_slice_vec(pos)
+            data.strided_view(sv).assign(val._as_view().data)
+
     def _get_data(self):
         return self._as_view().data
         

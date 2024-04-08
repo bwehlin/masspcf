@@ -242,7 +242,7 @@ namespace mpcf_py
   public:
     using self_type = View;
     using array_type = ArrayT;
-    using value_type = typename array_type::value_type;
+    using pcf_type = typename array_type::value_type;
     using xarray_type = typename array_type::xarray_type;
 
   private:
@@ -302,11 +302,19 @@ namespace mpcf_py
       }, m_data);
     }
 
-    value_type& at(const std::vector<size_t>& pos)
+    void assign_at(const StridedSliceVector& sv, const pcf_type& f)
+    {
+      std::visit(detail::overloaded {
+          [&sv, &f](auto&& arg) -> void { xt::strided_view(detail::ref(arg), sv.data) = f; },
+          detail::throw_unsupported<std::monostate, void>()
+      }, m_data);
+    }
+
+    pcf_type& at(const std::vector<size_t>& pos)
     {
       return std::visit(detail::overloaded {
-          [&pos](auto&& arg) -> value_type& { return detail::ref(arg)[pos]; },
-          detail::throw_unsupported<std::monostate, value_type&>()
+          [&pos](auto&& arg) -> pcf_type& { return detail::ref(arg)[pos]; },
+          detail::throw_unsupported<std::monostate, pcf_type&>()
       }, m_data);
     }
 
@@ -318,11 +326,11 @@ namespace mpcf_py
       }, m_data);
     }
 
-    value_type* buffer()
+    pcf_type* buffer()
     {
       return std::visit(detail::overloaded {
-        [](auto&& arg) -> value_type* { return detail::ptr(arg)->data(); },
-        detail::throw_unsupported<std::monostate, value_type*>()
+        [](auto&& arg) -> pcf_type* { return detail::ptr(arg)->data(); },
+        detail::throw_unsupported<std::monostate, pcf_type*>()
       }, m_data);
     }
 
@@ -343,9 +351,9 @@ namespace mpcf_py
       }, m_data);
     }
 
-    mpcf::StridedBuffer<value_type> strided_buffer()
+    mpcf::StridedBuffer<pcf_type> strided_buffer()
     {
-      mpcf::StridedBuffer<value_type> ret;
+      mpcf::StridedBuffer<pcf_type> ret;
 
       ret.buffer = buffer() + offset();
       ret.shape = get_shape().data();

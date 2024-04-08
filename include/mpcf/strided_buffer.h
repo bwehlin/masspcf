@@ -135,7 +135,7 @@ namespace mpcf
       size_t m_n;
     };
 
-    Iterator begin(size_t axis)
+    Iterator begin(size_t axis) const
     {
       Iterator it;
       it.m_buffer = buffer;
@@ -144,7 +144,7 @@ namespace mpcf
       return it;
     }
 
-    Iterator end(size_t axis)
+    Iterator end(size_t axis) const
     {
       Iterator it;
       it.m_buffer = buffer;

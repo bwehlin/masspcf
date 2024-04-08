@@ -31,8 +31,8 @@ namespace
   template <typename Tt, typename Tv>
   void register_typed_array_bindings(py::handle m, const std::string& suffix)
   {
-    using xshape_type = typename mpcf_py::NdArray<Tt, Tv>::xshape_type;
     using array_type = mpcf_py::NdArray<Tt, Tv>;
+    using pcf_type = typename array_type::value_type;
     using view_type = mpcf_py::View<array_type>;
 
     py::class_<array_type>(m, ("NdArray" + suffix).c_str())
@@ -48,7 +48,9 @@ namespace
       .def("shape", &view_type::get_shape)
       .def("transpose", &view_type::transpose)
       .def("assign", &view_type::assign)
-      .def("at", &view_type::at)
+      .def("assign_pcf_at_index", [](view_type& self, const mpcf_py::Index& index, const pcf_type& pcf){ self.at(index.data()) = pcf; })
+      .def("assign_pcf_at_slice_vector", [](view_type& self, const mpcf_py::StridedSliceVector& sv, const pcf_type& pcf){ self.assign_at(sv, pcf); })
+      .def("at", &view_type::at, py::keep_alive<0, 1>())
       .def("strided_buffer", &view_type::strided_buffer, py::keep_alive<0, 1>())
       .def("strides", &view_type::strides)
 
@@ -75,4 +77,7 @@ void register_array_bindings(py::handle m)
       .def("append_range_from", &mpcf_py::StridedSliceVector::append_range_from)
       .def("append_range_to", &mpcf_py::StridedSliceVector::append_range_to)
       ;
+
+  py::class_<mpcf_py::Index>(m, "Index")
+      .def(py::init<const std::vector<size_t>&>());
 }

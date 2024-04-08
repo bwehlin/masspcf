@@ -104,6 +104,21 @@ tPcf_f64_f64 = Pcf(np.array([[0],[0]]).astype(np.float64))
 backend_f32_f32 = cpp.Backend_f32_f32
 backend_f64_f64 = cpp.Backend_f64_f64
 
+def _is_pcf(val):
+  return isinstance(val, Pcf)
+
+def _is_pcf_data(val):
+  return isinstance(val, cpp.Pcf_f32_f32) or isinstance(val, cpp.Pcf_f64_f64)
+
+def _is_convertible_to_pcf_data(val):
+  return _is_pcf(val) or _is_pcf_data(val)
+
+def _pcf_as_data(val):
+  if _is_pcf(val):
+    return val.data_
+  else:
+    return val
+
 def _get_backend(f : Pcf):
   if _has_matching_types(f, tPcf_f32_f32):
     return backend_f32_f32

@@ -16,9 +16,21 @@
 
 import matplotlib.pyplot as plt
 from .pcf import Pcf
+from .array import Container
 import numpy as np
 
 def plot(f : Pcf, ax=None, **kwargs):
     ax = plt if ax is None else ax
-    X = np.array(f)
-    ax.step(X[:,0], X[:,1], where='post', **kwargs)
+
+    def plot_single_(f, **kwargs):
+        X = np.array(f)
+        ax.step(X[:,0], X[:,1], where='post', **kwargs)
+
+    if isinstance(f, Container):
+        if len(f.shape) != 1:
+            raise ValueError(f'Expected 1-dimensional array (got array with {f.shape})')
+        for i in range(f.shape[0]):
+            plot_single_(f[i], label=f'f{i}')
+    else:
+        plot_single_(f)
+
