@@ -1,18 +1,16 @@
-'''
-    Copyright 2024 Bjorn Wehlin
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-'''
+#    Copyright 2024 Bjorn Wehlin
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
 
 from . import mpcf_cpp as cpp
 from .pcf import _prepare_list, Pcf
@@ -91,6 +89,9 @@ def _compute_matrix(fs, task_factory, verbose=False):
 
   return matrix
 
+'''
+Compute pairwise distances between all PCFs in a 1-dimensional array
+'''
 def pdist(fs : Array, p=1, verbose=False):
   def task_factory(backend, matrix, buf):
     if p == 1:
