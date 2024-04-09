@@ -1,0 +1,44 @@
+#!/bin/bash
+
+
+arr=(2 3 5 6 7 10 12 15 19 25 31 39 50 63 79 100 126 158 200 252 317 399 503 633 797 1004 1264 1592 2004 2524 3178 4001 5038 6344 7988 10058 12664 15945 20077 25279 31830 40077 50461 63537 80000)
+
+cpus=8
+gpus=1
+
+reps=11
+
+outdir="outnew"
+
+mkdir -p "${outdir}/cpu32bit"
+mkdir -p "${outdir}/cpu64bit"
+mkdir -p "${outdir}/gpu32bit"
+mkdir -p "${outdir}/gpu64bit"
+
+for sz in ${arr[@]}
+do
+	if [[ "$1" == "cpu32" ]]; then
+		if [ ! -f "${outdir}/cpu32bit/times_${cpus}_${sz}.out" ]; then
+			python bench.py -n $sz --ncpus $cpus -r $reps -o "${outdir}/cpu32bit/times_${cpus}_${sz}.out"
+		fi
+	fi
+	if [[ "$1" == "cpu64" ]]; then
+		if [ ! -f "${outdir}/cpu64bit/times_${cpus}_${sz}.out" ]; then
+			python bench.py -n $sz -d --ncpus $cpus -r $reps -o "${outdir}/cpu64bit/times_${cpus}_${sz}.out"
+		fi
+	fi
+	if [[ "$1" == "gpu" ]]; then
+		if [ ! -f "${outdir}/gpu32bit/times_${gpus}_${sz}.out" ]; then
+			python bench.py -n $sz --ncpus $cpus --ngpus $gpus -r $reps -o "${outdir}/gpu32bit/times_${gpus}_${sz}.out"
+		fi
+		if [ ! -f "${outdir}/gpu64bit/times_${gpus}_${sz}.out" ]; then
+			python bench.py -n $sz -d --ncpus $cpus --ngpus $gpus -r $reps -o "${outdir}/gpu64bit/times_${gpus}_${sz}.out"
+		fi
+	fi
+done
+
+#for cpus in $(seq 1 128)
+#do
+#	echo "Ruif [! -f "cpugpu/cpu32bit/times_${sz}.out" ]; thennning on $cpus CPU(s)..."
+#	apptainer run container_ubuntu/ python bench.py -n 10000 -d --ncpus $cpus -r 10 -o times_10k_cpu_$cpus.out
+#done
