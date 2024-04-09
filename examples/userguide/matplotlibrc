@@ -1,0 +1,3 @@
+figure.figsize: 3.5, 1.75
+figure.dpi: 600
+figure.constrained_layout.use: True

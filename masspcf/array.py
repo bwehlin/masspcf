@@ -16,7 +16,9 @@
 
 from . import mpcf_cpp as cpp
 from . import typing as dt
-from .pcf import Pcf, _is_convertible_to_pcf_data, _pcf_as_data
+from .pcf import Pcf, _is_convertible_to_pcf_data, _pcf_as_data, _get_dtype_from_data
+
+import numpy as np
 
 class Shape:
     def __init__(self, s):
@@ -25,8 +27,11 @@ class Shape:
         elif isinstance(s, cpp.Shape):
             self.data = s
         else:
-            # TODO: check that s is a tuple of unsigned ints
-            self.data = cpp.Shape(list(s))
+            if isinstance(s, int):
+                self.data = cpp.Shape([s])
+            else:
+                # TODO: check that s is a tuple of unsigned ints
+                self.data = cpp.Shape(list(s))
 
     def __str__(self):
         return 'Shape(' + ', '.join([ str(self.data.at(i)) for i in range(self.data.size()) ]) + ')'
@@ -94,6 +99,9 @@ class Container:
 
         if _is_convertible_to_pcf_data(val):
             pcf_data = _pcf_as_data(val)
+            if _get_dtype_from_data(pcf_data) != self.dtype:
+                conv = Pcf(np.array(pcf_data).astype(self.dtype))
+                pcf_data = _pcf_as_data(conv)
 
             if isinstance(pos, int):
                 idx = cpp.Index([pos])
@@ -135,8 +143,22 @@ def _get_underlying_shape(s):
         return Shape(s).data
 
 class Array(Container):
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, data, dtype=None):
+        if isinstance(data, list):
+            if len(data) == 0:
+                ac = _get_array_class(dtype)
+                self.data = ac.make_zeros(Shape(0,).data)
+                return
+
+            if isinstance(data[0], Pcf):
+                ac = _get_array_class(data[0].vtype)
+                self.data = ac.make_zeros(Shape(len(data),).data)
+                view = self._as_view()
+                for i, pcf in enumerate(data):
+                    view.data.assign_pcf_at_index(cpp.Index([i]), pcf.data_)
+
+        else:
+            self.data = data
     
     @property
     def dtype(self):

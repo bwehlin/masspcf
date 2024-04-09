@@ -20,20 +20,21 @@ from .array import Array, View, Container, max_time
 import numpy as np
 from typing import Union
 
-def plot(f : Union[Pcf, Array, View, Container], fmt='', ax=None, **kwargs):
+def plot(f : Union[Pcf, Array, View, Container], fmt='', ax=None, auto_label=False, **kwargs):
     ax = plt if ax is None else ax
 
-    def plot_single_(f, maxtime, **kwargs):
+    def plot_single_(f, maxtime, **kwargs1):
         X = np.array(f)
         if maxtime is not None and X[-1,0] != maxtime:
             X = np.vstack((X, [maxtime, X[-1,1]]))
-        ax.step(X[:,0], X[:,1], fmt, where='post', **kwargs)
+        ax.step(X[:,0], X[:,1], fmt, where='post', **kwargs, **kwargs1)
 
     if isinstance(f, Container):
         if len(f.shape) != 1:
             raise ValueError(f'Expected 1-dimensional array (got array with {f.shape})')
         for i in range(f.shape[0]):
-            plot_single_(f[i], max_time(f), label=f'f{i}')
+            kw = {'label': f'f{i}'} if auto_label else {}
+            plot_single_(f[i], max_time(f), **kw)
     else:
         plot_single_(f, None)
 

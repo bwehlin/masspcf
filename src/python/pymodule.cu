@@ -216,63 +216,35 @@ namespace
       task->start_async(mpcf::default_executor());
       return task;
     }
-#if 0
-    template <typename TOperation>
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs, TOperation op)
-    {
-      return matrix_integrate(matrix, std::make_move_iterator(fs.begin()), std::make_move_iterator(fs.end()), op);
-    }
-    
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l1_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs)
+
+    static std::unique_ptr<mpcf::StoppableTask<void>> pdist_1(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
     {
       auto op = mpcf::OperationL1Dist<Tt, Tv>();
-      return matrix_integrate(matrix, fs, op);
-    }
-    
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_lp_dist(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs, Tv p)
-    {
-      auto op = mpcf::OperationLpDist<Tt, Tv>(p);
-      return matrix_integrate(matrix, fs, op);
-    }
-    
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_l2_kernel(py::array_t<Tv>& matrix, std::vector<mpcf::Pcf<Tt, Tv>>&& fs)
-    {
-      auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
-      return matrix_integrate(matrix, fs, op);
-    }
-#endif
-
-    static std::unique_ptr<mpcf::StoppableTask<void>> pdist(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
-    {
-      std::cout << "NEW pdist" << std::endl;
-      std::vector<mpcf::Pcf<Tt, Tv>> fss;
-      auto op = mpcf::OperationL1Dist<Tt, Tv>();
-
-      //std::cout << "pdist with buffer @ " << fs.buffer << " shape " << fs.shape.size() << " " << std::endl;
-      for (auto s : fs.shape)
-      {
-        std::cout << " " << s;
-      }
-      std::cout << std::endl;
-
-
 
       auto begin = fs.begin(0);
       auto end = fs.end(0);
 
-
-      for (auto it = begin; it != end; ++it)
-      {
-        std::cout << "PCF " << std::endl;
-        std::cout << it->to_string() << std::endl;
-        fss.emplace_back(*it);
-      }
-
-      std::cout << "Here" << std::endl;
       return matrix_integrate(matrix, begin, end, op);
+    }
 
+    static std::unique_ptr<mpcf::StoppableTask<void>> pdist_p(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs, Tv p)
+    {
+      auto op = mpcf::OperationLpDist<Tt, Tv>(p);
 
+      auto begin = fs.begin(0);
+      auto end = fs.end(0);
 
+      return matrix_integrate(matrix, begin, end, op);
+    }
+
+    static std::unique_ptr<mpcf::StoppableTask<void>> l2_kernel(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
+    {
+      auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
+
+      auto begin = fs.begin(0);
+      auto end = fs.end(0);
+
+      return matrix_integrate(matrix, begin, end, op);
     }
 
   };
@@ -345,11 +317,6 @@ namespace
         .def_static("average", &Backend<Tt, Tv>::average)
         .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
 
-#if 0
-        .def_static("matrix_l1_dist", &Backend<Tt, Tv>::matrix_l1_dist, py::return_value_policy::move)
-        .def_static("matrix_lp_dist", &Backend<Tt, Tv>::matrix_lp_dist, py::return_value_policy::move)
-        .def_static("matrix_l2_kernel", &Backend<Tt, Tv>::matrix_l2_kernel, py::return_value_policy::move)
-#endif
         .def_static("single_l1_norm", &Backend<Tt, Tv>::single_l1_norm)
         .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)
         .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)
@@ -360,7 +327,9 @@ namespace
         //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
         .def_static("list_linfinity_norm", &Backend<Tt, Tv>::list_linfinity_norm)
 
-        .def_static("calc_pdist", &Backend<Tt, Tv>::pdist)
+        .def_static("calc_pdist_1", &Backend<Tt, Tv>::pdist_1)
+        .def_static("calc_pdist_p", &Backend<Tt, Tv>::pdist_p)
+        .def_static("calc_l2_kernel", &Backend<Tt, Tv>::l2_kernel)
         ;
 
       py::class_<mpcf::StridedBuffer<TPcf>>(m, ("StridedBuffer" + suffix).c_str());

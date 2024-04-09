@@ -12,6 +12,7 @@ copypy.bat
 .idea
 cmake-build-*
 errors.txt
+*.png
 
 # Temporary local test
 parallel_reduce.py

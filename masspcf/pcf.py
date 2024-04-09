@@ -15,6 +15,7 @@
 '''
 
 from . import mpcf_cpp as cpp
+from .typing import float32, float64
 import numpy as np
 
 from typing import Union
@@ -70,6 +71,9 @@ class Pcf:
   def debug_print(self):
     self.data_.debugPrint()
 
+  def astype(self, dtype):
+    return Pcf(self.to_numpy().astype(dtype))
+
   def __add__(self, rhs):
     if not _has_matching_types(self, rhs):
       raise TypeError('Mismatched PCF types')
@@ -93,7 +97,11 @@ class Pcf:
   
   def save(self):
     return self.data_.to_numpy().save()
-  
+
+  def __str__(self):
+    dtname = 'float32' if self.vtype is np.float32 else 'float64' # TODO: mixed vtype/ttype?
+    return f'<PCF size={self.data_.size()}, dtype={dtname}>'
+
   def __array__(self):
     return np.array(self.data_)
 
@@ -129,6 +137,14 @@ def _get_backend(f : Pcf):
 
 def _has_matching_types(f : Pcf, g : Pcf):
   return type(f.data_) == type(g.data_)
+
+def _get_dtype_from_data(data):
+  if isinstance(data, cpp.Pcf_f32_f32):
+    return float32
+  elif isinstance(data, cpp.Pcf_f64_f64):
+    return float64
+  else:
+    raise TypeError('Called with invalid type for this function')
 
 def _prepare_list(fs):
   fsdata = [None]*len(fs)

@@ -91,15 +91,18 @@ def _compute_matrix(fs, task_factory, verbose=False):
 
   return matrix
 
-def pdist(fs, p=1, verbose=False):
+def pdist(fs : Array, p=1, verbose=False):
   def task_factory(backend, matrix, buf):
-    return backend.calc_pdist(matrix, buf)
+    if p == 1:
+      return backend.calc_pdist_1(matrix, buf)
+    else:
+      return backend.calc_pdist_p(matrix, buf, p)
 
   return _compute_matrix(fs, task_factory, verbose)
 
 
-def l2_kernel(fs : list[Pcf], verbose=True):
-  def task_factory(backend, matrix, fsdata):
-    return backend.matrix_l2_kernel(matrix, fsdata)
-  
+def l2_kernel(fs : Array, verbose=False):
+  def task_factory(backend, matrix, buf):
+    return backend.calc_l2_kernel(matrix, buf)
+
   return _compute_matrix(fs, task_factory, verbose)
