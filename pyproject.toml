@@ -13,7 +13,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "masspcf"
-version = "0.3.0"
+version = "0.3.1"
 authors = [ { name="Bjorn H. Wehlin", email="bwehlin@kth.se" } ]
 readme = "README.md"
 license = { file = "LICENSE" }

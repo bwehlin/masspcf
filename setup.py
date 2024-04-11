@@ -2,7 +2,7 @@ from skbuild import setup
 
 setup(
     name='masspcf',
-    version='0.3.0',
+    version='0.3.1',
     description='Massively parallel computations for piecewise constant functions',
     author='Bjorn H. Wehlin',
     license='TBD',
