@@ -250,6 +250,12 @@ namespace mpcf_py
     using time_type = typename pcf_type::time_type;
     using xarray_type = typename array_type::xarray_type;
 
+    using xview_type = decltype(xt::eval(xt::strided_view(std::declval<xarray_type>(), {})));
+    //using xviewview_type = decltype(xt::eval(xt::strided_view(std::declval<xview_type>(), {})));
+
+    static_assert(!std::is_same_v<xarray_type*, xview_type>, "asdf");
+    //static_assert(!std::is_same_v<xview_type, xviewview_type>, "ghjk");
+
   private:
     using xv = detail::xstrided_view<xarray_type>;
     template <typename T> using xvv = detail::xstrided_view<T>;
@@ -269,18 +275,16 @@ namespace mpcf_py
     View strided_view(const StridedSliceVector& sv)
     {
       return std::visit(detail::overloaded {
-          [&sv](auto&& arg) -> View { return View<ArrayT>::create(xt::strided_view(*detail::ptr(arg), sv.data)); },
-          detail::throw_unsupported<std::monostate, View>(),
-          detail::throw_unsupported<xvend, View>()
+          [&sv](auto&& arg) -> View { return View<ArrayT>::create(xt::eval(xt::strided_view(*detail::ptr(arg), sv.data))); },
+          detail::throw_unsupported<std::monostate, View>()
       }, m_data);
     }
 
     View transpose()
     {
       return std::visit(detail::overloaded {
-          [](auto&& arg) -> View { return View<ArrayT>::create(xt::transpose(*detail::ptr(arg))); },
-          detail::throw_unsupported<std::monostate, View>(),
-          detail::throw_unsupported<xvend, View>()
+          [](auto&& arg) -> View { return View<ArrayT>::create(xt::eval(xt::transpose(*detail::ptr(arg)))); },
+          detail::throw_unsupported<std::monostate, View>()
       }, m_data);
     }
 
@@ -396,7 +400,7 @@ namespace mpcf_py
     std::variant<
       std::monostate,
       xarray_type*,
-      xv, xvv<xv>, xvv<xvv<xv>>, xvv<xvv<xvv<xv>>>, xvv<xvv<xvv<xvv<xv>>>>
+      xview_type //, xviewview_type
     > m_data;
   };
 
