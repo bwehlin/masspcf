@@ -61,19 +61,19 @@ class Pcf:
     else:
       raise ValueError('Unsupported type')
 
-  def get_time_type(self):
+  def _get_time_type(self):
     return self.data_.get_time_type()
 
-  def get_value_type(self):
+  def _get_value_type(self):
     return self.data_.get_value_type()
 
-  def get_time_value_type(self):
-    return self.get_time_type() + '_' + self.get_value_type()
+  def _get_time_value_type(self):
+    return self._get_time_type() + '_' + self._get_value_type()
 
   def to_numpy(self):
     return np.array(self.data_.to_numpy())
 
-  def debug_print(self):
+  def _debug_print(self):
     self.data_.debugPrint()
 
   def astype(self, dtype):
@@ -100,8 +100,8 @@ class Pcf:
   def size(self):
     return self.data_.size()
   
-  def save(self):
-    return self.data_.to_numpy().save()
+  #def save(self):
+  #  return self.data_.to_numpy().save()
 
   def __str__(self):
     dtname = 'float32' if self.vtype is np.float32 else 'float64' # TODO: mixed vtype/ttype?
@@ -169,6 +169,8 @@ def combine(f : Pcf, g : Pcf, cb):
   return Pcf(backend.combine(f.data_, g.data_, cb))
   
 def average(fs):
+  """ Compute the average of a list of PCFs """
+
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.average(fsdata))
 

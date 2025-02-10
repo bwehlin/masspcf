@@ -10,6 +10,7 @@ masspcf documentation
    :caption: Contents:
 
    masspcf
+   modules
 
 Indices and tables
 ==================
