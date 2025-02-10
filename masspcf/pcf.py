@@ -22,13 +22,13 @@ __all__ = ['Pcf']
 
 
 class Pcf:
-  '''
+  """
   Piecewise Constant Function
 
   Parameters
   ----------
   arr : (n x 2) array of values, first
-  '''
+  """
   def __init__(self, arr : np.ndarray, dtype=None):
     if isinstance(arr, np.ndarray):
       if dtype is not None:
