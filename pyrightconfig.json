@@ -1,0 +1,9 @@
+{
+    "include": [
+        "masspcf"
+    ],
+
+    "pythonVersion": "3.9",
+    "pythonPlatform": "Linux"
+
+}

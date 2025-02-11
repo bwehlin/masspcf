@@ -12,14 +12,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import mpcf_cpp as cpp
-from .typing import float32, float64
+from typing import Union
 import numpy as np
 
-from typing import Union
+from . import mpcf_cpp as cpp
+from .typing import float32, float64
 
 __all__ = ['Pcf']
-
 
 class Pcf:
   """

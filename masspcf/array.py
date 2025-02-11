@@ -12,14 +12,23 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import numpy as np
+
 from . import mpcf_cpp as cpp
 from . import typing as dt
 from .pcf import Pcf, _is_convertible_to_pcf_data, _pcf_as_data, _get_dtype_from_data
 
-import numpy as np
-
 class Shape:
-    def __init__(self, s):
+    """ Represents the shape of an n-dimensional array. For example, for a 2x5x3 array of PCFs, 
+    we have shape[0] == 2, shape[1] == 5 and shape[2] == 3.
+
+    Parameters
+    ----------
+    s : shapelike
+        Can be an instance of Shape, int, or a tuple of ints
+    """
+    
+    def __init__(self, s): 
         if isinstance(s, Shape):
             self.data = s.data.copy()
         elif isinstance(s, cpp.Shape):
@@ -43,8 +52,10 @@ class Shape:
 
 
 class Container:
+    
     @property
     def shape(self):
+        """ Returns the shape of the container. See `Shape` """
         return Shape(self._get_data().shape())
     
     @property
@@ -77,20 +88,20 @@ class Container:
 
         return sv
     
-    def at(self, pos):
+    def _at(self, pos):
         return self.data.at(pos)
 
     def __getitem__(self, pos):
         if isinstance(pos, int):
-            return Pcf(self._as_view().at([pos]))
+            return Pcf(self._as_view()._at([pos]))
 
         sv = self._get_slice_vec(pos)
         view = View(self.data.strided_view(sv))
         
         if len(view.shape) == 0:
-            return view.at([0])
-        else:
-            return view
+            return view._at([0])
+        
+        return view
     
     def __setitem__(self, pos, val):
         data = self._get_data()
@@ -114,9 +125,9 @@ class Container:
 
     def _get_data(self):
         return self._as_view().data
-        
 
 class View(Container):
+    
     def __init__(self, v):
         self.data = v
     
@@ -129,16 +140,16 @@ class View(Container):
             return dt.float32
         elif isinstance(self.data, cpp.View_f64_f64):
             return dt.float64
-        else:
-            raise TypeError('Unknown dtype')
+        
+        raise TypeError('Unknown dtype')
 
 def _get_underlying_shape(s):
     if isinstance(s, Shape):
         return s.data
     elif isinstance(s, cpp.Shape):
         return s
-    else:
-        return Shape(s).data
+    
+    return Shape(s).data
 
 class Array(Container):
     def __init__(self, data, dtype=None):
@@ -164,8 +175,8 @@ class Array(Container):
             return dt.float32
         elif isinstance(self.data, cpp.NdArray_f64_f64):
             return dt.float64
-        else:
-            raise TypeError('Unknown dtype')
+        
+        raise TypeError('Unknown dtype')
 
     def _as_view(self):
         return View(self.data.as_view())
@@ -175,16 +186,73 @@ def _get_array_class(dtype):
         return cpp.NdArray_f32_f32
     elif dtype == dt.float64:
         return cpp.NdArray_f64_f64
-    else:
-        raise TypeError('Only float32 and float64 dtypes are supported.')
+    
+    raise TypeError('Only float32 and float64 dtypes are supported.')
 
 
-def zeros(shape, dtype=dt.float32):
+def zeros(shape : Shape, dtype=dt.float32):
+    """Initializes a new array of zero/empty PCFs
+
+    Parameters
+    ----------
+    shape : Shape
+        The shape of the resulting array
+    dtype : datatype, optional
+        Datatype of the PCFs in the array, by default dt.float32
+
+    Returns
+    -------
+    Array
+        Array of zero/empty PCFs of the given size and datatype
+        
+    Example
+    -------
+    >>> import masspcf as mpcf
+    ... Z = mpcf.zeros((7, 3, 10)) # Z is a size 7x3x10 array of zero/empty PCFs
+    """
     ac = _get_array_class(dtype)
     return Array(ac.make_zeros(_get_underlying_shape(shape)))
 
-def mean(A, dim=0):
-    return Array(A._as_view().data.reduce_mean(dim))
+def mean(arr : Container, dim : int = 0):
+    """ Returns the pointwise mean of all PCFs in a container (Array/View), along a given dimension.
 
-def max_time(A, dim=0):
-    return A._as_view().data.reduce_max_time(dim)
+    Parameters
+    ----------
+    arr : Container
+        PCF container whose mean is to be computed
+    dim : int, optional
+        Reduction dimension, by default 0
+
+    Returns
+    -------
+    Array
+        Array of one dimension lower than the input, containing the mean PCFs
+        
+    Example
+    -------
+    Suppose `A` is an :math:`m \\times n` array.
+    
+    >>>    from masspcf.array import mean # for illustration
+    ...    
+    ...    Acol = mean(A)        # Arow has shape (n,) and contains the mean of each column of A
+    ...    Arow = mean(A, dim=1) # Acol has shape (m,) and contains the mean of each row of A
+    """
+    return Array(arr._as_view().data.reduce_mean(dim))
+
+def max_time(arr : Container, dim : int = 0):
+    """Queries the maximum time value that occurs among all PCFs along a dimension in a container (Array/View)
+
+    Parameters
+    ----------
+    arr : Container
+        PCF container of interest
+    dim : int, optional
+        Reduction dimension, by default 0
+
+    Returns
+    -------
+    Array
+        Array of one dimension lower than the input, containing the maximum time value of the PCFs along the removed dimension
+    """
+    
+    return arr._as_view().data.reduce_max_time(dim)
