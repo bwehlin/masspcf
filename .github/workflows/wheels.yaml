@@ -12,6 +12,11 @@ jobs:
         os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-14]
     
     steps:
+      - name: Set compiler
+        if: runner.os == 'OSX'
+        run:
+          setenv CXX gcc-14
+
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
