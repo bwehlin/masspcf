@@ -27,5 +27,6 @@ jobs:
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0
       
       - uses: actions/upload-artifact@v4
-        with: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-        path: ./wheelhouse/*.whl
+        with: 
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
