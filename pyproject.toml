@@ -15,7 +15,7 @@ authors = [ { name="Bjorn H. Wehlin", email="bwehlin@kth.se" } ]
 description = "Massively parallel computations for piecewise constant functions"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: C++",

@@ -6,6 +6,6 @@ setup(
     author='Bjorn H. Wehlin',
     license='TBD',
     packages=['masspcf'],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     cmake_args=['-DCMAKE_BUILD_TYPE=Release']
 )
