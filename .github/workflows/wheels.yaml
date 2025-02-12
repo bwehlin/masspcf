@@ -13,7 +13,7 @@ jobs:
     
     steps:
       - name: Set compiler
-        if: runner.os == 'OSX'
+        if: runner.os == 'macos-14'
         run:
           setenv CXX gcc-14
 
