@@ -34,7 +34,7 @@ namespace mpcf
         return boundaries;
       }
       
-      boundaries.emplace_back(i, std::min(i + blockSize - 1ul, nItems));
+      boundaries.emplace_back(i, std::min(i + blockSize - std::size_t(1), nItems));
       if (boundaries.back().second >= nItems)
       {
         boundaries.back().second = nItems - 1;
