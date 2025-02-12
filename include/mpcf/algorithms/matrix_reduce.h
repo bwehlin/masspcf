@@ -47,7 +47,7 @@ namespace mpcf
 
 
   template <typename XExpressionT, typename Op>
-  xt::xarray<typename XExpressionT::value_type::time_type> matrix_time_reduce(const XExpressionT& in, size_t dim, Op op, Executor& exec = default_executor())
+  xt::xarray<typename XExpressionT::value_type::time_type> matrix_time_reduce(const XExpressionT& in, size_t dim, Op op /*, Executor& exec = default_executor() */)
   {
     using pcf_type = typename XExpressionT::value_type;
     using pcf_time_type = typename pcf_type::time_type;
@@ -120,7 +120,7 @@ namespace mpcf
       }
       retFlat[{i}] = parallel_reduce(fs.begin(), fs.end(), [](const typename pcf_type::rectangle_type& rect) {
         return rect.top + rect.bottom;
-        });
+        }, /* TODO: This isn't very nice... */ 8, exec);
     }
 
     for (size_t i = 0; i < retFlat.shape()[{0}]; ++i)

@@ -20,9 +20,6 @@ if (SKBUILD)
   set(BUILD_BENCHMARKS OFF)
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 if (BUILD_WITH_CUDA)
   message(STATUS "!!! Building with CUDA !!!")
 
@@ -33,6 +30,16 @@ else()
 
   SET(LANG_CUDA )
 endif()
+
+if (BUILD_WITH_CUDA)
+  # It seemed easier to use .cpp and compile as CUDA than using .cu and compiling as CXX (when CUDA support is disabled)
+  set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
+endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+enable_language(CXX)
 
 if (WIN32)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /bigobj")
@@ -98,15 +105,12 @@ SET(MPCF_LIB_SOURCES
 
 SET(MPCF_PY_SOURCES 
   src/python/pyarray.h src/python/pyarray.cpp
-  src/python/pymodule.cu
+  src/python/pymodule.cpp
   src/python/pyrandom.cpp
   src/python/pypcf_support.h
 )
 
-if (NOT BUILD_WITH_CUDA)
-  set_source_files_properties(src/python/pymodule.cu PROPERTIES LANGUAGE CXX)
-  set_source_files_properties(src/executor.cu PROPERTIES LANGUAGE CXX)
-endif()
+
 
 if (SKBUILD)
   python_add_library(mpcf_cpp MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
