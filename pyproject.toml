@@ -4,7 +4,7 @@ requires = [
     'scikit-build>=0.13',
     'cmake>=3.20',
     'ninja',
-    'numpy>=1.23',
+    'numpy>=1.25',
 ]
 build-backend = 'setuptools.build_meta'
 
@@ -23,7 +23,7 @@ classifiers = [
     "Environment :: GPU :: NVIDIA CUDA",
     "Topic :: Scientific/Engineering"
 ]
-dependencies = [ "numpy>=1.23", "tqdm" ]
+dependencies = [ "numpy>=1.25", "tqdm" ]
 
 [project.urls]
 Homepage = "https://github.com/bwehlin/masspcf"
