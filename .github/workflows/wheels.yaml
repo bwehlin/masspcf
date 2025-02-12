@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [macos-13] #[ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-14]
+        os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-13, macos-14]
     
     steps:
 
@@ -22,7 +22,7 @@ jobs:
         env:
           CIBW_BUILD_VERBOSITY: 1
           CIBW_SKIP: "*musl*"
-          #CIBW_ARCHS_MACOS: "universal2 arm64"
+          CIBW_ARCHS_MACOS: "native"
           CIBW_ARCHS_LINUX: "native"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=10.13
