@@ -15,8 +15,8 @@ jobs:
       - name: Set compiler
         if: runner.os == 'macOS'
         run:
-          export CXX=gcc-14
-
+          xcode-select --switch /Applications/Xcode_16.2.app
+        
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
