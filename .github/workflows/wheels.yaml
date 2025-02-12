@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-14]
+        os: [macos-14] #[ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-14]
     
     steps:
       - name: Set compiler
@@ -29,7 +29,7 @@ jobs:
           CIBW_ARCHS_MACOS: "universal2 arm64"
           CIBW_ARCHS_LINUX: "native"
           CIBW_ARCHS_WINDOWS: "native"
-          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0
+          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 CXX=gcc-14
       
       - uses: actions/upload-artifact@v4
         with: 
