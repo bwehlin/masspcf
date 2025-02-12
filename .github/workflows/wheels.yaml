@@ -15,7 +15,7 @@ jobs:
       - name: Set compiler
         if: runner.os == 'macOS'
         run:
-          xcode-select --switch /Applications/Xcode_16.2.app
+          sudo xcode-select --switch /Applications/Xcode_16.2.app
         
       - uses: actions/checkout@v4
         with:
