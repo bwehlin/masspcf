@@ -64,8 +64,6 @@ include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 
 add_subdirectory(3rd/pybind11)
-add_subdirectory(3rd/xtl)
-add_subdirectory(3rd/xtensor)
 
 set(xtl_DIR "3rd/xtl")
 set(xtensor_DIR "3rd/xtensor")
@@ -125,7 +123,7 @@ endif()
 target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
 target_include_directories(mpcf_cpp PUBLIC "include/")
 
-target_include_directories(mpcf_cpp SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
+include_directories("3rd/xtensor/include" "3rd/xtl/include")
 target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
 target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
