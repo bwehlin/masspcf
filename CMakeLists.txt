@@ -1,11 +1,15 @@
-cmake_minimum_required(VERSION 3.16...3.29)
+cmake_minimum_required(VERSION 3.16)
 
 include(FetchContent)
 
-if (APPLE)
-  set(BUILD_WITH_CUDA OFF)
+if((DEFINED ENV{BUILD_WITH_CUDA}) AND (NOT $ENV{BUILD_WITH_CUDA} MATCHES "0"))
+  if (APPLE)
+    set(BUILD_WITH_CUDA OFF)
+  else()
+    set(BUILD_WITH_CUDA ON)
+  endif()
 else()
-  set(BUILD_WITH_CUDA ON)
+  set(BUILD_WITH_CUDA OFF)
 endif()
 
 set(BUILD_TESTER ON)
@@ -20,9 +24,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (BUILD_WITH_CUDA)
+  message(STATUS "!!! Building with CUDA !!!")
+
   SET(LANG_CUDA CUDA)
   add_compile_definitions(BUILD_WITH_CUDA=1)
 else()
+  message(STATUS "!!! Building without CUDA !!!")
+
   SET(LANG_CUDA )
 endif()
 
