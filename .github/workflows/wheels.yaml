@@ -20,7 +20,6 @@ jobs:
         uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_ARCHS_LINUX: "x86_64"
           CIBW_SKIP: "*musl*"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0
       
