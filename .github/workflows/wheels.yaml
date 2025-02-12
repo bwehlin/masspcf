@@ -15,7 +15,7 @@ jobs:
       - name: Set compiler
         if: runner.os == 'macOS'
         run:
-          setenv CXX gcc-14
+          export CXX=gcc-14
 
       - uses: actions/checkout@v4
         with:
