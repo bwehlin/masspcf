@@ -13,6 +13,8 @@ copypy.bat
 cmake-build-*
 errors.txt
 *.png
+CMakeCache.txt
+CMakeFiles
 
 # Temporary local test
 parallel_reduce.py
