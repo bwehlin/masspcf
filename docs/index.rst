@@ -2,15 +2,14 @@
 masspcf documentation
 =====================
 
-.. automodule:: masspcf
-   :members:
+#.. automodule:: masspcf
+#   :members:
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    masspcf
-   modules
 
 Indices and tables
 ==================

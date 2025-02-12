@@ -1,0 +1,32 @@
+name: BuildWheels
+
+on: [workflow_dispatch]
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          ref: 'docs'
+      
+      - uses: actions/setup-python@v3
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@2.22.0
+        env:
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_ARCHS_LINUX: "x86_64"
+          CIBW_SKIP: "*musl*"
+          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0
+      
+      - uses: actions/upload-artifact@v4
+        with: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+        path: ./wheelhouse/*.whl

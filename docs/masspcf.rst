@@ -1,10 +1,7 @@
-masspcf package
-===============
+masspcf Python API reference
+============================
 
-Submodules
-----------
-
-masspcf.array module
+array
 --------------------
 
 .. automodule:: masspcf.array
@@ -12,7 +9,7 @@ masspcf.array module
    :undoc-members:
    :show-inheritance:
 
-masspcf.matrix\_computations module
+matrix\_computations
 -----------------------------------
 
 .. automodule:: masspcf.matrix_computations
@@ -20,7 +17,7 @@ masspcf.matrix\_computations module
    :undoc-members:
    :show-inheritance:
 
-masspcf.pcf module
+pcf
 ------------------
 
 .. automodule:: masspcf.pcf
@@ -28,7 +25,7 @@ masspcf.pcf module
    :undoc-members:
    :show-inheritance:
 
-masspcf.plotting module
+plotting
 -----------------------
 
 .. automodule:: masspcf.plotting
@@ -36,7 +33,7 @@ masspcf.plotting module
    :undoc-members:
    :show-inheritance:
 
-masspcf.random module
+random
 ---------------------
 
 .. automodule:: masspcf.random
@@ -44,7 +41,7 @@ masspcf.random module
    :undoc-members:
    :show-inheritance:
 
-masspcf.system module
+system
 ---------------------
 
 The `masspcf.system` module provides access to system-wide library settings. Note that these settings are per session and must be reconfigured for each Python kernel run.
@@ -56,7 +53,7 @@ Most users should not need to make any changes but we do provide the capability 
    :undoc-members:
    :show-inheritance:
 
-masspcf.typing module
+typing
 ---------------------
 
 .. py:class:: float32
