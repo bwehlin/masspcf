@@ -11,11 +11,22 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-13, macos-14]
     
+    env: 
+      BUILD_WITH_CUDA: 0
+
     steps:
 
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
+      
+      - name: Change project name (Windows)
+        run: powershell -Command "(gc pyproject.toml) -replace 'masspcf', 'masspcf-cpu' | Out-File -encoding ASCII pyproject.toml"
+        if: runner.os == 'Windows'
+      
+      - name: Change project name (UNIX)
+        run: sed -i 's/masspcf/masspcf-cpu/g' pyproject.toml
+        if: runner.os != 'Windows'
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
