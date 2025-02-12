@@ -10,7 +10,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "masspcf"
-version = "0.3.1"
+version = "0.3.2"
 authors = [ { name="Bjorn H. Wehlin", email="bwehlin@kth.se" } ]
 description = "Massively parallel computations for piecewise constant functions"
 readme = "README.md"
