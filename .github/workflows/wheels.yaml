@@ -21,6 +21,9 @@ jobs:
         env:
           CIBW_BUILD_VERBOSITY: 1
           CIBW_SKIP: "*musl*"
+          CIBW_ARCHS_MACOS: "universal2 arm64"
+          CIBW_ARCHS_LINUX: "native"
+          CIBW_ARCHS_WINDOWS: "native"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0
       
       - uses: actions/upload-artifact@v4
