@@ -38,9 +38,11 @@ import shutil
 
 temp_mod_dir = os.path.abspath('modules')
 
+os.makedirs(temp_mod_dir, exist_ok=True)
+
 print(f'Will remove {temp_mod_dir}')
 
-shutil.rmtree(temp_mod_dir)
+shutil.rmtree(temp_mod_dir, ignore_errors=True)
 os.makedirs(os.path.join(temp_mod_dir, 'masspcf'))
 
 masspcf_temp_dir = os.path.join(os.path.abspath('modules'), 'masspcf')
