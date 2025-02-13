@@ -1,13 +1,15 @@
-
 masspcf documentation
 =====================
-
-#.. automodule:: masspcf
-#   :members:
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   installing
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference:
 
    masspcf
 
