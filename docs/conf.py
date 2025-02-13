@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'masspcf'
-copyright = '2025, Björn H. Wehlin'
+copyright = '2024-2025, Björn H. Wehlin'
 author = 'Björn H. Wehlin'
-release = '0.3.1'
+release = '0.3.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
