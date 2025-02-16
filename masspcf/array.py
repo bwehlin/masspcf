@@ -12,6 +12,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+from typing import Union
+
 import numpy as np
 
 from . import mpcf_cpp as cpp
@@ -190,7 +192,7 @@ def _get_array_class(dtype):
     raise TypeError('Only float32 and float64 dtypes are supported.')
 
 
-def zeros(shape : Shape, dtype=dt.float32):
+def zeros(shape : Union[Shape, tuple], dtype=dt.float32):
     """Initializes a new array of zero/empty PCFs
 
     Parameters
