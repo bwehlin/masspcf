@@ -57,6 +57,21 @@ class Pcf:
       self.data_ = arr
       self.ttype = np.float64
       self.vtype = np.float64
+    elif isinstance(arr, array):
+      if dtype is None:
+        dtype = np.float32
+      data = np.array(arr, dtype=dtype)
+      if dtype == np.float32:
+        self.data_ = cpp.Pcf_f32_f32(data)
+        self.ttype = np.float32
+        self.vtype = np.float32
+      elif dtype == np.float64:
+        self.data_ = cpp.Pcf_f64_f64(data)
+        self.ttype = np.float64
+        self.vtype = np.float64
+      else:
+        raise ValueError('Unsupported dtype')
+        
     else:
       raise ValueError('Unsupported type')
 
