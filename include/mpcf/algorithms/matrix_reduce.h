@@ -59,6 +59,7 @@ namespace mpcf
     targetShape.reserve(in.shape().size());
     for (auto d : (*inBegin).shape())
     {
+      // Return Shape(1,) array if reducing Shape(n,) (instead of empty shape)
       targetShape.push_back(d);
     }
 
@@ -100,6 +101,10 @@ namespace mpcf
     auto nAlongAxis = std::distance(inBegin, inEnd);
 
     XArrayT ret = xt::zeros_like(*inBegin);
+    if (ret.dimension() == 0)
+    {
+      ret = xt::zeros<typename XArrayT::value_type>({1});
+    }
 
     auto retFlat = xt::flatten(ret);
     auto flatShape = retFlat.shape(0);

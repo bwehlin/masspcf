@@ -50,6 +50,22 @@ class Shape:
 
     def __getitem__(self, i):
         return self.data.at(i)
+    
+    def __eq__(self, other):
+        if isinstance(other, Shape):
+            if len(self) != len(other):
+                return False
+            for i in range(len(self)):
+                if self[i] != other[i]:
+                    return False
+            return True
+        elif isinstance(other, tuple):
+            return self == Shape(other)
+        else:
+            raise TypeError('Unsupported comparison')
+
+    def __repr__(self):
+        return 'Shape(' + str(self) + ')'
 
 
 
@@ -101,7 +117,7 @@ class Container:
         view = View(self.data.strided_view(sv))
         
         if len(view.shape) == 0:
-            return view._at([0])
+            return Pcf(view._at([0]))
         
         return view
     
@@ -239,7 +255,10 @@ def mean(arr : Container, dim : int = 0):
     ...    Acol = mean(A)        # Arow has shape (n,) and contains the mean of each column of A
     ...    Arow = mean(A, dim=1) # Acol has shape (m,) and contains the mean of each row of A
     """
-    return Array(arr._as_view().data.reduce_mean(dim))
+    reduced = Array(arr._as_view().data.reduce_mean(dim))
+    if reduced.shape == (1,):
+        return reduced[0]
+    return reduced
 
 def max_time(arr : Container, dim : int = 0):
     """Queries the maximum time value that occurs among all PCFs along a dimension in a container (Array/View)

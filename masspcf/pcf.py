@@ -70,7 +70,7 @@ class Pcf:
     return self._get_time_type() + '_' + self._get_value_type()
 
   def to_numpy(self):
-    return np.array(self.data_.to_numpy())
+    return np.array(self.data_)
 
   def _debug_print(self):
     self.data_.debugPrint()
