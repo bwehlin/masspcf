@@ -6,6 +6,7 @@ masspcf documentation
    :caption: Contents:
 
    installing
+   tutorials
 
 .. toctree::
    :maxdepth: 2
