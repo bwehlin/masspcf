@@ -277,3 +277,31 @@ def max_time(arr : Container, dim : int = 0):
     """
     
     return arr._as_view().data.reduce_max_time(dim)
+
+def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = None):
+    """Creates a 1D array of PCFs from numpy data:
+    
+    ``content: | pcf0 points | pcf1 points | ... | pcfn points``
+    
+    ``enumeration: |[start, end)| [start, end), ..., | [start, end)|``
+
+    Parameters
+    ----------
+    content : np.ndarray
+        ``(m, 2)`` array of points, where `m` is the sum of lengths of the individual PCFs
+    enumeration : np.ndarray
+        ``(n, 2)`` array of `(start, end)` pointers into the content array, where the content of PCF ``i`` consists of ``content[enumeration[i,0]:enumeration[i,1],:]``
+    dtype : datatype
+        Sets the ``dtype`` of the resulting PCF ``Array``. If ``None``, uses the ``dtype`` of the supplied ``content`` array. By default ``None``.
+    """
+    
+    if dtype is None:
+        dtype = content.dtype
+    
+    if dtype == dt.float32:
+        return Array(cpp.make_from_serial_content_32(content, enumeration))
+    elif dtype == dt.float64:
+        return Array(cpp.make_from_serial_content_64(content, enumeration))
+    
+    raise TypeError('Only float32 and float64 dtypes are supported.')
+        

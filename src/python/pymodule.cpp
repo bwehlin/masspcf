@@ -29,6 +29,8 @@
 
 #include <mpcf/operations.cuh>
 
+#include "py_make_from_serial_content.h"
+
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #endif
@@ -370,4 +372,6 @@ PYBIND11_MODULE(mpcf_cpp, m) {
   
   register_array_bindings(m);
   register_random_bindings(m);
+
+  mpcf_py::register_make_from_serial_content(m);
 }

@@ -16,6 +16,13 @@ errors.txt
 CMakeCache.txt
 CMakeFiles
 minbuild
+.cmake
+.ninja_deps
+.ninja_log
+_deps
+build.ninja
+cmake_install.cmake
+install_manifest
 
 # Temporary local test
 parallel_reduce.py

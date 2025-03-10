@@ -26,6 +26,7 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
+#include <initializer_list>
 #include <iostream>
 #include <sstream>
 
@@ -41,6 +42,10 @@ namespace mpcf_py
   public:
     Shape(const std::vector<size_t>& data)
       : m_data(data)
+    { }
+
+    Shape(const std::initializer_list<size_t>& data)
+        : m_data(data)
     { }
 
     Shape(std::vector<size_t>&& data)

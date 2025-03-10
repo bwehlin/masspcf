@@ -1,0 +1,3 @@
+#!/bin/bash
+
+export MINIMAL_MODULE_BUILD=1

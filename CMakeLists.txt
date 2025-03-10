@@ -58,6 +58,13 @@ if (BUILD_WITH_CUDA)
   set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
 endif()
 
+if (NOT SKBUILD AND NOT MINIMAL_MODULE_BUILD)
+  set(SKBUILD_PROJECT_NAME massivepcf)
+  set(SKBUILD_PROJECT_VERSION "0.3.2")
+endif()
+
+project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -68,12 +75,7 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
 endif()
  
-if (NOT SKBUILD AND NOT MINIMAL_MODULE_BUILD)
-  set(SKBUILD_PROJECT_NAME massivepcf)
-  set(SKBUILD_PROJECT_VERSION "0.3.2")
-endif()
 
-project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
   find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
@@ -128,6 +130,7 @@ SET(MPCF_PY_SOURCES
   src/python/pymodule.cpp
   src/python/pyrandom.cpp
   src/python/pypcf_support.h
+  src/python/py_make_from_serial_content.h src/python/py_make_from_serial_content.cpp
 )
 
 

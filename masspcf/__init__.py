@@ -14,7 +14,7 @@
 
 
 from .pcf import Pcf, average, l1_norm, l2_norm, lp_norm, linfinity_norm
-from .array import Array, View, Shape, zeros, mean
+from .array import Array, View, Shape, zeros, mean, from_serial_content
 from .matrix_computations import pdist, l2_kernel
 from .typing import float32, float64
 
