@@ -1,6 +1,6 @@
 # masspcf
 
-Copyright 2024 Bj&ouml;rn H. Wehlin
+Copyright 2024-2025 Bj&ouml;rn H. Wehlin
 
 ## Description
 

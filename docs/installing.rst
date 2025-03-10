@@ -11,7 +11,9 @@ To get ``masspcf-cpu``, simply run ``pip install masspcf-cpu`` in your Python en
 
 The ``masspcf`` package must be built from source. For this to work, one needs to have a C++17 compiler and a CUDA toolkit installed (see https://developer.nvidia.com/cuda-toolkit). After the prerequisites have been satisfied, run ``pip install masspcf``.
 
-Note! On OSX, both `masspcf` and `masspcf-cpu` are CPU-only.
+.. note:: On OSX, both `masspcf` and `masspcf-cpu` are CPU-only.
+
+.. tip:: If you have a CUDA-capable GPU but are unsure whether the full ``masspcf`` package will build on your system, just try it! If it doesn't work, you can always revert to use ``masspcf-cpu`` instead.
 
 Git source build
 =====================

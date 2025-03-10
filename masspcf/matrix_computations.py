@@ -14,13 +14,13 @@
 
 from . import mpcf_cpp as cpp
 from .pcf import _prepare_list, Pcf
-from .array import Array, View
+from .array import Array, View, Container
 from .typing import float32, float64
 
 import numpy as np
 from tqdm import tqdm
 
-def wait_for_task(task, verbose=True):
+def _wait_for_task(task, verbose=True):
   def init_progress(task):
     progress = tqdm(total=task.work_total(), unit_scale=True, unit=task.work_step_unit(), desc=task.work_step_desc())
     return progress
@@ -59,11 +59,11 @@ def _compute_matrix2(fs : list[Pcf], task_factory, verbose):
   task = None
   try:
     task = task_factory(backend, matrix, fsdata)
-    wait_for_task(task, verbose=verbose)
+    _wait_for_task(task, verbose=verbose)
   finally:
     if task is not None:
       task.request_stop()
-      wait_for_task(task, verbose=verbose)
+      _wait_for_task(task, verbose=verbose)
   
   return matrix
 
@@ -81,18 +81,29 @@ def _compute_matrix(fs, task_factory, verbose=False):
   task = None
   try:
     task = task_factory(backend, matrix, buf)
-    wait_for_task(task, verbose=verbose)
+    _wait_for_task(task, verbose=verbose)
   finally:
     if task is not None:
       task.request_stop()
-      wait_for_task(task, verbose=verbose)
+      _wait_for_task(task, verbose=verbose)
 
   return matrix
 
 '''
 Compute pairwise distances between all PCFs in a 1-dimensional array
 '''
-def pdist(fs : Array, p=1, verbose=False):
+def pdist(fs : Container, p=1, verbose=False):
+  """_summary_
+
+  Parameters
+  ----------
+  fs : Container
+      1D array or view of `Pcf`
+  p : int, optional
+      _description_, by default 1
+  verbose : bool, optional
+      _description_, by default False
+  """
   def task_factory(backend, matrix, buf):
     if p == 1:
       return backend.calc_pdist_1(matrix, buf)
