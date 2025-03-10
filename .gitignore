@@ -15,6 +15,7 @@ errors.txt
 *.png
 CMakeCache.txt
 CMakeFiles
+minbuild
 
 # Temporary local test
 parallel_reduce.py

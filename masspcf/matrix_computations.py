@@ -89,20 +89,36 @@ def _compute_matrix(fs, task_factory, verbose=False):
 
   return matrix
 
-'''
-Compute pairwise distances between all PCFs in a 1-dimensional array
-'''
+
 def pdist(fs : Container, p=1, verbose=False):
-  """_summary_
+  r"""Compute pairwise (:math:`L_p`) distances between all PCFs in a 1-dimensional array. That is, if `fs` is the array :math:`\begin{pmatrix} f_1 & f_2 & \cdots & f_n \end{pmatrix}`, we compute the matrix
+
+  .. math::
+    \begin{pmatrix}
+      d_{11} & d_{12} & \cdots & d_{1n} \\
+      d_{21} & d_{22} & \cdots & d_{2n} \\
+      \vdots & \vdots & \ddots & \vdots & \\
+      d_{n1} & d_{n2} & \cdots & d_{nn} \\
+    \end{pmatrix},
+  
+  where
+  
+  .. math::
+    d_{ij} = \left(\int_0^\infty |f_i(t)-f_j(t)|^p\, dt\right)^{1/p}.
 
   Parameters
   ----------
   fs : Container
-      1D array or view of `Pcf`
+      1-d array of PCFs whose pairwise distances are to be computed.
   p : int, optional
-      _description_, by default 1
+      :math:`p` parameter in the :math:`L_p` distance, by default 1
   verbose : bool, optional
-      _description_, by default False
+      Print additional information during the computation, by default False
+  
+  Returns
+  -------
+  numpy.ndarray
+    If input is a container of size `n`, the returned `numpy.ndarray` has shape `(n,n)`. The `i,j`-th entry is the distance from PCF `i` to PCF `j` in the input container.
   """
   def task_factory(backend, matrix, buf):
     if p == 1:
@@ -113,7 +129,34 @@ def pdist(fs : Container, p=1, verbose=False):
   return _compute_matrix(fs, task_factory, verbose)
 
 
-def l2_kernel(fs : Array, verbose=False):
+def l2_kernel(fs : Container, verbose=False):
+  r"""Compute the :math:`L_2` kernel (Gram) matrix of all PCFs in a 1-dimensional array. That is, if `fs` is the array :math:`\begin{pmatrix} f_1 & f_2 & \cdots & f_n \end{pmatrix}`, we compute the matrix
+
+  .. math::
+    \begin{pmatrix}
+      g_{11} & g_{12} & \cdots & g_{1n} \\
+      g_{21} & g_{22} & \cdots & g_{2n} \\
+      \vdots & \vdots & \ddots & \vdots & \\
+      g_{n1} & g_{n2} & \cdots & g_{nn} \\
+    \end{pmatrix},
+  
+  where
+  
+  .. math::
+    g_{ij} = \int_0^\infty f_i(t)f_j(t) \, dt.
+
+  Parameters
+  ----------
+  fs : Container
+      1-d array of PCFs on which the kernel is to be computed.
+  verbose : bool, optional
+      Print additional information during the computation, by default False
+  
+  Returns
+  -------
+  numpy.ndarray
+    If input is a container of size `n`, the returned `numpy.ndarray` has shape `(n,n)`. The `i,j`-th entry is the distance from PCF `i` to PCF `j` in the input container.
+  """
   def task_factory(backend, matrix, buf):
     return backend.calc_l2_kernel(matrix, buf)
 

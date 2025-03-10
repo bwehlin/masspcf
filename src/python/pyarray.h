@@ -26,6 +26,8 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
+#include <iostream>
+#include <sstream>
 
 #include <pybind11/numpy.h>
 
@@ -68,6 +70,18 @@ namespace mpcf_py
     auto end() const
     {
       return m_data.end();
+    }
+
+    std::string to_string() const 
+    {
+      std::stringstream ss;
+      ss << "Shape(";
+      for (auto i : m_data)
+      {
+        ss << i << ", ";
+      }
+      ss << ")";
+      return ss.str();
     }
 
   private:
@@ -427,6 +441,11 @@ namespace mpcf_py
     }
 
     Shape shape() const
+    {
+      return detail::to_Shape(m_data.shape());
+    }
+
+    Shape get_shape() const
     {
       return detail::to_Shape(m_data.shape());
     }

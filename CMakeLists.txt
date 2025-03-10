@@ -16,6 +16,14 @@ cmake_minimum_required(VERSION 3.16)
 
 include(FetchContent)
 
+if((DEFINED ENV{MINIMAL_MODULE_BUILD}) AND (NOT $ENV{MINIMAL_MODULE_BUILD} MATCHES "0"))
+  set(MINIMAL_MODULE_BUILD ON)
+  message(STATUS "!!! Minimal module build !!!")
+else()
+  message(STATUS "!!! Not Minimal module build !!!")
+  set(MINIMAL_MODULE_BUILD OFF)
+endif()
+
 if((DEFINED ENV{BUILD_WITH_CUDA}) AND (NOT $ENV{BUILD_WITH_CUDA} MATCHES "0"))
   if (APPLE)
     set(BUILD_WITH_CUDA OFF)
@@ -29,7 +37,7 @@ endif()
 set(BUILD_TESTER ON)
 set(BUILD_BENCHMARKS OFF)
 
-if (SKBUILD)
+if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(BUILD_TESTER OFF)
   set(BUILD_BENCHMARKS OFF)
 endif()
@@ -60,14 +68,14 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
 endif()
  
-if (NOT SKBUILD)
+if (NOT SKBUILD AND NOT MINIMAL_MODULE_BUILD)
   set(SKBUILD_PROJECT_NAME massivepcf)
   set(SKBUILD_PROJECT_VERSION "0.3.2")
 endif()
 
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
-if (SKBUILD)
+if (SKBUILD OR MINIMAL_MODULE_BUILD)
   find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
 else()
   find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Embed)
@@ -124,7 +132,7 @@ SET(MPCF_PY_SOURCES
 
 
 
-if (SKBUILD)
+if (SKBUILD OR MINIMAL_MODULE_BUILD)
   python_add_library(mpcf_cpp MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
 else()
   python_add_library(mpcf_cpp SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
@@ -148,7 +156,7 @@ if (MSVC)
   set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 endif()
 
-if (NOT SKBUILD AND BUILD_TESTER)
+if (NOT (SKBUILD OR MINIMAL_MODULE_BUILD) AND BUILD_TESTER)
   set(BUILD_GMOCK OFF)
   set(INSTALL_GTEST OFF)
   set(gtest_force_shared_crt ON)
@@ -211,7 +219,7 @@ else()
 endif()
 
 
-install(TARGETS mpcf_cpp DESTINATION masspcf)
+#install(TARGETS mpcf_cpp DESTINATION masspcf)
 
 if (BUILD_WITH_CUDA)
 
@@ -223,4 +231,31 @@ if (BUILD_WITH_CUDA)
   
   install(FILES ${cudart_libs} DESTINATION masspcf)
 
+endif()
+
+if (MINIMAL_MODULE_BUILD)
+  execute_process(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "if True:
+      import site
+      print(site.getsitepackages()[0])"
+    OUTPUT_VARIABLE PYTHON_SITE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+  SET(SITE_PKG_MASSPCF ${PYTHON_SITE}/masspcf)
+
+  message(STATUS "Minimal module will be installed into ${SITE_PKG_MASSPCF}")
+
+  file(GLOB PY_PKG_FILES "masspcf/*.py")
+  #message(STATUS ${PY_PKG_FILES})
+  install(
+    DIRECTORY masspcf
+    DESTINATION ${PYTHON_SITE}
+    PATTERN "__pycache__" EXCLUDE
+    )
+  
+  install(
+    TARGETS mpcf_cpp
+    DESTINATION ${SITE_PKG_MASSPCF}
+  )
 endif()

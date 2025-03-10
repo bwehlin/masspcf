@@ -57,6 +57,21 @@ class Pcf:
       self.data_ = arr
       self.ttype = np.float64
       self.vtype = np.float64
+    elif isinstance(arr, array):
+      if dtype is None:
+        dtype = np.float32
+      data = np.array(arr, dtype=dtype)
+      if dtype == np.float32:
+        self.data_ = cpp.Pcf_f32_f32(data)
+        self.ttype = np.float32
+        self.vtype = np.float32
+      elif dtype == np.float64:
+        self.data_ = cpp.Pcf_f64_f64(data)
+        self.ttype = np.float64
+        self.vtype = np.float64
+      else:
+        raise ValueError('Unsupported dtype')
+        
     else:
       raise ValueError('Unsupported type')
 
@@ -70,7 +85,7 @@ class Pcf:
     return self._get_time_type() + '_' + self._get_value_type()
 
   def to_numpy(self):
-    return np.array(self.data_.to_numpy())
+    return np.array(self.data_)
 
   def _debug_print(self):
     self.data_.debugPrint()

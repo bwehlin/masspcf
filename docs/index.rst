@@ -13,6 +13,7 @@ The basic objects are *numpy*-like (multidimensional) arrays of PCFs, on which w
 
    installing
    acknowledgments
+   tutorials
 
 .. toctree::
    :maxdepth: 1
