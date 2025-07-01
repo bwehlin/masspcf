@@ -74,14 +74,8 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /bigobj")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
 endif()
- 
 
-
-if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
-else()
-  find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Embed)
-endif()
+find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Module)
 
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -222,7 +216,7 @@ else()
 endif()
 
 
-#install(TARGETS mpcf_cpp DESTINATION masspcf)
+
 
 if (BUILD_WITH_CUDA)
 
@@ -261,4 +255,6 @@ if (MINIMAL_MODULE_BUILD)
     TARGETS mpcf_cpp
     DESTINATION ${SITE_PKG_MASSPCF}
   )
+else()
+  install(TARGETS mpcf_cpp DESTINATION masspcf)
 endif()

@@ -23,39 +23,83 @@ namespace py = pybind11;
 namespace mpcf_py
 {
 
+  namespace detail
+  {
+    using EnumerationDt = long long int;
+  }
+
   template <typename Tt, typename Tv>
   NdArray<Tt, Tv>
-    make_from_serial_content(py::array_t<Tt> content, py::array_t<long> enumeration)
+    make_from_serial_content(py::array_t<Tt> content, py::array_t<detail::EnumerationDt> enumeration)
   {
-    std::cout << "Hello1\n" << std::flush;
     auto content_buf = content.request();
-    auto enumeration_buf = content.request();
+    auto enumeration_buf = enumeration.request();
 
     if (content_buf.ndim != 2)
     {
       throw std::runtime_error("content should have 2 dimensions");
     }
 
-    if (enumeration_buf.ndim != 2)
+    if (enumeration_buf.ndim < 2)
     {
-      throw std::runtime_error("enumeration should have 2 dimensions");
+      throw std::runtime_error("enumeration must have at least 2 dimensions");
     }
 
     auto contentData = content.template unchecked<2>();
-    auto enumerationData = enumeration.template unchecked<2>();
+    auto enumerationData = enumeration.unchecked();
 
     using PointT = typename mpcf::Pcf<Tt, Tv>::point_type;
 
     auto nDataPoints = contentData.shape(0);
+
     auto nPcfs = enumerationData.shape(0);
 
-
-    NdArray<Tt, Tv> pcfs = NdArray<Tt, Tv>::make_zeros({ size_t(nPcfs) });
-
-    for (ssize_t ei = 0; ei < nPcfs; ++ei)
+    std::vector<size_t> targetShapeVec(enumeration_buf.ndim - 1);
+    for (auto i = 0; i < enumeration_buf.ndim - 1; ++i) // Last dim is always 2 for [start, end)
     {
-      auto start = enumerationData(ei, 0);
-      auto end = enumerationData(ei, 1);
+      targetShapeVec[i] = enumerationData.shape(i);
+    }
+    Shape targetShape(std::move(targetShapeVec));
+
+    NdArray<Tt, Tv> pcfs = NdArray<Tt, Tv>::make_zeros(targetShape);
+
+    auto sourceData = static_cast<Tv*>(enumeration_buf.ptr);
+    auto sourceStrides = enumeration_buf.strides;
+
+    auto targetStrides = pcfs.data().strides();
+
+    if (targetStrides.size() + 1 != sourceStrides.size())
+    {
+      throw std::runtime_error("incompatible strides");
+    }
+
+    for (auto i = 0; i < targetStrides.size(); ++i)
+    {
+      if (enumerationData.shape(i) != 1)
+      {
+        // xtensor treats the stride associated with dimension 1 on an axis as 0 (we can't move to the second element
+        // along that axis, so might as well leave stride at 0), whereas array_t has a "proper" stride. We therefore
+        // skip checking this case.
+        auto expected = targetStrides[i]
+          * sizeof(detail::EnumerationDt) // array_t strides are in bytes, xtensor strides are in elements
+          * 2; // enumeration contains [start, end], so each PCF has 2 entries
+        auto actual = sourceStrides[i];
+
+        if (actual != expected)
+        {
+          throw std::runtime_error("unexpected stride in dimension " + std::to_string(i) + " (expected " + std::to_string(expected) + " but got " + std::to_string(actual) + ")");
+        }
+      }
+    }
+
+    // Flatten should be safe as we checked strides earlier
+    auto targetFlatView = xt::flatten(pcfs.data());
+    auto* enumerationPtr = static_cast<const detail::EnumerationDt*>(enumeration_buf.ptr);
+
+    for (ssize_t ei = 0; ei < targetFlatView.size(); ++ei)
+    {
+      auto start = enumerationPtr[ei];
+      auto end = enumerationPtr[ei + 1];
 
       if (end < start)
       {
@@ -73,8 +117,12 @@ namespace mpcf_py
       {
         points.emplace_back(contentData(pi, 0), contentData(pi, 1));
       }
+      if (points.empty())
+      {
+        points.emplace_back(0, 0);
+      }
 
-      pcfs.at({size_t(ei)}) = mpcf::Pcf<Tt, Tv>(std::move(points));
+      pcfs.data()[ei] = mpcf::Pcf<Tt, Tv>(std::move(points));
     }
 
     return pcfs;
