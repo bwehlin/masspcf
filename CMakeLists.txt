@@ -79,7 +79,7 @@ find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Modul
 
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-
+include_directories("3rd/mdspan/include")
 
 add_subdirectory(3rd/pybind11)
 
@@ -125,6 +125,7 @@ SET(MPCF_PY_SOURCES
   src/python/pyrandom.cpp
   src/python/pypcf_support.h
   src/python/py_make_from_serial_content.h src/python/py_make_from_serial_content.cpp
+  src/python/py_sample_to_sranks.h src/python/py_sample_to_sranks.cpp
 )
 
 

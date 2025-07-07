@@ -30,6 +30,7 @@
 #include <mpcf/operations.cuh>
 
 #include "py_make_from_serial_content.h"
+#include "py_sample_to_sranks.h"
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
@@ -374,4 +375,5 @@ PYBIND11_MODULE(mpcf_cpp, m) {
   register_random_bindings(m);
 
   mpcf_py::register_make_from_serial_content(m);
+  mpcf_py::register_sample_to_sranks(m);
 }
