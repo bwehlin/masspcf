@@ -41,3 +41,7 @@ def _get_random_class(dtype):
         return cpp.Random_f64_f64
     else:
         raise TypeError('Only float32 and float64 dtypes are supported.')
+
+
+def compute_random_weighted_samples(probabilities, nSamples, sampleSize):
+    return cpp.compute_random_weighted_samples(probabilities, nSamples, sampleSize)

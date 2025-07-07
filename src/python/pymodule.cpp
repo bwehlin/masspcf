@@ -41,7 +41,7 @@
 namespace py = pybind11;
 
 void register_array_bindings(py::handle m);
-void register_random_bindings(py::handle m);
+void register_random_bindings(py::module_& m);
 
 namespace
 {
