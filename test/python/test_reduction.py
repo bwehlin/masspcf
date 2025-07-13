@@ -25,4 +25,3 @@ def test_mean_of_simple():
     assert avg_data[1][0] == pytest.approx(2., 1e-4)
     assert avg_data[1][1] == pytest.approx(1.5, 1e-4)
 
-def 
