@@ -75,7 +75,7 @@ if (WIN32)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
 endif()
 
-find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Module)
+find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Module Interpreter)
 
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -231,8 +231,10 @@ if (BUILD_WITH_CUDA)
 endif()
 
 if (MINIMAL_MODULE_BUILD)
+  message(STATUS "Python Executable: ${Python_EXECUTABLE}")
+
   execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c "if True:
+    COMMAND "${Python_EXECUTABLE}" -c "if True:
       import site
       print(site.getsitepackages()[0])"
     OUTPUT_VARIABLE PYTHON_SITE
