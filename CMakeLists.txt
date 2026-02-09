@@ -241,7 +241,7 @@ if (MINIMAL_MODULE_BUILD)
   execute_process(
     COMMAND "${Python_EXECUTABLE}" -c "if True:
       import site
-      print(site.getsitepackages()[0])"
+      print(site.getsitepackages()[1])"
     OUTPUT_VARIABLE PYTHON_SITE
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
