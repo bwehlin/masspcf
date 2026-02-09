@@ -235,6 +235,8 @@ if (BUILD_WITH_CUDA)
 
 endif()
 
+cmake_policy(SET CMP0177 NEW) # Normalize paths
+
 if (MINIMAL_MODULE_BUILD)
   message(STATUS "Python Executable: ${Python_EXECUTABLE}")
 
