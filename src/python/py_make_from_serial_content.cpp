@@ -96,7 +96,7 @@ namespace mpcf_py
     auto targetFlatView = xt::flatten(pcfs.data());
     auto* enumerationPtr = static_cast<const detail::EnumerationDt*>(enumeration_buf.ptr);
 
-    for (ssize_t ei = 0; ei < targetFlatView.size(); ++ei)
+    for (size_t ei = 0ul; ei < targetFlatView.size(); ++ei)
     {
       auto start = enumerationPtr[ei];
       auto end = enumerationPtr[ei + 1];
