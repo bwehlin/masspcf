@@ -67,8 +67,6 @@ class Shape:
     def __repr__(self):
         return 'Shape(' + str(self) + ')'
 
-
-
 class Container:
     
     @property
@@ -304,4 +302,5 @@ def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = 
         return Array(cpp.make_from_serial_content_64(content, enumeration))
     
     raise TypeError('Only float32 and float64 dtypes are supported.')
-        
+
+ContainerLike = Union[Container, Pcf, list[Pcf]]

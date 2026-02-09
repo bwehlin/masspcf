@@ -193,28 +193,4 @@ def parallel_reduce(fs, cb):
   fsdata, backend = _prepare_list(fs)
   return Pcf(backend.parallel_reduce(fsdata, cb))
 
-def lp_norm(fs : Union[Pcf, list[Pcf]], p : Union[int, float]):
-  if isinstance(fs, list):
-  
-    if len(fs) == 0:
-        return np.zeros((0,0))
 
-    fsdata, backend = _prepare_list(fs)
-
-    out = np.zeros((len(fs),))
-    backend.list_l1_norm(out, fsdata)
-
-    return out
-  
-  elif isinstance(fs, Pcf):
-    backend = _get_backend(fs)
-    return backend.single_l1_norm(fs.data_)
-
-def l1_norm(fs : list[Pcf]):
-  return lp_norm(fs, 1)
-
-def l2_norm(fs : list[Pcf]):
-  return lp_norm(fs, 2)
-
-def linfinity_norm(fs : list[Pcf]):
-  return lp_norm(fs,  float('inf'))

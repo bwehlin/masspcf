@@ -114,6 +114,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/task.h
   include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
+  include/mpcf/algorithms/array_functional.h
   include/mpcf/algorithms/iterate_rectangles.h
   include/mpcf/algorithms/reduce.h
   include/mpcf/algorithms/matrix_integrate.h
@@ -130,6 +131,7 @@ SET(MPCF_PY_SOURCES
   src/python/pyrandom.cpp
   src/python/pypcf_support.h
   src/python/py_make_from_serial_content.h src/python/py_make_from_serial_content.cpp
+  src/python/pyarray_norms.h src/python/pyarray_norms.cpp
 )
 
 

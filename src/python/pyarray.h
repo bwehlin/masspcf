@@ -14,6 +14,8 @@
 * limitations under the License.
 */
 
+#pragma once
+
 #include <mpcf/pcf.h>
 #include <mpcf/algorithms/matrix_reduce.h>
 #include <mpcf/strided_buffer.h>

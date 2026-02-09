@@ -14,11 +14,15 @@
 * limitations under the License.
 */
 
-#pragma once
+#ifndef MASSPCF_PYARRAY_NORMS_H
+#define MASSPCF_PYARRAY_NORMS_H
 
 #include <pybind11/pybind11.h>
 
 namespace mpcf_py
 {
-  void register_make_from_serial_content(pybind11::module_& m);
+  void register_array_norms(pybind11::module_& m);
 }
+
+
+#endif //MASSPCF_PYARRAY_NORMS_H

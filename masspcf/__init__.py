@@ -13,9 +13,10 @@
 #    limitations under the License.
 
 
-from .pcf import Pcf, average, l1_norm, l2_norm, lp_norm, linfinity_norm
-from .array import Array, View, Shape, zeros, mean, from_serial_content
+from .pcf import Pcf, average
+from .array import Array, View, Shape, Container, ContainerLike, zeros, mean, from_serial_content
 from .matrix_computations import pdist, l2_kernel
+from .norms import l1_norm, l2_norm, lp_norm, linfinity_norm
 from .typing import float32, float64
 
 from . import system
