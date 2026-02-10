@@ -33,12 +33,21 @@ namespace
     using array_type = mpcf_py::NdArray<Tt, Tv>;
     using view_type = mpcf_py::View<array_type>;
 
-    static void lp_norm(const view_type& view, py::array_t<Tv, py::array::c_style | py::array::forcecast> out, size_t p)
+    struct FuncLpNorm
+    {
+      template <typename T, typename OutT>
+      void operator()(T expr, OutT* out, size_t outLen)
+      {
+        mpcf::apply_array_functional(expr, out, outLen, [](){});
+      }
+    };
+
+    static void lp_norm(view_type& view, py::array_t<Tv, py::array::c_style | py::array::forcecast> out, size_t p)
     {
       auto outFlat = out.reshape({-1});
       auto outSize = outFlat.size();
 
-      view.
+      //view.apply_function<FuncLpNorm>(outFlat.data(), outSize);
 
     }
 

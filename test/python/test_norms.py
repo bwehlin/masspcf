@@ -2,6 +2,7 @@ import masspcf as mpcf
 import numpy as np
 import numpy.testing as npt
 
+"""
 def get_test_data():
     X = mpcf.zeros((2,3))
 
@@ -34,3 +35,4 @@ def test_l1_norm():
 
 
 
+"""

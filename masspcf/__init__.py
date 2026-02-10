@@ -18,6 +18,7 @@ from .array import Array, View, Shape, Container, ContainerLike, zeros, mean, fr
 from .matrix_computations import pdist, l2_kernel
 from .norms import l1_norm, l2_norm, lp_norm, linfinity_norm
 from .typing import float32, float64
+from .tensor import FloatTensor, DoubleTensor, TShape, zerosT
 
 from . import system
 

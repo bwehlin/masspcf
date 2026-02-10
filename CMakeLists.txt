@@ -70,7 +70,7 @@ project(${PROJ_NAME} VERSION ${PROJ_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 enable_language(CXX)
@@ -104,6 +104,7 @@ else()
 endif()
 
 SET(MPCF_LIB_SOURCES
+  include/mpcf/config.h
   include/mpcf/pcf.h
   include/mpcf/point.h
   include/mpcf/rectangle.h
@@ -112,6 +113,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/platform.h
   include/mpcf/random.h
   include/mpcf/task.h
+  include/mpcf/tensor.h
   include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
   include/mpcf/algorithms/array_functional.h
@@ -132,6 +134,7 @@ SET(MPCF_PY_SOURCES
   src/python/pypcf_support.h
   src/python/py_make_from_serial_content.h src/python/py_make_from_serial_content.cpp
   src/python/pyarray_norms.h src/python/pyarray_norms.cpp
+  src/python/py_tensor.h src/python/py_tensor.cpp
 )
 
 

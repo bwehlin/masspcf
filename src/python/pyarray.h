@@ -375,6 +375,18 @@ namespace mpcf_py
       return ret;
     }
 
+#if 0
+    template <typename F, typename... Args>
+    void apply_function(Args&&... args) const
+    {
+      std::visit(detail::overloaded {
+        [... args = std::forward<Args>(args)](auto&& arg) -> void { F()(detail::cref(arg), std::forward<Args>(args)...); },
+        detail::throw_unsupported<xvend, void>(),
+        detail::throw_unsupported<std::monostate, void>()
+      }, m_data);
+    }
+#endif
+
     pcf_type* buffer()
     {
       return std::visit(detail::overloaded {
