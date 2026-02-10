@@ -22,6 +22,8 @@
 #include <variant>
 #include <numeric>
 
+#include <iostream>
+
 #include "config.h"
 
 #include <pybind11/stl.h>
@@ -30,19 +32,39 @@ namespace mpcf
 {
 
   struct SliceAll { };
+
+  struct SliceIndex
+  {
+    ptrdiff_t index;
+  };
+
   struct SliceRange
   {
     ptrdiff_t start = 0;
+    ptrdiff_t step = 0;
     ptrdiff_t end = 0;
   };
 
-  [[nodiscard]] inline auto all() { return SliceAll(); }
-  [[nodiscard]] inline auto range(ptrdiff_t start, ptrdiff_t end)
+  using Slice = std::variant<SliceAll, SliceIndex, SliceRange>;
+
+  [[nodiscard]] inline Slice all() { return Slice{SliceAll{}}; }
+
+  [[nodiscard]] inline Slice index(ptrdiff_t index)
   {
-    return SliceRange{ .start = start, .end = end };
+    return Slice{SliceIndex{ .index = index }};
   }
 
-  using Slice = std::variant<SliceAll, SliceRange>;
+  [[nodiscard]] inline Slice range(ptrdiff_t start, ptrdiff_t step, ptrdiff_t end)
+  {
+    return Slice{SliceRange{ .start = start, .step=step, .end = end }};
+  }
+
+  [[nodiscard]] inline Slice range(ptrdiff_t start, ptrdiff_t end)
+  {
+    return Slice{SliceRange{ .start = start, .step=1, .end = end }};
+  }
+
+
 
   template <typename T>
   class Tensor
@@ -55,33 +77,68 @@ namespace mpcf
       : m_shape(shape)
     {
       auto sz = get_total_size();
+      std::cout << "SZ " << sz << std::endl;
       m_data = std::make_shared<T[]>(sz);
       std::fill_n(m_data.get(), sz, init);
 
+      for (auto i = 0_uz; i < sz; ++i)
+        std::cout << " " << m_data[i];
+      std::cout << std::endl;
+
       // Compute strides
-      m_strides.resize(m_shape.size());
-      std::partial_sum(m_shape.begin(), m_shape.end(), m_strides.rbegin(), std::multiplies<>());
+      if (!m_shape.empty())
+      {
+        m_strides.resize(m_shape.size());
+        std::partial_sum(m_shape.begin(), m_shape.end(), m_strides.rbegin(), std::multiplies<>());
+        std::rotate(m_strides.begin(), m_strides.begin() + 1, m_strides.end());
+        m_strides.back() = 1;
+      }
     }
 
-    Tensor() : Tensor({}) { }
+    Tensor() : Tensor({}, {}) { }
 
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }
     [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }
 
-#if 0
     template <typename SliceVector>
     [[nodiscard]] Tensor operator[](const SliceVector& sliceVector) const
     {
-
+      return {};
     }
-#endif
+
+    [[nodiscard]] const T& _get_element(const std::vector<size_t>& index) const
+    {
+      return index_to_ref(index);
+    }
+
+    void _set_element(const std::vector<size_t>& index, const T& val)
+    {
+      index_to_ref(index) = val;
+    }
 
   private:
     [[nodiscard]] size_t get_total_size() const
     {
-      return std::accumulate(m_shape.begin(), m_shape.end(), 0_uz, std::plus<>());
+      return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies<>());
+    }
+
+    [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const
+    {
+      auto ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 1_uz); //, std::plus<>(), std::multiplies<>());
+      std::cout << "Translated " <<  " -> " << ret << std::endl;
+      return ret;
+    }
+
+    [[nodiscard]] const T& index_to_ref(const std::vector<size_t>& index) const
+    {
+      return m_data[index_to_data_index(index)];
+    }
+
+    [[nodiscard]] T& index_to_ref(const std::vector<size_t>& index)
+    {
+      return m_data[index_to_data_index(index)];
     }
 
     std::vector<size_t> m_strides;

@@ -17,20 +17,30 @@ def test_shape_dunder():
     assert(shp[1] == 3)
     assert(shp[2] == 5)
 
-    with pytest.raises(IndexError) as exc:
+    with pytest.raises(IndexError):
         print(shp[3])
     
-
-
-def test_empty_shape():
-    shp = mpcf.TShape((2, 3, 5))
-
-    print(f"Shpae: {shp}")
-    #X = mpcf.Tensor()
-    assert(False)
-
-def test_basic_shape():
+def test_basic_shape_strides():
     X = mpcf.zerosT((7, 3, 5))
 
-    print(X.shape)
-    assert(False)
+    assert X.shape == mpcf.TShape((7, 3, 5))
+    assert X.shape != mpcf.TShape((1, 2, 3, 4))
+
+    print(X.strides)
+
+    assert X.strides[0] == 7 * 3 * 1
+    assert X.strides[1] == 7 * 1
+    assert X.strides[2] == 1
+
+
+def test_extract_element():
+    X = mpcf.zerosT((2, 3))
+
+    print(X.strides)
+
+    assert X[1, 0] == 0.0
+
+    X[0, 1] = 2.0
+
+    assert X[0, 1] == 2.0
+    

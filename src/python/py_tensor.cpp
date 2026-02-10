@@ -40,6 +40,11 @@ namespace
       : data(shape)
     { }
 
+    [[nodiscard]] bool dunder_eq(const TShape& rhs) const
+    {
+      return data == rhs.data;
+    }
+
     [[nodiscard]] size_t dunder_getitem(size_t idx) const
     {
       if (idx >= data.size())
@@ -76,29 +81,65 @@ namespace
     }
   };
 
-  void register_common_bindings(py::handle m)
+  void register_common_bindings(py::module_& m)
   {
     py::class_<TShape>(m, "TShape")
       .def(py::init<std::vector<size_t>>())
 
+      .def("__eq__", &TShape::dunder_eq)
       .def("__getitem__", &TShape::dunder_getitem)
       .def("__len__", &TShape::dunder_len)
       .def("__repr__", &TShape::dunder_repr)
       .def("__str__", &TShape::dunder_str)
     ;
+
+    py::class_<mpcf::SliceAll>(m, "SliceAll");
+    py::class_<mpcf::SliceIndex>(m, "SliceIndex");
+    py::class_<mpcf::SliceRange>(m, "SliceRange");
+
+    m.def("slice_all", [](){ return mpcf::all(); });
+    m.def("slice_index", [](ptrdiff_t idx){ return mpcf::index(idx); });
+    m.def("slice_range", [](ptrdiff_t start, ptrdiff_t step, ptrdiff_t end){ return mpcf::range(start, step, end); });
+
+  }
+
+  template <typename TTensor>
+  void assert_valid_index(const TTensor& tensor, const std::vector<size_t> index)
+  {
+    if (index.size() != tensor.shape().size()
+      || !std::equal(index.begin(), index.end(), tensor.shape().begin(), [](size_t i, size_t s){ return i < s; })) // Check that all indices i are < shape[i]
+    {
+      throw py::index_error("Index out of range");
+    }
   }
 
   template <typename T>
-  void register_typed_bindings(py::handle m, const std::string& prefix, const std::string& suffix)
+  void register_typed_bindings(py::module_& m, const std::string& prefix, const std::string& suffix)
   {
     using TTensor = mpcf::Tensor<T>;
     py::class_<TTensor>(m, (prefix + "Tensor" + suffix).c_str())
       .def(py::init([](const TShape& shape, const T& init)
-    {
-      return TTensor(shape.data, init);
-    }))
+        {
+          return TTensor(shape.data, init);
+        }))
 
       .def_property_readonly("shape", [](const TTensor& self){ return TShape{self.shape()}; })
+      .def_property_readonly("strides", [](const TTensor& self){ return self.strides(); })
+
+      .def("__getitem__", [](const TTensor& self, const std::vector<mpcf::Slice>& slices) {
+          return self[slices];
+        })
+
+      .def("_get_element", [](const TTensor& self, const std::vector<size_t>& index) {
+          assert_valid_index(self, index);
+          return self._get_element(index);
+        })
+
+
+      .def("_set_element", [](TTensor& self, const std::vector<size_t>& index, const T& val) {
+          assert_valid_index(self, index);
+          self._set_element(index, val);
+        })
     ;
 
   }
@@ -107,7 +148,7 @@ namespace
 
 namespace mpcf_py
 {
-  void register_tensor_bindings(py::handle m)
+  void register_tensor_bindings(py::module_& m)
   {
     register_common_bindings(m);
 

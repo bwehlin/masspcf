@@ -15,6 +15,7 @@
 from . import mpcf_cpp as cpp
 from .typing import float32, float64
 
+from abc import ABC, abstractmethod
 from typing import Union
 import numpy as np
 
@@ -26,20 +27,56 @@ TShape = cpp.TShape
 
 TShapeLike = Union[TShape, tuple[int, ...]]
 
-class NumericTensor:
+def _pyslice_to_slice(slice):
+    if isinstance(slice, int):
+        return cpp.slice_index(slice)
+    
+    raise TypeError("Unhandled slice type")
+
+class Tensor(ABC):
+    def __getitem__(self, slices):
+        if all(isinstance(slice, int) for slice in slices):
+            return self._data._get_element(slices)
+        else:
+            real_slices = [_pyslice_to_slice(slice) for slice in slices]
+            return self._getitem(real_slices)
+
+    def __setitem__(self, slices, val):
+        if all(isinstance(slice, int) for slice in slices):
+            self._data._set_element(slices, val)
+        else:
+            raise ValueError("Unimplemented.")
+
+    @abstractmethod
+    def _getitem(self, slices):
+        pass
+
     @property
     def shape(self) -> TShape:
-        return self.data_.shape
+        return self._data.shape
+    
+    @property
+    def strides(self):
+        return self._data.strides
+
+class NumericTensor(Tensor):
+    pass
 
 class FloatTensor(NumericTensor):
-    def __init__(self, shape : TShape, init : float = 0.0):
-        self.data_ = cpp.FloatTensor(shape, init)
+    def __init__(self, shape : TShapeLike, init : float = 0.0):
+        self._data = cpp.FloatTensor(shape, init)
         self.dtype = float32
+    
+    def _getitem(self, slices):
+        return self._data[slices]
 
 class DoubleTensor(NumericTensor):
-    def __init__(self, shape : TShape, init : float = 0.0):
-        self.data_ = cpp.DoubleTensor(shape, init)
+    def __init__(self, shape : TShapeLike, init : float = 0.0):
+        self._data = cpp.DoubleTensor(shape, init)
         self.dtype = float64
+    
+    def _getitem(self, slices):
+        return self._data[slices]
 
 def zerosT(shape : TShapeLike, dtype=float64):
     if not isinstance(shape, TShape):

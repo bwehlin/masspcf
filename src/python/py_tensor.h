@@ -23,7 +23,7 @@
 
 namespace mpcf_py
 {
-  void register_tensor_bindings(pybind11::handle m);
+  void register_tensor_bindings(pybind11::module_& m);
 }
 
 #endif //MASSPCF_PY_TENSOR_H
