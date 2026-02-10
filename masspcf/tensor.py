@@ -27,9 +27,16 @@ TShape = cpp.TShape
 
 TShapeLike = Union[TShape, tuple[int, ...]]
 
-def _pyslice_to_slice(slice):
-    if isinstance(slice, int):
-        return cpp.slice_index(slice)
+def _pyslice_to_slice(s):
+    if isinstance(s, int):
+        return cpp.slice_index(s)
+    elif isinstance(s, slice):
+        step = 1 if s.step is None else s.step
+
+        if s.start is None and s.stop is None:
+            return cpp.slice_all()
+        elif s.start is not None and s.stop is not None:
+            return cpp.slice_range(s.start, step, s.stop)
     
     raise TypeError("Unhandled slice type")
 
@@ -63,28 +70,28 @@ class NumericTensor(Tensor):
     pass
 
 class FloatTensor(NumericTensor):
-    def __init__(self, shape : TShapeLike, init : float = 0.0):
-        self._data = cpp.FloatTensor(shape, init)
+    def __init__(self, data : cpp.FloatTensor):
+        self._data = data
         self.dtype = float32
     
     def _getitem(self, slices):
-        return self._data[slices]
+        return FloatTensor(self._data[slices])
 
 class DoubleTensor(NumericTensor):
-    def __init__(self, shape : TShapeLike, init : float = 0.0):
-        self._data = cpp.DoubleTensor(shape, init)
+    def __init__(self, data : cpp.DoubleTensor):
+        self._data = data
         self.dtype = float64
     
     def _getitem(self, slices):
-        return self._data[slices]
+        return DoubleTensor(self._data[slices])
 
 def zerosT(shape : TShapeLike, dtype=float64):
     if not isinstance(shape, TShape):
         shape = TShape(shape) # If passed as, e.g., tuple of ints
 
     if dtype == float32:
-        return FloatTensor(shape)
+        return FloatTensor(cpp.FloatTensor(shape, 0.0))
     elif dtype == float64:
-        return DoubleTensor(shape)
+        return DoubleTensor(cpp.DoubleTensor(shape, 0.0))
     else:
         raise TypeError("Only float32/float64 are supported for dtype.")

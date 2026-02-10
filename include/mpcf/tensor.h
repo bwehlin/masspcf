@@ -42,7 +42,7 @@ namespace mpcf
   {
     ptrdiff_t start = 0;
     ptrdiff_t step = 0;
-    ptrdiff_t end = 0;
+    ptrdiff_t stop = 0;
   };
 
   using Slice = std::variant<SliceAll, SliceIndex, SliceRange>;
@@ -56,12 +56,12 @@ namespace mpcf
 
   [[nodiscard]] inline Slice range(ptrdiff_t start, ptrdiff_t step, ptrdiff_t end)
   {
-    return Slice{SliceRange{ .start = start, .step=step, .end = end }};
+    return Slice{SliceRange{ .start = start, .step=step, .stop = end }};
   }
 
   [[nodiscard]] inline Slice range(ptrdiff_t start, ptrdiff_t end)
   {
-    return Slice{SliceRange{ .start = start, .step=1, .end = end }};
+    return Slice{SliceRange{ .start = start, .step=1, .stop = end }};
   }
 
 
@@ -103,9 +103,44 @@ namespace mpcf
     [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }
 
     template <typename SliceVector>
-    [[nodiscard]] Tensor operator[](const SliceVector& sliceVector) const
+    [[nodiscard]] Tensor operator[](SliceVector sliceVector) const
     {
-      return {};
+      Tensor ret;
+
+      ret.m_data = m_data; // view
+
+      // temporary just to get sizes
+      ret.m_shape = m_shape;
+      ret.m_strides = m_strides;
+
+      // Simplify slices (in-place) for easier handling later
+      simplify_slices(sliceVector);
+
+      size_t i = 0;
+      for (auto & slice : sliceVector)
+      {
+        std::visit([i, &slice, &ret, this](auto&& arg) {
+          using argT = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<argT, SliceIndex>)
+          {
+            ret.m_shape[i] = 1;
+            ret.m_offset += arg.index * ret.m_strides[i];
+            std::cout << "i " << i << " offset += " << arg.index * ret.m_strides[i] << std::endl;
+          }
+          else if constexpr (std::is_same_v<argT, SliceRange>)
+          {
+            // TODO: step
+            ret.m_shape[i] = (arg.stop - arg.start);
+            ret.m_offset += arg.start * ret.m_strides[i];
+            std::cout << "i " << i << " offset += " << arg.start * ret.m_strides[i] << std::endl;
+          }
+          // For SliceAll, don't modify shape
+        }, slice);
+        ++i;
+      }
+
+
+      return ret;
     }
 
     [[nodiscard]] const T& _get_element(const std::vector<size_t>& index) const
@@ -119,6 +154,24 @@ namespace mpcf
     }
 
   private:
+    template <typename SliceVector>
+    void simplify_slices(SliceVector& sliceVector) const
+    {
+      size_t i = 0;
+      for (auto & slice : sliceVector)
+      {
+        std::visit([i, &slice, this](auto&& arg) {
+          using argT = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<argT, SliceAll>)
+          {
+            // all -> range(0, 1, len)
+            slice = SliceRange{0_z, 1_z, static_cast<ptrdiff_t>(m_shape[i])};
+          }
+        }, slice);
+        ++i;
+      }
+    }
+
     [[nodiscard]] size_t get_total_size() const
     {
       return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies<>());
@@ -127,6 +180,7 @@ namespace mpcf
     [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const
     {
       auto ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 1_uz); //, std::plus<>(), std::multiplies<>());
+      ret += m_offset;
       std::cout << "Translated " <<  " -> " << ret << std::endl;
       return ret;
     }

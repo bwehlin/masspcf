@@ -43,4 +43,23 @@ def test_extract_element():
     X[0, 1] = 2.0
 
     assert X[0, 1] == 2.0
-    
+
+def test_extract_submatrix():
+    X = mpcf.zerosT((3, 4))
+
+    for i in range(3):
+        for j in range(4):
+            X[i, j] = 10 * i + j
+
+    Y = X[:, 1:3]
+
+    assert Y.shape == mpcf.TShape((3, 2))
+
+    assert Y[0, 0] == X[0, 1]
+    assert Y[0, 1] == X[0, 2]
+
+    assert Y[1, 0] == X[1, 1]
+    assert Y[1, 1] == X[1, 2]
+
+    assert Y[2, 0] == X[2, 1]
+    assert Y[2, 1] == X[2, 2]
