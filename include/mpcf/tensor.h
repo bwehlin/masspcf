@@ -111,7 +111,6 @@ namespace mpcf
           {
             ret.m_shape[i] = 1;
             ret.m_offset += arg.index * ret.m_strides[i];
-            std::cout << "i " << i << " offset += " << arg.index * ret.m_strides[i] << std::endl;
           }
           else if constexpr (std::is_same_v<argT, SliceRange>)
           {
@@ -129,7 +128,6 @@ namespace mpcf
             }
 
             ret.m_shape[i] = (*arg.stop - *arg.start) / *arg.step;
-            std::cout << "sta " << *arg.start << " ste " << *arg.step << " sto " << *arg.stop <<  " r" << *arg.stop - *arg.start << std::endl;
 
             ret.m_offset += *arg.start * ret.m_strides[i];
             ret.m_strides[i] *= *arg.step;
