@@ -70,6 +70,8 @@ project(${PROJ_NAME} VERSION ${PROJ_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
+set(CPP_MODULE_NAME "mpcf_cpp")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -144,21 +146,21 @@ SET(MPCF_PY_SOURCES
 
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  python_add_library(mpcf_cpp MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
+  python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
 else()
-  python_add_library(mpcf_cpp SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+  python_add_library(${CPP_MODULE_NAME} SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 endif()
 
 if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
-target_include_directories(mpcf_cpp PRIVATE "include/mpcf")
-target_include_directories(mpcf_cpp PUBLIC "include/")
+target_include_directories(${CPP_MODULE_NAME} PRIVATE "include/mpcf")
+target_include_directories(${CPP_MODULE_NAME} PUBLIC "include/")
 
 include_directories("3rd/xtensor/include" "3rd/xtl/include")
-target_link_libraries(mpcf_cpp PRIVATE pybind11::headers)
-target_compile_definitions(mpcf_cpp PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
+target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
+target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (MSVC)
   # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
@@ -193,7 +195,7 @@ if (NOT (SKBUILD OR MINIMAL_MODULE_BUILD) AND BUILD_TESTER)
   target_include_directories(mpcf_test PRIVATE "include/")
   target_include_directories(mpcf_test SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
 
-  target_link_libraries(mpcf_test PUBLIC gtest_main mpcf_cpp ${CUDART_LIBRARY})
+  target_link_libraries(mpcf_test PUBLIC gtest_main ${CPP_MODULE_NAME} ${CUDART_LIBRARY})
   
   #include(GoogleTest)
   #gtest_discover_tests(mpcf_test)
@@ -217,15 +219,15 @@ if (BUILD_BENCHMARKS)
     benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
     )
   
-  target_link_libraries(mpcf_bench PUBLIC mpcf_cpp ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
+  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
 endif()
 
-set_target_properties(mpcf_cpp PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
 
 if(MSVC)
-  target_compile_options(mpcf_cpp PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
+  target_compile_options(${CPP_MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
 else()
-  #target_compile_options(mpcf_cpp PRIVATE -Wall -Wextra)
+  #target_compile_options(${CPP_MODULE_NAME} PRIVATE -Wall -Wextra)
   set( CMAKE_CXX_FLAGS "-Wall -Wextra" )
 endif()
 
@@ -245,6 +247,17 @@ if (BUILD_WITH_CUDA)
 endif()
 
 cmake_policy(SET CMP0177 NEW) # Normalize paths
+
+add_custom_command(
+        TARGET ${CPP_MODULE_NAME} POST_BUILD
+        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
+        --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
+        COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
+)
+
+set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
+set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
 
 if (MINIMAL_MODULE_BUILD)
   message(STATUS "Python Executable: ${Python_EXECUTABLE}")
@@ -268,11 +281,15 @@ if (MINIMAL_MODULE_BUILD)
     DESTINATION ${PYTHON_SITE}
     PATTERN "__pycache__" EXCLUDE
     )
-  
-  install(
-    TARGETS mpcf_cpp
-    DESTINATION ${SITE_PKG_MASSPCF}
-  )
+
+  set(INSTALL_TARGET ${SITE_PKG_MASSPCF})
 else()
-  install(TARGETS mpcf_cpp DESTINATION masspcf)
+  set(INSTALL_TARGET masspcf)
 endif()
+
+install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
+install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
+
+message(STATUS "Stub file: ${STUB_FILE}")
+message(STATUS "Install target: ${INSTALL_TARGET}")
