@@ -16,3 +16,6 @@ def print_np_array_details(name, arr):
     else:
         print("Offset from base: 0 (This is the owner)")
     print("-" * 20)
+
+def np_strides_in_items(arr):
+    return list(np.array(arr.strides) / arr.itemsize)

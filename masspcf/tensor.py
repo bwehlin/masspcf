@@ -59,6 +59,10 @@ class Tensor(ABC):
     def _getitem(self, slices):
         pass
 
+    @abstractmethod
+    def flatten(self):
+        pass
+
     @property
     def shape(self) -> TShape:
         return self._data.shape
@@ -81,6 +85,9 @@ class FloatTensor(NumericTensor):
     
     def _getitem(self, slices):
         return FloatTensor(self._data[slices])
+    
+    def flatten(self):
+        return FloatTensor(self._data.flatten())
 
 class DoubleTensor(NumericTensor):
     def __init__(self, data : cpp.DoubleTensor):
@@ -89,6 +96,9 @@ class DoubleTensor(NumericTensor):
     
     def _getitem(self, slices):
         return DoubleTensor(self._data[slices])
+
+    def flatten(self):
+        return DoubleTensor(self._data.flatten())
 
 def zerosT(shape : TShapeLike, dtype=float64):
     if not isinstance(shape, TShape):

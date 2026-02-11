@@ -3,6 +3,8 @@ import masspcf as mpcf
 
 import numpy as np
 
+from utils import np_strides_in_items
+
 def test_extract_element():
     X = mpcf.zerosT((2, 3))
 
@@ -60,9 +62,13 @@ def test_extract1d_with_step():
     
     Y = X[0:5:2] # start:stop:step
     
-    assert Y.shape == mpcf.TShape((2))
+    Xnp = np.zeros((6))
+    Ynp = Xnp[0:5:2]
+
+    assert Y.shape == Ynp.shape
     assert Y[0] == 0
     assert Y[1] == 2
+    assert Y[2] == 4
 
 def test_extract_with_step():
     X = mpcf.zerosT((3, 9, 2))
@@ -74,7 +80,14 @@ def test_extract_with_step():
     
     Y = X[:, 0:7:2, :] # start:stop:step
 
-    assert Y.shape == mpcf.TShape((3, 3, 2))
+    Xnp = np.zeros((3, 9, 2))
+    Ynp = Xnp[:, 0:7:2, :]
+
+    assert Y.shape == Ynp.shape # (3, 4 ,2)
+    assert Y.strides == np_strides_in_items(Ynp)
+
+    print(Y.shape)
+
 
     assert Y[0, 0, 0] == X[0, 0, 0]
     assert Y[0, 0, 1] == X[0, 0, 1]
@@ -85,6 +98,9 @@ def test_extract_with_step():
     assert Y[0, 2, 0] == X[0, 4, 0]
     assert Y[0, 2, 1] == X[0, 4, 1]
 
+    assert Y[0, 3, 0] == X[0, 6, 0]
+    assert Y[0, 3, 1] == X[0, 6, 1]
+
     assert Y[1, 0, 0] == X[1, 0, 0]
     assert Y[1, 0, 1] == X[1, 0, 1]
 
@@ -93,6 +109,9 @@ def test_extract_with_step():
 
     assert Y[1, 2, 0] == X[1, 4, 0]
     assert Y[1, 2, 1] == X[1, 4, 1]
+
+    assert Y[1, 3, 0] == X[1, 6, 0]
+    assert Y[1, 3, 1] == X[1, 6, 1]
 
     assert Y[2, 0, 0] == X[2, 0, 0]
     assert Y[2, 0, 1] == X[2, 0, 1]
@@ -103,8 +122,8 @@ def test_extract_with_step():
     assert Y[2, 2, 0] == X[2, 4, 0]
     assert Y[2, 2, 1] == X[2, 4, 1]
 
-
-
+    assert Y[2, 3, 0] == X[2, 6, 0]
+    assert Y[2, 3, 1] == X[2, 6, 1]
 
 def test_extract_with_offsets():
     X = mpcf.zerosT((7, 9, 5))
@@ -122,6 +141,21 @@ def test_extract_with_offsets():
 
     assert Y[1, 1, 0] == X[4, 5, 2]
 
+def test_recursive_extract():
+    X = mpcf.zerosT((9, 8, 7, 6))
+    Xnp = np.zeros((9, 8, 7, 6))
+
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            for k in range(X.shape[2]):
+                for l in range(X.shape[3]):
+                    X[i, j, k, l] = 1000 * i + 100 * j + 10 * k + l
+                    Xnp[i, j, k, l] = 1000 * i + 100 * j + 10 * k + l
+    
+    Y0 = X[4:9:2, ::3, 2:5, 1:3:2]
+    Y0np = Xnp[4:9:2, ::3, 2:5, 1:3:2]
+
+    assert Y0.shape == Y0np.shape
 
 
 

@@ -87,7 +87,16 @@ namespace
       .def(py::init<std::vector<size_t>>())
       .def(py::init<>([](size_t n){ return TShape{std::vector<size_t>{n}}; })) // 1d construction (Python recognizes (n) as "parenthesis int parenthesis" rather than a tuple of ints)
 
-      .def("__eq__", &TShape::dunder_eq)
+      //.def("__eq__", &TShape::dunder_eq)
+
+      .def("__eq__", [](const TShape& self, const TShape& other) {
+        return self.data == other.data;
+      })
+
+      .def("__eq__", [](const TShape& self, const std::vector<size_t>& other) {
+        return self.data == other;
+      })
+
       .def("__getitem__", &TShape::dunder_getitem)
       .def("__len__", &TShape::dunder_len)
       .def("__repr__", &TShape::dunder_repr)
@@ -142,6 +151,8 @@ namespace
           assert_valid_index(self, index);
           self._set_element(index, val);
         })
+
+      .def("flatten", &TTensor::flatten)
     ;
 
   }

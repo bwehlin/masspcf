@@ -29,6 +29,8 @@
 
 #include <pybind11/stl.h>
 
+#include "../../src/python/pyarray.h"
+
 namespace mpcf
 {
 
@@ -64,8 +66,13 @@ namespace mpcf
   class Tensor
   {
   public:
-
     using value_type = T;
+
+    enum class ViewType
+    {
+      Base,           // Normal indexing (no reshaping, etc.)
+      Flattened       // Flattened view (1-d indexing)
+    };
 
     Tensor(const std::vector<size_t>& shape, const T& init = {})
       : m_shape(shape)
@@ -114,6 +121,15 @@ namespace mpcf
           }
           else if constexpr (std::is_same_v<argT, SliceRange>)
           {
+            // For now, we'll drop the assumption that the tensor is contiguous in memory
+            // as soon as we extract a subtensor using ranges. There are, however, some
+            // cases where the resulting subtensor would be contiguous that we can try to
+            // optimize for in the future (e.g., extracting the top n rows of a matrix).
+            // Things will work fine with this assumption dropped but certain operations
+            // could be a little slower (probably unlikely to matter for the type of
+            // things we're targeting).
+            ret.m_isContiguous = false;
+
             if (!arg.start)
             {
               arg.start = 0_z;
@@ -127,7 +143,27 @@ namespace mpcf
               arg.step = 1_z;
             }
 
-            ret.m_shape[i] = (*arg.stop - *arg.start) / *arg.step;
+            auto start = *arg.start;
+            auto stop = *arg.stop;
+            auto step = *arg.step;
+
+            if (step == 0_z)
+            {
+              ret.m_shape[i] = 0;
+            }
+            else if (step > 0)
+            {
+              if (stop <= start)
+              {
+                ret.m_shape[i] = 0;
+              }
+              ret.m_shape[i] = (*arg.stop - *arg.start + *arg.step - 1_z) / *arg.step;
+            }
+            else
+            {
+              throw std::runtime_error("Negative step not supported in this release (please file an issue if you need this).");
+            }
+
 
             ret.m_offset += *arg.start * ret.m_strides[i];
             ret.m_strides[i] *= *arg.step;
@@ -152,6 +188,20 @@ namespace mpcf
       index_to_ref(index) = val;
     }
 
+    Tensor flatten() const
+    {
+      if (!m_isContiguous)
+      {
+        throw std::runtime_error("flatten() is only available for contiguous tensors in this release (please file an issue if you need this for your case).");
+      }
+
+      Tensor ret = *this;
+      ret.m_viewType = ViewType::Flattened;
+      ret.m_shape = { get_total_size() };
+      ret.m_strides = { 0_uz };
+      return ret;
+    }
+
   private:
     [[nodiscard]] size_t get_total_size() const
     {
@@ -160,10 +210,29 @@ namespace mpcf
 
     [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const
     {
-      auto ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 0_uz);
-      ret += m_offset;
-      //std::cout << "Translated " <<  " -> " << ret << std::endl;
-      return ret;
+      size_t ret = 0_uz;
+      switch (m_viewType)
+      {
+      case ViewType::Base:
+        ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 0_uz);
+        ret += m_offset;
+        //std::cout << "Translated " <<  " -> " << ret << std::endl;
+        return ret;
+      case ViewType::Flattened:
+        if (index.size() != 1_uz)
+        {
+          throw std::runtime_error("Index into flat tensor should be 1d.");
+        }
+
+        if (m_isContiguous)
+        {
+          return m_offset + index[0];
+        }
+
+        return ret;
+      }
+
+      throw std::runtime_error("Unhandled view type!");
     }
 
     [[nodiscard]] const T& index_to_ref(const std::vector<size_t>& index) const
@@ -181,6 +250,8 @@ namespace mpcf
     std::shared_ptr<value_type[]> m_data;
     size_t m_offset = 0ul;
 
+    ViewType m_viewType = ViewType::Base;
+    bool m_isContiguous = true;
   };
 
 }
