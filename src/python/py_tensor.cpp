@@ -85,6 +85,7 @@ namespace
   {
     py::class_<TShape>(m, "TShape")
       .def(py::init<std::vector<size_t>>())
+      .def(py::init<>([](size_t n){ return TShape{std::vector<size_t>{n}}; })) // 1d construction (Python recognizes (n) as "parenthesis int parenthesis" rather than a tuple of ints)
 
       .def("__eq__", &TShape::dunder_eq)
       .def("__getitem__", &TShape::dunder_getitem)
@@ -99,7 +100,7 @@ namespace
 
     m.def("slice_all", [](){ return mpcf::all(); });
     m.def("slice_index", [](ptrdiff_t idx){ return mpcf::index(idx); });
-    m.def("slice_range", [](ptrdiff_t start, ptrdiff_t step, ptrdiff_t end){ return mpcf::range(start, step, end); });
+    m.def("slice_range", [](std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> step, std::optional<ptrdiff_t> end){ return mpcf::range(start, step, end); });
 
   }
 

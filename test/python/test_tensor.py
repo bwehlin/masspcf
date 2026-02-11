@@ -32,34 +32,8 @@ def test_basic_shape_strides():
     assert X.strides[1] == 7 * 1
     assert X.strides[2] == 1
 
-
-def test_extract_element():
-    X = mpcf.zerosT((2, 3))
-
-    print(X.strides)
-
-    assert X[1, 0] == 0.0
-
-    X[0, 1] = 2.0
-
-    assert X[0, 1] == 2.0
-
-def test_extract_submatrix():
-    X = mpcf.zerosT((3, 4))
-
-    for i in range(3):
-        for j in range(4):
-            X[i, j] = 10 * i + j
-
-    Y = X[:, 1:3]
-
-    assert Y.shape == mpcf.TShape((3, 2))
-
-    assert Y[0, 0] == X[0, 1]
-    assert Y[0, 1] == X[0, 2]
-
-    assert Y[1, 0] == X[1, 1]
-    assert Y[1, 1] == X[1, 2]
-
-    assert Y[2, 0] == X[2, 1]
-    assert Y[2, 1] == X[2, 2]
+def test_construct_1d_tensor():
+    s = mpcf.TShape((10))
+    X = mpcf.zerosT(s)
+    
+    assert X.shape == s

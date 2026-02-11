@@ -31,6 +31,8 @@ def _pyslice_to_slice(s):
     if isinstance(s, int):
         return cpp.slice_index(s)
     elif isinstance(s, slice):
+        return cpp.slice_range(s.start, s.step, s.stop)
+
         step = 1 if s.step is None else s.step
 
         if s.start is None and s.stop is None:
@@ -42,14 +44,18 @@ def _pyslice_to_slice(s):
 
 class Tensor(ABC):
     def __getitem__(self, slices):
-        if all(isinstance(slice, int) for slice in slices):
+        if isinstance(slices, int):
+            return self._data._get_element([slices])
+        elif all(isinstance(slice, int) for slice in slices):
             return self._data._get_element(slices)
         else:
             real_slices = [_pyslice_to_slice(slice) for slice in slices]
             return self._getitem(real_slices)
 
     def __setitem__(self, slices, val):
-        if all(isinstance(slice, int) for slice in slices):
+        if isinstance(slices, int):
+            self._data._set_element([slices], val)
+        elif all(isinstance(slice, int) for slice in slices):
             self._data._set_element(slices, val)
         else:
             raise ValueError("Unimplemented.")

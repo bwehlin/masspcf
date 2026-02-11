@@ -23,6 +23,7 @@
 #include <numeric>
 
 #include <iostream>
+#include <optional>
 
 #include "config.h"
 
@@ -40,31 +41,24 @@ namespace mpcf
 
   struct SliceRange
   {
-    ptrdiff_t start = 0;
-    ptrdiff_t step = 0;
-    ptrdiff_t stop = 0;
+    std::optional<ptrdiff_t> start;
+    std::optional<ptrdiff_t> step;
+    std::optional<ptrdiff_t> stop;
   };
 
-  using Slice = std::variant<SliceAll, SliceIndex, SliceRange>;
+  using Slice = std::variant<SliceIndex, SliceRange>;
 
-  [[nodiscard]] inline Slice all() { return Slice{SliceAll{}}; }
+  [[nodiscard]] inline Slice all() { return Slice{SliceRange{}}; }
 
   [[nodiscard]] inline Slice index(ptrdiff_t index)
   {
     return Slice{SliceIndex{ .index = index }};
   }
 
-  [[nodiscard]] inline Slice range(ptrdiff_t start, ptrdiff_t step, ptrdiff_t end)
+  [[nodiscard]] inline Slice range(std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> step, std::optional<ptrdiff_t> end)
   {
     return Slice{SliceRange{ .start = start, .step=step, .stop = end }};
   }
-
-  [[nodiscard]] inline Slice range(ptrdiff_t start, ptrdiff_t end)
-  {
-    return Slice{SliceRange{ .start = start, .step=1, .stop = end }};
-  }
-
-
 
   template <typename T>
   class Tensor
@@ -113,9 +107,6 @@ namespace mpcf
       ret.m_shape = m_shape;
       ret.m_strides = m_strides;
 
-      // Simplify slices (in-place) for easier handling later
-      simplify_slices(sliceVector);
-
       size_t i = 0;
       for (auto & slice : sliceVector)
       {
@@ -129,10 +120,23 @@ namespace mpcf
           }
           else if constexpr (std::is_same_v<argT, SliceRange>)
           {
+            if (!arg.start)
+            {
+              arg.start = 0_z;
+            }
+            if (!arg.step)
+            {
+              arg.step = 1_z;
+            }
+            if (!arg.stop)
+            {
+              arg.stop = static_cast<ptrdiff_t>(ret.m_shape[i]);
+            }
+
             // TODO: step
-            ret.m_shape[i] = (arg.stop - arg.start);
-            ret.m_offset += arg.start * ret.m_strides[i];
-            std::cout << "i " << i << " offset += " << arg.start * ret.m_strides[i] << std::endl;
+            ret.m_shape[i] = (*arg.stop - *arg.start);
+            ret.m_offset += *arg.start * ret.m_strides[i];
+            std::cout << "i " << i << " offset += " << *arg.start * ret.m_strides[i] << std::endl;
           }
           // For SliceAll, don't modify shape
         }, slice);
@@ -154,24 +158,6 @@ namespace mpcf
     }
 
   private:
-    template <typename SliceVector>
-    void simplify_slices(SliceVector& sliceVector) const
-    {
-      size_t i = 0;
-      for (auto & slice : sliceVector)
-      {
-        std::visit([i, &slice, this](auto&& arg) {
-          using argT = std::decay_t<decltype(arg)>;
-          if constexpr (std::is_same_v<argT, SliceAll>)
-          {
-            // all -> range(0, 1, len)
-            slice = SliceRange{0_z, 1_z, static_cast<ptrdiff_t>(m_shape[i])};
-          }
-        }, slice);
-        ++i;
-      }
-    }
-
     [[nodiscard]] size_t get_total_size() const
     {
       return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies<>());
