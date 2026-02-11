@@ -163,7 +163,7 @@ namespace mpcf
 
     [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const
     {
-      auto ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 1_uz); //, std::plus<>(), std::multiplies<>());
+      auto ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 0_uz);
       ret += m_offset;
       //std::cout << "Translated " <<  " -> " << ret << std::endl;
       return ret;
