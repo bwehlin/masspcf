@@ -1,9 +1,4 @@
 {
-    "include": [
-        "masspcf"
-    ],
-
-    "pythonVersion": "3.9",
-    "pythonPlatform": "Linux"
-
+    "pythonVersion": "3.10",
+    "pythonPlatform": "All",
 }
