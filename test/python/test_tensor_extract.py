@@ -58,7 +58,10 @@ def test_extract_with_step():
     for i in range(X.shape[0]):
         X[i] = i
     
-    Y = X[0:2:5]
-
+    Y = X[0:5:2] # start:stop:step
+    
     assert Y.shape == mpcf.TShape((3))
+    assert Y[0] == 0
+    assert Y[1] == 2
+    assert Y[2] == 4
     

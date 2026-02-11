@@ -100,7 +100,7 @@ namespace
 
     m.def("slice_all", [](){ return mpcf::all(); });
     m.def("slice_index", [](ptrdiff_t idx){ return mpcf::index(idx); });
-    m.def("slice_range", [](std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> step, std::optional<ptrdiff_t> end){ return mpcf::range(start, step, end); });
+    m.def("slice_range", [](std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> stop, std::optional<ptrdiff_t> step){ return mpcf::range(start, stop, step); });
 
   }
 

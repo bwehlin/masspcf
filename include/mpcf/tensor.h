@@ -42,8 +42,8 @@ namespace mpcf
   struct SliceRange
   {
     std::optional<ptrdiff_t> start;
-    std::optional<ptrdiff_t> step;
     std::optional<ptrdiff_t> stop;
+    std::optional<ptrdiff_t> step;
   };
 
   using Slice = std::variant<SliceIndex, SliceRange>;
@@ -55,9 +55,9 @@ namespace mpcf
     return Slice{SliceIndex{ .index = index }};
   }
 
-  [[nodiscard]] inline Slice range(std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> step, std::optional<ptrdiff_t> end)
+  [[nodiscard]] inline Slice range(std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> stop, std::optional<ptrdiff_t> step)
   {
-    return Slice{SliceRange{ .start = start, .step=step, .stop = end }};
+    return Slice{SliceRange{ .start = start, .stop = stop, .step = step }};
   }
 
   template <typename T>
@@ -71,13 +71,8 @@ namespace mpcf
       : m_shape(shape)
     {
       auto sz = get_total_size();
-      std::cout << "SZ " << sz << std::endl;
       m_data = std::make_shared<T[]>(sz);
       std::fill_n(m_data.get(), sz, init);
-
-      for (auto i = 0_uz; i < sz; ++i)
-        std::cout << " " << m_data[i];
-      std::cout << std::endl;
 
       // Compute strides
       if (!m_shape.empty())
@@ -124,19 +119,20 @@ namespace mpcf
             {
               arg.start = 0_z;
             }
-            if (!arg.step)
-            {
-              arg.step = 1_z;
-            }
             if (!arg.stop)
             {
               arg.stop = static_cast<ptrdiff_t>(ret.m_shape[i]);
             }
+            if (!arg.step)
+            {
+              arg.step = 1_z;
+            }
 
             // TODO: step
-            ret.m_shape[i] = (*arg.stop - *arg.start);
+            ret.m_shape[i] = (*arg.stop - *arg.start); // % *arg.step;
+            std::cout << "sta " << *arg.start << " ste " << *arg.step << " sto " << *arg.stop <<  " r" << *arg.stop - *arg.start << std::endl;
             ret.m_offset += *arg.start * ret.m_strides[i];
-            std::cout << "i " << i << " offset += " << *arg.start * ret.m_strides[i] << std::endl;
+            //std::cout << "i " << i << " offset += " << *arg.start * ret.m_strides[i] << std::endl;
           }
           // For SliceAll, don't modify shape
         }, slice);
@@ -167,7 +163,7 @@ namespace mpcf
     {
       auto ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 1_uz); //, std::plus<>(), std::multiplies<>());
       ret += m_offset;
-      std::cout << "Translated " <<  " -> " << ret << std::endl;
+      //std::cout << "Translated " <<  " -> " << ret << std::endl;
       return ret;
     }
 
