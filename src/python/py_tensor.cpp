@@ -126,6 +126,7 @@ namespace
 
       .def_property_readonly("shape", [](const TTensor& self){ return TShape{self.shape()}; })
       .def_property_readonly("strides", [](const TTensor& self){ return self.strides(); })
+      .def_property_readonly("offset", [](const TTensor& self){ return self.offset(); })
 
       .def("__getitem__", [](const TTensor& self, const std::vector<mpcf::Slice>& slices) {
           return self[slices];

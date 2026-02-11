@@ -32,13 +32,6 @@ def _pyslice_to_slice(s):
         return cpp.slice_index(s)
     elif isinstance(s, slice):
         return cpp.slice_range(s.start, s.stop, s.step)
-
-        step = 1 if s.step is None else s.step
-
-        if s.start is None and s.stop is None:
-            return cpp.slice_all()
-        elif s.start is not None and s.stop is not None:
-            return cpp.slice_range(s.start, step, s.stop)
     
     raise TypeError("Unhandled slice type")
 
@@ -73,6 +66,10 @@ class Tensor(ABC):
     @property
     def strides(self):
         return self._data.strides
+    
+    @property
+    def offset(self):
+        return self._data.offset
 
 class NumericTensor(Tensor):
     pass

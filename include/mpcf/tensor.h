@@ -128,13 +128,12 @@ namespace mpcf
               arg.step = 1_z;
             }
 
-            // TODO: step
             ret.m_shape[i] = (*arg.stop - *arg.start) / *arg.step;
             std::cout << "sta " << *arg.start << " ste " << *arg.step << " sto " << *arg.stop <<  " r" << *arg.stop - *arg.start << std::endl;
-            ret.m_strides[i] *= *arg.step;
-            //for ()
+
             ret.m_offset += *arg.start * ret.m_strides[i];
-            //std::cout << "i " << i << " offset += " << *arg.start * ret.m_strides[i] << std::endl;
+            ret.m_strides[i] *= *arg.step;
+
           }
           // For SliceAll, don't modify shape
         }, slice);

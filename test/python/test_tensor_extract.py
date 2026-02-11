@@ -103,5 +103,25 @@ def test_extract_with_step():
     assert Y[2, 2, 0] == X[2, 4, 0]
     assert Y[2, 2, 1] == X[2, 4, 1]
 
-    
-    
+
+
+
+def test_extract_with_offsets():
+    X = mpcf.zerosT((7, 9, 5))
+
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            for k in range(X.shape[2]):
+                X[i, j, k] = 100 * i + 10 * j + k
+        
+    Y = X[1::3, 3:7:2, 2:5] # start:stop:step
+
+    assert Y.shape == mpcf.TShape((2, 2, 3))
+    assert Y.strides == [135, 10, 1]
+    assert Y.offset == 62
+
+    assert Y[1, 1, 0] == X[4, 5, 2]
+
+
+
+
