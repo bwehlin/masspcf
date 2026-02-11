@@ -3,7 +3,7 @@ import masspcf as mpcf
 
 import numpy as np
 
-from utils import np_strides_in_items
+from utils import np_strides_in_items, print_np_array_details
 
 def test_extract_element():
     X = mpcf.zerosT((2, 3))
@@ -156,6 +156,40 @@ def test_recursive_extract():
     Y0np = Xnp[4:9:2, ::3, 2:5, 1:3:2]
 
     assert Y0.shape == Y0np.shape
+    assert Y0.strides == np_strides_in_items(Y0np)
+
+    for i in range(Y0.shape[0]):
+        for j in range(Y0.shape[1]):
+            for k in range(Y0.shape[2]):
+                for l in range(Y0.shape[3]):
+                    assert Y0[i,j,k,l] == Y0np[i,j,k,l]
+
+    Y1 = Y0[1:3, :, :2, 0]
+    Y1np = Y0np[1:3, :, :2, 0]
+
+    assert Y1.shape == Y1np.shape
+
+    assert Y1.strides == np_strides_in_items(Y1np)
+
+    assert Y1[0, 0, 0] == 6021
+    assert Y1[0, 0, 1] == 6031
+
+    assert Y1[0, 1, 0] == 6321
+    assert Y1[0, 1, 1] == 6331
+
+    assert Y1[0, 2, 0] == 6621
+    assert Y1[0, 2, 1] == 6631
+
+    assert Y1[1, 0, 0] == 8021
+    assert Y1[1, 0, 1] == 8031
+
+    assert Y1[1, 1, 0] == 8321
+    assert Y1[1, 1, 1] == 8331
+
+    assert Y1[1, 2, 0] == 8621
+    assert Y1[1, 2, 1] == 8631
+
+
 
 
 

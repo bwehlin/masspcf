@@ -109,15 +109,20 @@ namespace mpcf
       ret.m_shape = m_shape;
       ret.m_strides = m_strides;
 
+      ret.m_offset = m_offset;
+
+      std::vector<size_t> dimsToDrop;
+
       size_t i = 0;
       for (auto & slice : sliceVector)
       {
-        std::visit([i, &slice, &ret, this](auto&& arg) {
+        std::visit([i, &slice, &ret, &dimsToDrop, this](auto&& arg) {
           using argT = std::decay_t<decltype(arg)>;
           if constexpr (std::is_same_v<argT, SliceIndex>)
           {
             ret.m_shape[i] = 1;
             ret.m_offset += arg.index * ret.m_strides[i];
+            dimsToDrop.emplace_back(i);
           }
           else if constexpr (std::is_same_v<argT, SliceRange>)
           {
@@ -174,6 +179,13 @@ namespace mpcf
         ++i;
       }
 
+      size_t nDroppedDims = 0_uz;
+      for (auto dim : dimsToDrop)
+      {
+        ret.m_shape.erase(ret.m_shape.begin() + dim - nDroppedDims);
+        ret.m_strides.erase(ret.m_strides.begin() + dim - nDroppedDims);
+        ++nDroppedDims;
+      }
 
       return ret;
     }
