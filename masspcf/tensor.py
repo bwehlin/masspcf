@@ -19,6 +19,8 @@ from abc import ABC, abstractmethod
 from typing import Union
 import numpy as np
 
+from enum import Enum
+
 #class Tensor:
 #    def __init__(self):
 #        pass
@@ -26,6 +28,10 @@ import numpy as np
 TShape = cpp.TShape
 
 TShapeLike = Union[TShape, tuple[int, ...]]
+
+class TensorType(Enum):
+    PCF = 1
+    NUMERIC = 2
 
 def _pyslice_to_slice(s):
     if isinstance(s, int):
@@ -49,11 +55,15 @@ class Tensor(ABC):
 
     def __setitem__(self, slices, val):
         if isinstance(slices, int):
-            self._data._set_element([slices], val)
+            self._data._set_element([slices], self._decay_value(val))
         elif all(isinstance(s, int) for s in slices):
-            self._data._set_element(slices, val)
+            self._data._set_element(slices, self._decay_value(val))
         else:
             raise ValueError("Unimplemented.")
+
+    @abstractmethod
+    def _decay_value(self, val):
+        pass
 
     @abstractmethod
     def _getitem(self, slices):
@@ -76,10 +86,15 @@ class Tensor(ABC):
         return self._data.offset
 
 class NumericTensor(Tensor):
-    pass
+    def __init__(self):
+        self._type = TensorType.NUMERIC
+    
+    def _decay_value(self, val):
+        return val
 
 class FloatTensor(NumericTensor):
     def __init__(self, data : cpp.FloatTensor):
+        super().__init__()
         self._data = data
         self.dtype = float32
     
@@ -91,6 +106,7 @@ class FloatTensor(NumericTensor):
 
 class DoubleTensor(NumericTensor):
     def __init__(self, data : cpp.DoubleTensor):
+        super().__init__()
         self._data = data
         self.dtype = float64
     
@@ -99,6 +115,61 @@ class DoubleTensor(NumericTensor):
 
     def flatten(self):
         return DoubleTensor(self._data.flatten())
+
+class PcfTensor(Tensor):
+    def __init__(self):
+        self._type = TensorType.PCF
+    
+    def _decay_value(self, val):
+        return val.data_
+
+class Pcf32Tensor(PcfTensor):
+    def __init__(self, data : cpp.Pcf32Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = float32
+    
+    def _getitem(self, slices):
+        return Pcf32Tensor(self._data[slices])
+
+    def flatten(self):
+        return Pcf32Tensor(self._data.flatten())
+
+class Pcf64Tensor(PcfTensor):
+    def __init__(self, data : cpp.Pcf64Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = float64
+    
+    def _getitem(self, slices):
+        return Pcf64Tensor(self._data[slices])
+
+    def flatten(self):
+        return Pcf64Tensor(self._data.flatten())
+
+def zeros(shape : TShapeLike, dtype=float32, type=TensorType.PCF):
+    if not isinstance(shape, TShape):
+        shape = TShape(shape) # If passed as, e.g., tuple of ints
+
+    if dtype == float32:
+        match type:
+            case TensorType.PCF:
+                return Pcf32Tensor(cpp.Pcf32Tensor(shape))
+            case TensorType.NUMERIC:
+                return FloatTensor(cpp.FloatTensor(shape, 0.0))
+            case _:
+                raise ValueError("Unknown type for this dtype")
+            
+    elif dtype == float64:
+        match type:
+            case TensorType.PCF:
+                return Pcf32Tensor(cpp.Pcf64Tensor(shape))
+            case TensorType.NUMERIC:
+                return FloatTensor(cpp.DoubleTensor(shape, 0.0))
+            case _:
+                raise ValueError("Unknown type for this dtype")
+    else:
+        raise TypeError("Only float32/float64 are supported for dtype.")
 
 def zerosT(shape : TShapeLike, dtype=float64):
     if not isinstance(shape, TShape):

@@ -17,6 +17,7 @@
 #include "py_tensor.h"
 
 #include <mpcf/tensor.h>
+#include <mpcf/pcf.h>
 
 #include "pyarray.h"
 
@@ -128,6 +129,11 @@ namespace
   {
     using TTensor = mpcf::Tensor<T>;
     py::class_<TTensor>(m, (prefix + "Tensor" + suffix).c_str())
+      .def(py::init([](const TShape& shape)
+        {
+          return TTensor(shape.data);
+        }))
+
       .def(py::init([](const TShape& shape, const T& init)
         {
           return TTensor(shape.data, init);
@@ -167,5 +173,8 @@ namespace mpcf_py
 
     register_typed_bindings<double>(m, "Double", "");
     register_typed_bindings<float>(m, "Float", "");
+
+    register_typed_bindings<mpcf::Pcf_f32>(m, "Pcf32", "");
+    register_typed_bindings<mpcf::Pcf_f64>(m, "Pcf64", "");
   }
 }
