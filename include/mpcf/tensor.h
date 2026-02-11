@@ -77,9 +77,9 @@ namespace mpcf
       // Compute strides
       if (!m_shape.empty())
       {
-        m_strides.resize(m_shape.size());
-        std::partial_sum(m_shape.begin(), m_shape.end(), m_strides.rbegin(), std::multiplies<>());
-        std::rotate(m_strides.begin(), m_strides.begin() + 1, m_strides.end());
+        m_strides = m_shape;
+
+        std::partial_sum(m_shape.rbegin(), std::prev(m_shape.rend()), std::next(m_strides.rbegin()), std::multiplies<>());
         m_strides.back() = 1;
       }
     }
@@ -129,8 +129,10 @@ namespace mpcf
             }
 
             // TODO: step
-            ret.m_shape[i] = (*arg.stop - *arg.start); // % *arg.step;
+            ret.m_shape[i] = (*arg.stop - *arg.start) / *arg.step;
             std::cout << "sta " << *arg.start << " ste " << *arg.step << " sto " << *arg.stop <<  " r" << *arg.stop - *arg.start << std::endl;
+            ret.m_strides[i] *= *arg.step;
+            //for ()
             ret.m_offset += *arg.start * ret.m_strides[i];
             //std::cout << "i " << i << " offset += " << *arg.start * ret.m_strides[i] << std::endl;
           }

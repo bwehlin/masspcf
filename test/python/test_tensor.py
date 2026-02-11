@@ -21,16 +21,15 @@ def test_shape_dunder():
         print(shp[3])
     
 def test_basic_shape_strides():
-    X = mpcf.zerosT((7, 3, 5))
+    X = mpcf.zerosT((7, 3, 5, 6))
 
-    assert X.shape == mpcf.TShape((7, 3, 5))
-    assert X.shape != mpcf.TShape((1, 2, 3, 4))
+    assert X.shape == mpcf.TShape((7, 3, 5, 6))
+    assert X.shape != mpcf.TShape((1, 2, 3))
 
-    print(X.strides)
-
-    assert X.strides[0] == 7 * 3 * 1
-    assert X.strides[1] == 7 * 1
-    assert X.strides[2] == 1
+    assert X.strides[0] == 3 * 5 * 6 * 1    # 90
+    assert X.strides[1] == 5 * 6 * 1        # 30
+    assert X.strides[2] == 6 * 1            #  6
+    assert X.strides[3] == 1                #  1
 
 def test_construct_1d_tensor():
     s = mpcf.TShape((10))
