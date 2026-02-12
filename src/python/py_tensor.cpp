@@ -151,13 +151,13 @@ namespace
 
       .def("_get_element", [](const TTensor& self, const std::vector<size_t>& index) {
           assert_valid_index(self, index);
-          return self._get_element(index);
+          return self(index);
         })
 
 
       .def("_set_element", [](TTensor& self, const std::vector<size_t>& index, const T& val) {
           assert_valid_index(self, index);
-          self._set_element(index, val);
+          self(index) = val;
         })
 
       .def("flatten", &TTensor::flatten)

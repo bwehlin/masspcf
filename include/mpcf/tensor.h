@@ -74,6 +74,9 @@ namespace mpcf
     Tensor(const std::vector<size_t>& shape, const T& init = {});
     Tensor() : Tensor({}, {}) { }
 
+    /// Assign val to every element of the Tensor
+    Tensor& operator=(const T& val);
+
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }
@@ -82,11 +85,12 @@ namespace mpcf
     template <typename SliceVector>
     [[nodiscard]] Tensor operator[](SliceVector sliceVector) const;
 
-    [[nodiscard]] Tensor operator[](std::initializer_list<ptrdiff_t> sliceList) const;
+    /// Direct element access
+    [[nodiscard]] const T& operator()(const std::vector<size_t>& index) const;
+    [[nodiscard]] T& operator()(const std::vector<size_t>& index);
 
-    [[nodiscard]] const T& _get_element(const std::vector<size_t>& index) const;
-
-    void _set_element(const std::vector<size_t>& index, const T& val);
+    //T& operator()(const std::vector<size_t>& index);
+    //const T& operator()(const std::vector<size_t>& index) const;
 
     Tensor flatten() const;
 

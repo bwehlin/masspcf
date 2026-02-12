@@ -21,5 +21,6 @@
 TEST(TensorIteration, AxisIteration)
 {
   mpcf::Tensor<int> x{{3, 3}};
-  //x[{0, 0}] = 10;
+  x({0, 0}) = 10;
+
 }

@@ -35,6 +35,13 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T>& Tensor<T>::operator=(const T& val)
+  {
+    apply([&val](T& element){ element = val; });
+    return *this;
+  }
+
+  template <typename T>
   template <typename SliceVector>
   Tensor<T> Tensor<T>::operator[](SliceVector sliceVector) const
   {
@@ -42,24 +49,15 @@ namespace mpcf
   }
 
   template <typename T>
-  Tensor<T> Tensor<T>::operator[](std::initializer_list<ptrdiff_t> sliceList) const
-  {
-    std::vector<Slice> sliceVector;
-    sliceVector.resize(sliceList.size());
-    std::transform(sliceList.begin(), sliceList.end(), sliceVector.begin(), [](ptrdiff_t idx){ return SliceIndex{idx}; });
-    return extract(sliceVector);
-  }
-
-  template <typename T>
-  const T& Tensor<T>::_get_element(const std::vector<size_t>& index) const
+  const T& Tensor<T>::operator()(const std::vector<size_t>& index) const
   {
     return index_to_ref(index);
   }
 
   template <typename T>
-  void Tensor<T>::_set_element(const std::vector<size_t>& index, const T& val)
+  T& Tensor<T>::operator()(const std::vector<size_t>& index)
   {
-    index_to_ref(index) = val;
+    return index_to_ref(index);
   }
 
   template <typename T>
@@ -81,7 +79,35 @@ namespace mpcf
   template <typename F>
   void Tensor<T>::apply(F&& f)
   {
+    if (m_shape.empty())
+    {
+      return;
+    }
+    auto ndim = m_shape.size();
 
+    std::vector<size_t> cur{ndim, 0_uz};
+
+    while (true)
+    {
+      f(get_element(cur));
+
+      for (ptrdiff_t i = ndim - 1; i >= 0 ; --i)
+      {
+        ++cur[i];
+
+        if (cur[i] < m_shape[i])
+        {
+          break;
+        }
+
+        if (i == 0)
+        {
+          return;
+        }
+
+        cur[i] = 0;
+      }
+    }
   }
 
 
