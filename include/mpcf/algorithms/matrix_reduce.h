@@ -24,6 +24,7 @@
 #include <taskflow/algorithm/for_each.hpp>
 
 #include "../pcf.h"
+#include "../tensor.h"
 #include "../executor.h"
 #include "reduce.h"
 
@@ -133,6 +134,13 @@ namespace mpcf
       retFlat[{i}] /= static_cast<pcf_value_type>(std::distance(xt::axis_begin(in, dim), xt::axis_end(in, dim)));
     }
 
+    return ret;
+  }
+
+  template <typename PcfT>
+  Tensor<PcfT> parallel_tensor_reduce(const Tensor<PcfT>& in, size_t dim, Executor& exec = default_executor())
+  {
+    Tensor<PcfT> ret;
     return ret;
   }
 }

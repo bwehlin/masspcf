@@ -38,7 +38,6 @@ set(BUILD_TESTER ON)
 set(BUILD_BENCHMARKS OFF)
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  set(BUILD_TESTER OFF)
   set(BUILD_BENCHMARKS OFF)
 endif()
 
@@ -119,7 +118,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/platform.h
   include/mpcf/random.h
   include/mpcf/task.h
-  include/mpcf/tensor.h
+  include/mpcf/tensor.h include/mpcf/tensor.tpp
   include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
   include/mpcf/algorithms/array_functional.h
@@ -155,8 +154,11 @@ if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
-target_include_directories(${CPP_MODULE_NAME} PRIVATE "include/mpcf")
-target_include_directories(${CPP_MODULE_NAME} PUBLIC "include/")
+set(MPCF_PRIVATE_INCLUDES "include/mpcf")
+set(MPCF_PUBLIC_INCLUDES "include/")
+
+target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
+target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
 include_directories("3rd/xtensor/include" "3rd/xtl/include")
 target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
@@ -169,33 +171,33 @@ if (MSVC)
   set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 endif()
 
-if (NOT (SKBUILD OR MINIMAL_MODULE_BUILD) AND BUILD_TESTER)
+if (BUILD_TESTER)
   set(BUILD_GMOCK OFF)
   set(INSTALL_GTEST OFF)
   set(gtest_force_shared_crt ON)
 
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG        v1.14.0
-  )
-  
-  FetchContent_GetProperties(googletest)
-  if(NOT googletest_POPULATED)
-    FetchContent_Populate(googletest)
-    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
-  endif()
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  add_subdirectory("3rd/googletest")
 
+  #message(STATUS "-- GoogleTest version: ${GOOGLETEST_VERSION}")
+
+  #add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+  enable_testing()
   add_executable(mpcf_test
     test/test_block_matrix_support.cu
     test/test_iterate_rectangles.cpp
     test/test_l1_dist.cu
     test/test_norms.cu
-    test/test_parallel_reduce.cpp)
+    test/test_parallel_reduce.cpp
+          test/test_tensor_iteration.cpp)
   target_include_directories(mpcf_test PRIVATE "include/")
   target_include_directories(mpcf_test SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
 
-  target_link_libraries(mpcf_test PUBLIC gtest_main ${CPP_MODULE_NAME} ${CUDART_LIBRARY})
+  python_add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES})
+  target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
+  target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
+
+  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy ${CUDART_LIBRARY})
   
   #include(GoogleTest)
   #gtest_discover_tests(mpcf_test)

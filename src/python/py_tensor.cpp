@@ -23,6 +23,8 @@
 
 #include <sstream>
 
+#include <pybind11/stl.h>
+
 namespace py = pybind11;
 
 namespace

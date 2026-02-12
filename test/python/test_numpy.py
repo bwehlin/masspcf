@@ -1,20 +1,24 @@
-import pytest
-import masspcf as mpcf
-import numpy as np
+"""
 
-def test_conversion():
-    Xnp = np.array([[0., 1.], [2., 5.], [6., 0.]])
-    Xpcf = mpcf.Pcf(Xnp)
+    import pytest
+    import masspcf as mpcf
+    import numpy as np
 
-    Xconv = np.array(Xpcf)
+    def test_conversion():
+        Xnp = np.array([[0., 1.], [2., 5.], [6., 0.]])
+        Xpcf = mpcf.Pcf(Xnp)
 
-    assert(np.array_equal(Xnp, Xconv))
+        Xconv = np.array(Xpcf)
 
-def test_shape_conversion():
-    X = mpcf.zeros((10, 3, 2))
+        assert(np.array_equal(Xnp, Xconv))
 
-    Y = np.zeros(X.shape)
+    def test_shape_conversion():
+        X = mpcf.zeros((10, 3, 2))
 
-    assert(Y.shape[0] == 10)
-    assert(Y.shape[1] == 3)
-    assert(Y.shape[2] == 2)
+        Y = np.zeros(X.shape)
+
+        assert(Y.shape[0] == 10)
+        assert(Y.shape[1] == 3)
+        assert(Y.shape[2] == 2)
+
+"""

@@ -21,15 +21,12 @@
 #include <vector>
 #include <variant>
 #include <numeric>
+#include <algorithm>
 
 #include <iostream>
 #include <optional>
 
 #include "config.h"
-
-#include <pybind11/stl.h>
-
-#include "../../src/python/pyarray.h"
 
 namespace mpcf
 {
@@ -74,23 +71,7 @@ namespace mpcf
       Flattened       // Flattened view (1-d indexing)
     };
 
-    Tensor(const std::vector<size_t>& shape, const T& init = {})
-      : m_shape(shape)
-    {
-      auto sz = get_total_size();
-      m_data = std::make_shared<T[]>(sz);
-      std::fill_n(m_data.get(), sz, init);
-
-      // Compute strides
-      if (!m_shape.empty())
-      {
-        m_strides = m_shape;
-
-        std::partial_sum(m_shape.rbegin(), std::prev(m_shape.rend()), std::next(m_strides.rbegin()), std::multiplies<>());
-        m_strides.back() = 1;
-      }
-    }
-
+    Tensor(const std::vector<size_t>& shape, const T& init = {});
     Tensor() : Tensor({}, {}) { }
 
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
@@ -99,163 +80,55 @@ namespace mpcf
     [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }
 
     template <typename SliceVector>
-    [[nodiscard]] Tensor operator[](SliceVector sliceVector) const
+    [[nodiscard]] Tensor operator[](SliceVector sliceVector) const;
+
+    [[nodiscard]] Tensor operator[](std::initializer_list<ptrdiff_t> sliceList) const;
+
+    [[nodiscard]] const T& _get_element(const std::vector<size_t>& index) const;
+
+    void _set_element(const std::vector<size_t>& index, const T& val);
+
+    Tensor flatten() const;
+
+    template <typename F>
+    void apply(F&& f);
+
+    class AxisIterator
     {
-      Tensor ret;
-
-      ret.m_data = m_data; // view
-
-      // temporary just to get sizes
-      ret.m_shape = m_shape;
-      ret.m_strides = m_strides;
-
-      ret.m_offset = m_offset;
-
-      std::vector<size_t> dimsToDrop;
-
-      size_t i = 0;
-      for (auto & slice : sliceVector)
+    public:
+      AxisIterator(Tensor* tensor, size_t dim, ptrdiff_t pos)
+        : m_tensor(tensor), m_dim(dim)
       {
-        std::visit([i, &slice, &ret, &dimsToDrop, this](auto&& arg) {
-          using argT = std::decay_t<decltype(arg)>;
-          if constexpr (std::is_same_v<argT, SliceIndex>)
-          {
-            ret.m_shape[i] = 1;
-            ret.m_offset += arg.index * ret.m_strides[i];
-            dimsToDrop.emplace_back(i);
-          }
-          else if constexpr (std::is_same_v<argT, SliceRange>)
-          {
-            // For now, we'll drop the assumption that the tensor is contiguous in memory
-            // as soon as we extract a subtensor using ranges. There are, however, some
-            // cases where the resulting subtensor would be contiguous that we can try to
-            // optimize for in the future (e.g., extracting the top n rows of a matrix).
-            // Things will work fine with this assumption dropped but certain operations
-            // could be a little slower (probably unlikely to matter for the type of
-            // things we're targeting).
-            ret.m_isContiguous = false;
-
-            if (!arg.start)
-            {
-              arg.start = 0_z;
-            }
-            if (!arg.stop)
-            {
-              arg.stop = static_cast<ptrdiff_t>(ret.m_shape[i]);
-            }
-            if (!arg.step)
-            {
-              arg.step = 1_z;
-            }
-
-            auto start = *arg.start;
-            auto stop = *arg.stop;
-            auto step = *arg.step;
-
-            if (step == 0_z)
-            {
-              ret.m_shape[i] = 0;
-            }
-            else if (step > 0)
-            {
-              if (stop <= start)
-              {
-                ret.m_shape[i] = 0;
-              }
-              ret.m_shape[i] = (*arg.stop - *arg.start + *arg.step - 1_z) / *arg.step;
-            }
-            else
-            {
-              throw std::runtime_error("Negative step not supported in this release (please file an issue if you need this).");
-            }
-
-
-            ret.m_offset += *arg.start * ret.m_strides[i];
-            ret.m_strides[i] *= *arg.step;
-
-          }
-          // For SliceAll, don't modify shape
-        }, slice);
-        ++i;
+        m_sliceVector.resize(tensor->shape().size(), SliceAll());
+        m_sliceVector[dim] = SliceIndex{ pos };
       }
 
-      size_t nDroppedDims = 0_uz;
-      for (auto dim : dimsToDrop)
+      Tensor operator*() const
       {
-        ret.m_shape.erase(ret.m_shape.begin() + dim - nDroppedDims);
-        ret.m_strides.erase(ret.m_strides.begin() + dim - nDroppedDims);
-        ++nDroppedDims;
+        return (*m_tensor)[m_sliceVector];
       }
 
-      return ret;
-    }
-
-    [[nodiscard]] const T& _get_element(const std::vector<size_t>& index) const
-    {
-      return index_to_ref(index);
-    }
-
-    void _set_element(const std::vector<size_t>& index, const T& val)
-    {
-      index_to_ref(index) = val;
-    }
-
-    Tensor flatten() const
-    {
-      if (!m_isContiguous)
+      AxisIterator& operator++()
       {
-        throw std::runtime_error("flatten() is only available for contiguous tensors in this release (please file an issue if you need this for your case).");
+        ++std::get<SliceIndex>(m_sliceVector[m_dim]).index;
+        return *this;
       }
 
-      Tensor ret = *this;
-      ret.m_viewType = ViewType::Flattened;
-      ret.m_shape = { get_total_size() };
-      ret.m_strides = { 0_uz };
-      return ret;
-    }
+    private:
+      std::vector<Slice> m_sliceVector;
+      Tensor* m_tensor;
+      size_t m_dim = 0_uz;
+    };
 
   private:
-    [[nodiscard]] size_t get_total_size() const
-    {
-      return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies<>());
-    }
+    template <typename SliceVector>
+    [[nodiscard]] Tensor extract(SliceVector sliceVector) const;
 
-    [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const
-    {
-      size_t ret = 0_uz;
-      switch (m_viewType)
-      {
-      case ViewType::Base:
-        ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 0_uz);
-        ret += m_offset;
-        //std::cout << "Translated " <<  " -> " << ret << std::endl;
-        return ret;
-      case ViewType::Flattened:
-        if (index.size() != 1_uz)
-        {
-          throw std::runtime_error("Index into flat tensor should be 1d.");
-        }
+    [[nodiscard]] size_t get_total_size() const;
 
-        if (m_isContiguous)
-        {
-          return m_offset + index[0];
-        }
-
-        return ret;
-      }
-
-      throw std::runtime_error("Unhandled view type!");
-    }
-
-    [[nodiscard]] const T& index_to_ref(const std::vector<size_t>& index) const
-    {
-      return m_data[index_to_data_index(index)];
-    }
-
-    [[nodiscard]] T& index_to_ref(const std::vector<size_t>& index)
-    {
-      return m_data[index_to_data_index(index)];
-    }
+    [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const;
+    [[nodiscard]] const T& index_to_ref(const std::vector<size_t>& index) const;
+    [[nodiscard]] T& index_to_ref(const std::vector<size_t>& index);
 
     std::vector<size_t> m_strides;
     std::vector<size_t> m_shape;
@@ -267,5 +140,7 @@ namespace mpcf
   };
 
 }
+
+#include "tensor.tpp"
 
 #endif //MASSPCF_TENSOR_H

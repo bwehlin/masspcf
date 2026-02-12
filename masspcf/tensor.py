@@ -14,6 +14,7 @@
 
 from . import mpcf_cpp as cpp
 from .typing import float32, float64
+from .pcf import Pcf
 
 from abc import ABC, abstractmethod
 from typing import Union
@@ -181,3 +182,5 @@ def zerosT(shape : TShapeLike, dtype=float64):
         return DoubleTensor(cpp.DoubleTensor(shape, 0.0))
     else:
         raise TypeError("Only float32/float64 are supported for dtype.")
+
+PcfContainerLike = Union[Tensor, list[Pcf], Pcf]
