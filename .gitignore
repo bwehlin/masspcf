@@ -99,6 +99,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/_build_doxygen
+docs/_build_cpp_api
 
 # PyBuilder
 .pybuilder/

@@ -40,7 +40,7 @@ import textwrap
 
 exhale_args = {
     # These arguments are required
-    "containmentFolder":     "./cpp_api",
+    "containmentFolder":     "./_build_cpp_api",
     "rootFileName":          "library_root.rst",
     "doxygenStripFromPath":  "..",
     # Heavily encouraged optional argument (see docs)
