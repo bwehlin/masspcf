@@ -42,6 +42,40 @@ namespace mpcf
   }
 
   template <typename T>
+  template <typename U> requires std::equality_comparable_with<U, T>
+  bool Tensor<T>::operator==(const Tensor<U>& rhs) const
+  {
+    if (m_shape != rhs.m_shape)
+    {
+      return false;
+    }
+
+    bool equal = true;
+    walk([&equal, this, &rhs](const std::vector<size_t>& idx) {
+      return (equal &= ( (*this)(idx) == rhs(idx) ) );
+    });
+
+    return equal;
+  }
+
+  template <typename T>
+  template <typename U> requires std::equality_comparable_with<U, T>
+  bool Tensor<T>::operator!=(const Tensor<U>& rhs) const
+  {
+    if (m_shape != rhs.m_shape)
+    {
+      return false;
+    }
+
+    bool equal = true;
+    walk([&equal, this, &rhs](const std::vector<size_t>& idx) {
+      return !(equal &= ( (*this)(idx) == rhs(idx) ) );
+    });
+
+    return !equal;
+  }
+
+  template <typename T>
   template <typename SliceVector>
   Tensor<T> Tensor<T>::operator[](SliceVector sliceVector) const
   {
@@ -85,11 +119,23 @@ namespace mpcf
     }
     auto ndim = m_shape.size();
 
-    std::vector<size_t> cur{ndim, 0_uz};
+    std::vector<size_t> cur(ndim, 0_uz);
 
     while (true)
     {
-      f(cur);
+      if constexpr (std::is_same_v<decltype(f(cur)), bool>)
+      {
+        // If f returns bool, stop walking on false being returned.
+        if (!f(cur))
+        {
+          return;
+        }
+      }
+      else
+      {
+        f(cur);
+      }
+
 
       for (ptrdiff_t i = ndim - 1; i >= 0 ; --i)
       {

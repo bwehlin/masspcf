@@ -22,9 +22,10 @@
 #include <variant>
 #include <numeric>
 #include <algorithm>
+#include <concepts>
+#include <optional>
 
 #include <iostream>
-#include <optional>
 
 #include "config.h"
 
@@ -77,9 +78,28 @@ namespace mpcf
     /// Assign val to every element of the Tensor
     Tensor& operator=(const T& val);
 
+    /**
+     * Elementwise equality comparison
+     * @tparam U value type of the compared with tensor (must be `equality_comparable_with` `value_type`)
+     * @param rhs tensor to compare against
+     * @return `true` if all elements are equal
+     */
+    template <typename U> requires std::equality_comparable_with<U, T>
+    bool operator==(const Tensor<U>& rhs) const;
+
+    /**
+     * Elementwise (non)equality comparison
+     * @tparam U value type of the compared with tensor (must be `equality_comparable_with` `value_type`)
+     * @param rhs tensor to compare against
+     * @return `true` if at least one element differs
+     */
+    template <typename U> requires std::equality_comparable_with<U, T>
+    bool operator!=(const Tensor<U>& rhs) const;
+
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
+    [[nodiscard]] size_t rank() const noexcept { return m_shape.size(); }
 
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }
     [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }
@@ -99,8 +119,8 @@ namespace mpcf
     /**
      * Visit every element of the tensor in an "odometer" fashion (`[0,0,0], [0,0,1], ..., [0,0,n-1], [0, 1, 0], ..., [k-1,m-1,n-1]` for shape `(k,m,n)`)
      * and invoke a function at each index.
-     * @tparam UnaryFunc Function object of type `std::vector<size_t>` -> `void` (non-`void` return values get discarded)
-     * @param f The function object to invoke at each index
+     * @tparam UnaryFunc Function object of type `std::vector<size_t>` -> `void` or `bool`
+     * @param f The function object to invoke at each index. If `f` returns a `bool`, `walk` stops on `f` returning `false`. All other return types/values are ignored.
      */
     template <typename UnaryFunc>
     requires std::invocable<UnaryFunc, std::vector<size_t>>
@@ -160,6 +180,15 @@ namespace mpcf
     ViewType m_viewType = ViewType::Base;
     bool m_isContiguous = true;
   };
+
+  template <typename T>
+  concept IsTensor = requires(T t, std::vector<size_t> indices) {
+    { t.shape() } -> Iterable;
+    { t.rank() } -> std::convertible_to<size_t>;
+    { t(indices) } -> std::common_with<typename T::value_type>;
+
+    typename T::value_type;
+};
 
 }
 

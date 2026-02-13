@@ -23,9 +23,9 @@
   return v;
 }
 
-[[nodiscard]] inline ptrdiff_t operator""_z(size_t v) noexcept
+[[nodiscard]] inline ptrdiff_t operator""_z(unsigned long long v) noexcept
 {
-  return v;
+  return static_cast<ptrdiff_t>(v);
 }
 
 #include <concepts>
@@ -35,6 +35,12 @@ namespace mpcf
 {
   template<typename T>
   concept Arithmetic = std::is_arithmetic_v<T>;
+
+  template <typename T>
+  concept Iterable = requires(T t) {
+    std::begin(t);
+    std::end(t);
+  };
 }
 
 #endif //MASSPCF_CONFIG_H
