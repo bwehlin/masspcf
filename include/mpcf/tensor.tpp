@@ -76,8 +76,8 @@ namespace mpcf
   }
 
   template <typename T>
-  template <typename F>
-  void Tensor<T>::apply(F&& f)
+  template <typename UnaryFunc> requires std::invocable<UnaryFunc, std::vector<size_t>>
+  void Tensor<T>::walk(UnaryFunc&& f) const
   {
     if (m_shape.empty())
     {
@@ -89,7 +89,7 @@ namespace mpcf
 
     while (true)
     {
-      f(get_element(cur));
+      f(cur);
 
       for (ptrdiff_t i = ndim - 1; i >= 0 ; --i)
       {
@@ -110,6 +110,12 @@ namespace mpcf
     }
   }
 
+  template <typename T>
+  template <typename UnaryFunc> requires std::invocable<UnaryFunc, T&>
+  void Tensor<T>::apply(UnaryFunc&& f)
+  {
+    walk([&f, this](const std::vector<size_t>& idx){ f((*this)(idx)); });
+  }
 
   template <typename T>
   template <typename SliceVector>

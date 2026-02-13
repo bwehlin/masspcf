@@ -28,4 +28,13 @@
   return v;
 }
 
+#include <concepts>
+#include <type_traits>
+
+namespace mpcf
+{
+  template<typename T>
+  concept Arithmetic = std::is_arithmetic_v<T>;
+}
+
 #endif //MASSPCF_CONFIG_H

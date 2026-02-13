@@ -79,6 +79,8 @@ namespace mpcf
 
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
+    [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
+
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }
     [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }
 
@@ -94,8 +96,24 @@ namespace mpcf
 
     Tensor flatten() const;
 
-    template <typename F>
-    void apply(F&& f);
+    /**
+     * @brief Visit every element of the tensor in an "odometer" fashion ([0,0,0], [0,0,1], ..., [0,0,n-1], [0, 1, 0], ...)
+     * and invoke a function at each index.
+     * @tparam UnaryFunc Function object of type `std::vector<size_t>` -> `void` (non-`void` return values get discarded)
+     * @param f The function object to invoke at each index
+     */
+    template <typename UnaryFunc>
+    requires std::invocable<UnaryFunc, std::vector<size_t>>
+    void walk(UnaryFunc&& f) const;
+
+    /**
+     * @brief Apply a function at each element of the tensor (uses `walk` internally to visit the elements)
+     * @tparam UnaryFunc Function object of type `T&` -> `void` (non-`void` return values get discarded)
+     * @param f The function object to invoke at each index
+     */
+    template <typename UnaryFunc>
+    requires std::invocable<UnaryFunc, T&>
+    void apply(UnaryFunc&& f);
 
     class AxisIterator
     {

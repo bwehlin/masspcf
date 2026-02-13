@@ -14,20 +14,29 @@
 * limitations under the License.
 */
 
-#include <gtest/gtest.h>
+#ifndef MASSPCF_SPECIAL_TENSORS_H
+#define MASSPCF_SPECIAL_TENSORS_H
 
-#include <mpcf/tensor.h>
+#include "config.h"
+#include "tensor.h"
 
-TEST(TensorIteration, AxisIteration)
+#include <type_traits>
+
+namespace mpcf
 {
-  mpcf::Tensor<int> x{{3, 3}};
-  for (auto i = 0_uz; i < x.shape(0); ++i)
+  /**
+   * @brief
+   * @tparam T
+   * @param shape
+   * @return
+   */
+  template <typename T> requires Arithmetic<T>
+  Tensor<T> mapping_tensor(const std::vector<size_t>& shape)
   {
-    for (auto j = 0_uz; j < x.shape(1); ++j)
-    {
 
-    }
   }
-  x({0, 0}) = 10;
+
 
 }
+
+#endif //MASSPCF_SPECIAL_TENSORS_H
