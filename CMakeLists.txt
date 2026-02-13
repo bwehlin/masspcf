@@ -119,6 +119,7 @@ SET(MPCF_LIB_SOURCES
   include/mpcf/random.h
   include/mpcf/task.h
   include/mpcf/tensor.h include/mpcf/tensor.tpp
+  include/mpcf/special_tensors.h
   include/mpcf/executor.h src/executor.cpp
   include/mpcf/algorithm.h
   include/mpcf/algorithms/array_functional.h
