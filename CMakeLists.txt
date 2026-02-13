@@ -117,41 +117,53 @@ else()
   SET(MPCF_LIB_SOURCES_CUDA "")
 endif()
 
+SET(MPCF_HEADER_FILES
+  config.h
+  pcf.h
+  point.h
+  rectangle.h
+  strided_buffer.h
+  operations.cuh
+  platform.h
+  random.h
+  task.h
+  tensor.h tensor.tpp
+  tensor_to_string.h
+  special_tensors.h
+  executor.h
+  algorithm.h
+  algorithms/array_functional.h
+  algorithms/iterate_rectangles.h
+  algorithms/reduce.h
+  algorithms/matrix_integrate.h
+  algorithms/matrix_reduce.h
+  algorithms/subdivide.h
+  algorithms/apply_functional.h
+  block_matrix_support.cuh)
+
+SET(MPCF_SRC_FILES
+  executor.cpp)
+
+list(TRANSFORM MPCF_HEADER_FILES PREPEND "include/mpcf/")
+list(TRANSFORM MPCF_SRC_FILES PREPEND "src/")
+
 SET(MPCF_LIB_SOURCES
-  include/mpcf/config.h
-  include/mpcf/pcf.h
-  include/mpcf/point.h
-  include/mpcf/rectangle.h
-  include/mpcf/strided_buffer.h
-  include/mpcf/operations.cuh
-  include/mpcf/platform.h
-  include/mpcf/random.h
-  include/mpcf/task.h
-  include/mpcf/tensor.h include/mpcf/tensor.tpp
-  include/mpcf/special_tensors.h
-  include/mpcf/executor.h src/executor.cpp
-  include/mpcf/algorithm.h
-  include/mpcf/algorithms/array_functional.h
-  include/mpcf/algorithms/iterate_rectangles.h
-  include/mpcf/algorithms/reduce.h
-  include/mpcf/algorithms/matrix_integrate.h
-  include/mpcf/algorithms/matrix_reduce.h
-  include/mpcf/algorithms/subdivide.h
-  include/mpcf/algorithms/apply_functional.h
-  include/mpcf/block_matrix_support.cuh
+  ${MPCF_HEADER_FILES}
+  ${MPCF_SRC_FILES}
   ${MPCF_LIB_SOURCES_CUDA}
 )
 
 SET(MPCF_PY_SOURCES 
-  src/python/pyarray.h src/python/pyarray.cpp
-  src/python/pymodule.cpp
-  src/python/pyrandom.cpp
-  src/python/pypcf_support.h
-  src/python/py_make_from_serial_content.h src/python/py_make_from_serial_content.cpp
-  src/python/pyarray_norms.h src/python/pyarray_norms.cpp
-  src/python/py_tensor.h src/python/py_tensor.cpp
+  pyarray.h pyarray.cpp
+  pymodule.cpp
+  pyrandom.cpp
+  pypcf_support.h
+  py_make_from_serial_content.h py_make_from_serial_content.cpp
+  pyarray_norms.h pyarray_norms.cpp
+  py_tensor.h py_tensor.cpp
 )
 
+list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
@@ -199,7 +211,9 @@ if (BUILD_TESTER)
     test/test_l1_dist.cu
     test/test_norms.cu
     test/test_parallel_reduce.cpp
-          test/test_tensor_iteration.cpp)
+    test/test_tensor_iteration.cpp
+    test/test_special_tensors.cpp)
+
   target_include_directories(mpcf_test PRIVATE "include/")
   target_include_directories(mpcf_test SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
 
