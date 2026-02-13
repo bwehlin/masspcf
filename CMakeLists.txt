@@ -63,7 +63,16 @@ else()
   set(PROJ_NAME massivepcf)
 endif()
 
-set(PROJ_VERSION "0.4.0")
+# Get the version from pyproject.toml
+execute_process(
+        COMMAND python3 -c "import tomllib; print(tomllib.load(open('${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml', 'rb'))['project']['version'])"
+        OUTPUT_VARIABLE PROJ_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+#set(PROJ_VERSION "0.4.0")
+
+message(STATUS "!!! Detected version ${PROJ_VERSION} from pyproject.toml")
 
 project(${PROJ_NAME} VERSION ${PROJ_VERSION} LANGUAGES CXX ${LANG_CUDA})
 

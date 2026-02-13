@@ -3,3 +3,5 @@ numpy
 tqdm
 matplotlib
 sphinxcontrib-youtube
+breathe
+exhale

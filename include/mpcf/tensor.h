@@ -97,7 +97,7 @@ namespace mpcf
     Tensor flatten() const;
 
     /**
-     * @brief Visit every element of the tensor in an "odometer" fashion ([0,0,0], [0,0,1], ..., [0,0,n-1], [0, 1, 0], ...)
+     * Visit every element of the tensor in an "odometer" fashion (`[0,0,0], [0,0,1], ..., [0,0,n-1], [0, 1, 0], ..., [k-1,m-1,n-1]` for shape `(k,m,n)`)
      * and invoke a function at each index.
      * @tparam UnaryFunc Function object of type `std::vector<size_t>` -> `void` (non-`void` return values get discarded)
      * @param f The function object to invoke at each index
@@ -107,7 +107,7 @@ namespace mpcf
     void walk(UnaryFunc&& f) const;
 
     /**
-     * @brief Apply a function at each element of the tensor (uses `walk` internally to visit the elements)
+     * Apply a function at each element of the tensor (uses `walk` internally to visit the elements)
      * @tparam UnaryFunc Function object of type `T&` -> `void` (non-`void` return values get discarded)
      * @param f The function object to invoke at each index
      */
