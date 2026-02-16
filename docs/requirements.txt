@@ -5,3 +5,4 @@ matplotlib
 sphinxcontrib-youtube
 breathe
 exhale
+pybind11-stubgen
