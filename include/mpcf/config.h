@@ -18,7 +18,7 @@
 #define MASSPCF_CONFIG_H
 
 // ptrdiff_t/size_t user-defined literals. This will come in C++23 (as, e.g., uz instead of _uz)
-[[nodiscard]] inline size_t operator""_uz(size_t v) noexcept
+[[nodiscard]] inline size_t operator""_uz(unsigned long long v) noexcept
 {
   return v;
 }
