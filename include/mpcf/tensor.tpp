@@ -95,6 +95,18 @@ namespace mpcf
   }
 
   template <typename T>
+  const T& Tensor<T>::operator()(size_t index) const
+  {
+    return index_to_ref({ index });
+  }
+
+  template <typename T>
+  T& Tensor<T>::operator()(size_t index)
+  {
+    return index_to_ref({ index });
+  }
+
+  template <typename T>
   Tensor<T> Tensor<T>::flatten() const
   {
     if (!m_isContiguous)

@@ -32,6 +32,7 @@
 #include "py_make_from_serial_content.h"
 #include "pyarray_norms.h"
 #include "py_tensor.h"
+#include "py_reductions.h"
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
@@ -379,4 +380,5 @@ PYBIND11_MODULE(mpcf_cpp, m) {
   mpcf_py::register_array_norms(m);
 
   mpcf_py::register_tensor_bindings(m);
+  mpcf_py::register_reductions(m);
 }

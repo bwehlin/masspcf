@@ -126,6 +126,16 @@ namespace
     }
   }
 
+  template <typename TTensor>
+  void assert_valid_index(const TTensor& tensor, size_t index)
+  {
+    bool ok = tensor.shape().size() == 1 && index < tensor.shape()[0];
+    if (!ok)
+    {
+      throw py::index_error("Index out of range");
+    }
+  }
+
   template <typename T>
   void register_typed_bindings(py::module_& m, const std::string& prefix, const std::string& suffix)
   {
@@ -154,10 +164,14 @@ namespace
           return self(index);
         })
 
-
       .def("_set_element", [](TTensor& self, const std::vector<size_t>& index, const T& val) {
           assert_valid_index(self, index);
           self(index) = val;
+        })
+
+      .def("_get_element_1d", [](TTensor& self, size_t index) {
+          assert_valid_index(self, index);
+          return self(index);
         })
 
       .def("flatten", &TTensor::flatten)

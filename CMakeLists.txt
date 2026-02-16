@@ -160,6 +160,7 @@ SET(MPCF_PY_SOURCES
   pypcf_support.h
   py_make_from_serial_content.h py_make_from_serial_content.cpp
   pyarray_norms.h pyarray_norms.cpp
+  py_reductions.h py_reductions.cpp
   py_tensor.h py_tensor.cpp
 )
 

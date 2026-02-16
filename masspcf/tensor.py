@@ -45,7 +45,7 @@ def _pyslice_to_slice(s):
 class Tensor(ABC):
     def __getitem__(self, slices):
         if isinstance(slices, int): # X[n]
-            return self._data._get_element([slices])
+            return self._data._get_element_1d(slices)
         elif isinstance(slices, slice): # X[n:m] etc...
             return self._getitem([_pyslice_to_slice(slices)])
         elif all(isinstance(s, int) for s in slices): # X[1, 2, 3] etc... (for this, we wan't a single element rather than a tensor)

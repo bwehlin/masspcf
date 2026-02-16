@@ -28,6 +28,8 @@
 #include "../executor.h"
 #include "reduce.h"
 
+#include <iostream>
+
 namespace mpcf
 {
   template <typename PcfT>
@@ -137,10 +139,59 @@ namespace mpcf
     return ret;
   }
 
-  template <typename PcfT>
+  template <typename T>
+  inline void printVec(const char* n, const std::vector<T>& v) {
+    std::cout << n << " : ";
+    for (auto i : v)
+    {
+      std::cout << ", " << i;
+    }
+    std::cout << std::endl;
+  };
+
+  template <typename PcfT> //, typename ReductionF>
   Tensor<PcfT> parallel_tensor_reduce(const Tensor<PcfT>& in, size_t dim, Executor& exec = default_executor())
   {
-    Tensor<PcfT> ret;
+    std::cout << "HELLO" << std::endl;
+    auto shape = in.shape();
+    printVec("INSHAPE ", in.shape());
+    auto inDimSize = shape[dim];
+
+    shape.erase(shape.begin() + dim);
+    if (shape.empty())
+    {
+      shape.resize(1, 1);
+    }
+    Tensor<PcfT> ret(shape);
+    printVec("RET SHAPE ", ret.shape());
+
+    std::vector<size_t> inIdx(shape.size(), 0_uz);
+    ret.walk([&ret, &in, &inIdx, inDimSize, dim](const std::vector<size_t>& idx){
+
+      std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
+      std::copy(idx.begin() + dim, idx.end(), inIdx.begin() + dim + 1);
+
+      printVec("idx", idx);
+
+      std::vector<PcfT> tmp; // TODO: Rewrite without need to copy
+      tmp.reserve(inDimSize);
+      for (auto i = 0_uz; i < inDimSize; ++i)
+      {
+        inIdx[dim] = i;
+        printVec("  inIdx", inIdx);
+
+        tmp.emplace_back( in(inIdx) );
+      }
+
+      auto & out = ret(idx);
+
+      out = reduce(tmp, [inDimSize](const typename PcfT::rectangle_type& rect) {
+        return rect.top + rect.bottom;
+      });
+
+      out /= inDimSize;
+    });
+
     return ret;
   }
 }

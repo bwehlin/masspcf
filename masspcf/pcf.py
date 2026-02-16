@@ -125,8 +125,8 @@ class Pcf:
     return np.array(self.data_)
 
 
-tPcf_f32_f32 = Pcf(np.array([[0],[0]]).astype(np.float32))
-tPcf_f64_f64 = Pcf(np.array([[0],[0]]).astype(np.float64))
+tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))
+tPcf_f64_f64 = Pcf(np.array([[0, 0]]).astype(np.float64))
 
 backend_f32_f32 = cpp.Backend_f32_f32
 backend_f64_f64 = cpp.Backend_f64_f64

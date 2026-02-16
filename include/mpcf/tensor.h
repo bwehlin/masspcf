@@ -110,6 +110,9 @@ namespace mpcf
     /// Direct element access
     [[nodiscard]] const T& operator()(const std::vector<size_t>& index) const;
     [[nodiscard]] T& operator()(const std::vector<size_t>& index);
+    // Direct element access (1d)
+    [[nodiscard]] const T& operator()(size_t index) const;
+    [[nodiscard]] T& operator()(size_t index);
 
     //T& operator()(const std::vector<size_t>& index);
     //const T& operator()(const std::vector<size_t>& index) const;

@@ -19,7 +19,10 @@
 
 #include <mpcf/pcf.h>
 
+#include <sstream>
+
 #include <pybind11/pybind11.h>
+
 
 namespace py = pybind11;
 
@@ -27,6 +30,22 @@ namespace mpcf
 {
   namespace detail
   {
+    template <typename T>
+    std::string shape_to_string(T shape)
+    {
+      std::stringstream ss;
+      ss << "(";
+      for (auto it = std::begin(shape); it != std::end(shape); ++it)
+      {
+        if (it != std::begin(shape))
+        {
+          ss << ", ";
+        }
+        ss << *it;
+      }
+      ss << ")";
+      return ss.str();
+    }
 
     template <typename Tt, typename Tv>
     mpcf::Pcf<Tt, Tv> construct_pcf(py::array_t<Tt> arr)
@@ -54,18 +73,7 @@ namespace mpcf
         ++start;
       }
 
-      if (buf.shape[0] == 2)
-      {
-        points.resize(buf.shape[1] + start);
-        points[0].t = 0;
-        points[0].v = 0;
-        for (auto i = 0; i < buf.shape[1]; ++i)
-        {
-          points[i + start].t = data(0, i);
-          points[i + start].v = data(1, i);
-        }
-      }
-      else if (buf.shape[1] == 2)
+      if (buf.shape.size() == 2 && buf.shape[1] == 2)
       {
         points.resize(buf.shape[0] + start);
         points[0].t = 0;
@@ -78,7 +86,7 @@ namespace mpcf
       }
       else
       {
-        throw std::runtime_error("Input array should be either 2xn or nx2 (it is " + std::to_string(buf.shape[0]) + "x" + std::to_string(buf.shape[1]) + ")");
+        throw std::runtime_error("Input array should be Nx2 (supplied shape is " + shape_to_string(buf.shape) + ").");
       }
 
       auto sortByTime = [](const point_type& a, const point_type & b){
