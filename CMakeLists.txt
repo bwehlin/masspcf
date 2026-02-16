@@ -290,8 +290,8 @@ if (MINIMAL_MODULE_BUILD)
 
   execute_process(
     COMMAND "${Python_EXECUTABLE}" -c "if True:
-      import site
-      print(site.getsitepackages()[1])"
+      import sysconfig
+      print(sysconfig.get_path('purelib'))"
     OUTPUT_VARIABLE PYTHON_SITE
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
@@ -317,5 +317,11 @@ install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
 
-message(STATUS "Stub file: ${STUB_FILE}")
-message(STATUS "Install target: ${INSTALL_TARGET}")
+message(STATUS "!!! Stub file: ${STUB_FILE}")
+message(STATUS "!!! Install target: ${INSTALL_TARGET}")
+
+message(STATUS "!!! C compiler:        ${CMAKE_C_COMPILER}")
+message(STATUS "!!! C++ compiler:      ${CMAKE_CXX_COMPILER}")
+message(STATUS "!!! Compiler ID:       ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "!!! Python_ROOT_DIR:   ${Python_ROOT_DIR}")
+message(STATUS "!!! Python_EXECUTABLE: ${Python_EXECUTABLE}")
