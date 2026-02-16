@@ -29,66 +29,71 @@ class Pcf:
   arr : (n x 2) array of values, first
   """
   def __init__(self, arr : np.ndarray, dtype=None):
-    if isinstance(arr, np.ndarray):
+    if isinstance(arr, Pcf):
+      self._data = arr._data
+      self.ttype = arr.ttype
+      self.vtype = arr.vtype
+
+    elif isinstance(arr, np.ndarray):
       if dtype is not None:
           if arr.dtype != dtype:
               arr = arr.astype(dtype)
 
       if arr.dtype == np.float32:
-        self.data_ = cpp.Pcf_f32_f32(arr)
+        self._data = cpp.Pcf_f32_f32(arr)
       elif arr.dtype == np.float64:
-        self.data_ = cpp.Pcf_f64_f64(arr)
+        self._data = cpp.Pcf_f64_f64(arr)
       elif arr.dtype == np.int64:
         arr = arr.astype(np.float64)
-        self.data_ = cpp.Pcf_f64_f64(arr)
+        self._data = cpp.Pcf_f64_f64(arr)
       elif arr.dtype == np.int32:
         arr = arr.astype(np.float32)
-        self.data_ = cpp.Pcf_f32_f32(arr)
+        self._data = cpp.Pcf_f32_f32(arr)
       else:
         raise ValueError('Unsupported array type (must be np.float32/64 or np.int32/64)')
 
       self.ttype = arr.dtype
       self.vtype = arr.dtype
     elif isinstance(arr, cpp.Pcf_f32_f32):
-      self.data_ = arr
+      self._data = arr
       self.ttype = np.float32
       self.vtype = np.float32
     elif isinstance(arr, cpp.Pcf_f64_f64):
-      self.data_ = arr
+      self._data = arr
       self.ttype = np.float64
       self.vtype = np.float64
-    elif isinstance(arr, array):
+    elif isinstance(arr, list):
       if dtype is None:
         dtype = np.float32
       data = np.array(arr, dtype=dtype)
       if dtype == np.float32:
-        self.data_ = cpp.Pcf_f32_f32(data)
+        self._data = cpp.Pcf_f32_f32(data)
         self.ttype = np.float32
         self.vtype = np.float32
       elif dtype == np.float64:
-        self.data_ = cpp.Pcf_f64_f64(data)
+        self._data = cpp.Pcf_f64_f64(data)
         self.ttype = np.float64
         self.vtype = np.float64
       else:
         raise ValueError('Unsupported dtype')
         
     else:
-      raise ValueError('Unsupported type')
+      raise ValueError(f'Tried to create PCF from unsupported input data of type {type(arr)}.')
 
   def _get_time_type(self):
-    return self.data_.get_time_type()
+    return self._data.get_time_type()
 
   def _get_value_type(self):
-    return self.data_.get_value_type()
+    return self._data.get_value_type()
 
   def _get_time_value_type(self):
     return self._get_time_type() + '_' + self._get_value_type()
 
   def to_numpy(self):
-    return np.array(self.data_)
+    return np.array(self._data)
 
   def _debug_print(self):
-    self.data_.debugPrint()
+    self._data.debugPrint()
 
   def astype(self, dtype):
     return Pcf(self.to_numpy().astype(dtype))
@@ -97,8 +102,8 @@ class Pcf:
     if not _has_matching_types(self, rhs):
       raise TypeError('Mismatched PCF types')
 
-    temp = self.data_.copy()
-    params = (temp, rhs.data_)
+    temp = self._data.copy()
+    params = (temp, rhs._data)
 
     if _has_matching_types(self, tPcf_f32_f32):
       return Pcf(cpp.Backend_f32_f32.add(*params))
@@ -108,21 +113,21 @@ class Pcf:
     return self
   
   def __truediv__(self, c):
-    self.data_ = self.data_.div_scalar(c)
+    self._data = self._data.div_scalar(c)
     return self
   
   def size(self):
-    return self.data_.size()
+    return self._data.size()
   
   #def save(self):
-  #  return self.data_.to_numpy().save()
+  #  return self._data.to_numpy().save()
 
   def __str__(self):
     dtname = 'float32' if self.vtype is np.float32 else 'float64' # TODO: mixed vtype/ttype?
-    return f'<PCF size={self.data_.size()}, dtype={dtname}>'
+    return f'<PCF size={self._data.size()}, dtype={dtname}>'
 
   def __array__(self):
-    return np.array(self.data_)
+    return np.array(self._data)
 
 
 tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))
@@ -142,7 +147,7 @@ def _is_convertible_to_pcf_data(val):
 
 def _pcf_as_data(val):
   if _is_pcf(val):
-    return val.data_
+    return val._data
   else:
     return val
 
@@ -155,7 +160,7 @@ def _get_backend(f : Pcf):
     raise TypeError("Unknown PCF type")
 
 def _has_matching_types(f : Pcf, g : Pcf):
-  return type(f.data_) == type(g.data_)
+  return type(f._data) == type(g._data)
 
 def _get_dtype_from_data(data):
   if isinstance(data, cpp.Pcf_f32_f32):
@@ -168,7 +173,7 @@ def _get_dtype_from_data(data):
 def _prepare_list(fs):
   fsdata = [None]*len(fs)
   for i, f in enumerate(fs):
-    fsdata[i] = f.data_
+    fsdata[i] = f._data
     _ensure_same_type(fs[0], fs[i])
   backend = _get_backend(fs[0])
   return fsdata, backend
@@ -180,7 +185,7 @@ def _ensure_same_type(f : Pcf, g : Pcf):
 def combine(f : Pcf, g : Pcf, cb):
   _ensure_same_type(f, g)
   backend = _get_backend(f)
-  return Pcf(backend.combine(f.data_, g.data_, cb))
+  return Pcf(backend.combine(f._data, g._data, cb))
   
 def average(fs):
   """ Compute the average of a list of PCFs """

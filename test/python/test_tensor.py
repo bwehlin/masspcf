@@ -1,5 +1,6 @@
 import pytest
 import masspcf as mpcf
+import masspcf.mpcf_cpp as mcpp
 
 import numpy as np
 
@@ -36,3 +37,16 @@ def test_construct_1d_tensor():
     X = mpcf.zerosT(s)
     
     assert X.shape == s
+
+def test_dtype_results_in_correct_type():
+    X32 = mpcf.zeros((3, 2), dtype=mpcf.float32)
+    assert isinstance(X32, mpcf.Pcf32Tensor)
+
+    assert isinstance(X32[0, 0], mpcf.Pcf)
+    assert isinstance(X32[0, 0]._data, mcpp.Pcf_f32_f32)
+
+    X64 = mpcf.zeros((3, 2), dtype=mpcf.float64)
+    assert isinstance(X64, mpcf.Pcf64Tensor)
+
+    assert isinstance(X64[0, 0], mpcf.Pcf)
+    assert isinstance(X64[0, 0]._data, mcpp.Pcf_f64_f64)

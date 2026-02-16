@@ -45,11 +45,11 @@ def _pyslice_to_slice(s):
 class Tensor(ABC):
     def __getitem__(self, slices):
         if isinstance(slices, int): # X[n]
-            return self._data._get_element_1d(slices)
+            return self._represent_element(self._data._get_element(slices))
         elif isinstance(slices, slice): # X[n:m] etc...
             return self._getitem([_pyslice_to_slice(slices)])
         elif all(isinstance(s, int) for s in slices): # X[1, 2, 3] etc... (for this, we wan't a single element rather than a tensor)
-            return self._data._get_element(slices)
+            return self._represent_element(self._data._get_element(slices))
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
             return self._getitem(real_slices)
@@ -64,15 +64,19 @@ class Tensor(ABC):
 
     @abstractmethod
     def _decay_value(self, val):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def _getitem(self, slices):
-        pass
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _represent_element(self, element):
+        raise NotImplementedError()
 
     @abstractmethod
     def flatten(self):
-        pass
+        raise NotImplementedError()
 
     @property
     def shape(self) -> TShape:
@@ -92,6 +96,9 @@ class NumericTensor(Tensor):
     
     def _decay_value(self, val):
         return val
+
+    def _represent_element(self, element):
+        return element
 
 class FloatTensor(NumericTensor):
     def __init__(self, data : cpp.FloatTensor):
@@ -122,7 +129,10 @@ class PcfTensor(Tensor):
         self._type = TensorType.PCF
     
     def _decay_value(self, val):
-        return val.data_
+        return val._data
+
+    def _represent_element(self, element):
+        return Pcf(element)
 
 class Pcf32Tensor(PcfTensor):
     def __init__(self, data : cpp.Pcf32Tensor):
@@ -164,7 +174,7 @@ def zeros(shape : TShapeLike, dtype=float32, type=TensorType.PCF):
     elif dtype == float64:
         match type:
             case TensorType.PCF:
-                return Pcf32Tensor(cpp.Pcf64Tensor(shape))
+                return Pcf64Tensor(cpp.Pcf64Tensor(shape))
             case TensorType.NUMERIC:
                 return FloatTensor(cpp.DoubleTensor(shape, 0.0))
             case _:

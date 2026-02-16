@@ -43,7 +43,11 @@ namespace
       : data(shape)
     { }
 
-    [[nodiscard]] bool dunder_eq(const TShape& rhs) const
+    TShape(size_t sz) // 1d shape
+      : data({sz})
+    { }
+
+    [[nodiscard]] bool operator==(const TShape& rhs) const
     {
       return data == rhs.data;
     }
@@ -98,6 +102,10 @@ namespace
 
       .def("__eq__", [](const TShape& self, const std::vector<size_t>& other) {
         return self.data == other;
+      })
+
+      .def("__eq__", [](const TShape& self, size_t sz) {
+        return self.data == TShape(sz);
       })
 
       .def("__getitem__", &TShape::dunder_getitem)
@@ -164,15 +172,17 @@ namespace
           return self(index);
         })
 
+      .def("_get_element", [](TTensor& self, size_t index) {
+          assert_valid_index(self, index);
+          return self(index);
+        })
+
       .def("_set_element", [](TTensor& self, const std::vector<size_t>& index, const T& val) {
           assert_valid_index(self, index);
           self(index) = val;
         })
 
-      .def("_get_element_1d", [](TTensor& self, size_t index) {
-          assert_valid_index(self, index);
-          return self(index);
-        })
+
 
       .def("flatten", &TTensor::flatten)
     ;

@@ -154,6 +154,9 @@ namespace mpcf
   {
     std::cout << "HELLO" << std::endl;
     auto shape = in.shape();
+
+    std::vector<size_t> inIdx(shape.size(), 0_uz);
+
     printVec("INSHAPE ", in.shape());
     auto inDimSize = shape[dim];
 
@@ -165,7 +168,7 @@ namespace mpcf
     Tensor<PcfT> ret(shape);
     printVec("RET SHAPE ", ret.shape());
 
-    std::vector<size_t> inIdx(shape.size(), 0_uz);
+
     ret.walk([&ret, &in, &inIdx, inDimSize, dim](const std::vector<size_t>& idx){
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
