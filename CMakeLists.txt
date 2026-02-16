@@ -306,10 +306,60 @@ if (MINIMAL_MODULE_BUILD)
   install(
     DIRECTORY masspcf
     DESTINATION ${PYTHON_SITE}
-    PATTERN "__pycache__" EXCLUDE
+
+    # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
+    REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed$)" EXCLUDE
     )
 
   set(INSTALL_TARGET ${SITE_PKG_MASSPCF})
+
+  if (LINUX)
+
+    install(CODE "
+      set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}$<TARGET_FILE_SUFFIX:${CPP_MODULE_NAME}>\")
+      set(TARGET_PATH \"${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>\")
+
+      message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
+
+      execute_process(
+        COMMAND \${CMAKE_COMMAND} -E create_symlink
+        \"\${TARGET_PATH}\"
+        \"\${LINK_PATH}\"
+      )
+    ")
+
+    install(CODE "
+      set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/py.typed\")
+      set(TARGET_PATH \"${PYTHON_SITE}/masspcf/py.typed\")
+
+      message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
+
+      execute_process(
+        COMMAND \${CMAKE_COMMAND} -E create_symlink
+        \"\${TARGET_PATH}\"
+        \"\${LINK_PATH}\"
+      )
+    ")
+
+    install(CODE "
+      set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}.pyi\")
+      set(TARGET_PATH \"${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi\")
+
+      message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
+
+      execute_process(
+        COMMAND \${CMAKE_COMMAND} -E create_symlink
+        \"\${TARGET_PATH}\"
+        \"\${LINK_PATH}\"
+      )
+    ")
+
+
+    # Optional: Clean the symlink when running 'make clean'
+    #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
+
+  endif()
+
 else()
   set(INSTALL_TARGET masspcf)
 endif()
