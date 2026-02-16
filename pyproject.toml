@@ -4,6 +4,7 @@ requires = [
     'cmake>=3.20',
     'ninja',
     'numpy>=2.0',
+    'pybind11_stubgen',
 ]
 build-backend = "scikit_build_core.build"
 
@@ -14,6 +15,7 @@ authors = [ { name="Bjorn H. Wehlin", email="bwehlin@kth.se" } ]
 description = "Massively parallel computations for piecewise constant functions"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -21,7 +23,7 @@ classifiers = [
     "Environment :: GPU :: NVIDIA CUDA",
     "Topic :: Scientific/Engineering"
 ]
-dependencies = [ "numpy>=1.25", "tqdm" ]
+dependencies = [ "numpy>=2.0", "tqdm" ]
 
 [project.urls]
 Homepage = "https://github.com/bwehlin/masspcf"
