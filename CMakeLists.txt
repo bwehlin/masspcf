@@ -293,9 +293,11 @@ if (MINIMAL_MODULE_BUILD)
     COMMAND "${Python_EXECUTABLE}" -c "if True:
       import sysconfig
       print(sysconfig.get_path('purelib'))"
-    OUTPUT_VARIABLE PYTHON_SITE
+    OUTPUT_VARIABLE PYTHON_SITE_PRE
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
+
+  file(TO_CMAKE_PATH "${PYTHON_SITE_PRE}" PYTHON_SITE)
 
   SET(SITE_PKG_MASSPCF ${PYTHON_SITE}/masspcf)
 
@@ -313,52 +315,56 @@ if (MINIMAL_MODULE_BUILD)
 
   set(INSTALL_TARGET ${SITE_PKG_MASSPCF})
 
-  if (LINUX)
-
-    install(CODE "
-      set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}$<TARGET_FILE_SUFFIX:${CPP_MODULE_NAME}>\")
-      set(TARGET_PATH \"${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>\")
-
-      message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
-
-      execute_process(
-        COMMAND \${CMAKE_COMMAND} -E create_symlink
-        \"\${TARGET_PATH}\"
-        \"\${LINK_PATH}\"
-      )
-    ")
-
-    install(CODE "
-      set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/py.typed\")
-      set(TARGET_PATH \"${PYTHON_SITE}/masspcf/py.typed\")
-
-      message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
-
-      execute_process(
-        COMMAND \${CMAKE_COMMAND} -E create_symlink
-        \"\${TARGET_PATH}\"
-        \"\${LINK_PATH}\"
-      )
-    ")
-
-    install(CODE "
-      set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}.pyi\")
-      set(TARGET_PATH \"${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi\")
-
-      message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
-
-      execute_process(
-        COMMAND \${CMAKE_COMMAND} -E create_symlink
-        \"\${TARGET_PATH}\"
-        \"\${LINK_PATH}\"
-      )
-    ")
-
-
-    # Optional: Clean the symlink when running 'make clean'
-    #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
-
+  # Copy on Windows, symlink otherwise
+  if (WIN32)
+    SET(LINK_TYPE copy_if_different)
+  else()
+    SET(LINK_TYPE create_symlink)
   endif()
+
+  install(CODE "
+    set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}$<TARGET_FILE_SUFFIX:${CPP_MODULE_NAME}>\")
+    set(TARGET_PATH \"${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>\")
+
+    message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
+
+    execute_process(
+      COMMAND \${CMAKE_COMMAND} -E ${LINK_TYPE}
+      \"\${TARGET_PATH}\"
+      \"\${LINK_PATH}\"
+    )
+  ")
+
+  install(CODE "
+    set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/py.typed\")
+    set(TARGET_PATH \"${PYTHON_SITE}/masspcf/py.typed\")
+
+    message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
+
+    execute_process(
+      COMMAND \${CMAKE_COMMAND} -E ${LINK_TYPE}
+      \"\${TARGET_PATH}\"
+      \"\${LINK_PATH}\"
+    )
+  ")
+
+  install(CODE "
+    set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}.pyi\")
+    set(TARGET_PATH \"${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi\")
+
+    message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
+
+    execute_process(
+      COMMAND \${CMAKE_COMMAND} -E ${LINK_TYPE}
+      \"\${TARGET_PATH}\"
+      \"\${LINK_PATH}\"
+    )
+  ")
+
+
+  # Optional: Clean the symlink when running 'make clean'
+  #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
+
 
 else()
   set(INSTALL_TARGET masspcf)

@@ -172,7 +172,11 @@ namespace mpcf
     ret.walk([&ret, &in, &inIdx, inDimSize, dim](const std::vector<size_t>& idx){
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
-      std::copy(idx.begin() + dim, idx.end(), inIdx.begin() + dim + 1);
+      if (inIdx.size() > 1)
+      {
+        // MSVC debug does not like (inIdx.begin() + dim + 1) even if nothing is written there it seems.
+        std::copy(idx.begin() + dim, idx.end(), inIdx.begin() + dim + 1);
+      }
 
       printVec("idx", idx);
 
