@@ -14,7 +14,12 @@
 * limitations under the License.
 */
 
+
+#if 0
+
 #pragma once
+
+
 
 #include <mpcf/pcf.h>
 #include <mpcf/algorithms/matrix_reduce.h>
@@ -498,3 +503,5 @@ namespace mpcf_py
   };
 
 }
+
+#endif

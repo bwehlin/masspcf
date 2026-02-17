@@ -13,6 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+#if 0
 
 #ifndef MPCF_STRIDED_BUFFER_H
 #define MPCF_STRIDED_BUFFER_H
@@ -157,5 +158,7 @@ namespace mpcf
 
 
 }
+
+#endif
 
 #endif

@@ -372,8 +372,7 @@ PYBIND11_MODULE(mpcf_cpp, m) {
 #endif
   
   m.def("limit_cpus", [](size_t n){ mpcf::default_executor().limit_cpu_workers(n); });
-  
-  register_array_bindings(m);
+
   register_random_bindings(m);
 
   mpcf_py::register_make_from_serial_content(m);

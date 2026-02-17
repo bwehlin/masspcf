@@ -110,11 +110,12 @@ for file in files:
 cpp_src = os.path.abspath('./mpcf_cpp')
 cpp_dest = os.path.join(masspcf_temp_dir, 'mpcf_cpp')
 
-if is_windows:
-    # Use copytree for directories; dirs_exist_ok=True prevents errors if it exists
-    shutil.copytree(cpp_src, cpp_dest, dirs_exist_ok=True)
-else:
-    os.symlink(cpp_src, cpp_dest)
+if False:
+    if is_windows:
+        # Use copytree for directories; dirs_exist_ok=True prevents errors if it exists
+        shutil.copytree(cpp_src, cpp_dest, dirs_exist_ok=True)
+    else:
+        os.symlink(cpp_src, cpp_dest)
 
 sys.path.insert(0, temp_mod_dir)
 

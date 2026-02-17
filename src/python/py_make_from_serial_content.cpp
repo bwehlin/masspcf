@@ -14,8 +14,14 @@
 * limitations under the License.
 */
 
+#include <mpcf/tensor.h>
+#include <mpcf/pcf.h>
+
 #include "py_make_from_serial_content.h"
-#include "pyarray.h"
+#include "py_tensor.h"
+
+#include <pybind11/numpy.h>
+
 #include <iostream>
 
 namespace py = pybind11;
@@ -29,7 +35,7 @@ namespace mpcf_py
   }
 
   template <typename Tt, typename Tv>
-  NdArray<Tt, Tv>
+  mpcf::Tensor<mpcf::Pcf<Tt, Tv>>
     make_from_serial_content(py::array_t<Tt> content, py::array_t<detail::EnumerationDt> enumeration)
   {
     auto content_buf = content.request();
@@ -54,19 +60,18 @@ namespace mpcf_py
 
     auto nPcfs = enumerationData.shape(0);
 
-    std::vector<size_t> targetShapeVec(enumeration_buf.ndim - 1);
+    std::vector<size_t> targetShape(enumeration_buf.ndim - 1);
     for (auto i = 0; i < enumeration_buf.ndim - 1; ++i) // Last dim is always 2 for [start, end)
     {
-      targetShapeVec[i] = enumerationData.shape(i);
+      targetShape[i] = enumerationData.shape(i);
     }
-    Shape targetShape(std::move(targetShapeVec));
 
-    NdArray<Tt, Tv> pcfs = NdArray<Tt, Tv>::make_zeros(targetShape);
+    mpcf::Tensor<mpcf::Pcf<Tt, Tv>> pcfs(targetShape);
 
     auto sourceData = static_cast<Tv*>(enumeration_buf.ptr);
     auto sourceStrides = enumeration_buf.strides;
 
-    auto targetStrides = pcfs.data().strides();
+    auto targetStrides = pcfs.strides();
 
     if (targetStrides.size() + 1 != sourceStrides.size())
     {
@@ -91,6 +96,8 @@ namespace mpcf_py
         }
       }
     }
+
+
 
     // Flatten should be safe as we checked strides earlier
     auto targetFlatView = xt::flatten(pcfs.data());

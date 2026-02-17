@@ -122,7 +122,6 @@ SET(MPCF_HEADER_FILES
   pcf.h
   point.h
   rectangle.h
-  strided_buffer.h
   operations.cuh
   platform.h
   random.h
@@ -153,8 +152,7 @@ SET(MPCF_LIB_SOURCES
   ${MPCF_LIB_SOURCES_CUDA}
 )
 
-SET(MPCF_PY_SOURCES 
-  pyarray.h pyarray.cpp
+SET(MPCF_PY_SOURCES
   pymodule.cpp
   pyrandom.cpp
   pypcf_support.h
