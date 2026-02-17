@@ -17,10 +17,6 @@
 #ifndef MPCF_ALGORITHMS_MATRIX_REDUCE_H
 #define MPCF_ALGORITHMS_MATRIX_REDUCE_H
 
-#include <xtensor/xarray.hpp>
-#include <xtensor/xaxis_iterator.hpp>
-#include <xtensor/xview.hpp>
-
 #include <taskflow/algorithm/for_each.hpp>
 
 #include "../pcf.h"
@@ -48,7 +44,7 @@ namespace mpcf
 
   };
 
-
+#if 0
   template <typename XExpressionT, typename Op>
   xt::xarray<typename XExpressionT::value_type::time_type> matrix_time_reduce(const XExpressionT& in, size_t dim, Op op /*, Executor& exec = default_executor() */)
   {
@@ -90,6 +86,7 @@ namespace mpcf
 
     return ret;
   }
+#endif
 
   template <typename T>
   inline void printVec(const char* n, const std::vector<T>& v) {

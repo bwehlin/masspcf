@@ -19,12 +19,13 @@
 
 #include "../executor.h"
 
-#include <xtensor/xmanipulation.hpp>
 #include <stdexcept>
 
 namespace mpcf
 {
 
+
+#if 0
   template <typename XExpressionT, typename F, typename OutT>
   void apply_array_functional(const XExpressionT& in, OutT* out, size_t outLen, F functional) //, Executor& exec = default_executor())
   {
@@ -42,6 +43,7 @@ namespace mpcf
     }
 
   }
+#endif
 
 }
 

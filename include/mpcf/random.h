@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 
-
 #ifndef MPCF_RANDOM_H
 #define MPCF_RANDOM_H
 
@@ -23,41 +22,48 @@
 #include <vector>
 #include <random>
 
-#include <xtensor/xarray.hpp>
-#include <xtensor/xstrided_view.hpp>
-#include <xtensor/xrandom.hpp>
+#include "tensor.h"
 
 namespace mpcf
 {
 
   template <typename Tt, typename Tv, typename F>
-  void noisy_function(xt::xarray<Pcf<Tt, Tv>>& out, size_t nPoints, F func, Tv noise = 0.1)
+  void noisy_function(Tensor<Pcf<Tt, Tv>>& out, size_t nPoints, F func, Tv noise = 0.1)
   {
-    auto fs = xt::flatten(out);
+    using PcfT = Pcf<Tt, Tv>;
+    using PointT = typename PcfT::point_type;
 
-    auto byTimeAscending = mpcf::OrderByTimeAscending<Tt, Tv>();
+    // TODO: unified random generator with seeding and thread-consistency
 
-    for (auto& f : fs)
-    {
-      // TODO: this is quite inefficient getting a new array every time
-      auto ts = xt::random::rand<Tt>({ nPoints });
-      auto vnoises = xt::random::randn<Tv>({ nPoints }, 0., noise);
+    std::mt19937_64 gen;
+    std::uniform_real_distribution<Tt> tDist(0., 1.);
+    std::uniform_real_distribution<Tv> vDist(0., noise);
 
-      std::vector<mpcf::Point<Tt, Tv>> pts;
-      pts.resize(nPoints);
-      std::transform(ts.begin(), ts.end(), pts.begin(), [](Tt t) { return mpcf::Point<Tt, Tv>(t, 0.); });
-      std::sort(pts.begin(), pts.end(), byTimeAscending);
+    std::vector<Tt> randomTs(nPoints, 0.);
+    std::vector<Tv> randomNoises(nPoints, 0.);
 
-      pts[0].t = 0;
-      
-      for (size_t i = 0; i < pts.size(); ++i)
+    out.apply([&gen, &tDist, &vDist, &randomTs, &randomNoises, &func](PcfT& f) {
+
+      std::generate(randomTs.begin(), randomTs.end(), [&gen, &tDist]{ return tDist(gen); });
+      std::generate(randomNoises.begin(), randomNoises.end(), [&gen, &vDist]{ return vDist(gen); });
+
+      std::sort(randomTs.begin(), randomTs.end());
+      randomTs.front() = 0.;
+
+      std::vector<PointT> pts;
+      pts.reserve(randomTs.size());
+      for (auto i = 0_uz; i < randomTs.size(); ++i)
       {
-        pts[i].v = func(pts[i].t) + vnoises(i);
+        pts[i].t = randomTs[i];
+        pts[i].v = func(randomTs[i]) + randomNoises[i];
       }
-      
-      f = mpcf::Pcf<Tt, Tv>(std::move(pts));
-    }
+
+      pts.back().v = 0.;
+
+      f = PcfT(std::move(pts));
+    });
   }
+
 }
 
 #endif

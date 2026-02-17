@@ -1,12 +1,6 @@
 [submodule "3rd/taskflow"]
 	path = 3rd/taskflow
 	url = git@github.com:taskflow/taskflow.git
-[submodule "3rd/xtensor"]
-	path = 3rd/xtensor
-	url = git@github.com:xtensor-stack/xtensor
-[submodule "3rd/xtl"]
-	path = 3rd/xtl
-	url = git@github.com:xtensor-stack/xtl
 [submodule "3rd/pybind11"]
 	path = 3rd/pybind11
 	url = git@github.com:pybind/pybind11

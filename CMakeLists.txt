@@ -102,9 +102,6 @@ include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 add_subdirectory(3rd/pybind11)
 
-set(xtl_DIR "3rd/xtl")
-set(xtensor_DIR "3rd/xtensor")
-
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
     include/mpcf/cuda/cuda_matrix_integrate.cuh
@@ -182,7 +179,6 @@ set(MPCF_PUBLIC_INCLUDES "include/")
 target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
 target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
-include_directories("3rd/xtensor/include" "3rd/xtl/include")
 target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
 target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
@@ -215,7 +211,6 @@ if (BUILD_TESTER)
     test/test_special_tensors.cpp)
 
   target_include_directories(mpcf_test PRIVATE "include/")
-  target_include_directories(mpcf_test SYSTEM PRIVATE "3rd/xtensor/include" "3rd/xtl/include")
 
   python_add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES})
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
