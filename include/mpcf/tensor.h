@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <concepts>
 #include <optional>
+#include <sstream>
 
 #include <iostream>
 
@@ -191,7 +192,36 @@ namespace mpcf
     { t(indices) } -> std::common_with<typename T::value_type>;
 
     typename T::value_type;
-};
+  };
+
+  inline std::string shape_to_string(const std::vector<size_t>& shape)
+  {
+    std::stringstream ss;
+    ss << "(";
+    for (auto i = 0_uz; i < shape.size(); ++i)
+    {
+      if (i != 0)
+      {
+        ss << ", ";
+      }
+      ss << shape[i];
+    }
+    ss << ")";
+    return ss.str();
+  }
+
+  inline std::string index_to_string(const std::vector<size_t>& idx)
+  {
+    if (idx.size() == 1)
+    {
+      return std::to_string(idx[0]);
+    }
+    else
+    {
+      return shape_to_string(idx);
+    }
+  }
+
 
 }
 

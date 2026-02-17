@@ -26,6 +26,7 @@ namespace py = pybind11;
 
 namespace
 {
+#if 0
   template <typename Tt, typename Tv>
   class PyBindings
   {
@@ -61,6 +62,7 @@ namespace
 
     }
   };
+#endif
 
 }
 
@@ -69,8 +71,8 @@ namespace mpcf_py
 
   void register_array_norms(py::module_& m)
   {
-    PyBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyBindings<double, double>::register_bindings(m, "_f64_f64");
+    //PyBindings<float, float>::register_bindings(m, "_f32_f32");
+    //PyBindings<double, double>::register_bindings(m, "_f64_f64");
   }
 
 }

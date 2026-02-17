@@ -129,6 +129,9 @@ class Pcf:
   def __array__(self):
     return np.array(self._data)
 
+  def __eq__(self, other):
+    return np.array_equal(np.array(self), np.array(other))
+
 
 tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))
 tPcf_f64_f64 = Pcf(np.array([[0, 0]]).astype(np.float64))

@@ -222,6 +222,7 @@ namespace
       return task;
     }
 
+    /*
     static std::unique_ptr<mpcf::StoppableTask<void>> pdist_1(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
     {
       auto op = mpcf::OperationL1Dist<Tt, Tv>();
@@ -251,8 +252,9 @@ namespace
 
       return matrix_integrate(matrix, begin, end, op);
     }
-
+    */
   };
+
   
   template <typename RetT>
   static void register_bindings_future(py::handle m, const std::string& suffix)
@@ -327,6 +329,7 @@ namespace
         .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)
         .def_static("single_linfinity_norm", &Backend<Tt, Tv>::single_linfinity_norm)
 
+      /*
         .def_static("list_l1_norm", &Backend<Tt, Tv>::list_l1_norm)
         .def_static("list_l2_norm", &Backend<Tt, Tv>::list_l2_norm)
         //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
@@ -335,10 +338,9 @@ namespace
         .def_static("calc_pdist_1", &Backend<Tt, Tv>::pdist_1)
         .def_static("calc_pdist_p", &Backend<Tt, Tv>::pdist_p)
         .def_static("calc_l2_kernel", &Backend<Tt, Tv>::l2_kernel)
+        */
         ;
 
-      py::class_<mpcf::StridedBuffer<TPcf>>(m, ("StridedBuffer" + suffix).c_str());
-      
       register_bindings_future<TPcf>(m, suffix);
     }
   };

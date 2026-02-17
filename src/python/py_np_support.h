@@ -1,0 +1,52 @@
+/*
+* Copyright 2024-2026 Bjorn Wehlin
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+#ifndef MASSPCF_PY_NP_SUPPORT_H
+#define MASSPCF_PY_NP_SUPPORT_H
+
+#include <pybind11/numpy.h>
+
+#include <string>
+#include <sstream>
+#include <algorithm>
+
+template <typename T>
+std::string shape_to_string(pybind11::array_t<T> arr)
+{
+  std::stringstream ss;
+
+  ss << "(";
+  for (auto i = 0; i < arr.ndim(); ++i)
+  {
+    if (i != 0)
+    {
+      ss << ", ";
+    }
+    ss << arr.shape(i);
+  }
+  ss << ")";
+  return ss.str();
+}
+
+template <typename T>
+T& get_element(pybind11::array_t<T>& arr, const std::vector<pybind11::ssize_t>& idx)
+{
+  auto offset = std::inner_product(idx.begin(), idx.end(), arr.strides(), 0_uz);
+  offset /= arr.itemsize();
+  return *(static_cast<T*>(arr.request().ptr) + offset);
+}
+
+#endif //MASSPCF_PY_NP_SUPPORT_H

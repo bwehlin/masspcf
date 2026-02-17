@@ -20,6 +20,7 @@ from .norms import l1_norm, l2_norm, lp_norm, linfinity_norm
 from .typing import float32, float64
 from .tensor import FloatTensor, DoubleTensor, Pcf32Tensor, Pcf64Tensor, TShape, zerosT, zeros
 from .reductions import mean
+from .serialize import from_serial_content
 
 from . import system
 

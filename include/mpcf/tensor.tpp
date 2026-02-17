@@ -125,7 +125,7 @@ namespace mpcf
   template <typename UnaryFunc> requires std::invocable<UnaryFunc, std::vector<size_t>>
   void Tensor<T>::walk(UnaryFunc&& f) const
   {
-    if (m_shape.empty())
+    if (m_shape.empty() || std::any_of(m_shape.begin(), m_shape.end(), [](size_t n){ return n == 0; }))
     {
       return;
     }

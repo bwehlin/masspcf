@@ -26,6 +26,7 @@ namespace py = pybind11;
 
 namespace
 {
+#if 0
   template <typename Tt, typename Tv>
   class RandomBindings
   {
@@ -50,10 +51,11 @@ namespace
       .def_static("noisy_sin", &bindings::noisy_sin)
       .def_static("noisy_cos", &bindings::noisy_cos);
   }
+#endif
 }
 
 void register_random_bindings(py::handle m)
 {
-  register_types_random_bindings<float, float>(m, "_f32_f32");
-  register_types_random_bindings<double, double>(m, "_f64_f64");
+  //register_types_random_bindings<float, float>(m, "_f32_f32");
+  //register_types_random_bindings<double, double>(m, "_f64_f64");
 }
