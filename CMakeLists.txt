@@ -76,6 +76,12 @@ message(STATUS "!!! Detected version ${PROJ_VERSION} from pyproject.toml")
 
 project(${PROJ_NAME} VERSION ${PROJ_VERSION} LANGUAGES CXX ${LANG_CUDA})
 
+if((DEFINED ENV{ENABLE_COVERAGE}) AND (NOT $ENV{ENABLE_COVERAGE} MATCHES "0"))
+  set(ENABLE_COVERAGE ON)
+else()
+  set(ENABLE_COVERAGE OFF)
+endif()
+
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
 set(CPP_MODULE_NAME "mpcf_cpp")
@@ -189,6 +195,41 @@ if (MSVC)
   set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 endif()
 
+# ============================================================
+# Coverage configuration (GCC / Clang only)
+# ============================================================
+
+
+
+if(ENABLE_COVERAGE)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    message(FATAL_ERROR "Coverage only supported with GCC or Clang")
+  endif()
+
+  message(STATUS "!!! Coverage ENABLED !!!")
+
+  # Disable optimization for accurate coverage
+  add_library(coverage_flags INTERFACE)
+
+  target_compile_options(coverage_flags INTERFACE
+          -O0
+          -g
+          -fprofile-arcs
+          -ftest-coverage
+          )
+
+  target_link_libraries(coverage_flags INTERFACE gcov)
+
+  # Avoid inlining & weird optimizer effects
+  target_compile_options(coverage_flags INTERFACE
+          -fno-inline
+          -fno-inline-small-functions
+          -fno-default-inline
+          )
+else()
+  message(STATUS "!!! Coverage DISABLED !!!")
+endif()
+
 if (BUILD_TESTER)
   set(BUILD_GMOCK OFF)
   set(INSTALL_GTEST OFF)
@@ -197,9 +238,6 @@ if (BUILD_TESTER)
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   add_subdirectory("3rd/googletest")
 
-  #message(STATUS "-- GoogleTest version: ${GOOGLETEST_VERSION}")
-
-  #add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
   enable_testing()
   add_executable(mpcf_test
     test/test_block_matrix_support.cu
@@ -217,9 +255,11 @@ if (BUILD_TESTER)
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
   target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy ${CUDART_LIBRARY})
-  
-  #include(GoogleTest)
-  #gtest_discover_tests(mpcf_test)
+
+  if(ENABLE_COVERAGE)
+    target_link_libraries(mpcf_nopy PRIVATE coverage_flags)
+    target_link_libraries(mpcf_test PRIVATE coverage_flags)
+  endif()
 
   if (WIN32)
     get_filename_component(python_dir "${Python_EXECUTABLE}" DIRECTORY)
