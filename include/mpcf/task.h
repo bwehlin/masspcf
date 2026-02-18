@@ -159,11 +159,25 @@ namespace mpcf
 
     std::mutex m_mutex;
     std::condition_variable m_condition;
-    bool m_done;
+    bool m_done = false;
 
 #ifdef BUILD_WITH_CUDA
     dim3 m_blockDim = dim3(32, 1, 1);
 #endif
+  };
+
+  template <typename RetT = void>
+  class EmptyTask : public StoppableTask<RetT>
+  {
+  private:
+    tf::Future<RetT> run_async(mpcf::Executor& exec) override
+    {
+      tf::Taskflow flow;
+      std::vector<tf::Task> tasks;
+      tasks.emplace_back(this->create_terminal_task(flow));
+      flow.linearize(tasks);
+      return exec.cpu()->run(std::move(flow));
+    }
   };
 }
 

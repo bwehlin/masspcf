@@ -89,6 +89,11 @@ namespace mpcf
       next_step(totalWorkPerStep, "Computing upper triangle.", "integral");
 
       tf::Taskflow flow;
+      if (m_fs.empty())
+      {
+        return exec.cpu()->run(std::move(flow));
+      }
+
       std::vector<tf::Task> tasks;
       
       tasks.emplace_back(flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {

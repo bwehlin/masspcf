@@ -92,6 +92,7 @@ class Tensor(ABC):
 
 class NumericTensor(Tensor):
     def __init__(self):
+        super().__init__()
         self._type = TensorType.NUMERIC
     
     def _decay_value(self, val):
@@ -126,6 +127,7 @@ class DoubleTensor(NumericTensor):
 
 class PcfTensor(Tensor):
     def __init__(self):
+        super().__init__()
         self._type = TensorType.PCF
     
     def _decay_value(self, val):
@@ -194,3 +196,20 @@ def zerosT(shape : TShapeLike, dtype=float64):
         raise TypeError("Only float32/float64 are supported for dtype.")
 
 PcfContainerLike = Union[Tensor, list[Pcf], Pcf]
+
+def _to_tensor_pcf(fs : PcfContainerLike):
+    if isinstance(fs, PcfTensor):
+        return fs
+
+    # TODO: Deal with lists/single pcfs
+
+    raise TypeError('Input should be convertible to a PcfTensor.')
+
+def _get_backend(fs : PcfContainerLike, backendMapping : dict):
+    if isinstance(fs, Tensor):
+        backend = backendMapping.get(( fs._type, fs.dtype ))
+        if backend is None:
+            raise ValueError(f'Operation not supported for tensors of this type ({fs._type} with dtype {fs.dtype})')
+        return backend
+
+    raise ValueError(f'Operation not supported for data of this type ({type(fs)})')

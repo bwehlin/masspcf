@@ -161,6 +161,7 @@ SET(MPCF_PY_SOURCES
   pypcf_support.h
   py_np_support.h
   py_make_from_serial_content.h py_make_from_serial_content.cpp
+  py_distance.h py_distance.cpp
   pyarray_norms.h pyarray_norms.cpp
   py_reductions.h py_reductions.cpp
   py_tensor.h py_tensor.cpp

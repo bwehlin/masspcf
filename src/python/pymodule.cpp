@@ -33,6 +33,7 @@
 #include "pyarray_norms.h"
 #include "py_tensor.h"
 #include "py_reductions.h"
+#include "py_distance.h"
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
@@ -382,4 +383,5 @@ PYBIND11_MODULE(mpcf_cpp, m) {
 
   mpcf_py::register_tensor_bindings(m);
   mpcf_py::register_reductions(m);
+  mpcf_py::register_distance(m);
 }
