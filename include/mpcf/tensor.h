@@ -187,8 +187,9 @@ namespace mpcf
   };
 
   template <typename T>
-  concept IsTensor = requires(T t, std::vector<size_t> indices) {
+  concept IsTensor = requires(T t, std::vector<size_t> indices, typename T::value_type v) {
     { t.shape() } -> Iterable;
+    { t.strides() } -> Iterable;
     { t.rank() } -> std::convertible_to<size_t>;
     { t(indices) } -> std::common_with<typename T::value_type>;
 

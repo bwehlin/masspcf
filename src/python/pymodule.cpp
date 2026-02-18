@@ -21,7 +21,6 @@
 #include <pybind11/stl.h>
 
 #include <mpcf/pcf.h>
-#include <mpcf/strided_buffer.h>
 #include "pypcf_support.h"
 #include <mpcf/algorithm.h>
 #include <mpcf/executor.h>
@@ -30,7 +29,7 @@
 #include <mpcf/operations.cuh>
 
 #include "py_make_from_serial_content.h"
-#include "pyarray_norms.h"
+#include "py_norms.h"
 #include "py_tensor.h"
 #include "py_reductions.h"
 #include "py_distance.h"
@@ -378,10 +377,11 @@ PYBIND11_MODULE(mpcf_cpp, m) {
 
   register_random_bindings(m);
 
-  mpcf_py::register_make_from_serial_content(m);
-  mpcf_py::register_array_norms(m);
-
   mpcf_py::register_tensor_bindings(m);
+
+  mpcf_py::register_make_from_serial_content(m);
+
   mpcf_py::register_reductions(m);
   mpcf_py::register_distance(m);
+  mpcf_py::register_norms(m);
 }

@@ -49,4 +49,54 @@ T& get_element(pybind11::array_t<T>& arr, const std::vector<pybind11::ssize_t>& 
   return *(static_cast<T*>(arr.request().ptr) + offset);
 }
 
+template <typename T>
+class NumpyTensor
+{
+public:
+  using value_type = T;
+
+  NumpyTensor(pybind11::array_t<T> arr)
+    : m_arr(arr)
+  { }
+
+  [[nodiscard]] std::vector<size_t> shape() const
+  {
+    return std::vector<size_t>(m_arr.shape(), m_arr.shape() + m_arr.ndim());
+  }
+
+  [[nodiscard]] std::vector<size_t> strides() const
+  {
+    std::vector<size_t> s;
+    s.resize(m_arr.ndim());
+    std::transform(m_arr.strides(), m_arr.strides() + m_arr.ndim(), [this](pybind11::ssize_t n) {
+      return n / m_arr.itemsize();
+    });
+    return s;
+  }
+
+  [[nodiscard]] size_t rank() const
+  {
+    return m_arr.ndim();
+  }
+
+  [[nodiscard]] T& operator()(const std::vector<std::size_t>& idx)
+  {
+    auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), 0);
+    offset /= m_arr.itemsize();
+    return *(m_arr.mutable_data() + offset);
+  }
+
+  [[nodiscard]] const T& operator()(const std::vector<std::size_t>& idx) const
+  {
+    auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), 0);
+    offset /= m_arr.itemsize();
+    return *(m_arr.data() + offset);
+  }
+
+private:
+  pybind11::array_t<T> m_arr;
+};
+
+static_assert(mpcf::IsTensor<NumpyTensor<int>>);
+
 #endif //MASSPCF_PY_NP_SUPPORT_H

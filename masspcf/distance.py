@@ -33,7 +33,7 @@ def pdist(fs : PcfContainerLike, p=1, verbose=True):
         raise ValueError('1d tensor expected.')
 
     backend = _get_distance_backend(fs)
-    matrix = np.zeros((X.shape[0], X.shape[0]), dtype=numpy_type(fs))
+    matrix = np.zeros((X.shape[0], X.shape[0]), dtype=numpy_type(X))
 
     task = None
     try:

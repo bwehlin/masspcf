@@ -134,7 +134,6 @@ SET(MPCF_HEADER_FILES
   special_tensors.h
   executor.h
   algorithm.h
-  algorithms/array_functional.h
   algorithms/iterate_rectangles.h
   algorithms/reduce.h
   algorithms/matrix_integrate.h
@@ -162,7 +161,7 @@ SET(MPCF_PY_SOURCES
   py_np_support.h
   py_make_from_serial_content.h py_make_from_serial_content.cpp
   py_distance.h py_distance.cpp
-  pyarray_norms.h pyarray_norms.cpp
+  py_norms.h py_norms.cpp
   py_reductions.h py_reductions.cpp
   py_tensor.h py_tensor.cpp
 )
@@ -357,45 +356,17 @@ if (MINIMAL_MODULE_BUILD)
     SET(LINK_TYPE create_symlink)
   endif()
 
-  install(CODE "
-    set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}$<TARGET_FILE_SUFFIX:${CPP_MODULE_NAME}>\")
-    set(TARGET_PATH \"${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>\")
-
-    message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
-
-    execute_process(
-      COMMAND \${CMAKE_COMMAND} -E ${LINK_TYPE}
-      \"\${TARGET_PATH}\"
-      \"\${LINK_PATH}\"
-    )
-  ")
-
-  install(CODE "
-    set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/py.typed\")
-    set(TARGET_PATH \"${PYTHON_SITE}/masspcf/py.typed\")
-
-    message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
-
-    execute_process(
-      COMMAND \${CMAKE_COMMAND} -E ${LINK_TYPE}
-      \"\${TARGET_PATH}\"
-      \"\${LINK_PATH}\"
-    )
-  ")
-
-  install(CODE "
-    set(LINK_PATH \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf/${CPP_MODULE_NAME}.pyi\")
-    set(TARGET_PATH \"${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi\")
-
-    message(STATUS \"Creating symlink: \${LINK_PATH} -> \${TARGET_PATH}\")
-
-    execute_process(
-      COMMAND \${CMAKE_COMMAND} -E ${LINK_TYPE}
-      \"\${TARGET_PATH}\"
-      \"\${LINK_PATH}\"
-    )
-  ")
-
+  add_custom_command(
+    TARGET ${CPP_MODULE_NAME}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>"
+    "${PYTHON_SITE}/masspcf/py.typed"
+    "${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi"
+    "${CMAKE_CURRENT_SOURCE_DIR}/masspcf/"
+    COMMENT "Syncing ${CPP_MODULE_NAME} to source-local directory"
+    VERBATIM
+  )
 
   # Optional: Clean the symlink when running 'make clean'
   #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")

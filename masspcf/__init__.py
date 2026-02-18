@@ -14,7 +14,7 @@
 
 
 from .pcf import Pcf, average
-from .norms import l1_norm, l2_norm, lp_norm, linfinity_norm
+from .norms import lp_norm
 from .typing import float32, float64
 from .tensor import FloatTensor, DoubleTensor, Pcf32Tensor, Pcf64Tensor, TShape, zerosT, zeros
 from .reductions import mean

@@ -26,37 +26,44 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.coverage',
               'sphinx.ext.napoleon',
               'sphinx.ext.imgmath',
-              'sphinxcontrib.youtube',
-              'breathe',
-              'exhale']
+              'sphinxcontrib.youtube',]
+              #'breathe',
+              #'exhale']
 
-breathe_projects = {
-    "masspcf_internals": "./_build_doxygen/xml"
-}
+gen_cpp_docs = False
 
-breathe_default_project = "masspcf_internals"
+if gen_cpp_docs:
 
-import textwrap
+    extensions.append('breathe')
+    extensions.append('exhale')
 
-exhale_args = {
-    # These arguments are required
-    "containmentFolder":     "./_build_cpp_api",
-    "rootFileName":          "library_root.rst",
-    "doxygenStripFromPath":  "..",
-    # Heavily encouraged optional argument (see docs)
-    "rootFileTitle":         "masspcf C++ API reference",
-    # Suggested optional arguments
-    "createTreeView":        True,
-    # TIP: if using the sphinx-bootstrap-theme, you need
-    # "treeViewIsBootstrap": True,
-    "exhaleExecutesDoxygen": True,
-    "exhaleDoxygenStdin":    "INPUT = ../include",
-    "exhaleDoxygenStdin": textwrap.dedent('''
-        INPUT      = ../include
-    '''),
+    breathe_projects = {
+        "masspcf_internals": "./_build_doxygen/xml"
+    }
+
+    breathe_default_project = "masspcf_internals"
+
+    import textwrap
+
+    exhale_args = {
+        # These arguments are required
+        "containmentFolder":     "./_build_cpp_api",
+        "rootFileName":          "library_root.rst",
+        "doxygenStripFromPath":  "..",
+        # Heavily encouraged optional argument (see docs)
+        "rootFileTitle":         "masspcf C++ API reference",
+        # Suggested optional arguments
+        "createTreeView":        True,
+        # TIP: if using the sphinx-bootstrap-theme, you need
+        # "treeViewIsBootstrap": True,
+        "exhaleExecutesDoxygen": True,
+        "exhaleDoxygenStdin":    "INPUT = ../include",
+        "exhaleDoxygenStdin": textwrap.dedent('''
+            INPUT      = ../include
+        '''),
 
 
-}
+    }
 
 
 templates_path = ['_templates']
@@ -77,7 +84,6 @@ import os
 import sys
 import platform
 import shutil
-import subprocess
 from glob import glob
 
 is_windows = platform.system() == "Windows"
@@ -92,7 +98,6 @@ shutil.rmtree(temp_mod_dir, ignore_errors=True)
 os.makedirs(os.path.join(temp_mod_dir, 'masspcf'))
 
 masspcf_temp_dir = os.path.join(os.path.abspath('modules'), 'masspcf')
-
 
 files = glob(os.path.abspath('../masspcf/*'))
 for file in files:
@@ -110,21 +115,4 @@ for file in files:
 cpp_src = os.path.abspath('./mpcf_cpp')
 cpp_dest = os.path.join(masspcf_temp_dir, 'mpcf_cpp')
 
-if False:
-    if is_windows:
-        # Use copytree for directories; dirs_exist_ok=True prevents errors if it exists
-        shutil.copytree(cpp_src, cpp_dest, dirs_exist_ok=True)
-    else:
-        os.symlink(cpp_src, cpp_dest)
-
 sys.path.insert(0, temp_mod_dir)
-
-if False:
-    # Doxygen for C++ docs
-
-    try:
-        retcode = subprocess.call("doxygen Doxyfile.in", shell=True)
-        if retcode != 0:
-            raise RuntimeError(f"Doxygen failed with retcode {retcode}")
-    except OSError as e:
-        raise OSError(f"Doxygen execution failed: {e}")

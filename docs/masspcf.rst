@@ -1,18 +1,10 @@
 masspcf Python API reference
 ============================
 
-array
---------------------
+tensor
+------------------
 
-.. automodule:: masspcf.array
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-matrix\_computations
------------------------------------
-
-.. automodule:: masspcf.matrix_computations
+.. automodule:: masspcf.tensor
    :members:
    :undoc-members:
    :show-inheritance:
@@ -21,6 +13,14 @@ pcf
 ------------------
 
 .. automodule:: masspcf.pcf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+norms
+------------------
+
+.. automodule:: masspcf.norms
    :members:
    :undoc-members:
    :show-inheritance:

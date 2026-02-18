@@ -19,17 +19,54 @@
 
 #include "../pcf.h"
 #include "../executor.h"
+#include "../tensor.h"
+#include "../task.h"
 
 #include <vector>
 #include <functional>
 #include <iterator>
 #include <limits>
 
+#include <iostream>
+
 #include <taskflow/algorithm/transform.hpp>
 
 namespace mpcf
 {
 
+  template <IsTensor InTensor, IsTensor OutTensor, typename F>
+  class ApplyFunctional : public StoppableTask<void>
+  {
+  public:
+    ApplyFunctional(const InTensor& in, OutTensor& out, F functional)
+      : m_in(in), m_out(out), m_functional(functional)
+    { }
+
+  private:
+    tf::Future<void> run_async(Executor& exec) override
+    {
+      tf::Taskflow flow;
+      std::vector<tf::Task> tasks;
+
+      m_in.walk([this](const std::vector<std::size_t>& idx) {
+        m_out(idx) = m_functional(m_in(idx));
+      });
+
+      tasks.emplace_back(create_terminal_task(flow));
+      flow.linearize(tasks);
+      return exec.cpu()->run(std::move(flow));
+    }
+
+    const InTensor& m_in;
+    OutTensor& m_out;
+    F m_functional;
+  };
+
+  template <typename PcfT, typename F>
+  void parallel_apply_functional(Tensor<PcfT> tensor, F functional, std::function<void(size_t, size_t)> progressCb = [](size_t n){}, mpcf::Executor& exec = mpcf::default_executor())
+  {
+
+  }
 
   template <typename ForwardPcfIt, typename OutputIt, typename F>
   inline void apply_functional(ForwardPcfIt begin, ForwardPcfIt end, OutputIt beginOut, F functional, mpcf::Executor& exec = mpcf::default_executor())

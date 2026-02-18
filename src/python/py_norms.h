@@ -12,27 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MASSPCF_PY_ASYNC_SUPPORT_H
-#define MASSPCF_PY_ASYNC_SUPPORT_H
+#ifndef MASSPCF_PY_NORMS_H
+#define MASSPCF_PY_NORMS_H
 
-#include <mpcf/task.h>
-#include <memory>
-#include <utility>
+#include <pybind11/pybind11.h>
 
 namespace mpcf_py
 {
-  template <typename TaskT, typename... Args>
-  [[nodiscard]] std::unique_ptr<TaskT> execute_stoppable_task(Args&&... args)
-  {
-    auto task = std::make_unique<TaskT>(std::forward<Args>(args)...);
-    task->start_async(mpcf::default_executor());
-    return task;
-  }
-
-  [[nodiscard]] inline std::unique_ptr<mpcf::EmptyTask<void>> execute_empty_task()
-  {
-    return execute_stoppable_task<mpcf::EmptyTask<void>>();
-  }
+  void register_norms(pybind11::module_& m);
 }
 
-#endif //MASSPCF_PY_ASYNC_SUPPORT_H
+#endif //MASSPCF_PY_NORMS_H

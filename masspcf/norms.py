@@ -13,20 +13,21 @@
 #    limitations under the License.
 
 from . import mpcf_cpp as cpp
-from .pcf import _prepare_list, _get_backend, Pcf
-from .array import Array, View, Container, ContainerLike
+from .tensor import PcfContainerLike, TensorType, _to_tensor_pcf, _get_backend
 from .typing import float32, float64
+from .np_support import numpy_type
+from .async_task import _wait_for_task
 
 import numpy as np
-from tqdm import tqdm
 
-def _get_backend_norms(fs):
-    if fs.dtype == float32:
-        return cpp.ArrayNorms_f32_f32
-    else:
-        return cpp.ArrayNorms_f64_f64
 
-def lp_norm(fs : ContainerLike, p=2, verbose=False):
+def _get_norms_backend(fs) -> cpp.Norms_f32_f32 | cpp.Norms_f64_f64:
+    mapping = { (TensorType.PCF, float32): cpp.Norms_f32_f32,
+                (TensorType.PCF, float64): cpp.Norms_f64_f64 }
+
+    return _get_backend(fs, mapping)
+
+def lp_norm(fs : PcfContainerLike, p=1, verbose=False):
     r"""Computes the :math:`L_p` norm of each PCF in `fs`. For example, if `fs` is an :math:`m \times n` array with elements indexed as :math:`f_{ij}`, :math:`0 \leq i < m, 0 \leq j < n`, we compute
 
       .. math::
@@ -47,7 +48,7 @@ def lp_norm(fs : ContainerLike, p=2, verbose=False):
       fs : Container
           PCFs whose norms are to be computed.
       p : int, optional
-          :math:`p` parameter in the :math:`L_p` norm, by default 2
+          :math:`p` parameter in the :math:`L_p` norm, by default 1
       verbose : bool, optional
           Print additional information during the computation, by default False
 
@@ -57,35 +58,18 @@ def lp_norm(fs : ContainerLike, p=2, verbose=False):
         `numpy.ndarray` of the same shape as `fs` with :math:`L_p` norms of the input functions.
       """
 
-    if isinstance(fs, Container):
-        out = np.zeros(fs.shape, fs.dtype)
-        backend = _get_backend_norms(fs)
+    X = _to_tensor_pcf(fs)
 
-        backend.lp_norm(fs._get_data(), out, p)
+    backend = _get_norms_backend(fs)
+    out = np.zeros(X.shape, dtype=numpy_type(X))
 
+    task = None
+    try:
+        task = backend.lpnorm_l1(out, X._data)
+        _wait_for_task(task, verbose=verbose)
         return out
+    finally:
+        if task is not None:
+            task.request_stop()
+            _wait_for_task(task, verbose=verbose)
 
-    elif isinstance(fs, list):
-
-        if len(fs) == 0:
-            return np.zeros((0,0))
-
-        fsdata, backend = _prepare_list(fs)
-
-        out = np.zeros((len(fs),))
-        backend.list_l1_norm(out, fsdata)
-
-        return out
-
-    elif isinstance(fs, Pcf):
-        backend = _get_backend(fs)
-        return backend.single_l1_norm(fs.data_)
-
-def l1_norm(fs : list[Pcf]):
-    return lp_norm(fs, 1)
-
-def l2_norm(fs : list[Pcf]):
-    return lp_norm(fs, 2)
-
-def linfinity_norm(fs : list[Pcf]):
-    return lp_norm(fs,  float('inf'))
