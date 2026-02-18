@@ -15,7 +15,6 @@
 */
 
 #include <mpcf/random.h>
-#include "pyarray.h"
 
 #include <pybind11/pybind11.h>
 

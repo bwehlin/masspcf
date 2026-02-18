@@ -15,7 +15,6 @@
 */
 
 #include "pyarray_norms.h"
-#include "pyarray.h"
 #include "algorithms/array_functional.h"
 #include "algorithms/apply_functional.h"
 

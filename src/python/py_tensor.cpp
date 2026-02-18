@@ -19,8 +19,6 @@
 #include <mpcf/tensor.h>
 #include <mpcf/pcf.h>
 
-#include "pyarray.h"
-
 #include <sstream>
 
 #include <pybind11/stl.h>
