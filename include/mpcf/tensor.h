@@ -98,6 +98,7 @@ namespace mpcf
     bool operator!=(const Tensor<U>& rhs) const;
 
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
+    [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
     [[nodiscard]] size_t rank() const noexcept { return m_shape.size(); }
@@ -226,5 +227,7 @@ namespace mpcf
 }
 
 #include "tensor.tpp"
+
+#include "detail/tensor_1d_value_iterator.h"
 
 #endif //MASSPCF_TENSOR_H

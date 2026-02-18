@@ -18,6 +18,25 @@
 
 #include <mpcf/tensor.h>
 
+static_assert(std::random_access_iterator<mpcf::Tensor1dValueIterator<mpcf::Tensor<double>>>);
+
+TEST(TensorIteration, Iterate1dValues)
+{
+  mpcf::Tensor<int> x({3});
+  x(0) = 1;
+  x(1) = 2;
+  x(2) = 3;
+
+  auto begin = mpcf::begin1dValues(x);
+  auto end = mpcf::end1dValues(x);
+
+  EXPECT_EQ(*begin, 1);
+  EXPECT_EQ(*(begin + 1), 2);
+  EXPECT_EQ(*(begin + 2), 3);
+
+  EXPECT_EQ(begin + 3, end);
+}
+
 TEST(TensorIteration, AxisIteration)
 {
   mpcf::Tensor<int> x{{3, 3}};
