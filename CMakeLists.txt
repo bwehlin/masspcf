@@ -105,7 +105,7 @@ if (WIN32)
   endif()
 endif()
 
-find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
+find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Module Interpreter)
 
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -176,10 +176,10 @@ SET(MPCF_PY_SOURCES
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
 
-pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+#pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 
 #if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  #python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
+python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
   #add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 #  pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 #else()
@@ -198,7 +198,7 @@ set(MPCF_PUBLIC_INCLUDES "include/")
 target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
 target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
-target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers Python::Module)
+target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
 target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (MSVC)
