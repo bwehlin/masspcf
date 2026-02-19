@@ -36,7 +36,8 @@ jobs:
           CIBW_ARCHS_MACOS: "native"
           CIBW_ARCHS_LINUX: "native"
           CIBW_ARCHS_WINDOWS: "native"
-          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=10.13
+          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_BEFORE_BUILD_LINUX: "yum install -y gcc-toolset-15-toolchain && source scl_source enable gcc-toolset-15"
       
       - uses: actions/upload-artifact@v4
         with: 
