@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-13, macos-14]
+        os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2019, macos-14]
     
     env: 
       BUILD_WITH_CUDA: 0
@@ -37,7 +37,8 @@ jobs:
           CIBW_ARCHS_LINUX: "native"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
-          CIBW_BEFORE_BUILD_LINUX: "yum install -y gcc-toolset-15-toolchain && source scl_source enable gcc-toolset-15"
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
+          CIBW_BEFORE_BUILD_LINUX: "dnf install -y gcc gcc-c++"
       
       - uses: actions/upload-artifact@v4
         with: 
