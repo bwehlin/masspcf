@@ -38,7 +38,6 @@ jobs:
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
-          CIBW_BEFORE_BUILD_LINUX: "dnf install -y gcc gcc-c++"
       
       - uses: actions/upload-artifact@v4
         with: 
