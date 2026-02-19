@@ -16,6 +16,7 @@
 #define MASSPCF_IO_STREAM_H
 
 #include <iosfwd>
+#include <cstddef>
 
 namespace mpcf
 {
