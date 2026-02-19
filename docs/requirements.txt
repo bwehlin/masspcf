@@ -3,6 +3,7 @@ numpy
 tqdm
 matplotlib
 sphinxcontrib-youtube
+nbsphinx
 breathe
 exhale
 pybind11-stubgen

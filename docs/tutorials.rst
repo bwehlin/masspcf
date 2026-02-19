@@ -8,3 +8,9 @@ This notebook is described in the following video tutorial from the `Applied Alg
 .. youtube :: 3pTJH3T9G74
 
 (Note: masspcf is not affiliated with Applied Algebraic Topology Research Network.)
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+
+   tutorial_notebooks/masspcf_intro_mnist_vis
