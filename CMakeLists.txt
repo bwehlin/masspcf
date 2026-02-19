@@ -65,7 +65,7 @@ endif()
 
 # Get the version from pyproject.toml
 execute_process(
-        COMMAND python3 -c "import tomllib; print(tomllib.load(open('${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml', 'rb'))['project']['version'])"
+        COMMAND python3 -c "import tomli; print(tomli.load(open('${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml', 'rb'))['project']['version'])"
         OUTPUT_VARIABLE PROJ_VERSION
         OUTPUT_STRIP_TRAILING_WHITESPACE
 )
