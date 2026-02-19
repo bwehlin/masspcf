@@ -133,6 +133,7 @@ SET(MPCF_HEADER_FILES
   tensor_to_string.h
   special_tensors.h
   executor.h
+  io_stream.h
   algorithm.h
   algorithms/iterate_rectangles.h
   algorithms/reduce.h
@@ -143,7 +144,8 @@ SET(MPCF_HEADER_FILES
   block_matrix_support.cuh)
 
 SET(MPCF_SRC_FILES
-  executor.cpp)
+  executor.cpp
+  io_stream.cpp)
 
 list(TRANSFORM MPCF_HEADER_FILES PREPEND "include/mpcf/")
 list(TRANSFORM MPCF_SRC_FILES PREPEND "src/")
@@ -164,6 +166,7 @@ SET(MPCF_PY_SOURCES
   py_norms.h py_norms.cpp
   py_reductions.h py_reductions.cpp
   py_tensor.h py_tensor.cpp
+  py_io.h py_io.cpp
 )
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
@@ -246,7 +249,8 @@ if (BUILD_TESTER)
     test/test_norms.cu
     test/test_parallel_reduce.cpp
     test/test_tensor_iteration.cpp
-    test/test_special_tensors.cpp)
+    test/test_special_tensors.cpp
+    test/test_io_stream.cpp)
 
   target_include_directories(mpcf_test PRIVATE "include/")
 
