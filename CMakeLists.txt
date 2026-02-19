@@ -100,11 +100,10 @@ if (WIN32)
   endif()
 endif()
 
-find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Module Interpreter)
+find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
 
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-
 
 add_subdirectory(3rd/pybind11)
 
@@ -172,11 +171,17 @@ SET(MPCF_PY_SOURCES
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
 
-if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
-else()
-  python_add_library(${CPP_MODULE_NAME} SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-endif()
+pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+
+#if (SKBUILD OR MINIMAL_MODULE_BUILD)
+  #python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
+  #add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+#  pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+#else()
+  #python_add_library(${CPP_MODULE_NAME} SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+  #add_library(${CPP_MODULE_NAME} SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+#  pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+#endif()
 
 if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
@@ -188,7 +193,7 @@ set(MPCF_PUBLIC_INCLUDES "include/")
 target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
 target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
-target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
+target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers Python::Module)
 target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
 
 if (MSVC)
@@ -254,7 +259,7 @@ if (BUILD_TESTER)
 
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  python_add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES})
+  add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES})
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
