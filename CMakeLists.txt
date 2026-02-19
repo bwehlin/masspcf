@@ -323,16 +323,16 @@ endif()
 
 cmake_policy(SET CMP0177 NEW) # Normalize paths
 
-add_custom_command(
-        TARGET ${CPP_MODULE_NAME} POST_BUILD
-        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
-        --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
-        COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
-)
+#add_custom_command(
+#        TARGET ${CPP_MODULE_NAME} POST_BUILD
+#        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
+#        --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
+#        COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
+#)
 
-set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
-set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
+#set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
+#set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
+#file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
 
 if (MINIMAL_MODULE_BUILD)
   message(STATUS "Python Executable: ${Python_EXECUTABLE}")
@@ -391,8 +391,8 @@ else()
 endif()
 
 install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
-install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
+#install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
+#install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
 
 message(STATUS "!!! Stub file: ${STUB_FILE}")
 message(STATUS "!!! Install target: ${INSTALL_TARGET}")
