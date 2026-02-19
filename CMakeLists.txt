@@ -34,7 +34,12 @@ else()
   set(BUILD_WITH_CUDA OFF)
 endif()
 
-set(BUILD_TESTER ON)
+if (SKBUILD)
+  set(BUILD_TESTER OFF)
+else()
+  set(BUILD_TESTER ON)
+endif()
+
 set(BUILD_BENCHMARKS OFF)
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
