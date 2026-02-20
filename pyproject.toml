@@ -46,3 +46,6 @@ archs = ["x86_64", "universal2", "arm64"]
 # On an Linux we build on separate x86_64 and ARM runners, so use auto here
 [tool.cibuildwheel.linux]
 archs = ["auto"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64", "ARM64"]
