@@ -80,10 +80,7 @@ string(SUBSTRING "${TOML_CONTENT}" ${PROJECT_SECTION_START} -1 PROJECT_BODY)
 # 3. Extract the version string
 if(PROJECT_BODY MATCHES [[version[ \t]*=[ \t]*"([^"]+)"]])
   set(PROJ_VERSION "${CMAKE_MATCH_1}")
-  message(STATUS "Extracted Version: ${PROJ_VERSION}")
 endif()
-
-message(STATUS "!!! Detected version ${PROJ_VERSION} from pyproject.toml")
 
 project(${PROJ_NAME} VERSION ${PROJ_VERSION} LANGUAGES CXX ${LANG_CUDA})
 

@@ -12,18 +12,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import zipfile, os, glob, subprocess
+print('!!!!!!!!!! Printing wheel contents !!!!!!!!!!')
 
-wheel_dir=os.environ['CIBW_REPAIRED_WHEEL_DIR']
-project_name=os.environ['CIBW_PROJECT_NAME']
+import os
+import masspcf
+import importlib.util
 
-whl_files=glob.glob(os.path.join(wheel_dir, f'{project_name}-*.whl'))
-whl_path=whl_files[0]
+# Fallback for compiled modules with no __file__
+pkg_path = getattr(masspcf, "__file__", None)
+if pkg_path is None:
+    spec = importlib.util.find_spec("masspcf")
+    pkg_path = spec.origin if spec and spec.origin else None
 
-print(f'Contents of {whl_path}:')
-
-zf=zipfile.ZipFile(whl_path,'r')
-
-[print(f) for f in zf.namelist()]
-
-zf.close()
+if pkg_path is None:
+    print("Cannot determine installed package path for masspcf")
+else:
+    pkg_dir = os.path.dirname(pkg_path)
+    print(f"Contents of installed package masspcf at {pkg_dir}:")
+    for dp, dn, filenames in os.walk(pkg_dir):
+        for f in filenames:
+            print(os.path.join(dp, f))
