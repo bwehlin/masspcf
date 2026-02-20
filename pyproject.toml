@@ -33,5 +33,13 @@ test-sources = ["test"]
 test-requires = "pytest"
 #test-command = "python -m pytest ./test"
 test-command = """
+python -c "import zipfile, os, glob; \
+wheel_dir=os.environ['CIBW_REPAIRED_WHEEL_DIR']; \
+project_name=os.environ['CIBW_PROJECT_NAME']; \
+whl_files=glob.glob(os.path.join(wheel_dir, f'{project_name}-*.whl')); \
+whl_path=whl_files[0]; \
+print(f'Contents of {whl_path}:'); \
+with zipfile.ZipFile(whl_path, 'r') as zf: \
+    [print(f) for f in zf.namelist()]"
 python -m pytest ./test
 """
