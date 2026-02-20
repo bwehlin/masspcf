@@ -32,7 +32,6 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_SKIP: "*musl*"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
 
