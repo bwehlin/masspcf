@@ -111,7 +111,7 @@ if (WIN32)
   endif()
 endif()
 
-find_package(Python 3.10 REQUIRED COMPONENTS Development.Embed Development.Module Interpreter)
+find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
 
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -184,8 +184,11 @@ list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
 #pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 
+pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+
+
 #if (SKBUILD OR MINIMAL_MODULE_BUILD)
-python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
+#python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
   #add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 #  pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 #else()
@@ -311,9 +314,6 @@ else()
   #target_compile_options(${CPP_MODULE_NAME} PRIVATE -Wall -Wextra)
   set( CMAKE_CXX_FLAGS "-Wall -Wextra" )
 endif()
-
-
-
 
 if (BUILD_WITH_CUDA)
 
