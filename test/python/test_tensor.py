@@ -4,10 +4,6 @@ import masspcf._mpcf_cpp as mcpp
 
 import numpy as np
 
-def test_asdf():
-    import masspcf, os; [print(os.path.join(dp, f)) for dp, dn, filenames in os.walk(os.path.dirname(masspcf.__file__)) for f in filenames]
-    assert False
-
 def test_shape_dunder():
     shp = mpcf.TShape((2, 3, 5))
 
