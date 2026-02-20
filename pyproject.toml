@@ -27,3 +27,6 @@ dependencies = [ "numpy>=2.0", "tqdm" ]
 [project.urls]
 Homepage = "https://github.com/bwehlin/masspcf"
 Issues = "https://github.com/bwehlin/masspcf/issues"
+
+[tool.cibuildwheel]
+test-command = "python -m pytest {project}/test"
