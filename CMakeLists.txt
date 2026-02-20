@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.19)
 
 include(FetchContent)
 
@@ -68,14 +68,20 @@ else()
   set(PROJ_NAME massivepcf)
 endif()
 
-# Get the version from pyproject.toml
-execute_process(
-        COMMAND python3 -c "import tomli; print(tomli.load(open('${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml', 'rb'))['project']['version'])"
-        OUTPUT_VARIABLE PROJ_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+# Read version info out of pyproject.toml
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml" TOML_CONTENT)
 
-#set(PROJ_VERSION "0.4.0")
+# 1. Find the [project] section
+string(FIND "${TOML_CONTENT}" "[project]" PROJECT_SECTION_START)
+
+# 2. Slice the string from [project] onwards to avoid [build-system] versions
+string(SUBSTRING "${TOML_CONTENT}" ${PROJECT_SECTION_START} -1 PROJECT_BODY)
+
+# 3. Extract the version string
+if(PROJECT_BODY MATCHES [[version[ \t]*=[ \t]*"([^"]+)"]])
+  set(PROJ_VERSION "${CMAKE_MATCH_1}")
+  message(STATUS "Extracted Version: ${PROJ_VERSION}")
+endif()
 
 message(STATUS "!!! Detected version ${PROJ_VERSION} from pyproject.toml")
 
