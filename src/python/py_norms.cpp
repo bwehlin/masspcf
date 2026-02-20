@@ -33,7 +33,7 @@ namespace
 
 
   template <typename Tt, typename Tv>
-  class PyBindings
+  class PyNormsBindings
   {
   public:
     using PcfT = mpcf::Pcf<Tt, Tv>;
@@ -52,10 +52,10 @@ namespace
 
     static void register_bindings(py::handle m, const std::string& suffix)
     {
-      py::class_<PyBindings> cls(m, ("Norms" + suffix).c_str());
+      py::class_<PyNormsBindings> cls(m, ("Norms" + suffix).c_str());
 
       cls
-          .def_static("lpnorm_l1", &PyBindings::lpnorm_l1)
+          .def_static("lpnorm_l1", &PyNormsBindings::lpnorm_l1)
       ;
 
     }
@@ -68,8 +68,8 @@ namespace mpcf_py
 
   void register_norms(py::module_& m)
   {
-    PyBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyBindings<double, double>::register_bindings(m, "_f64_f64");
+    PyNormsBindings<float, float>::register_bindings(m, "_f32_f32");
+    PyNormsBindings<double, double>::register_bindings(m, "_f64_f64");
   }
 
 }

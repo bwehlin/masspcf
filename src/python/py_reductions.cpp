@@ -27,7 +27,7 @@ namespace py = pybind11;
 namespace
 {
   template <typename Tt, typename Tv>
-  class PyBindings
+  class PyReductionsBindings
   {
   public:
     using pcf_type = mpcf::Pcf<Tt, Tv>;
@@ -40,10 +40,10 @@ namespace
 
     static void register_bindings(py::handle m, const std::string& suffix)
     {
-      py::class_<PyBindings> cls(m, ("Reductions" + suffix).c_str());
+      py::class_<PyReductionsBindings> cls(m, ("Reductions" + suffix).c_str());
 
       cls
-          .def_static("mean", &PyBindings::mean)
+          .def_static("mean", &PyReductionsBindings::mean)
           ;
 
     }
@@ -56,8 +56,8 @@ namespace mpcf_py
 
   void register_reductions(py::module_& m)
   {
-    PyBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyBindings<double, double>::register_bindings(m, "_f64_f64");
+    PyReductionsBindings<float, float>::register_bindings(m, "_f32_f32");
+    PyReductionsBindings<double, double>::register_bindings(m, "_f64_f64");
   }
 
 }
