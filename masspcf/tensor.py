@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import mpcf_cpp as cpp
+from . import _mpcf_cpp as cpp
 from .typing import float32, float64
 from .pcf import Pcf
 

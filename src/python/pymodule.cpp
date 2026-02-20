@@ -349,7 +349,7 @@ namespace
 
 }
 
-PYBIND11_MODULE(mpcf_cpp, m) {
+PYBIND11_MODULE(_mpcf_cpp, m) {
   PyBindings<float, float>::register_bindings(m, "_f32_f32");
   PyBindings<double, double>::register_bindings(m, "_f64_f64");
   

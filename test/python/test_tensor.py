@@ -1,6 +1,6 @@
 import pytest
 import masspcf as mpcf
-import masspcf.mpcf_cpp as mcpp
+import masspcf._mpcf_cpp as mcpp
 
 import numpy as np
 

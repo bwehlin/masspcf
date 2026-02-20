@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import mpcf_cpp as cpp
+from . import _mpcf_cpp as cpp
 from .tensor import PcfContainerLike, TensorType, _to_tensor_pcf, _get_backend
 from .typing import float32, float64
 from .np_support import numpy_type

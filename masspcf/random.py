@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import mpcf_cpp as cpp
+from . import _mpcf_cpp as cpp
 from .pcf import Pcf, tPcf_f32_f32, tPcf_f64_f64
 from .array import zeros
 

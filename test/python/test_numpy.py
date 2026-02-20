@@ -1,5 +1,5 @@
 import masspcf as mpcf
-import masspcf.mpcf_cpp as cpp
+import masspcf._mpcf_cpp as cpp
 import numpy as np
 
 def test_np_to_pcf_has_correct_type():

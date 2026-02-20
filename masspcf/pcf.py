@@ -15,7 +15,7 @@
 from typing import Union
 import numpy as np
 
-from . import mpcf_cpp as cpp
+from . import _mpcf_cpp as cpp
 from .typing import float32, float64
 
 __all__ = ['Pcf']

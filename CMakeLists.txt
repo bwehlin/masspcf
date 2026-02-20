@@ -95,7 +95,7 @@ endif()
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
-set(CPP_MODULE_NAME "mpcf_cpp")
+set(CPP_MODULE_NAME "_mpcf_cpp")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -376,17 +376,19 @@ if (MINIMAL_MODULE_BUILD)
     SET(LINK_TYPE create_symlink)
   endif()
 
-  add_custom_command(
-    TARGET ${CPP_MODULE_NAME}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>"
-    "${PYTHON_SITE}/masspcf/py.typed"
-    "${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi"
-    "${CMAKE_CURRENT_SOURCE_DIR}/masspcf/"
-    COMMENT "Syncing ${CPP_MODULE_NAME} to source-local directory"
-    VERBATIM
-  )
+  if(0)
+    add_custom_command(
+      TARGET ${CPP_MODULE_NAME}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>"
+      "${PYTHON_SITE}/masspcf/py.typed"
+      "${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi"
+      "${CMAKE_CURRENT_SOURCE_DIR}/masspcf/"
+      COMMENT "Syncing ${CPP_MODULE_NAME} to source-local directory"
+      VERBATIM
+    )
+  endif()
 
   # Optional: Clean the symlink when running 'make clean'
   #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
