@@ -18,17 +18,24 @@ import os
 import masspcf
 import importlib.util
 
-# Fallback for compiled modules with no __file__
-pkg_path = getattr(masspcf, "__file__", None)
-if pkg_path is None:
-    spec = importlib.util.find_spec("masspcf")
-    pkg_path = spec.origin if spec and spec.origin else None
+def list_package(pkg):
 
-if pkg_path is None:
-    print("Cannot determine installed package path for masspcf")
-else:
-    pkg_dir = os.path.dirname(pkg_path)
-    print(f"Contents of installed package masspcf at {pkg_dir}:")
-    for dp, dn, filenames in os.walk(pkg_dir):
-        for f in filenames:
-            print(os.path.join(dp, f))
+    # Fallback for compiled modules with no __file__
+    pkg_path = getattr(masspcf, "__file__", None)
+    if pkg_path is None:
+        spec = importlib.util.find_spec(pkg)
+        pkg_path = spec.origin if spec and spec.origin else None
+
+    if pkg_path is None:
+        print(f"Cannot determine installed package path for {pkg}")
+    else:
+        pkg_dir = os.path.dirname(pkg_path)
+        print(f"Contents of installed package masspcf at {pkg_dir}:")
+        for dp, dn, filenames in os.walk(pkg_dir):
+            for f in filenames:
+                print(os.path.join(dp, f))
+
+list_package('masspcf')
+list_package('masspcf_cpu')
+list_package('_mpcf_cpp')
+list_package('masspcf-cpu')
