@@ -33,9 +33,6 @@ jobs:
         env:
           CIBW_BUILD_VERBOSITY: 1
           CIBW_SKIP: "*musl*"
-          CIBW_ARCHS_MACOS: "native"
-          CIBW_ARCHS_LINUX: "native"
-          CIBW_ARCHS_WINDOWS: "native"
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
 
