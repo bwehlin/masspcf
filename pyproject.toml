@@ -33,24 +33,15 @@ test-sources = ["test"]
 test-requires = "pytest"
 #test-command = "python -m pytest ./test"
 test-command = """
-python - <<EOF
-import zipfile
-import os
-import glob
-import subprocess
-
-wheel_dir = os.environ['CIBW_REPAIRED_WHEEL_DIR']
-project_name = os.environ['CIBW_PROJECT_NAME']
-
-whl_files = glob.glob(os.path.join(wheel_dir, f"{project_name}-*.whl"))
-whl_path = whl_files[0]
-
-print(f"Contents of {whl_path}:")
-with zipfile.ZipFile(whl_path, 'r') as zf:
-    for f in zf.namelist():
-        print(f)
-
-# Run tests on copied tests folder
-#subprocess.check_call(["pytest", "./test"]) #python -m pytest ./test
-EOF
+python -c "import zipfile, os, glob, subprocess; \
+wheel_dir=os.environ['CIBW_REPAIRED_WHEEL_DIR']; \
+project_name=os.environ['CIBW_PROJECT_NAME']; \
+whl_files=glob.glob(os.path.join(wheel_dir, f'{project_name}-*.whl')); \
+whl_path=whl_files[0]; \
+print(f'Contents of {whl_path}:'); \
+zf=zipfile.ZipFile(whl_path,'r'); \
+[print(f) for f in zf.namelist()]; \
+zf.close();
 """
+
+#python -m pytest ./test
