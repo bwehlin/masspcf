@@ -7,9 +7,10 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
+    # windows-2025
     strategy:
       matrix:
-        os: [windows-2025] #[ubuntu-22.04] #, windows-2019, macos-14] #ubuntu-22.04-arm
+        os: [macos-14] #[ubuntu-22.04] #, windows-2019, macos-14] #ubuntu-22.04-arm
     
     env: 
       BUILD_WITH_CUDA: 0
