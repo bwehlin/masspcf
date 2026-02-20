@@ -34,7 +34,9 @@ test-command = """
 python ./test/print_wheel_contents.py && python -m pytest ./test
 """
 # Skip 32-bit builds
-skip = ["*-win32", "*-manylinux_i686"]
+skip = ["*-win32", "*-manylinux_i686",
+    "cp*t-win_arm64" # Seems like t Python is missing on Win Arm atm
+]
 
 # Build `universal2` and `arm64` wheels on an Intel runner.
 # Note that the `arm64` wheel and the `arm64` part of the `universal2`
