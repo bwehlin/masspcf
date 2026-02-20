@@ -39,6 +39,7 @@ jobs:
           CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
           CIBW_TEST_COMMAND: "python -m pytest ./test"
+          CIBW_TEST_REQUIRES: "pytest"
 
       - uses: actions/upload-artifact@v4
         with: 
