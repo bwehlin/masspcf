@@ -15,25 +15,29 @@
 print('!!!!!!!!!! Printing wheel contents !!!!!!!!!!')
 
 import os
-import masspcf
-import importlib.util
+import sys
+import glob
 
-def list_package(pkg):
+def list_package(pkgname):
 
-    # Fallback for compiled modules with no __file__
-    pkg_path = getattr(masspcf, "__file__", None)
-    if pkg_path is None:
-        spec = importlib.util.find_spec(pkg)
-        pkg_path = spec.origin if spec and spec.origin else None
+    site_packages_dirs = [p for p in sys.path if os.path.isdir(p) and "site-packages" in p]
 
-    if pkg_path is None:
-        print(f"Cannot determine installed package path for {pkg}")
-    else:
-        pkg_dir = os.path.dirname(pkg_path)
-        print(f"Contents of installed package masspcf at {pkg_dir}:")
-        for dp, dn, filenames in os.walk(pkg_dir):
-            for f in filenames:
-                print(os.path.join(dp, f))
+    found = False
+    for sp in site_packages_dirs:
+        pkg_candidates = glob.glob(os.path.join(sp, f"{pkgname}*"))
+        for pkg in pkg_candidates:
+            print(f"Contents of installed package/module at {pkg}:")
+            if os.path.isdir(pkg):
+                for dp, dn, filenames in os.walk(pkg):
+                    for f in filenames:
+                        print(os.path.join(dp, f))
+            else:
+                # Compiled extension (pyd/so)
+                print(pkg)
+            found = True
+
+    if not found:
+        print("Cannot find masspcf in site-packages")
 
 list_package('masspcf')
 list_package('masspcf_cpu')
