@@ -33,7 +33,7 @@ namespace
 
 
   template <typename Tt, typename Tv>
-  class PyBindings
+  class PyDistanceBindings
   {
   public:
     using PcfT = mpcf::Pcf<Tt, Tv>;
@@ -81,10 +81,10 @@ namespace
 
     static void register_bindings(py::handle m, const std::string& suffix)
     {
-      py::class_<PyBindings> cls(m, ("Distance" + suffix).c_str());
+      py::class_<PyDistanceBindings> cls(m, ("Distance" + suffix).c_str());
 
       cls
-          .def_static("pdist_l1", &PyBindings::pdist_l1)
+          .def_static("pdist_l1", &PyDistanceBindings::pdist_l1)
       ;
 
     }
@@ -97,8 +97,8 @@ namespace mpcf_py
 
   void register_distance(py::module_& m)
   {
-    PyBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyBindings<double, double>::register_bindings(m, "_f64_f64");
+    PyDistanceBindings<float, float>::register_bindings(m, "_f32_f32");
+    PyDistanceBindings<double, double>::register_bindings(m, "_f64_f64");
   }
 
 }
