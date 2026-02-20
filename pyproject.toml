@@ -33,6 +33,5 @@ test-sources = ["test"]
 test-requires = "pytest"
 #test-command = "python -m pytest ./test"
 test-command = """
-python -c "import masspcf, os; [print(os.path.join(dp, f)) for dp, dn, filenames in os.walk(os.path.dirname(masspcf.__file__)) for f in filenames]"
 python -m pytest ./test
 """
