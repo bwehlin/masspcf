@@ -399,6 +399,15 @@ install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 #install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
 #install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
 
+if (SKBUILD)
+  # Install Python source files alongside compiled module
+  install(
+          DIRECTORY masspcf/
+          DESTINATION ${INSTALL_TARGET}
+          FILES_MATCHING PATTERN "*.py"
+  )
+endif()
+
 message(STATUS "!!! Stub file: ${STUB_FILE}")
 message(STATUS "!!! Install target: ${INSTALL_TARGET}")
 
