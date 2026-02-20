@@ -89,8 +89,8 @@ namespace mpcf_py
 
       for (auto i = start; i < stop; ++i)
       {
-        auto t = get_element(content, { i, 0 });
-        auto v = get_element(content, { i, 1 });
+        auto t = get_element(content, { static_cast<py::ssize_t>(i), static_cast<py::ssize_t>(0) });
+        auto v = get_element(content, { static_cast<py::ssize_t>(i), static_cast<py::ssize_t>(1) });
         pts.emplace_back(t, v);
       }
 
