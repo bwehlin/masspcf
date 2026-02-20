@@ -405,6 +405,7 @@ if (SKBUILD)
           DIRECTORY masspcf/
           DESTINATION ${INSTALL_TARGET}
           FILES_MATCHING PATTERN "*.py"
+          PATTERN "__pycache__" EXCLUDE
   )
 endif()
 

@@ -31,9 +31,7 @@ Issues = "https://github.com/bwehlin/masspcf/issues"
 [tool.cibuildwheel]
 test-sources = ["test"]
 test-requires = "pytest"
-#test-command = "python -m pytest ./test"
 test-command = """
-python ./test/print_wheel_contents.py
-python -m pytest ./test
+python ./test/print_wheel_contents.py && python -m pytest ./test
 """
 
