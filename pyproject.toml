@@ -3,7 +3,6 @@ requires = [
     'scikit-build-core>=0.9',
     'numpy>=2.0',
     'pybind11_stubgen',
-    'tomli',
 ]
 build-backend = "scikit_build_core.build"
 
@@ -48,4 +47,4 @@ archs = ["x86_64", "universal2", "arm64"]
 archs = ["auto"]
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64", "ARM64"]
+archs = ["AMD64"]
