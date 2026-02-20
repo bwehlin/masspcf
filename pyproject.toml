@@ -29,5 +29,6 @@ Homepage = "https://github.com/bwehlin/masspcf"
 Issues = "https://github.com/bwehlin/masspcf/issues"
 
 [tool.cibuildwheel]
+test-sources = ["test"]
 test-requires = "pytest"
-test-command = "python -m pytest {project_root}/test"
+test-command = "python -m pytest ./test"
