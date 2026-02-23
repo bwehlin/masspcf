@@ -4,7 +4,7 @@ import masspcf as mpcf
 import numpy as np
 
 def test_tensor2d_flatten():
-    X = mpcf.zerosT((2, 3))
+    X = mpcf.zeros((2, 3), dtype=mpcf.f32)
     
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
@@ -12,7 +12,7 @@ def test_tensor2d_flatten():
 
     Y = X.flatten()
 
-    assert Y.shape == mpcf.TShape((6,))
+    assert Y.shape == mpcf.Shape((6,))
 
     assert Y[0] == X[0, 0]
     assert Y[1] == X[0, 1]

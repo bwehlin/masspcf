@@ -16,9 +16,7 @@ from typing import Union
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .typing import float32, float64
-
-__all__ = ['Pcf']
+from .typing import float32, float64, pcf32, pcf64, f32, f64, _validate_dtype, _check_deprecated_dtype
 
 class Pcf:
   """
@@ -36,8 +34,15 @@ class Pcf:
 
     elif isinstance(arr, np.ndarray):
       if dtype is not None:
-          if arr.dtype != dtype:
-              arr = arr.astype(dtype)
+        dtype = _check_deprecated_dtype(dtype)
+
+        if dtype == pcf32:
+          dtype = np.float32
+        elif dtype == pcf64:
+          dtype = np.float64
+
+        if arr.dtype != dtype:
+          arr = arr.astype(dtype)
 
       if arr.dtype == np.float32:
         self._data = cpp.Pcf_f32_f32(arr)
@@ -127,10 +132,10 @@ class Pcf:
     return f'<PCF size={self._data.size()}, dtype={dtname}>'
 
   def __array__(self):
-    return np.array(self._data)
+    return np.asarray(self._data)
 
   def __eq__(self, other):
-    return np.array_equal(np.array(self), np.array(other))
+    return np.array_equal(self.__array__(), np.asarray(other))
 
 
 tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))

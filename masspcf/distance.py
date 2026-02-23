@@ -13,16 +13,16 @@
 #    limitations under the License.
 
 from . import _mpcf_cpp as cpp
-from .tensor import PcfContainerLike, _to_tensor_pcf, _get_backend, TensorType
-from .typing import float32, float64
+from .tensor import PcfContainerLike, _to_tensor_pcf, _get_backend
+from .typing import pcf32, pcf64
 from .np_support import numpy_type
 from .async_task import _wait_for_task
 
 import numpy as np
 
 def _get_distance_backend(fs) -> cpp.Distance_f32_f32 | cpp.Distance_f64_f64:
-    mapping = { (TensorType.PCF, float32): cpp.Distance_f32_f32,
-                (TensorType.PCF, float64): cpp.Distance_f64_f64 }
+    mapping = { pcf32: cpp.Distance_f32_f32,
+                pcf64: cpp.Distance_f64_f64 }
 
     return _get_backend(fs, mapping)
 

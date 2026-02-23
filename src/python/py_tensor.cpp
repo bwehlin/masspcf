@@ -28,24 +28,24 @@ namespace py = pybind11;
 namespace
 {
 
-  class TShape
+  class Shape
   {
   public:
     std::vector<size_t> data;
 
-    TShape(std::vector<size_t>&& shape)
+    Shape(std::vector<size_t>&& shape)
       : data(std::move(shape))
     { }
 
-    TShape(const std::vector<size_t>& shape)
+    Shape(const std::vector<size_t>& shape)
       : data(shape)
     { }
 
-    TShape(size_t sz) // 1d shape
+    Shape(size_t sz) // 1d shape
       : data({sz})
     { }
 
-    [[nodiscard]] bool operator==(const TShape& rhs) const
+    [[nodiscard]] bool operator==(const Shape& rhs) const
     {
       return data == rhs.data;
     }
@@ -88,28 +88,28 @@ namespace
 
   void register_common_bindings(py::module_& m)
   {
-    py::class_<TShape>(m, "TShape")
+    py::class_<Shape>(m, "Shape")
       .def(py::init<std::vector<size_t>>())
-      .def(py::init<>([](size_t n){ return TShape{std::vector<size_t>{n}}; })) // 1d construction (Python recognizes (n) as "parenthesis int parenthesis" rather than a tuple of ints)
+      .def(py::init<>([](size_t n){ return Shape{std::vector<size_t>{n}}; })) // 1d construction (Python recognizes (n) as "parenthesis int parenthesis" rather than a tuple of ints)
 
-      //.def("__eq__", &TShape::dunder_eq)
+      //.def("__eq__", &Shape::dunder_eq)
 
-      .def("__eq__", [](const TShape& self, const TShape& other) {
+      .def("__eq__", [](const Shape& self, const Shape& other) {
         return self.data == other.data;
       })
 
-      .def("__eq__", [](const TShape& self, const std::vector<size_t>& other) {
+      .def("__eq__", [](const Shape& self, const std::vector<size_t>& other) {
         return self.data == other;
       })
 
-      .def("__eq__", [](const TShape& self, size_t sz) {
-        return self.data == TShape(sz);
+      .def("__eq__", [](const Shape& self, size_t sz) {
+        return self.data == Shape(sz);
       })
 
-      .def("__getitem__", &TShape::dunder_getitem)
-      .def("__len__", &TShape::dunder_len)
-      .def("__repr__", &TShape::dunder_repr)
-      .def("__str__", &TShape::dunder_str)
+      .def("__getitem__", &Shape::dunder_getitem)
+      .def("__len__", &Shape::dunder_len)
+      .def("__repr__", &Shape::dunder_repr)
+      .def("__str__", &Shape::dunder_str)
     ;
 
     py::class_<mpcf::SliceAll>(m, "SliceAll");
@@ -187,17 +187,17 @@ namespace
     }();
 
     cls
-      .def(py::init([](const TShape& shape)
+      .def(py::init([](const Shape& shape)
         {
           return TTensor(shape.data);
         }))
 
-      .def(py::init([](const TShape& shape, const T& init)
+      .def(py::init([](const Shape& shape, const T& init)
         {
           return TTensor(shape.data, init);
         }))
 
-      .def_property_readonly("shape", [](const TTensor& self){ return TShape{self.shape()}; })
+      .def_property_readonly("shape", [](const TTensor& self){ return Shape{self.shape()}; })
       .def_property_readonly("strides", [](const TTensor& self){ return self.strides(); })
       .def_property_readonly("offset", [](const TTensor& self){ return self.offset(); })
 

@@ -14,7 +14,7 @@
 
 from . import _mpcf_cpp as cpp
 from .tensor import Pcf32Tensor, Pcf64Tensor
-from .typing import float32, float64
+from .typing import pcf32, pcf64, _check_deprecated_dtype, _assert_valid_dtype
 
 import numpy as np
 
@@ -37,17 +37,25 @@ def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = 
     """
 
     if dtype is None:
-        dtype = content.dtype
+        if content.dtype == np.float32:
+            dtype = pcf32
+        elif content.dtype == np.float64:
+            dtype = pcf64
+        else:
+            raise TypeError('content must have dtype either np.float32 or np.float64.')
 
-    if dtype == float32 and content.dtype != np.float32:
+    print(f'DTYPE {dtype}')
+    _check_deprecated_dtype(dtype)
+
+    if dtype == pcf32 and content.dtype != np.float32:
         content = content.astype(np.float32)
-    elif dtype == float64 and content.dtype != np.float64:
+    elif dtype == pcf64 and content.dtype != np.float64:
         content = content.astype(np.float64)
 
-    if dtype == float32:
-        return Pcf32Tensor(cpp.make_from_serial_content_32(content, enumeration))
-    elif dtype == float64:
-        return Pcf64Tensor(cpp.make_from_serial_content_64(content, enumeration))
+    _assert_valid_dtype(dtype, [pcf32, pcf64])
 
-    raise TypeError('Only float32 and float64 dtypes are supported.')
+    if dtype == pcf32:
+        return Pcf32Tensor(cpp.make_from_serial_content_32(content, enumeration))
+    elif dtype == pcf64:
+        return Pcf64Tensor(cpp.make_from_serial_content_64(content, enumeration))
 

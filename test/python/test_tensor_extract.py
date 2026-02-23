@@ -6,7 +6,7 @@ import numpy as np
 from utils import np_strides_in_items, print_np_array_details
 
 def test_extract_element():
-    X = mpcf.zerosT((2, 3))
+    X = mpcf.zeros((2, 3), dtype=mpcf.f64)
 
     print(X.strides)
 
@@ -17,14 +17,14 @@ def test_extract_element():
     assert X[0, 1] == 2.0
 
 def test_extract_element1d():
-    X = mpcf.zerosT((2))
+    X = mpcf.zeros((2), dtype=mpcf.f64)
     X[1] = 2.0
 
     assert X[0] == 0.0
     assert X[1] == 2.0
 
 def test_extract_subtensor():
-    X = mpcf.zerosT((3, 4, 5))
+    X = mpcf.zeros((3, 4, 5), dtype=mpcf.f64)
 
     for i in range(3):
         for j in range(4):
@@ -33,7 +33,7 @@ def test_extract_subtensor():
 
     Y = X[:, 1:3, 2:4]
 
-    assert Y.shape == mpcf.TShape((3, 2, 2))
+    assert Y.shape == mpcf.Shape((3, 2, 2))
 
     assert Y[0, 0, 0] == X[0, 1, 2]
     assert Y[0, 0, 1] == X[0, 1, 3]
@@ -55,7 +55,7 @@ def test_extract_subtensor():
 
     
 def test_extract1d_with_step():
-    X = mpcf.zerosT((6))
+    X = mpcf.zeros((6), dtype=mpcf.f64)
 
     for i in range(X.shape[0]):
         X[i] = i
@@ -71,7 +71,7 @@ def test_extract1d_with_step():
     assert Y[2] == 4
 
 def test_extract_with_step():
-    X = mpcf.zerosT((3, 9, 2))
+    X = mpcf.zeros((3, 9, 2), dtype=mpcf.f64)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
@@ -126,7 +126,7 @@ def test_extract_with_step():
     assert Y[2, 3, 1] == X[2, 6, 1]
 
 def test_extract_with_offsets():
-    X = mpcf.zerosT((7, 9, 5))
+    X = mpcf.zeros((7, 9, 5), dtype=mpcf.f64)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
@@ -135,15 +135,15 @@ def test_extract_with_offsets():
         
     Y = X[1::3, 3:7:2, 2:5] # start:stop:step
 
-    assert Y.shape == mpcf.TShape((2, 2, 3))
+    assert Y.shape == mpcf.Shape((2, 2, 3))
     assert Y.strides == [135, 10, 1]
     assert Y.offset == 62
 
     assert Y[1, 1, 0] == X[4, 5, 2]
 
 def test_recursive_extract():
-    X = mpcf.zerosT((9, 8, 7, 6))
-    Xnp = np.zeros((9, 8, 7, 6))
+    X = mpcf.zeros((9, 8, 7, 6), dtype=mpcf.f64)
+    Xnp = np.zeros((9, 8, 7, 6), dtype=mpcf.f64)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):

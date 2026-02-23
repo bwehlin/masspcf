@@ -73,13 +73,13 @@ def test_fsc_dtypes():
     enumeration = np.array([[0, 3], [3, 5]])
 
     X32 = mpcf.from_serial_content(content32, enumeration)
-    assert X32.dtype == mpcf.float32
+    assert X32.dtype == mpcf.pcf32
 
     X64 = mpcf.from_serial_content(content64, enumeration)
-    assert X64.dtype == mpcf.float64
+    assert X64.dtype == mpcf.pcf64
 
-    X32_64 = mpcf.from_serial_content(content32, enumeration, dtype=mpcf.float64)
-    assert X32_64.dtype == mpcf.float64
+    X32_64 = mpcf.from_serial_content(content32, enumeration, dtype=mpcf.pcf64)
+    assert X32_64.dtype == mpcf.pcf64
 
-    X64_32 = mpcf.from_serial_content(content32, enumeration, dtype=mpcf.float32)
-    assert X64_32.dtype == mpcf.float32
+    X64_32 = mpcf.from_serial_content(content32, enumeration, dtype=mpcf.pcf32)
+    assert X64_32.dtype == mpcf.pcf32

@@ -5,3 +5,4 @@
 ## Breaking changes
 
 * `Pcf`s can now be constructed from `numpy.array`s only of size `n x 2` (used to support also `2 x n`). This is to avoid ambiguities with `2x2` arrays.
+* The `dtype`s `mpcf.float32` and `mpcf.float64` have been replaced by `mpcf.pcf32` and `mpcf.pcf64`, respectively. Users that rely on the old `dtype`s may see deprecation warnings, and the `dtype`s may be removed in a future release. This change is to support tensors of different types, including numeric types (see `mpcf.f32` and `mpcf.f64`). 

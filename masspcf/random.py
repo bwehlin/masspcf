@@ -13,20 +13,19 @@
 #    limitations under the License.
 
 from . import _mpcf_cpp as cpp
-from .pcf import Pcf, tPcf_f32_f32, tPcf_f64_f64
 from .tensor import zeros
 
-from . import typing as dt
+from .typing import pcf32, pcf64, _validate_dtype
 
 def _get_backend(dtype):
-    if dtype == dt.float32:
-        return cpp.Random_f32_f32
-    elif dtype == dt.float64:
-        return cpp.Random_f64_f64
-    else:
-        raise TypeError('Invalid dtype (only float32 and float64 are supported).')
+    dtype = _validate_dtype(dtype, [pcf32, pcf64])
 
-def noisy_sin(shape, n_points=20, dtype=dt.float32):
+    if dtype == pcf32:
+        return cpp.Random_f32_f32
+    elif dtype == pcf64:
+        return cpp.Random_f64_f64
+
+def noisy_sin(shape, n_points=20, dtype=pcf32):
     backend = _get_backend(dtype)
 
     A = zeros(shape, dtype=dtype)
@@ -34,7 +33,7 @@ def noisy_sin(shape, n_points=20, dtype=dt.float32):
 
     return A
 
-def noisy_cos(shape, n_points=20, dtype=dt.float32):
+def noisy_cos(shape, n_points=20, dtype=pcf32):
     backend = _get_backend(dtype)
 
     A = zeros(shape, dtype=dtype)

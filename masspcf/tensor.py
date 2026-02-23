@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 from . import _mpcf_cpp as cpp
-from .typing import float32, float64
+from .typing import pcf32, pcf64, f32, f64, _check_deprecated_dtype, _assert_valid_dtype, _validate_dtype
 from .pcf import Pcf
 
 from abc import ABC, abstractmethod
@@ -22,17 +22,9 @@ import numpy as np
 
 from enum import Enum
 
-#class Tensor:
-#    def __init__(self):
-#        pass
+Shape = cpp.Shape
 
-TShape = cpp.TShape
-
-TShapeLike = Union[TShape, tuple[int, ...]]
-
-class TensorType(Enum):
-    PCF = 1
-    NUMERIC = 2
+ShapeLike = Union[Shape, tuple[int, ...]]
 
 def _pyslice_to_slice(s):
     if isinstance(s, int):
@@ -84,7 +76,7 @@ class Tensor(ABC):
         raise NotImplementedError()
 
     @property
-    def shape(self) -> TShape:
+    def shape(self) -> Shape:
         return self._data.shape
     
     @property
@@ -98,7 +90,6 @@ class Tensor(ABC):
 class NumericTensor(Tensor):
     def __init__(self):
         super().__init__()
-        self._type = TensorType.NUMERIC
     
     def _decay_value(self, val):
         return val
@@ -113,7 +104,7 @@ class FloatTensor(NumericTensor):
     def __init__(self, data : cpp.FloatTensor):
         super().__init__()
         self._data = data
-        self.dtype = float32
+        self.dtype = f32
     
     def _getitem(self, slices):
         return FloatTensor(self._data[slices])
@@ -125,7 +116,7 @@ class DoubleTensor(NumericTensor):
     def __init__(self, data : cpp.DoubleTensor):
         super().__init__()
         self._data = data
-        self.dtype = float64
+        self.dtype = f64
     
     def _getitem(self, slices):
         return DoubleTensor(self._data[slices])
@@ -136,7 +127,6 @@ class DoubleTensor(NumericTensor):
 class PcfTensor(Tensor):
     def __init__(self):
         super().__init__()
-        self._type = TensorType.PCF
     
     def _decay_value(self, val):
         return val._data
@@ -148,7 +138,7 @@ class Pcf32Tensor(PcfTensor):
     def __init__(self, data : cpp.Pcf32Tensor):
         super().__init__()
         self._data = data
-        self.dtype = float32
+        self.dtype = pcf32
     
     def _getitem(self, slices):
         return Pcf32Tensor(self._data[slices])
@@ -160,7 +150,7 @@ class Pcf64Tensor(PcfTensor):
     def __init__(self, data : cpp.Pcf64Tensor):
         super().__init__()
         self._data = data
-        self.dtype = float64
+        self.dtype = pcf64
     
     def _getitem(self, slices):
         return Pcf64Tensor(self._data[slices])
@@ -168,40 +158,22 @@ class Pcf64Tensor(PcfTensor):
     def flatten(self):
         return Pcf64Tensor(self._data.flatten())
 
-def zeros(shape : TShapeLike, dtype=float32, type=TensorType.PCF):
-    if not isinstance(shape, TShape):
-        shape = TShape(shape) # If passed as, e.g., tuple of ints
+def zeros(shape : ShapeLike, dtype=pcf32):
+    if not isinstance(shape, Shape):
+        shape = Shape(shape) # If passed as, e.g., tuple of ints
 
-    if dtype == float32:
-        match type:
-            case TensorType.PCF:
-                return Pcf32Tensor(cpp.Pcf32Tensor(shape))
-            case TensorType.NUMERIC:
-                return FloatTensor(cpp.FloatTensor(shape, 0.0))
-            case _:
-                raise ValueError("Unknown type for this dtype")
-            
-    elif dtype == float64:
-        match type:
-            case TensorType.PCF:
-                return Pcf64Tensor(cpp.Pcf64Tensor(shape))
-            case TensorType.NUMERIC:
-                return FloatTensor(cpp.DoubleTensor(shape, 0.0))
-            case _:
-                raise ValueError("Unknown type for this dtype")
-    else:
-        raise TypeError("Only float32/float64 are supported for dtype.")
+    _check_deprecated_dtype(dtype)
+    _assert_valid_dtype(dtype, [pcf32, pcf64, f32, f64])
 
-def zerosT(shape : TShapeLike, dtype=float64):
-    if not isinstance(shape, TShape):
-        shape = TShape(shape) # If passed as, e.g., tuple of ints
-
-    if dtype == float32:
-        return FloatTensor(cpp.FloatTensor(shape, 0.0))
-    elif dtype == float64:
+    if dtype == pcf32:
+        return Pcf32Tensor(cpp.Pcf32Tensor(shape))
+    elif dtype == pcf64:
+        return Pcf64Tensor(cpp.Pcf64Tensor(shape))
+    elif dtype == f32:
+        return FloatTensor(cpp.DoubleTensor(shape, 0.0))
+    elif dtype == f64:
         return DoubleTensor(cpp.DoubleTensor(shape, 0.0))
-    else:
-        raise TypeError("Only float32/float64 are supported for dtype.")
+
 
 PcfContainerLike = Union[Tensor, list[Pcf], Pcf]
 
@@ -215,7 +187,9 @@ def _to_tensor_pcf(fs : PcfContainerLike):
 
 def _get_backend(fs : PcfContainerLike, backendMapping : dict):
     if isinstance(fs, Tensor):
-        backend = backendMapping.get(( fs._type, fs.dtype ))
+        _validate_dtype(fs.dtype, backendMapping.keys())
+
+        backend = backendMapping.get(fs.dtype)
         if backend is None:
             raise ValueError(f'Operation not supported for tensors of this type ({fs._type} with dtype {fs.dtype})')
         return backend

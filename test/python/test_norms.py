@@ -3,7 +3,7 @@ import numpy as np
 import numpy.testing as npt
 
 def get_test_data():
-    X = mpcf.zeros((2,3), dtype=mpcf.float64)
+    X = mpcf.zeros((2,3), dtype=mpcf.pcf64)
 
     X[0, 0] = mpcf.Pcf(np.array([[0., 10.], [2., 5.], [4., 0.]]))
     X[0, 1] = mpcf.Pcf(np.array([[0., 5.], [3., 6.], [5., 5.], [8., 0.]]))
