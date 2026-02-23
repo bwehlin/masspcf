@@ -17,6 +17,9 @@
 #include <mpcf/random.h>
 
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
+#include "py_np_support.h"
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -25,36 +28,39 @@ namespace py = pybind11;
 
 namespace
 {
-#if 0
+
   template <typename Tt, typename Tv>
-  class RandomBindings
+  class PyRandomBindings
   {
   public:
-    static void noisy_sin(mpcf_py::NdArray<Tt, Tv>& out, size_t nPoints)
+    using PcfT = mpcf::Pcf<Tt, Tv>;
+    using TensorT = mpcf::Tensor<PcfT>;
+
+    static void noisy_sin(TensorT& out, size_t nPoints)
     {
-      mpcf::noisy_function(out.data(), nPoints, [](Tv t) { return sin(2. * M_PI * t); });
+      mpcf::noisy_function(out, nPoints, [](Tv t) { return sin(2. * M_PI * t); });
     }
 
-    static void noisy_cos(mpcf_py::NdArray<Tt, Tv>& out, size_t nPoints)
+    static void noisy_cos(TensorT& out, size_t nPoints)
     {
-      mpcf::noisy_function(out.data(), nPoints, [](Tv t) { return cos(2. * M_PI * t); });
+      mpcf::noisy_function(out, nPoints, [](Tv t) { return cos(2. * M_PI * t); });
+    }
+
+    static void register_bindings(py::handle m, const std::string& suffix)
+    {
+      py::class_<PyRandomBindings> cls(m, ("Random" + suffix).c_str());
+
+      cls
+          .def_static("noisy_sin", &PyRandomBindings::noisy_sin)
+          .def_static("noisy_cos", &PyRandomBindings::noisy_cos)
+          ;
     }
   };
 
-  template <typename Tt, typename Tv>
-  void register_types_random_bindings(py::handle m, const std::string& suffix)
-  {
-    using bindings = RandomBindings<Tt, Tv>;
-
-    py::class_<bindings>(m, ("Random" + suffix).c_str())
-      .def_static("noisy_sin", &bindings::noisy_sin)
-      .def_static("noisy_cos", &bindings::noisy_cos);
-  }
-#endif
 }
 
 void register_random_bindings(py::handle m)
 {
-  //register_types_random_bindings<float, float>(m, "_f32_f32");
-  //register_types_random_bindings<double, double>(m, "_f64_f64");
+  PyRandomBindings<float, float>::register_bindings(m, "_f32_f32");
+  PyRandomBindings<double, double>::register_bindings(m, "_f64_f64");
 }

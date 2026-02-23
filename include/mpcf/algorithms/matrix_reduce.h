@@ -152,10 +152,6 @@ namespace mpcf
   }
 
   template <typename PcfT, typename UnaryF, typename MaxOp>
-  /*Tensor<
-      std::decay_t<
-          decltype(std::declval<UnaryF>()(std::declval<PcfT>()))
-          >>*/
   auto max_element(const Tensor<PcfT>& in, size_t dim, UnaryF&& f, MaxOp&& maxOp, Executor& exec = default_executor())
   {
     using OutTensorT = Tensor<std::decay_t<

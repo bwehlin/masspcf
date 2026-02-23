@@ -146,7 +146,47 @@ namespace
   void register_typed_bindings(py::module_& m, const std::string& prefix, const std::string& suffix)
   {
     using TTensor = mpcf::Tensor<T>;
-    py::class_<TTensor>(m, (prefix + "Tensor" + suffix).c_str())
+
+    py::class_<TTensor> cls = [&m, &prefix, &suffix]
+    {
+      if constexpr (std::is_trivially_copyable_v<T>)
+      {
+        py::class_<TTensor> cls(m, (prefix + "Tensor" + suffix).c_str(), py::buffer_protocol());
+
+        cls.def_buffer([](const TTensor& self) -> py::buffer_info
+        {
+          if (!self.is_contiguous())
+          {
+            throw std::runtime_error("Noncontiguous tensor not supported.");
+          }
+
+          std::vector<py::ssize_t> shape(self.shape().size(), 0);
+          std::transform(self.shape().begin(), self.shape().end(), shape.begin(),
+              [](size_t v) { return static_cast<py::ssize_t>(v); });
+
+          std::vector<py::ssize_t> strides(self.strides().size(), 0);
+          std::transform(self.strides().begin(), self.strides().end(), strides.begin(),
+              [](size_t v) { return static_cast<py::ssize_t>(v); });
+
+          return py::buffer_info(
+              static_cast<void*>(self.data() + self.offset()),
+              sizeof(T),
+              py::format_descriptor<T>::format(),
+              self.rank(),
+              self.shape(),
+              self.strides()
+          );
+        });
+
+        return cls;
+      }
+      else
+      {
+        return py::class_<TTensor>(m, (prefix + "Tensor" + suffix).c_str());
+      }
+    }();
+
+    cls
       .def(py::init([](const TShape& shape)
         {
           return TTensor(shape.data);
@@ -165,6 +205,14 @@ namespace
           return self[slices];
         })
 
+      .def("__setitem__", [](const TTensor& self, const std::vector<mpcf::Slice>& slices, const TTensor& vals) {
+          self[slices].assign_from(vals);
+        })
+
+      .def("__eq__", [](const TTensor& self, const TTensor& rhs){
+          return self == rhs;
+        })
+
       .def("_get_element", [](const TTensor& self, const std::vector<size_t>& index) {
           assert_valid_index(self, index);
           return self(index);
@@ -179,6 +227,8 @@ namespace
           assert_valid_index(self, index);
           self(index) = val;
         })
+
+
 
 
 

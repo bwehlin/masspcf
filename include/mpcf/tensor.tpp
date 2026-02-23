@@ -107,6 +107,22 @@ namespace mpcf
   }
 
   template <typename T>
+  template <typename U>
+  requires std::is_convertible_v<U, T>
+  void Tensor<T>::assign_from(const Tensor<U>& rhs)
+  {
+    if (shape() != rhs.shape())
+    {
+      throw std::runtime_error("Incommensurate shapes (tried to assign from a tensor of shape " + shape_to_string(rhs.shape()) + " to a tensor of shape " +
+          shape_to_string(shape()) + ")");
+    }
+
+    walk([this, &rhs](const std::vector<size_t>& idx){
+      (*this)(idx) = rhs(idx);
+    });
+  }
+
+  template <typename T>
   Tensor<T> Tensor<T>::flatten() const
   {
     if (!m_isContiguous)

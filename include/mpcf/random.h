@@ -51,7 +51,7 @@ namespace mpcf
       randomTs.front() = 0.;
 
       std::vector<PointT> pts;
-      pts.reserve(randomTs.size());
+      pts.resize(randomTs.size());
       for (auto i = 0_uz; i < randomTs.size(); ++i)
       {
         pts[i].t = randomTs[i];

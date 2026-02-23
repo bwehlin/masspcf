@@ -18,26 +18,26 @@ from .tensor import zeros
 
 from . import typing as dt
 
-def noisy_sin(shape, n_points=20, dtype=dt.float32):
-    backend = _get_random_class(dtype)
-
-    A = zeros(shape, dtype=dtype)
-    backend.noisy_sin(A.data, n_points)
-
-    return A
-
-def noisy_cos(shape, n_points=20, dtype=dt.float32):
-    backend = _get_random_class(dtype)
-
-    A = zeros(shape, dtype=dtype)
-    backend.noisy_cos(A.data, n_points)
-
-    return A
-
-def _get_random_class(dtype):
+def _get_backend(dtype):
     if dtype == dt.float32:
         return cpp.Random_f32_f32
     elif dtype == dt.float64:
         return cpp.Random_f64_f64
     else:
-        raise TypeError('Only float32 and float64 dtypes are supported.')
+        raise TypeError('Invalid dtype (only float32 and float64 are supported).')
+
+def noisy_sin(shape, n_points=20, dtype=dt.float32):
+    backend = _get_backend(dtype)
+
+    A = zeros(shape, dtype=dtype)
+    backend.noisy_sin(A._data, n_points)
+
+    return A
+
+def noisy_cos(shape, n_points=20, dtype=dt.float32):
+    backend = _get_backend(dtype)
+
+    A = zeros(shape, dtype=dtype)
+    backend.noisy_cos(A._data, n_points)
+
+    return A

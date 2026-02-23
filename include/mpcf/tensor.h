@@ -97,11 +97,17 @@ namespace mpcf
     template <typename U> requires std::equality_comparable_with<U, T>
     bool operator!=(const Tensor<U>& rhs) const;
 
+    template <typename U>
+    requires std::is_convertible_v<U, T>
+    void assign_from(const Tensor<U>& rhs);
+
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
     [[nodiscard]] size_t rank() const noexcept { return m_shape.size(); }
+
+    [[nodiscard]] bool is_contiguous() const noexcept { return m_isContiguous; }
 
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }
     [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }

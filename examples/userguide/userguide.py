@@ -35,6 +35,8 @@ Z[2:9:3, 1:, 2] # shape = (3,4), indices [2,5,8] x [1,...,4] x [2]
 
 ######
 
+print('Here')
+
 from masspcf.random import noisy_sin, noisy_cos
 
 M = 10 # Number of PCFs for each case
@@ -43,8 +45,11 @@ A = mpcf.zeros((2,M))
 # Generate 'M' noisy sin/cos functions @ 100 resp. 15 time points each.
 # Assign the sin(x) functions into the first row of 'A' and cos(x)
 # into the second row.
+print('1')
 A[0,:] = noisy_sin((M,), n_points=100)
+print('2')
 A[1,:] = noisy_cos((M,), n_points=15)
+print('3')
 
 fig, ax = plt.subplots(1, 1, figsize=(6,2))
 
@@ -52,6 +57,8 @@ fig, ax = plt.subplots(1, 1, figsize=(6,2))
 # masspcf can plot one-dimensional arrays (views) of PCFs in a single line
 plotpcf(A[0,:], ax=ax, color='b', linewidth=0.5, alpha=0.4)
 plotpcf(A[1,:], ax=ax, color='r', linewidth=0.5, alpha=0.4)
+
+plt.show()
 
 # Means across first axis of 'A'
 Aavg = mpcf.mean(A, dim=1)

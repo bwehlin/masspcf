@@ -59,8 +59,13 @@ class Tensor(ABC):
             self._data._set_element([slices], self._decay_value(val))
         elif all(isinstance(s, int) for s in slices):
             self._data._set_element(slices, self._decay_value(val))
+        # TODO: single slice
         else:
-            raise ValueError("Unimplemented.")
+            real_slices = [_pyslice_to_slice(s) for s in slices]
+            self._data[real_slices] = val._data # TODO: 32/64 conversion, to_tensor, etc.
+
+    def __eq__(self, rhs):
+        return self._data == rhs._data
 
     @abstractmethod
     def _decay_value(self, val):
@@ -100,6 +105,9 @@ class NumericTensor(Tensor):
 
     def _represent_element(self, element):
         return element
+
+    def __array__(self):
+        return np.array(self._data)
 
 class FloatTensor(NumericTensor):
     def __init__(self, data : cpp.FloatTensor):
