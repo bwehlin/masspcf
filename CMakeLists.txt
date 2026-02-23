@@ -360,7 +360,7 @@ if (NOT APPLE) # Some issue with OSX atm
 
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
-end()
+endif()
 
 if (SKBUILD)
   # Install Python source files alongside compiled module
