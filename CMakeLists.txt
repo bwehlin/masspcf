@@ -333,6 +333,8 @@ else()
   set(INSTALL_TARGET masspcf)
 endif()
 
+install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
+
 if (NOT APPLE) # Some issue with OSX atm
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
@@ -346,9 +348,6 @@ if (NOT APPLE) # Some issue with OSX atm
   set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
 
   install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
-
-
-  install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
