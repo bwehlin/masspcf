@@ -178,21 +178,7 @@ SET(MPCF_PY_SOURCES
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
-
-#pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-
 pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-
-
-#if (SKBUILD OR MINIMAL_MODULE_BUILD)
-#python_add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} WITH_SOABI)
-  #add_library(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-#  pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-#else()
-  #python_add_library(${CPP_MODULE_NAME} SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-  #add_library(${CPP_MODULE_NAME} SHARED ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-#  pybind11_add_module(${CPP_MODULE_NAME} ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
-#endif()
 
 if (BUILD_WITH_CUDA)
   SET(CUDA_SEPARABLE_COMPILATION ON)
@@ -326,33 +312,66 @@ endif()
 
 cmake_policy(SET CMP0177 NEW) # Normalize paths
 
-#add_custom_command(
-#        TARGET ${CPP_MODULE_NAME} POST_BUILD
-#        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
-#        --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
-#        COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
-#)
-
-#set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
-#set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
-#file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
-
 if (MINIMAL_MODULE_BUILD)
   message(STATUS "Python Executable: ${Python_EXECUTABLE}")
 
   execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "if True:
+      COMMAND "${Python_EXECUTABLE}" -c "if True:
       import sysconfig
       print(sysconfig.get_path('purelib'))"
-    OUTPUT_VARIABLE PYTHON_SITE_PRE
-    OUTPUT_STRIP_TRAILING_WHITESPACE
+      OUTPUT_VARIABLE PYTHON_SITE_PRE
+      OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 
   file(TO_CMAKE_PATH "${PYTHON_SITE_PRE}" PYTHON_SITE)
 
   SET(SITE_PKG_MASSPCF ${PYTHON_SITE}/masspcf)
+  set(INSTALL_TARGET ${SITE_PKG_MASSPCF})
 
   message(STATUS "Minimal module will be installed into ${SITE_PKG_MASSPCF}")
+else()
+  set(INSTALL_TARGET masspcf)
+endif()
+
+
+add_custom_command(
+        TARGET ${CPP_MODULE_NAME}
+        POST_BUILD
+        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
+        --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
+        COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
+)
+
+set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
+set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
+
+install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
+
+
+install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
+
+add_custom_command(
+        TARGET ${CPP_MODULE_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E touch
+        ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+        COMMENT "Creating py.typed"
+)
+
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
+
+if (SKBUILD)
+  # Install Python source files alongside compiled module
+  install(
+          DIRECTORY masspcf/
+          DESTINATION ${INSTALL_TARGET}
+          FILES_MATCHING PATTERN "*.py"
+          PATTERN "__pycache__" EXCLUDE
+  )
+
+elseif (MINIMAL_MODULE_BUILD)
+
 
   file(GLOB PY_PKG_FILES "masspcf/*.py")
   #message(STATUS ${PY_PKG_FILES})
@@ -364,7 +383,7 @@ if (MINIMAL_MODULE_BUILD)
     REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed$)" EXCLUDE
     )
 
-  set(INSTALL_TARGET ${SITE_PKG_MASSPCF})
+
 
   # Copy on Windows, symlink otherwise
   if (WIN32)
@@ -373,41 +392,47 @@ if (MINIMAL_MODULE_BUILD)
     SET(LINK_TYPE create_symlink)
   endif()
 
-  if(0)
-    add_custom_command(
-      TARGET ${CPP_MODULE_NAME}
-      POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${PYTHON_SITE}/masspcf/$<TARGET_FILE_NAME:${CPP_MODULE_NAME}>"
-      "${PYTHON_SITE}/masspcf/py.typed"
-      "${PYTHON_SITE}/masspcf/${CPP_MODULE_NAME}.pyi"
-      "${CMAKE_CURRENT_SOURCE_DIR}/masspcf/"
-      COMMENT "Syncing ${CPP_MODULE_NAME} to source-local directory"
-      VERBATIM
-    )
+  install(CODE "
+  message(STATUS \"Syncing built extension back to source directory\")
+
+  set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
+
+  # Extension file
+  set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
+  get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
+  set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
+
+  if(UNIX)
+    file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
+  else()
+    file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
   endif()
+
+  # Stub file
+  get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
+  set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+
+  if(UNIX)
+    file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+  else()
+    file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+  endif()
+
+  # py.typed (small file — copy everywhere)
+  file(COPY
+    \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
+    DESTINATION \"\${SRC_DIR}\")
+")
+
 
   # Optional: Clean the symlink when running 'make clean'
   #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
 
-
-else()
-  set(INSTALL_TARGET masspcf)
 endif()
 
-install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
-#install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
-#install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
 
-if (SKBUILD)
-  # Install Python source files alongside compiled module
-  install(
-          DIRECTORY masspcf/
-          DESTINATION ${INSTALL_TARGET}
-          FILES_MATCHING PATTERN "*.py"
-          PATTERN "__pycache__" EXCLUDE
-  )
-endif()
+
+
 
 message(STATUS "!!! Stub file: ${STUB_FILE}")
 message(STATUS "!!! Install target: ${INSTALL_TARGET}")
