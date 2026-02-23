@@ -17,7 +17,7 @@ from .pcf import Pcf, average
 from .norms import lp_norm
 from .typing import float32, float64
 from .tensor import FloatTensor, DoubleTensor, Pcf32Tensor, Pcf64Tensor, TShape, zerosT, zeros
-from .reductions import mean
+from .reductions import mean, max_time
 from .serialize import from_serial_content
 from .distance import pdist
 

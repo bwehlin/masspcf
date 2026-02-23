@@ -14,7 +14,7 @@
 
 from . import _mpcf_cpp as cpp
 from .pcf import Pcf, tPcf_f32_f32, tPcf_f64_f64
-from .array import zeros
+from .tensor import zeros
 
 from . import typing as dt
 

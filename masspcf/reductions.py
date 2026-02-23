@@ -40,7 +40,8 @@ def _to_tensor_or_pcf(outFs):
 
 def mean(fs : PcfContainerLike, dim : int=0):
     tensor, backend = _get_tensor_and_backend(fs)
-    print(tensor)
-    print(backend)
     return _to_tensor_or_pcf(backend.mean(tensor._data, dim))
 
+def max_time(fs : PcfContainerLike, dim : int=0):
+    tensor, backend = _get_tensor_and_backend(fs)
+    return _to_tensor_or_pcf(backend.max_time(tensor._data, dim))

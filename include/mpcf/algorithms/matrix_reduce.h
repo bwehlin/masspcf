@@ -150,6 +150,63 @@ namespace mpcf
 
     return ret;
   }
+
+  template <typename PcfT, typename UnaryF, typename MaxOp>
+  /*Tensor<
+      std::decay_t<
+          decltype(std::declval<UnaryF>()(std::declval<PcfT>()))
+          >>*/
+  auto max_element(const Tensor<PcfT>& in, size_t dim, UnaryF&& f, MaxOp&& maxOp, Executor& exec = default_executor())
+  {
+    using OutTensorT = Tensor<std::decay_t<
+        decltype(f(std::declval<PcfT>()))
+    >>;
+
+    using OutValueT = typename OutTensorT::value_type;
+
+    static_assert(std::invocable<MaxOp, OutValueT, OutValueT>);
+
+    auto shape = in.shape();
+
+    std::vector<size_t> inIdx(shape.size(), 0_uz);
+
+    auto inDimSize = shape[dim];
+
+    shape.erase(shape.begin() + dim);
+    if (shape.empty())
+    {
+      shape.resize(1, 1);
+    }
+    OutTensorT ret(shape);
+
+    //tf::Taskflow
+
+    ret.walk([&ret, &in, &inIdx, inDimSize, dim, &f, &maxOp](const std::vector<size_t>& idx){
+
+      std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
+      if (inIdx.size() > 1)
+      {
+        // MSVC debug does not like (inIdx.begin() + dim + 1) even if nothing is written there it seems.
+        std::copy(idx.begin() + dim, idx.end(), inIdx.begin() + dim + 1);
+      }
+
+      std::vector<PcfT> tmp; // TODO: Rewrite without need to copy
+      tmp.reserve(inDimSize);
+      for (auto i = 0_uz; i < inDimSize; ++i)
+      {
+        inIdx[dim] = i;
+        tmp.emplace_back( in(inIdx) );
+      }
+
+      auto & out = ret(idx);
+
+      auto init = f(*tmp.begin());
+      out =  std::transform_reduce(tmp.begin() + 1, tmp.end(), init, maxOp, f);
+
+    });
+
+    return ret;
+  }
 }
 
 #endif

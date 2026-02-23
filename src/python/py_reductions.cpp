@@ -21,6 +21,7 @@
 #include <mpcf/algorithms/matrix_reduce.h>
 
 #include <stdexcept>
+#include <algorithm>
 
 namespace py = pybind11;
 
@@ -38,12 +39,20 @@ namespace
       return mpcf::parallel_tensor_reduce(tensor, dim);
     }
 
+    static mpcf::Tensor<Tt> max_time(const tensor_type& tensor, size_t dim)
+    {
+      return mpcf::max_element(tensor, dim, [](const pcf_type& pcf){
+        return pcf.points().back().t;
+      }, [](Tt a, Tt b){ return std::max(a,b); });
+    }
+
     static void register_bindings(py::handle m, const std::string& suffix)
     {
       py::class_<PyReductionsBindings> cls(m, ("Reductions" + suffix).c_str());
 
       cls
           .def_static("mean", &PyReductionsBindings::mean)
+          .def_static("max_time", &PyReductionsBindings::max_time)
           ;
 
     }
