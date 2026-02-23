@@ -335,7 +335,7 @@ endif()
 
 install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
-if (NOT APPLE) # Some issue with OSX atm
+if (LINUX) # Maybe only works on Linux now?
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
           POST_BUILD
@@ -392,7 +392,7 @@ elseif (MINIMAL_MODULE_BUILD)
     SET(LINK_TYPE create_symlink)
   endif()
 
-  if (NOT APPLE)
+  if (LINUX)
     install(CODE "
     message(STATUS \"Syncing built extension back to source directory\")
 
