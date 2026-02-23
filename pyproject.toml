@@ -34,17 +34,19 @@ test-command = """
 python ./test/print_wheel_contents.py && python -m pytest ./test
 """
 # Skip 32-bit builds
-skip = ["*-win32", "*-manylinux_i686"]
+skip = ["*-win32", "*-manylinux_i686",
+    "cp*t-win_arm64" # Seems like t Python is missing on Win Arm atm
+]
 
 # Build `universal2` and `arm64` wheels on an Intel runner.
 # Note that the `arm64` wheel and the `arm64` part of the `universal2`
 # wheel cannot be tested in this configuration.
 [tool.cibuildwheel.macos]
-archs = ["x86_64", "universal2", "arm64"]
+archs = ["x86_64", "arm64"]
 
 # On an Linux we build on separate x86_64 and ARM runners, so use auto here
 [tool.cibuildwheel.linux]
 archs = ["auto"]
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
+archs = ["AMD64", "ARM64"]
