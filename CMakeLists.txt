@@ -333,33 +333,34 @@ else()
   set(INSTALL_TARGET masspcf)
 endif()
 
+if (NOT APPLE) # Some issue with OSX atm
+  add_custom_command(
+          TARGET ${CPP_MODULE_NAME}
+          POST_BUILD
+          COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
+          --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
+          COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
+  )
 
-add_custom_command(
-        TARGET ${CPP_MODULE_NAME}
-        POST_BUILD
-        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
-        --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
-        COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
-)
+  set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
+  set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
 
-set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
-set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
-
-install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
+  install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
 
 
-install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
+  install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
-add_custom_command(
-        TARGET ${CPP_MODULE_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E touch
-        ${CMAKE_CURRENT_BINARY_DIR}/py.typed
-        COMMENT "Creating py.typed"
-)
+  add_custom_command(
+          TARGET ${CPP_MODULE_NAME}
+          POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E touch
+          ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+          COMMENT "Creating py.typed"
+  )
 
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
+end()
 
 if (SKBUILD)
   # Install Python source files alongside compiled module
@@ -392,37 +393,39 @@ elseif (MINIMAL_MODULE_BUILD)
     SET(LINK_TYPE create_symlink)
   endif()
 
-  install(CODE "
-  message(STATUS \"Syncing built extension back to source directory\")
+  if (NOT APPLE)
+    install(CODE "
+    message(STATUS \"Syncing built extension back to source directory\")
 
-  set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
+    set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
 
-  # Extension file
-  set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
-  get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
-  set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
+    # Extension file
+    set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
+    get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
+    set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
 
-  if(UNIX)
-    file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
-  else()
-    file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
+    if(UNIX)
+      file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
+    else()
+      file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
+    endif()
+
+    # Stub file
+    get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
+    set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+
+    if(UNIX)
+      file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+    else()
+      file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+    endif()
+
+    # py.typed (small file — copy everywhere)
+    file(COPY
+      \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
+      DESTINATION \"\${SRC_DIR}\")
+    ")
   endif()
-
-  # Stub file
-  get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
-  set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
-
-  if(UNIX)
-    file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
-  else()
-    file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
-  endif()
-
-  # py.typed (small file — copy everywhere)
-  file(COPY
-    \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
-    DESTINATION \"\${SRC_DIR}\")
-")
 
 
   # Optional: Clean the symlink when running 'make clean'
