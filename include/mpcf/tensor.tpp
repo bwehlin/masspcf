@@ -210,7 +210,7 @@ namespace mpcf
     size_t i = 0;
     for (auto & slice : sliceVector)
     {
-      std::visit([i, &slice, &ret, &dimsToDrop, this](auto&& arg) {
+      std::visit([i, &slice, &ret, &dimsToDrop](auto&& arg) {
         using argT = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<argT, SliceIndex>)
         {
