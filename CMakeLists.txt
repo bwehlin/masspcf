@@ -230,20 +230,17 @@ if(ENABLE_COVERAGE)
   add_library(coverage_flags INTERFACE)
 
   target_compile_options(coverage_flags INTERFACE
-          -O0
-          -g
-          -fprofile-arcs
-          -ftest-coverage
-          )
+    -O0 -g
+    --coverage               # Shorthand for arcs/test-coverage
+    -fprofile-abs-path       # Essential for finding headers in GHA
+    -fno-inline
+    -fno-inline-small-functions
+    -fno-default-inline
+  )
 
+  target_link_options(coverage_flags INTERFACE --coverage)
   target_link_libraries(coverage_flags INTERFACE gcov)
 
-  # Avoid inlining & weird optimizer effects
-  target_compile_options(coverage_flags INTERFACE
-          -fno-inline
-          -fno-inline-small-functions
-          -fno-default-inline
-          )
 else()
   message(STATUS "!!! Coverage DISABLED !!!")
 endif()

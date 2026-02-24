@@ -51,8 +51,7 @@ jobs:
         run: |
           mkdir covreport
           cd covreport
-          gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/
-          gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html
+          gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html --print-summary
 
       - uses: actions/upload-artifact@v4
         with:
