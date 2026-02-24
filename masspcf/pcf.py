@@ -95,7 +95,7 @@ class Pcf:
     return self._get_time_type() + '_' + self._get_value_type()
 
   def to_numpy(self):
-    return np.array(self._data)
+    return np.asarray(self._data)
 
   def _debug_print(self):
     self._data.debugPrint()
