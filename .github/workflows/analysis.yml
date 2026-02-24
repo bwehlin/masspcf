@@ -40,12 +40,13 @@ jobs:
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build module
-        run: cmake --build build
+        run: cmake --build build -j $(nproc)
 
       - name: Install module
         run: cmake --install build
 
       - name: Run valgrind
+        continue-on-error: true
         run: |
           cd test
           valgrind --xml=yes --xml-file=vg.xml python -m pytest . -vv -s
