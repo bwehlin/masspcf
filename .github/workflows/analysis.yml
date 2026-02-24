@@ -53,7 +53,12 @@ jobs:
           cd covreport
           gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/
           gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html
-          
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: covreport/*
+          retention-days: 1
 
   memory_check:
     name: Memory check on ${{ matrix.os }}
