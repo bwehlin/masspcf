@@ -96,7 +96,7 @@ namespace mpcf
     bool wait_for(std::chrono::milliseconds duration)
     {
       std::unique_lock<std::mutex> lock(m_mutex);
-      return m_condition.wait_for(lock, duration, [this] { return m_done || m_future.valid(); });
+      return m_condition.wait_for(lock, duration, [this] { return m_done; });
     }
     
     void wait()
@@ -142,6 +142,11 @@ namespace mpcf
       });
     }
 
+    void set_done()
+    {
+      m_done = true;
+    }
+
   private:
     virtual tf::Future<RetT> run_async(mpcf::Executor& exec) = 0;
     
@@ -172,6 +177,7 @@ namespace mpcf
   private:
     tf::Future<RetT> run_async(mpcf::Executor& /*exec*/) override
     {
+      this->set_done();
       std::promise<RetT> p;
       if constexpr (std::is_same_v<RetT, void>)
       {
