@@ -96,7 +96,7 @@ namespace mpcf
     bool wait_for(std::chrono::milliseconds duration)
     {
       std::unique_lock<std::mutex> lock(m_mutex);
-      return m_condition.wait_for(lock, duration, [this] { return m_done; });
+      return m_condition.wait_for(lock, duration, [this] { return m_done || m_future.valid(); });
     }
     
     void wait()
@@ -170,13 +170,19 @@ namespace mpcf
   class EmptyTask : public StoppableTask<RetT>
   {
   private:
-    tf::Future<RetT> run_async(mpcf::Executor& exec) override
+    tf::Future<RetT> run_async(mpcf::Executor& /*exec*/) override
     {
-      tf::Taskflow flow;
-      std::vector<tf::Task> tasks;
-      tasks.emplace_back(this->create_terminal_task(flow));
-      flow.linearize(tasks);
-      return exec.cpu()->run(std::move(flow));
+      std::promise<RetT> p;
+      if constexpr (std::is_same_v<RetT, void>)
+      {
+        p.set_value();
+      }
+      else
+      {
+        p.set_value(RetT{});
+      }
+
+      return tf::Future<void>(p.get_future());
     }
   };
 }
