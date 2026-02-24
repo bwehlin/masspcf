@@ -278,6 +278,7 @@ if (BUILD_TESTER)
   if(ENABLE_COVERAGE)
     target_link_libraries(mpcf_nopy PRIVATE coverage_flags)
     target_link_libraries(mpcf_test PRIVATE coverage_flags)
+    target_link_libraries(${CPP_MODULE_NAME} PRIVATE coverage_flags)
   endif()
 
   if (WIN32)

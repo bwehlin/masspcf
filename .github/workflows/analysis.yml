@@ -3,6 +3,53 @@ name: Analysis
 on: [push, workflow_dispatch]
 
 jobs:
+  coverage_report:
+    name: Coverage report on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-24.04 ]
+
+    env:
+      BUILD_WITH_CUDA: 0
+      MINIMAL_MODULE_BUILD: 1
+      SKIP_STUBGEN: 1
+      SKIP_BACK_COPY: 1
+      ENABLE_COVERAGE: 1
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install numpy tqdm pytest gcovr # better way to do this?
+
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/cov_build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build module
+        run: cmake --build build -j $(nproc)
+
+      - name: Install module
+        run: cmake --install build
+
+      - name: Run test suites
+        run: |
+          python -m pytest ./test || true
+          ./build/mpcf_test || true
+          
+      - name: Create coverage report
+        run: |
+          mkdir covreport
+          cd covreport
+          gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/
+          gcovr -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html
+          
+
   memory_check:
     name: Memory check on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -68,3 +115,6 @@ jobs:
           name: valgrind-output
           path: test/reports/*
           retention-days: 1
+
+
+
