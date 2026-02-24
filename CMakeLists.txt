@@ -34,6 +34,12 @@ else()
   set(BUILD_WITH_CUDA OFF)
 endif()
 
+if((DEFINED ENV{SKIP_STUBGEN}) AND (NOT $ENV{SKIP_STUBGEN} MATCHES "0"))
+  set(SKIP_STUBGEN ON)
+else()
+  set(SKIP_STUBGEN OFF)
+endif()
+
 if (SKBUILD)
   set(BUILD_TESTER OFF)
 else()
@@ -336,7 +342,7 @@ endif()
 
 install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
-if (LINUX OR MINIMAL_MODULE_BUILD) # Stubgen does not seem happy on CI
+if (LINUX OR MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN)) # Stubgen does not seem happy on CI
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
           POST_BUILD
@@ -371,7 +377,7 @@ if (SKBUILD)
           PATTERN "__pycache__" EXCLUDE
   )
 
-elseif (MINIMAL_MODULE_BUILD)
+elseif (MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN))
 
 
   file(GLOB PY_PKG_FILES "masspcf/*.py")

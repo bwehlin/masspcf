@@ -14,6 +14,7 @@ jobs:
     env:
       BUILD_WITH_CUDA: 0
       MINIMAL_MODULE_BUILD: 1
+      SKIP_STUBGEN: 1
 
     steps:
       - uses: actions/checkout@v6
@@ -27,11 +28,14 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install numpy tqdm # better way to do this?
+        run: pip install numpy tqdm pytest # better way to do this?
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build module
         run: cmake --build build
+
+      - name: Install module
+        run: cmake --install build
 
