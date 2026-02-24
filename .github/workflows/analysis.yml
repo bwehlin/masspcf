@@ -43,8 +43,9 @@ jobs:
 
       - name: Run test suites
         run: |
-          python -m pytest ./test || true
-          ./build/mpcf_test || true
+          cd test
+          python -m pytest . || true
+          ../build/mpcf_test || true
           
       - name: Create coverage report
         run: |
