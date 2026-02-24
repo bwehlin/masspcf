@@ -29,7 +29,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install numpy tqdm pytest # better way to do this?
+        run: pip install numpy tqdm pytest ValgrindCI # better way to do this?
 
       - name: Install Valgrind and Debug Symbols
         run: |
@@ -45,19 +45,23 @@ jobs:
       - name: Install module
         run: cmake --install build
 
-      - name: Run valgrind on pytester
+      - name: Run valgrind
         continue-on-error: true
         run: |
           cd test
-          valgrind --xml=yes --xml-file=vg-pytest.xml python -m pytest . -vv -s
+          mkdir reports
+          valgrind --xml=yes --xml-file=reports/vg-pytest.xml python -m pytest . -vv -s
+          valgrind --xml=yes --xml-file=reports/vg-gtest.xml ../build/mpcf_test
 
-      - name: Run valgrind on gtester
-        continue-on-error: true
+      - name: Generate HTML Reports
         run: |
-          valgrind --xml=yes --xml-file=vg-gtest.xml build/mpcf_test
+          cd test/reports
+          echo "-------------- Pytest -----------------"
+          valgrind-ci vg-pytest.xml --output-dir=vg_pytest
+          valgrind-ci vg-gtest.xml --output-dir=vg_gtest
 
       - uses: actions/upload-artifact@v4
         with:
           name: valgrind-output
-          path: test/vg-pytest.xml
+          path: test/reports/*
           retention-days: 1
