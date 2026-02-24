@@ -19,6 +19,10 @@ jobs:
       ENABLE_COVERAGE: 1
 
     steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
