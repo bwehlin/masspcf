@@ -45,20 +45,22 @@ jobs:
       - name: Install module
         run: cmake --install build
 
-      - name: Run valgrind
+      - name: Create reports directory
+        run: mkdir test/reports
+
+      - name: Run valgrind on Pytest
         continue-on-error: true
         run: |
-          cd test
-          mkdir reports
-          valgrind --xml=yes --xml-file=reports/vg-pytest.xml python -m pytest . -vv -s
-          valgrind --xml=yes --xml-file=reports/vg-gtest.xml ../build/mpcf_test
+          valgrind --xml=yes --xml-file=./reports/vg-pytest.xml python -m pytest . -vv -s || true
+          valgrind-ci ./reports/vg-pytest.xml --summary
+          valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
 
-      - name: Generate HTML Reports
+      - name: Run valgrind on GTest
+        continue-on-error: true
         run: |
-          cd test/reports
-          echo "-------------- Pytest -----------------"
-          valgrind-ci vg-pytest.xml --output-dir=vg_pytest
-          valgrind-ci vg-gtest.xml --output-dir=vg_gtest
+          valgrind --xml=yes --xml-file=./reports/vg-gtest.xml ../build/mpcf_test || true
+          valgrind-ci ./reports/vg-gtest.xml --summary
+          valgrind-ci ./reports/vg-gtest.xml --output-dir=./reports/vg_gtest
 
       - uses: actions/upload-artifact@v4
         with:
