@@ -336,7 +336,7 @@ endif()
 
 install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
-if (LINUX) # Maybe only works on Linux now?
+if (LINUX OR WIN32) # Maybe only works on Linux now?
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
           POST_BUILD
@@ -393,39 +393,37 @@ elseif (MINIMAL_MODULE_BUILD)
     SET(LINK_TYPE create_symlink)
   endif()
 
-  if (LINUX)
-    install(CODE "
-    message(STATUS \"Syncing built extension back to source directory\")
+  install(CODE "
+  message(STATUS \"Syncing built extension back to source directory\")
 
-    set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
+  set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
 
-    # Extension file
-    set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
-    get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
-    set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
+  # Extension file
+  set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
+  get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
+  set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
 
-    if(UNIX)
-      file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
-    else()
-      file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
-    endif()
-
-    # Stub file
-    get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
-    set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
-
-    if(UNIX)
-      file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
-    else()
-      file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
-    endif()
-
-    # py.typed (small file — copy everywhere)
-    file(COPY
-      \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
-      DESTINATION \"\${SRC_DIR}\")
-    ")
+  if(UNIX)
+    file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
+  else()
+    file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
   endif()
+
+  # Stub file
+  get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
+  set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+
+  if(UNIX)
+    file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+  else()
+    file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+  endif()
+
+  # py.typed (small file — copy everywhere)
+  file(COPY
+    \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
+    DESTINATION \"\${SRC_DIR}\")
+  ")
 
 
   # Optional: Clean the symlink when running 'make clean'
