@@ -258,6 +258,16 @@ namespace mpcf
           auto stop = *arg.stop;
           auto step = *arg.step;
 
+          if (start < 0_z)
+          {
+            start = 0;
+          }
+
+          if (stop > static_cast<std::ptrdiff_t>(ret.m_shape[i]))
+          {
+            stop = ret.m_shape[i];
+          }
+
           if (step == 0_z)
           {
             ret.m_shape[i] = 0;
