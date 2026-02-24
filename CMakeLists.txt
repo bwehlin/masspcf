@@ -336,7 +336,7 @@ endif()
 
 install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
-if (LINUX OR WIN32) # Maybe only works on Linux now?
+if (LINUX OR MINIMAL_MODULE_BUILD) # Stubgen does not seem happy on CI
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
           POST_BUILD
