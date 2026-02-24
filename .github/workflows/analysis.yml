@@ -46,7 +46,9 @@ jobs:
         run: cmake --install build
 
       - name: Run valgrind
-        run: valgrind --xml=yes --xml-file=vg.xml python -m pytest ./test -vv -s
+        run: |
+          cd test
+          valgrind --xml=yes --xml-file=vg.xml python -m pytest . -vv -s
 
       - uses: actions/upload-artifact@v4
         with:
