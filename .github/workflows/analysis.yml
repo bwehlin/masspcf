@@ -45,14 +45,19 @@ jobs:
       - name: Install module
         run: cmake --install build
 
-      - name: Run valgrind
+      - name: Run valgrind on pytester
         continue-on-error: true
         run: |
           cd test
-          valgrind --xml=yes --xml-file=vg.xml python -m pytest . -vv -s
+          valgrind --xml=yes --xml-file=vg-pytest.xml python -m pytest . -vv -s
+
+      - name: Run valgrind on gtester
+        continue-on-error: true
+        run: |
+          valgrind --xml=yes --xml-file=vg-gtest.xml build/mpcf_test
 
       - uses: actions/upload-artifact@v4
         with:
           name: valgrind-output
-          path: vg.xml
+          path: test/vg-pytest.xml
           retention-days: 1
