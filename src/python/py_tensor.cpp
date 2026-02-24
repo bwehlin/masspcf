@@ -228,10 +228,7 @@ namespace
           self(index) = val;
         })
 
-
-
-
-
+      .def("copy", &TTensor::copy)
       .def("flatten", &TTensor::flatten)
     ;
 

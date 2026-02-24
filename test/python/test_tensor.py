@@ -50,3 +50,19 @@ def test_dtype_results_in_correct_type():
 
     assert isinstance(X64[0, 0], mpcf.Pcf)
     assert isinstance(X64[0, 0]._data, mcpp.Pcf_f64_f64)
+
+def test_tensor_copy_does_not_modify_original():
+    X = mpcf.zeros((10, 10), dtype=mpcf.f64)
+
+    X[2, 3] = 1.5
+
+    Y = X.copy()
+
+    Y[2, 3] = 0.5
+
+    assert Y[2, 3] != X[2, 3]
+
+    X[2, 3] = 4.5
+
+    assert Y[2, 3] != X[2, 3]
+

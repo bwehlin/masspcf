@@ -46,3 +46,9 @@ def test_assign_tensor_to_slice_incommensurate_dims():
 
     with pytest.raises(RuntimeError):
         A[:, 0:5] = X0
+
+def test_assign_wrong_dtype_raises_error():
+    X = mpcf.random.noisy_sin((10, 10))
+
+    with pytest.raises(TypeError):
+        X[2, 3] = 0.5

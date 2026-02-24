@@ -35,6 +35,10 @@ def _pyslice_to_slice(s):
     raise TypeError("Unhandled slice type")
 
 class Tensor(ABC):
+    @abstractmethod
+    def _to_py_tensor(self, data):
+        raise NotImplementedError()
+
     def __getitem__(self, slices):
         if isinstance(slices, int): # X[n]
             return self._represent_element(self._data._get_element(slices))
@@ -46,7 +50,18 @@ class Tensor(ABC):
             real_slices = [_pyslice_to_slice(s) for s in slices]
             return self._getitem(real_slices)
 
+    @abstractmethod
+    def _get_valid_setitem_dtypes(self):
+        raise NotImplementedError()
+
+    def _validate_setitem_dtype(self, val):
+        valid_dtypes = self._get_valid_setitem_dtypes()
+        if not any(isinstance(val, dt) for dt in valid_dtypes):
+            raise TypeError(f'Tried to assign value of type {type(val)} to an object of type {type(self)}. Only {valid_dtypes} are accepted.')
+
     def __setitem__(self, slices, val):
+        self._validate_setitem_dtype(val)
+
         if isinstance(slices, int):
             self._data._set_element([slices], self._decay_value(val))
         elif all(isinstance(s, int) for s in slices):
@@ -58,6 +73,12 @@ class Tensor(ABC):
 
     def __eq__(self, rhs):
         return self._data == rhs._data
+
+    def __deepcopy__(self, memodict={}):
+        return self._to_py_tensor(self._data.copy())
+
+    def copy(self):
+        return self.__deepcopy__()
 
     @abstractmethod
     def _decay_value(self, val):
@@ -87,10 +108,14 @@ class Tensor(ABC):
     def offset(self):
         return self._data.offset
 
+
 class NumericTensor(Tensor):
     def __init__(self):
         super().__init__()
-    
+
+    def _get_valid_setitem_dtypes(self):
+        return [NumericTensor, FloatTensor, DoubleTensor, float, int, np.ndarray]
+
     def _decay_value(self, val):
         return val
 
@@ -105,6 +130,9 @@ class FloatTensor(NumericTensor):
         super().__init__()
         self._data = data
         self.dtype = f32
+
+    def _to_py_tensor(self, data):
+        return FloatTensor(data)
     
     def _getitem(self, slices):
         return FloatTensor(self._data[slices])
@@ -117,7 +145,10 @@ class DoubleTensor(NumericTensor):
         super().__init__()
         self._data = data
         self.dtype = f64
-    
+
+    def _to_py_tensor(self, data):
+        return DoubleTensor(data)
+
     def _getitem(self, slices):
         return DoubleTensor(self._data[slices])
 
@@ -127,7 +158,10 @@ class DoubleTensor(NumericTensor):
 class PcfTensor(Tensor):
     def __init__(self):
         super().__init__()
-    
+
+    def _get_valid_setitem_dtypes(self):
+        return [PcfTensor, Pcf, Pcf32Tensor, Pcf64Tensor]
+
     def _decay_value(self, val):
         return val._data
 
@@ -139,7 +173,10 @@ class Pcf32Tensor(PcfTensor):
         super().__init__()
         self._data = data
         self.dtype = pcf32
-    
+
+    def _to_py_tensor(self, data):
+        return Pcf32Tensor(data)
+
     def _getitem(self, slices):
         return Pcf32Tensor(self._data[slices])
 
@@ -151,7 +188,10 @@ class Pcf64Tensor(PcfTensor):
         super().__init__()
         self._data = data
         self.dtype = pcf64
-    
+
+    def _to_py_tensor(self, data):
+        return Pcf64Tensor(data)
+
     def _getitem(self, slices):
         return Pcf64Tensor(self._data[slices])
 

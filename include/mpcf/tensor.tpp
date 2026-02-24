@@ -123,6 +123,18 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T> Tensor<T>::copy() const
+  {
+    Tensor<T> ret(shape());
+
+    walk([&ret, this](const std::vector<size_t>& idx){
+      ret(idx) = (*this)(idx);
+    });
+
+    return ret;
+  }
+
+  template <typename T>
   Tensor<T> Tensor<T>::flatten() const
   {
     if (!m_isContiguous)

@@ -140,6 +140,7 @@ SET(MPCF_HEADER_FILES
   tensor_to_string.h
   special_tensors.h
   executor.h
+  point_cloud.h
   io_stream.h
   algorithm.h
   algorithms/iterate_rectangles.h
