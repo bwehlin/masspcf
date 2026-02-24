@@ -33,7 +33,7 @@ jobs:
         run: pip install numpy tqdm pytest gcovr # better way to do this?
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/cov_build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build module
         run: cmake --build build -j $(nproc)
