@@ -49,19 +49,17 @@ jobs:
         run: mkdir test/reports
 
       - name: Run valgrind on Pytest
-        continue-on-error: true
         run: |
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml python -m pytest . -vv -s || true
-          valgrind-ci ./reports/vg-pytest.xml --summary
+          valgrind-ci ./reports/vg-pytest.xml --summary >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
 
       - name: Run valgrind on GTest
-        continue-on-error: true
         run: |
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml ../build/mpcf_test || true
-          valgrind-ci ./reports/vg-gtest.xml --summary
+          valgrind-ci ./reports/vg-gtest.xml --summary >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-gtest.xml --output-dir=./reports/vg_gtest
 
       - uses: actions/upload-artifact@v4
