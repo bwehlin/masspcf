@@ -40,6 +40,12 @@ else()
   set(SKIP_STUBGEN OFF)
 endif()
 
+if((DEFINED ENV{SKIP_BACK_COPY}) AND (NOT $ENV{SKIP_BACK_COPY} MATCHES "0"))
+  set(SKIP_BACK_COPY ON)
+else()
+  set(SKIP_BACK_COPY OFF)
+endif()
+
 if (SKBUILD)
   set(BUILD_TESTER OFF)
 else()
@@ -392,50 +398,53 @@ elseif (MINIMAL_MODULE_BUILD)
 
 
 
-  # Copy on Windows, symlink otherwise
-  if (WIN32)
-    SET(LINK_TYPE copy_if_different)
-  else()
-    SET(LINK_TYPE create_symlink)
-  endif()
+  if (NOT SKIP_BACK_COPY)
 
-  install(CODE "
-  message(STATUS \"Syncing built extension back to source directory\")
-
-  set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
-
-  # Extension file
-  set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
-  get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
-  set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
-
-  if(UNIX)
-    file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
-  else()
-    file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
-  endif()
-
-  if (NOT SKIP_STUBGEN)
-
-    # Stub file
-    get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
-    set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
-
-    if(UNIX)
-      file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+    # Copy on Windows, symlink otherwise
+    if (WIN32)
+      SET(LINK_TYPE copy_if_different)
     else()
-      file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+      SET(LINK_TYPE create_symlink)
     endif()
 
-    # py.typed (small file — copy everywhere)
-    file(COPY
-      \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
-      DESTINATION \"\${SRC_DIR}\")
-  endif()
-  ")
+    install(CODE "
+    message(STATUS \"Syncing built extension back to source directory\")
 
-  # Optional: Clean the symlink when running 'make clean'
-  #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
+    set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
+
+    # Extension file
+    set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
+    get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
+    set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
+
+    if(UNIX)
+      file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
+    else()
+      file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
+    endif()
+
+    if (NOT SKIP_STUBGEN)
+
+      # Stub file
+      get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
+      set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+
+      if(UNIX)
+        file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+      else()
+        file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+      endif()
+
+      # py.typed (small file — copy everywhere)
+      file(COPY
+        \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
+        DESTINATION \"\${SRC_DIR}\")
+    endif()
+    ")
+
+    # Optional: Clean the symlink when running 'make clean'
+    #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
+  endif()
 
 endif()
 

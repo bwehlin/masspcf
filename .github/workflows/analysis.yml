@@ -15,6 +15,7 @@ jobs:
       BUILD_WITH_CUDA: 0
       MINIMAL_MODULE_BUILD: 1
       SKIP_STUBGEN: 1
+      SKIP_BACK_COPY: 1
 
     steps:
       - uses: actions/checkout@v6
