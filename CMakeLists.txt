@@ -377,7 +377,7 @@ if (SKBUILD)
           PATTERN "__pycache__" EXCLUDE
   )
 
-elseif (MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN))
+elseif (MINIMAL_MODULE_BUILD)
 
 
   file(GLOB PY_PKG_FILES "masspcf/*.py")
@@ -415,22 +415,24 @@ elseif (MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN))
     file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
   endif()
 
-  # Stub file
-  get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
-  set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+  if (NOT SKIP_STUBGEN)
 
-  if(UNIX)
-    file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
-  else()
-    file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+    # Stub file
+    get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
+    set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+
+    if(UNIX)
+      file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+    else()
+      file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+    endif()
+
+    # py.typed (small file — copy everywhere)
+    file(COPY
+      \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
+      DESTINATION \"\${SRC_DIR}\")
   endif()
-
-  # py.typed (small file — copy everywhere)
-  file(COPY
-    \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
-    DESTINATION \"\${SRC_DIR}\")
   ")
-
 
   # Optional: Clean the symlink when running 'make clean'
   #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")

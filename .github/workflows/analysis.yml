@@ -30,6 +30,11 @@ jobs:
       - name: Install Python dependencies
         run: pip install numpy tqdm pytest # better way to do this?
 
+      - name: Install Valgrind and Debug Symbols
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind libc6-dbg
+
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
@@ -39,3 +44,11 @@ jobs:
       - name: Install module
         run: cmake --install build
 
+      - name: Run valgrind
+        run: valgrind --xml=yes --xml-file=vg.xml python -m pytest ./test -vv -s
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: valgrind-output
+          path: vg.xml
+          retention-days: 1
