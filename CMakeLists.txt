@@ -181,6 +181,7 @@ SET(MPCF_PY_SOURCES
   pyrandom.cpp
   pypcf_support.h
   py_np_support.h
+  py_np_tensor_convert.h py_np_tensor_convert.cpp
   py_make_from_serial_content.h py_make_from_serial_content.cpp
   py_distance.h py_distance.cpp
   py_norms.h py_norms.cpp

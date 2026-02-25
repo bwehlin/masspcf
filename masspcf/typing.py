@@ -26,6 +26,12 @@ class pcf32:
 class pcf64:
     pass
 
+class pcloud32:
+    pass
+
+class pcloud64:
+    pass
+
 class _DeprecatedDtype:
     def __init__(self, name, replacement, standin):
         self._name = name

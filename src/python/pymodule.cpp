@@ -33,6 +33,7 @@
 #include "py_tensor.h"
 #include "py_reductions.h"
 #include "py_distance.h"
+#include "py_np_tensor_convert.h"
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
@@ -377,6 +378,7 @@ PYBIND11_MODULE(_mpcf_cpp, m) {
   register_random_bindings(m);
 
   mpcf_py::register_tensor_bindings(m);
+  mpcf_py::register_np_conversions(m);
 
   mpcf_py::register_make_from_serial_content(m);
 

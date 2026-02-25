@@ -12,8 +12,14 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+from __future__ import annotations
+
 from . import _mpcf_cpp as cpp
-from .typing import pcf32, pcf64, f32, f64, _check_deprecated_dtype, _assert_valid_dtype, _validate_dtype
+
+from .typing import (pcf32, pcf64, f32, f64, pcloud32, pcloud64,
+    float32, float64, # Deprecated types
+    _check_deprecated_dtype, _assert_valid_dtype, _validate_dtype)
+
 from .pcf import Pcf
 
 from abc import ABC, abstractmethod
@@ -82,6 +88,14 @@ class Tensor(ABC):
 
     @abstractmethod
     def _decay_value(self, val):
+        """
+        Convert a Python value into one that can be used by the corresponding C++ class. For example, if `X` is a Python
+        `Tensor`, `_decay_value` should convert a Python value `val` so that the following (pseudocode) works:
+
+        `X[1,2,3] = val`
+
+        `X._data._set_element("1,2,3", self._decay_value(val))
+        """
         raise NotImplementedError()
 
     @abstractmethod
@@ -121,8 +135,18 @@ class NumericTensor(Tensor):
         return np.array(self._data)
 
 class FloatTensor(NumericTensor):
-    def __init__(self, data : cpp.FloatTensor):
+    def __init__(self, data : cpp.FloatTensor | FloatTensor | np.ndarray):
         super().__init__()
+
+        if isinstance(data, cpp.FloatTensor):
+            pass
+        elif isinstance(data, FloatTensor):
+            data = data._data
+        elif isinstance(data, np.ndarray):
+            data = cpp.ndarray_to_tensor_32(data)
+        else:
+            raise TypeError(f'Cannot create {type(self)} from {type(data)}')
+
         self._data = data
         self.dtype = f32
 
@@ -130,13 +154,29 @@ class FloatTensor(NumericTensor):
         return FloatTensor(data)
 
 class DoubleTensor(NumericTensor):
-    def __init__(self, data : cpp.DoubleTensor):
+    def __init__(self, data : cpp.DoubleTensor | DoubleTensor | np.ndarray):
         super().__init__()
+
+        if isinstance(data, cpp.DoubleTensor):
+            pass
+        elif isinstance(data, DoubleTensor):
+            data = data._data
+        elif isinstance(data, np.ndarray):
+            data = cpp.ndarray_to_tensor_64(data)
+        else:
+            raise TypeError(f'Cannot create {type(self)} from {type(data)}')
+
         self._data = data
         self.dtype = f64
 
     def _to_py_tensor(self, data):
         return DoubleTensor(data)
+
+    def __repr__(self):
+        return np.asarray(self).__repr__()
+
+    def __str__(self):
+        return np.asarray(self).__str__()
 
 class PcfTensor(Tensor):
     def __init__(self):
@@ -169,21 +209,89 @@ class Pcf64Tensor(PcfTensor):
     def _to_py_tensor(self, data):
         return Pcf64Tensor(data)
 
+class PointCloudTensor(Tensor):
+    def _get_valid_setitem_dtypes(self):
+        return [np.ndarray, float, int]
+
+class PointCloud32Tensor(PointCloudTensor):
+    def __init__(self, data : cpp.PointCloud32Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = pcloud32
+
+    def _to_py_tensor(self, data):
+        return PointCloud32Tensor(data)
+
+    def _represent_element(self, element):
+        return FloatTensor(element)
+
+    def _decay_value(self, val):
+        t = FloatTensor(val)
+        return t._data
+
+class PointCloud64Tensor(PointCloudTensor):
+    def __init__(self, data : cpp.PointCloud64Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = pcloud32
+
+    def _to_py_tensor(self, data):
+        return PointCloud64Tensor(data)
+
+    def _represent_element(self, element):
+        print(f'_represent_element {element} / {type(element)} -> {type(DoubleTensor(element))}')
+        t = DoubleTensor(element)
+        print(f'TP {type(t.shape)}')
+        return DoubleTensor(element)
+
+    def _decay_value(self, val):
+        t = DoubleTensor(val)
+        return t._data
+        print(f'Decayed into {type(t._data)}')
+        print(f'Decayed into {type(DoubleTensor(t._data)._data)}')
+        return DoubleTensor(t._data)._data
+
+
 def zeros(shape : ShapeLike, dtype=pcf32):
+    """
+    Creates a new `Tensor` of the specified `shape` and `dtype` whose entries are "zero." What "zero" means depends on the `dtype`:
+
+    `dtype=pcf32/64`: A PCF that takes the value 0 for all times.
+    `dtype=f32/f64`: The number 0
+    `dtype=pcloud32/64`: An empty point cloud
+
+    Parameters
+    ----------
+    shape : ShapeLike
+        Shape of the returned tensor
+    dtype
+        The data type of the elements
+
+    Returns
+    -------
+    Tensor
+        The newly created tensor
+    """
     if not isinstance(shape, Shape):
         shape = Shape(shape) # If passed as, e.g., tuple of ints
 
     _check_deprecated_dtype(dtype)
-    _assert_valid_dtype(dtype, [pcf32, pcf64, f32, f64])
+    _assert_valid_dtype(dtype, [pcf32, pcf64, f32, f64, pcloud32, pcloud64, float32, float64])
 
-    if dtype == pcf32:
+    if dtype == pcf32 or dtype == float32:
         return Pcf32Tensor(cpp.Pcf32Tensor(shape))
-    elif dtype == pcf64:
+    elif dtype == pcf64 or dtype == float64:
         return Pcf64Tensor(cpp.Pcf64Tensor(shape))
     elif dtype == f32:
-        return FloatTensor(cpp.DoubleTensor(shape, 0.0))
+        return FloatTensor(cpp.FloatTensor(shape, 0.0))
     elif dtype == f64:
         return DoubleTensor(cpp.DoubleTensor(shape, 0.0))
+    elif dtype == pcloud32:
+        return PointCloud32Tensor(cpp.PointCloud32Tensor(shape))
+    elif dtype == pcloud64:
+        return PointCloud64Tensor(cpp.PointCloud64Tensor(shape))
+    else:
+        raise NotImplementedError('This dtype has not been implemented.')
 
 
 PcfContainerLike = Union[Tensor, list[Pcf], Pcf]

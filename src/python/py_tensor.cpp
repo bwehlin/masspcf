@@ -92,18 +92,41 @@ namespace
       .def(py::init<std::vector<size_t>>())
       .def(py::init<>([](size_t n){ return Shape{std::vector<size_t>{n}}; })) // 1d construction (Python recognizes (n) as "parenthesis int parenthesis" rather than a tuple of ints)
 
-      //.def("__eq__", &Shape::dunder_eq)
+      .def("__eq__", [](const Shape& self, py::object other) {
+        if (py::isinstance<Shape>(other))
+        {
+          return self.data == other.cast<Shape>().data;
+        }
+        else if (py::isinstance<std::vector<size_t>>(other))
+        {
+          return self.data == other.cast<std::vector<size_t>>();
+        }
+        else if (py::isinstance<size_t>(other) || py::isinstance<py::int_>(other))
+        {
+          return self == Shape(other.cast<size_t>());
+        }
+        else if (py::isinstance<py::tuple>(other))
+        {
+          auto t = other.cast<py::tuple>();
 
-      .def("__eq__", [](const Shape& self, const Shape& other) {
-        return self.data == other.data;
-      })
+          if (t.size() != self.data.size())
+          {
+            return false;
+          }
 
-      .def("__eq__", [](const Shape& self, const std::vector<size_t>& other) {
-        return self.data == other;
-      })
+          return std::equal(self.data.begin(), self.data.end(), t.begin(), [](size_t a, py::handle b) {
+            if (py::isinstance<py::int_>(b))
+            {
+              return a == b.cast<size_t>();
+            }
 
-      .def("__eq__", [](const Shape& self, size_t sz) {
-        return self.data == Shape(sz);
+            return false;
+          });
+
+        }
+
+        std::string type_name = py::str(other.get_type().attr("__name__"));
+        throw std::runtime_error("Unsupported comparison with object of type " + type_name);
       })
 
       .def("__getitem__", &Shape::dunder_getitem)
@@ -247,5 +270,8 @@ namespace mpcf_py
 
     register_typed_bindings<mpcf::Pcf_f32>(m, "Pcf32", "");
     register_typed_bindings<mpcf::Pcf_f64>(m, "Pcf64", "");
+
+    register_typed_bindings<mpcf::Tensor<float>>(m, "PointCloud32", "");
+    register_typed_bindings<mpcf::Tensor<double>>(m, "PointCloud64", "");
   }
 }
