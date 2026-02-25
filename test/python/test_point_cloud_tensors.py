@@ -16,13 +16,23 @@ import masspcf as mpcf
 
 import numpy as np
 
-def test_can_create_2_point_clouds():
+def test_can_create_point_clouds():
     X = mpcf.zeros((2,), dtype=mpcf.pcloud64)
 
-    print(type(X))
+    assert isinstance(X, mpcf.PointCloud64Tensor)
 
     X[0] = np.random.randn(10, 2)
     X[1] = np.random.randn(20, 2)
 
     assert X[0].shape == (10, 2)
     assert X[1].shape == (20, 2)
+
+    Y = mpcf.zeros((2,3), dtype=mpcf.pcloud32)
+
+    assert isinstance(Y, mpcf.PointCloud32Tensor)
+
+    Y[0, 0] = np.random.randn(30, 2, 20)
+    Y[1, 1] = np.random.randn(40, 15, 10)
+
+    assert Y[0, 0].shape == (30, 2, 20)
+    assert Y[1, 1].shape == (40, 15, 10)

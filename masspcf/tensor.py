@@ -239,17 +239,12 @@ class PointCloud64Tensor(PointCloudTensor):
         return PointCloud64Tensor(data)
 
     def _represent_element(self, element):
-        print(f'_represent_element {element} / {type(element)} -> {type(DoubleTensor(element))}')
         t = DoubleTensor(element)
-        print(f'TP {type(t.shape)}')
         return DoubleTensor(element)
 
     def _decay_value(self, val):
         t = DoubleTensor(val)
         return t._data
-        print(f'Decayed into {type(t._data)}')
-        print(f'Decayed into {type(DoubleTensor(t._data)._data)}')
-        return DoubleTensor(t._data)._data
 
 
 def zeros(shape : ShapeLike, dtype=pcf32):
