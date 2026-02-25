@@ -43,12 +43,12 @@ class Tensor(ABC):
         if isinstance(slices, int): # X[n]
             return self._represent_element(self._data._get_element(slices))
         elif isinstance(slices, slice): # X[n:m] etc...
-            return self._getitem([_pyslice_to_slice(slices)])
+            return self._to_py_tensor(self._data[[_pyslice_to_slice(slices)]])
         elif all(isinstance(s, int) for s in slices): # X[1, 2, 3] etc... (for this, we wan't a single element rather than a tensor)
             return self._represent_element(self._data._get_element(slices))
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
-            return self._getitem(real_slices)
+            return self._to_py_tensor(self._data[real_slices])
 
     @abstractmethod
     def _get_valid_setitem_dtypes(self):
@@ -85,16 +85,11 @@ class Tensor(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def _getitem(self, slices):
-        raise NotImplementedError()
-
-    @abstractmethod
     def _represent_element(self, element):
         raise NotImplementedError()
 
-    @abstractmethod
     def flatten(self):
-        raise NotImplementedError()
+        return self._to_py_tensor(self._data.flatten())
 
     @property
     def shape(self) -> Shape:
@@ -133,12 +128,6 @@ class FloatTensor(NumericTensor):
 
     def _to_py_tensor(self, data):
         return FloatTensor(data)
-    
-    def _getitem(self, slices):
-        return FloatTensor(self._data[slices])
-    
-    def flatten(self):
-        return FloatTensor(self._data.flatten())
 
 class DoubleTensor(NumericTensor):
     def __init__(self, data : cpp.DoubleTensor):
@@ -148,12 +137,6 @@ class DoubleTensor(NumericTensor):
 
     def _to_py_tensor(self, data):
         return DoubleTensor(data)
-
-    def _getitem(self, slices):
-        return DoubleTensor(self._data[slices])
-
-    def flatten(self):
-        return DoubleTensor(self._data.flatten())
 
 class PcfTensor(Tensor):
     def __init__(self):
@@ -177,12 +160,6 @@ class Pcf32Tensor(PcfTensor):
     def _to_py_tensor(self, data):
         return Pcf32Tensor(data)
 
-    def _getitem(self, slices):
-        return Pcf32Tensor(self._data[slices])
-
-    def flatten(self):
-        return Pcf32Tensor(self._data.flatten())
-
 class Pcf64Tensor(PcfTensor):
     def __init__(self, data : cpp.Pcf64Tensor):
         super().__init__()
@@ -191,12 +168,6 @@ class Pcf64Tensor(PcfTensor):
 
     def _to_py_tensor(self, data):
         return Pcf64Tensor(data)
-
-    def _getitem(self, slices):
-        return Pcf64Tensor(self._data[slices])
-
-    def flatten(self):
-        return Pcf64Tensor(self._data.flatten())
 
 def zeros(shape : ShapeLike, dtype=pcf32):
     if not isinstance(shape, Shape):
