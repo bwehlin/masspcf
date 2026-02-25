@@ -35,6 +35,8 @@
 #include "py_distance.h"
 #include "py_np_tensor_convert.h"
 
+#include "persistence/pymodule_persistence.h"
+
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #endif
@@ -385,4 +387,6 @@ PYBIND11_MODULE(_mpcf_cpp, m) {
   mpcf_py::register_reductions(m);
   mpcf_py::register_distance(m);
   mpcf_py::register_norms(m);
+
+  mpcf_py::register_module_persistence(m);
 }

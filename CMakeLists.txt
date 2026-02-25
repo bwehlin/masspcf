@@ -161,7 +161,11 @@ SET(MPCF_HEADER_FILES
   algorithms/matrix_reduce.h
   algorithms/subdivide.h
   algorithms/apply_functional.h
-  block_matrix_support.cuh)
+  block_matrix_support.cuh
+  persistence/barcode.h
+  persistence/compute_persistence.h
+  persistence/persistence_pair.h
+  persistence/ripser/ripser.h)
 
 SET(MPCF_SRC_FILES
   executor.cpp
@@ -176,6 +180,15 @@ SET(MPCF_LIB_SOURCES
   ${MPCF_LIB_SOURCES_CUDA}
 )
 
+SET(MPCF_PY_PERSISTENCE_SOURCES
+  py_barcode_tensor.h py_barcode_tensor.cpp
+  py_persistence_pair.h py_persistence_pair.cpp
+  py_ripser.h py_ripser.cpp
+  pymodule_persistence.h pymodule_persistence.cpp
+)
+
+list(TRANSFORM MPCF_PY_PERSISTENCE_SOURCES PREPEND "persistence/")
+
 SET(MPCF_PY_SOURCES
   pymodule.cpp
   pyrandom.cpp
@@ -188,6 +201,7 @@ SET(MPCF_PY_SOURCES
   py_reductions.h py_reductions.cpp
   py_tensor.h py_tensor.cpp
   py_io.h py_io.cpp
+  ${MPCF_PY_PERSISTENCE_SOURCES}
 )
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")

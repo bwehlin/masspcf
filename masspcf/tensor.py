@@ -299,7 +299,7 @@ def _to_tensor_pcf(fs : PcfContainerLike):
 
     raise TypeError('Input should be convertible to a PcfTensor.')
 
-def _get_backend(fs : PcfContainerLike, backendMapping : dict):
+def _get_backend(fs, backendMapping : dict):
     if isinstance(fs, Tensor):
         _validate_dtype(fs.dtype, backendMapping.keys())
 
