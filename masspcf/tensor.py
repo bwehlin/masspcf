@@ -35,10 +35,6 @@ def _pyslice_to_slice(s):
     raise TypeError("Unhandled slice type")
 
 class Tensor(ABC):
-    @abstractmethod
-    def _to_py_tensor(self, data):
-        raise NotImplementedError()
-
     def __getitem__(self, slices):
         if isinstance(slices, int): # X[n]
             return self._represent_element(self._data._get_element(slices))
@@ -79,6 +75,10 @@ class Tensor(ABC):
 
     def copy(self):
         return self.__deepcopy__()
+
+    @abstractmethod
+    def _to_py_tensor(self, data):
+        raise NotImplementedError()
 
     @abstractmethod
     def _decay_value(self, val):
