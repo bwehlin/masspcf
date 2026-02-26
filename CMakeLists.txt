@@ -422,7 +422,7 @@ elseif (MINIMAL_MODULE_BUILD)
     DESTINATION ${PYTHON_SITE}
 
     # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
-    REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed$)" EXCLUDE
+    REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp$)" EXCLUDE
     )
 
 
@@ -459,12 +459,21 @@ elseif (MINIMAL_MODULE_BUILD)
       set(STUB_DEST_DIR \"\${SRC_DIR}/${CPP_MODULE_NAME}\")
 
       if(UNIX)
-        # Create a symbolic link to the entire directory
-        # Note: We remove the old link/folder first to avoid nested links
-        file(REMOVE_RECURSE \"\${STUB_DEST_DIR}\")
-        file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
-      else()
-        file(COPY \"\${STUB_SRC_DIR}\" DESTINATION \"\${SRC_DIR}\")
+        # Check if the destination already exists (as a folder or a symlink)
+        if(NOT EXISTS \"\${STUB_DEST_DIR}\")
+          message(STATUS \"Creating initial symlink for stubs: \${STUB_DEST_DIR}\")
+          file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
+        else()
+          # Optional: Check if it's pointing to the WRONG place (e.g., after a build dir change)
+          file(READ_SYMLINK \"\${STUB_DEST_DIR}\" CURRENT_LINK_TARGET)
+          if(NOT \"\${CURRENT_LINK_TARGET}\" STREQUAL \"\${STUB_SRC_DIR}\")
+            message(STATUS \"Updating stale symlink for stubs...\")
+            file(REMOVE_RECURSE \"\${STUB_DEST_DIR}\")
+            file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
+          else()
+            message(STATUS \"Symlink for stubs already exists and is correct.\")
+          endif()
+        endif()
       endif()
 
       # py.typed (small file — copy everywhere)
