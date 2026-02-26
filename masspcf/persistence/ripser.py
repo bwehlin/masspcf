@@ -21,13 +21,13 @@ from .tensor import Barcode32Tensor, Barcode64Tensor
 
 from .._mpcf_cpp import persistence as cpp_p
 
-def compute_barcodes_euclidean_pcloud_ripser(X : FloatTensor | DoubleTensor):
+def compute_barcodes_euclidean_pcloud_ripser(X : FloatTensor | DoubleTensor, maxDim : int = 1):
     backend = _get_backend(X, {
         f32 : cpp_p.PersistenceRipser32,
         f64 : cpp_p.PersistenceRipser64
     })
 
-    out = backend.compute_barcodes_euclidean_pcloud_ripser(X._data)
+    out = backend.compute_barcodes_euclidean_pcloud_ripser(X._data, maxDim)
 
     if isinstance(X, FloatTensor):
         return Barcode32Tensor(out)

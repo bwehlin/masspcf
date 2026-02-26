@@ -17,11 +17,11 @@ import masspcf.persistence as mpers
 
 import numpy as np
 
-def test_persistence_ripser_compute_euclidean_barcodes():
+def test_persistence_ripser_compute_euclidean_barcodes_returns_correct_dtype_and_shape():
     Xnp = np.random.randn(10, 2)
     X = mpcf.DoubleTensor(Xnp)
 
-    bcs = mpers.compute_barcodes_euclidean_pcloud_ripser(X)
+    bcs = mpers.compute_barcodes_euclidean_pcloud_ripser(X, maxDim=3)
 
     assert isinstance(bcs, mpers.BarcodeTensor)
-    
+    assert bcs.shape == (10, 2, 4)
