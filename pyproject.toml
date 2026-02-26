@@ -49,4 +49,4 @@ archs = ["x86_64", "arm64"]
 archs = ["auto"]
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64", "ARM64"]
+archs = ["AMD64"] # Skip "ARM64" for now

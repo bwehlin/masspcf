@@ -101,7 +101,7 @@ namespace mpcf_py
     register_typed_tensor_bindings<mpcf::Pcf_f32>(m, "Pcf32", "");
     register_typed_tensor_bindings<mpcf::Pcf_f64>(m, "Pcf64", "");
 
-    register_typed_tensor_bindings<mpcf::Tensor<float>>(m, "PointCloud32", "");
-    register_typed_tensor_bindings<mpcf::Tensor<double>>(m, "PointCloud64", "");
+    register_typed_tensor_bindings<mpcf::PointCloud<float>>(m, "PointCloud32", "");
+    register_typed_tensor_bindings<mpcf::PointCloud<double>>(m, "PointCloud64", "");
   }
 }

@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from . import BarcodeTensor
-from ..tensor import (FloatTensor, DoubleTensor,
+from ..tensor import (FloatTensor, DoubleTensor, PointCloud32Tensor, PointCloud64Tensor,
                       _get_backend
                       )
 
@@ -26,6 +26,11 @@ def compute_barcodes_euclidean_pcloud_ripser(X : FloatTensor | DoubleTensor, max
         f32 : cpp_p.PersistenceRipser32,
         f64 : cpp_p.PersistenceRipser64
     })
+
+    if isinstance(X, FloatTensor):
+        X = PointCloud32Tensor(X)
+    elif isinstance(X, DoubleTensor):
+        X = PointCloud64Tensor(X)
 
     out = backend.compute_barcodes_euclidean_pcloud_ripser(X._data, maxDim)
 

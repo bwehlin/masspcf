@@ -26,7 +26,7 @@ namespace
   class PyRipserBindings
   {
   public:
-    static mpcf::Tensor<mpcf::ph::Barcode<T>> compute_barcodes_euclidean_pcloud_ripser(mpcf::Tensor<T> pointCloud, size_t maxDim)
+    static mpcf::Tensor<mpcf::ph::Barcode<T>> compute_barcodes_euclidean_pcloud_ripser(mpcf::Tensor<mpcf::PointCloud<T>> pointCloud, size_t maxDim)
     {
       auto shape = pointCloud.shape();
       shape.emplace_back(maxDim + 1);
