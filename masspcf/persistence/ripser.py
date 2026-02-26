@@ -13,31 +13,43 @@
 #  limitations under the License.
 from . import BarcodeTensor
 from ..tensor import (FloatTensor, DoubleTensor, PointCloud32Tensor, PointCloud64Tensor,
-                      _get_backend
+                      _get_backend, zeros
                       )
 
-from ..typing import f32, f64
+from ..typing import f32, f64, pcloud32, pcloud64
 from .tensor import Barcode32Tensor, Barcode64Tensor
 
 from .._mpcf_cpp import persistence as cpp_p
 
-def compute_barcodes_euclidean_pcloud_ripser(X : FloatTensor | DoubleTensor, maxDim : int = 1):
+def compute_barcodes_euclidean_pcloud_ripser(
+        X : PointCloud32Tensor | PointCloud64Tensor | FloatTensor | DoubleTensor,
+        maxDim : int = 1):
+
     backend = _get_backend(X, {
         f32 : cpp_p.PersistenceRipser32,
         f64 : cpp_p.PersistenceRipser64
     })
 
     if isinstance(X, FloatTensor):
-        X = PointCloud32Tensor(X)
+        pcX = zeros((1,), dtype=pcloud32)
+        pcX[0] = X
+        X = PointCloud32Tensor(pcX)
     elif isinstance(X, DoubleTensor):
-        X = PointCloud64Tensor(X)
+        pcX = zeros((1,), dtype=pcloud64)
+        pcX[0] = X
+        X = PointCloud64Tensor(pcX)
 
     out = backend.compute_barcodes_euclidean_pcloud_ripser(X._data, maxDim)
 
-    if isinstance(X, FloatTensor):
-        return Barcode32Tensor(out)
-    elif isinstance(X, DoubleTensor):
-        return Barcode64Tensor(out)
+    if isinstance(X, PointCloud32Tensor):
+        out = Barcode32Tensor(out)
+    elif isinstance(X, PointCloud64Tensor):
+        out = Barcode64Tensor(out)
     else:
-        raise TypeError('Internal type error, please report this.')
+        raise TypeError(f'Internal type error, please report this: Unhandled {type(X)}')
+
+    if len(out.shape) == 2 and out.shape[0] == 1:
+        out = out[0, :]
+
+    return out
 

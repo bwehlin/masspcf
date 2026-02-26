@@ -16,9 +16,6 @@ import masspcf as mpcf
 import masspcf.persistence as mpers
 
 import numpy as np
-
-"""
-
 def test_persistence_ripser_compute_euclidean_barcodes_returns_correct_dtype_and_shape():
     Xnp = np.random.randn(10, 2)
     X = mpcf.DoubleTensor(Xnp)
@@ -28,6 +25,9 @@ def test_persistence_ripser_compute_euclidean_barcodes_returns_correct_dtype_and
     assert isinstance(bcs, mpers.BarcodeTensor)
     assert bcs.shape == (4,)
 
+
+
+"""
 def test_123():
     X = mpcf.zeros((100, 1000))
 

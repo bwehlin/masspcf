@@ -59,7 +59,7 @@ class Tensor(ABC):
     def _validate_setitem_dtype(self, val):
         valid_dtypes = self._get_valid_setitem_dtypes()
         if not any(isinstance(val, dt) for dt in valid_dtypes):
-            raise TypeError(f'Tried to assign value of type {type(val)} to an object of type {type(self)}. Only {valid_dtypes} are accepted.')
+            raise TypeError(f'Tried to set an item of a tensor of type {type(self)} to a value of type {type(val)}. Only {valid_dtypes} are accepted.')
 
     def __setitem__(self, slices, val):
         self._validate_setitem_dtype(val)
@@ -124,6 +124,11 @@ class Tensor(ABC):
     @property
     def offset(self):
         return self._data.offset
+
+    @staticmethod
+    def _validate_constructor_arg(tensor, arg, valid_types):
+        if not any(type(arg) == tp for tp in valid_types):
+            raise TypeError(f'Tried to construct tensor of type {type(tensor)} from argument of type {type(arg)}. Only the following type(s) are allowed: {valid_types}.')
 
 
 class NumericTensor(Tensor):
@@ -219,12 +224,21 @@ class Pcf64Tensor(PcfTensor):
 
 class PointCloudTensor(Tensor):
     def _get_valid_setitem_dtypes(self):
-        return [np.ndarray, float, int]
+        return [DoubleTensor, FloatTensor, np.ndarray, float, int]
 
 class PointCloud32Tensor(PointCloudTensor):
-    def __init__(self, data : cpp.PointCloud32Tensor):
+    def __init__(self, data : cpp.PointCloud32Tensor | PointCloud32Tensor):
         super().__init__()
-        self._data = data
+
+        Tensor._validate_constructor_arg(self, data, [cpp.PointCloud32Tensor, PointCloud32Tensor])
+
+        if isinstance(data, cpp.PointCloud32Tensor):
+            self._data = data
+        elif isinstance(data, PointCloud32Tensor):
+            self._data = data._data
+        else:
+            raise TypeError(f'Internal type error, please report this: Unhandled {type(data)}')
+
         self.dtype = pcloud32
 
     def _to_py_tensor(self, data):
@@ -240,8 +254,16 @@ class PointCloud32Tensor(PointCloudTensor):
 class PointCloud64Tensor(PointCloudTensor):
     def __init__(self, data : cpp.PointCloud64Tensor):
         super().__init__()
-        self._data = data
-        self.dtype = pcloud32
+        Tensor._validate_constructor_arg(self, data, [cpp.PointCloud64Tensor, PointCloud64Tensor])
+
+        if isinstance(data, cpp.PointCloud64Tensor):
+            self._data = data
+        elif isinstance(data, PointCloud64Tensor):
+            self._data = data._data
+        else:
+            raise TypeError(f'Internal type error, please report this: Unhandled {type(data)}')
+
+        self.dtype = pcloud64
 
     def _to_py_tensor(self, data):
         return PointCloud64Tensor(data)
