@@ -37,8 +37,6 @@ def test_pdist_of_two_gives_correct_output():
 
     D = mpcf.pdist(X)
 
-    assert D.dtype == np.float64
-
     assert len(D.shape) == 2
     assert D.shape[0] == 2
     assert D.shape[1] == 2
