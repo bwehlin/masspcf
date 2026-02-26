@@ -65,8 +65,14 @@ def _check_deprecated_dtype(dtype):
         return dtype
 
 def _assert_valid_dtype(dtype, valid_dtypes):
+    def name_of(dt):
+        if isinstance(dt, type):
+            return dt.__name__
+        else:
+            return str(dt)
+
     if not any(dtype == valid_dtype for valid_dtype in valid_dtypes):
-        raise TypeError("Only the following dtypes are supported: " + ", ".join(valid_dtype.__name__ for valid_dtype in valid_dtypes) + f" (supplied {dtype.__name__})")
+        raise TypeError("Only the following dtypes are supported: " + ", ".join(name_of(valid_dtype) for valid_dtype in valid_dtypes) + f" (supplied {name_of(dtype)})")
 
 def _validate_dtype(dtype, valid_dtypes):
     dtype = _check_deprecated_dtype(dtype)

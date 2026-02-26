@@ -26,6 +26,8 @@ def compute_barcodes_euclidean_pcloud_ripser(
         maxDim : int = 1):
 
     backend = _get_backend(X, {
+        pcloud32 : cpp_p.PersistenceRipser32,
+        pcloud64 : cpp_p.PersistenceRipser64,
         f32 : cpp_p.PersistenceRipser32,
         f64 : cpp_p.PersistenceRipser64
     })

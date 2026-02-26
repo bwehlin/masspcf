@@ -16,7 +16,7 @@ import masspcf as mpcf
 import masspcf.persistence as mpers
 
 import numpy as np
-def test_persistence_ripser_compute_euclidean_barcodes_returns_correct_dtype_and_shape():
+def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correct_dtype_and_shape():
     Xnp = np.random.randn(10, 2).astype(np.float64)
     X = mpcf.DoubleTensor(Xnp)
 
@@ -33,6 +33,20 @@ def test_persistence_ripser_compute_euclidean_barcodes_returns_correct_dtype_and
     assert isinstance(bcs, mpers.Barcode32Tensor)
     assert bcs.shape == (4,)
 
+def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns_correct_dtype_and_shape():
+    X = mpcf.zeros((3, 2, 7), dtype=mpcf.pcloud64)
+
+    bcs = mpers.compute_barcodes_euclidean_pcloud_ripser(X, maxDim=3)
+
+    assert isinstance(bcs, mpers.Barcode64Tensor)
+    assert bcs.shape == (3, 2, 7, 4)
+
+    X = mpcf.zeros((3, 2, 7), dtype=mpcf.pcloud32)
+
+    bcs = mpers.compute_barcodes_euclidean_pcloud_ripser(X, maxDim=3)
+
+    assert isinstance(bcs, mpers.Barcode32Tensor)
+    assert bcs.shape == (3, 2, 7, 4)
 
 
 """
