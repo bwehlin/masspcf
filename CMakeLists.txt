@@ -377,14 +377,19 @@ if (LINUX OR MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN)) # Stubgen does not see
           TARGET ${CPP_MODULE_NAME}
           POST_BUILD
           COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
-          --output-dir "${CMAKE_CURRENT_BINARY_DIR}"
+          --output-dir "${CMAKE_CURRENT_BINARY_DIR}/stubs"
+          --ignore-invalid-expressions comment
           COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
   )
 
-  set(STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}.pyi")
-  set_source_files_properties(${STUB_FILE} PROPERTIES GENERATED TRUE)
+  set(STUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/stubs/${CPP_MODULE_NAME}")
 
-  install(FILES ${STUB_FILE} DESTINATION ${INSTALL_TARGET})
+  install(
+    DIRECTORY "${STUB_DIR}/"
+    DESTINATION "${INSTALL_TARGET}/${CPP_MODULE_NAME}"
+    FILES_MATCHING
+    PATTERN "*.pyi"
+  )
 
   add_custom_command(
           TARGET ${CPP_MODULE_NAME}
@@ -450,13 +455,16 @@ elseif (MINIMAL_MODULE_BUILD)
     if (NOT SKIP_STUBGEN)
 
       # Stub file
-      get_filename_component(STUB_NAME \"${STUB_FILE}\" NAME)
-      set(STUB_DEST \"\${SRC_DIR}/\${STUB_NAME}\")
+      set(STUB_SRC_DIR \"${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}\")
+      set(STUB_DEST_DIR \"\${SRC_DIR}/${CPP_MODULE_NAME}\")
 
       if(UNIX)
-        file(CREATE_LINK \"${STUB_FILE}\" \"\${STUB_DEST}\" SYMBOLIC)
+        # Create a symbolic link to the entire directory
+        # Note: We remove the old link/folder first to avoid nested links
+        file(REMOVE_RECURSE \"\${STUB_DEST_DIR}\")
+        file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
       else()
-        file(COPY \"${STUB_FILE}\" DESTINATION \"\${SRC_DIR}\")
+        file(COPY \"\${STUB_SRC_DIR}\" DESTINATION \"\${SRC_DIR}\")
       endif()
 
       # py.typed (small file — copy everywhere)
