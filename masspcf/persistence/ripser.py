@@ -17,7 +17,7 @@ from ..tensor import (FloatTensor, DoubleTensor,
                       )
 
 from ..typing import f32, f64
-from .tensor import BarcodeTensor
+from .tensor import Barcode32Tensor, Barcode64Tensor
 
 from .._mpcf_cpp import persistence as cpp_p
 
@@ -30,5 +30,9 @@ def compute_barcodes_euclidean_pcloud_ripser(X : FloatTensor | DoubleTensor):
     out = backend.compute_barcodes_euclidean_pcloud_ripser(X._data)
 
     if isinstance(X, FloatTensor):
-        return Bar(out)
+        return Barcode32Tensor(out)
+    elif isinstance(X, DoubleTensor):
+        return Barcode64Tensor(out)
+    else:
+        raise TypeError('Internal type error, please report this.')
 

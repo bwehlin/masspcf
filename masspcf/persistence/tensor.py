@@ -13,6 +13,11 @@
 #  limitations under the License.
 
 from ..tensor import Tensor
+from .barcode import Barcode
+
+import numpy as np
+
+from .._mpcf_cpp import persistence as cpp_p
 
 class BarcodeTensor(Tensor):
     def __init__(self):
@@ -21,8 +26,24 @@ class BarcodeTensor(Tensor):
     def _decay_value(self, val):
         return val._data
 
+    def _represent_element(self, element):
+        return Barcode(element)
+
+    def _get_valid_setitem_dtypes(self):
+        return [Barcode, np.ndarray]
+
 class Barcode32Tensor(BarcodeTensor):
-    pass
+    def __init__(self, data : cpp_p.Barcode32Tensor):
+        super().__init__()
+        self._data = data
+
+    def _to_py_tensor(self, data):
+        return Barcode32Tensor(data)
 
 class Barcode64Tensor(BarcodeTensor):
-    pass
+    def __init__(self, data : cpp_p.Barcode32Tensor):
+        super().__init__()
+        self._data = data
+
+    def _to_py_tensor(self, data):
+        return Barcode64Tensor(data)

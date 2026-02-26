@@ -84,6 +84,10 @@ class Tensor(ABC):
 
     @abstractmethod
     def _to_py_tensor(self, data):
+        """
+        Convert C++/Python tensor type to a Python tensor. Normally, it is enough to just return Datatype(data) where
+        Datatype is the current class's type.
+        """
         raise NotImplementedError()
 
     @abstractmethod
@@ -100,6 +104,10 @@ class Tensor(ABC):
 
     @abstractmethod
     def _represent_element(self, element):
+        """
+        Casts a single C++ element into the corresponding Python type. For example, a C++ function may return a
+        mpcf._mpcf_cpp.Pcf32, and then we would like to cast it into a mpcf.Pcf by simply returning mpcf.Pcf(element).
+        """
         raise NotImplementedError()
 
     def flatten(self):
