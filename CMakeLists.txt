@@ -48,6 +48,7 @@ endif()
 
 if (SKBUILD)
   set(BUILD_TESTER OFF)
+  set(SKIP_STUBGEN ON) # Too many problems with stubgen and skbuild at the moment, we don't really need the stubs anyway in the release since the C++ bits are all internal...
 else()
   set(BUILD_TESTER ON)
 endif()
@@ -91,10 +92,20 @@ string(SUBSTRING "${TOML_CONTENT}" ${PROJECT_SECTION_START} -1 PROJECT_BODY)
 
 # 3. Extract the version string
 if(PROJECT_BODY MATCHES [[version[ \t]*=[ \t]*"([^"]+)"]])
-  set(PROJ_VERSION "${CMAKE_MATCH_1}")
+  set(PROJ_VERSION_FULL "${CMAKE_MATCH_1}")
+
+  # Extract only the numeric part for CMake's project() command
+  string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PROJ_VERSION_NUMERIC "${PROJ_VERSION_FULL}")
+
+  message(STATUS "!!! Detected Full Version: ${PROJ_VERSION_FULL}")
+  message(STATUS "!!! Numeric Version for CMake: ${PROJ_VERSION_NUMERIC}")
+
+  set(PROJ_VERSION "${PROJ_VERSION_NUMERIC}")
+else()
+  message(FATAL "Could not detect version number from pyproject.toml!")
 endif()
 
-project(${PROJ_NAME} VERSION ${PROJ_VERSION} LANGUAGES CXX ${LANG_CUDA})
+project(${PROJ_NAME} VERSION ${PROJ_VERSION_NUMERIC} LANGUAGES CXX ${LANG_CUDA})
 
 if((DEFINED ENV{ENABLE_COVERAGE}) AND (NOT $ENV{ENABLE_COVERAGE} MATCHES "0"))
   set(ENABLE_COVERAGE ON)
@@ -219,7 +230,7 @@ target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
 target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
 target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
-target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION}) 
+target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION_FULL})
 
 if (MSVC)
   # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
