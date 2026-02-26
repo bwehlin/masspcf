@@ -43,11 +43,14 @@ def _pyslice_to_slice(s):
 class Tensor(ABC):
     def __getitem__(self, slices):
         if isinstance(slices, int): # X[n]
-            return self._represent_element(self._data._get_element(slices))
+            x = self._data._get_element(slices)
+            return self._represent_element(x)
         elif isinstance(slices, slice): # X[n:m] etc...
-            return self._to_py_tensor(self._data[[_pyslice_to_slice(slices)]])
+            x = self._data[[_pyslice_to_slice(slices)]]
+            return self._to_py_tensor(x)
         elif all(isinstance(s, int) for s in slices): # X[1, 2, 3] etc... (for this, we wan't a single element rather than a tensor)
-            return self._represent_element(self._data._get_element(slices))
+            x = self._data._get_element(slices)
+            return self._represent_element(x)
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
             return self._to_py_tensor(self._data[real_slices])
@@ -336,6 +339,11 @@ def _get_backend(fs, backendMapping : dict):
         backend = backendMapping.get(fs.dtype)
         if backend is None:
             raise ValueError(f'Operation not supported for tensors of this type ({fs._type} with dtype {fs.dtype})')
-        return backend
+        return backend, fs
+    elif isinstance(fs, np.ndarray):
+        if fs.dtype == np.float32:
+            return _get_backend(FloatTensor(fs), backendMapping)
+        elif fs.dtype == np.float64:
+            return _get_backend(DoubleTensor(fs), backendMapping)
 
     raise ValueError(f'Operation not supported for data of this type ({type(fs)})')

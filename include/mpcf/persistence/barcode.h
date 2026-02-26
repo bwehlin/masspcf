@@ -17,6 +17,8 @@
 
 #include "persistence_pair.h"
 
+#include <iosfwd>
+
 namespace mpcf::ph
 {
   template <typename T>
@@ -24,20 +26,118 @@ namespace mpcf::ph
   {
   public:
     /**
+     * Constructs an empty barcode (i.e., a barcode with no bars)
+     */
+    Barcode() = default;
+
+    explicit Barcode(const std::vector<mpcf::ph::PersistencePair<T>>& bars)
+      : m_bars(bars)
+    { }
+
+    explicit Barcode(std::vector<mpcf::ph::PersistencePair<T>>&& bars)
+        : m_bars(std::move(bars))
+    { }
+
+    Barcode& operator=(const std::vector<PersistencePair<T>>& bars)
+    {
+      m_bars = bars;
+      return *this;
+    }
+
+    Barcode& operator=(std::vector<PersistencePair<T>>&& bars)
+    {
+      m_bars = std::move(bars);
+      return *this;
+    }
+
+    /**
      * Does a 1-1 comparison between two `Barcode` objects. For efficiency reasons, equality is only `true` if the bars
-     * occur *in the same order*, even though, mathematically, this doesn't matter.
+     * occur *in the same order*, even though, mathematically, this doesn't matter. For a more proper (but slower)
+     * comparison, see `is_isomorphic_to`.
      * @param rhs The `Barcode` to compare against.
      * @return `true` if all bars are the same and occur in the same order, otherwise `false`.
      */
     [[nodiscard]] bool operator==(const Barcode& rhs) const
     {
-      return m_persistencePairs == rhs.m_persistencePairs;
+      return m_bars == rhs.m_bars;
     }
 
-  private:
-    std::vector<mpcf::ph::PersistencePair<T>> m_persistencePairs;
+    [[nodiscard]] bool is_isomorphic_to(const Barcode& rhs) const
+    {
+      if (m_bars.size() != rhs.m_bars.size())
+      {
+        return false;
+      }
 
+      std::vector<mpcf::ph::PersistencePair<T>> thisBars(m_bars);
+      std::vector<mpcf::ph::PersistencePair<T>> rhsBars(m_bars);
+
+      std::sort(thisBars.begin(), thisBars.end());
+      std::sort(rhsBars.begin(), rhsBars.end());
+
+      return thisBars == rhsBars;
+    }
+
+    [[nodiscard]] const std::vector<mpcf::ph::PersistencePair<T>>& bars() const { return m_bars; }
+
+  private:
+    std::vector<mpcf::ph::PersistencePair<T>> m_bars;
   };
+
+  template <typename T>
+  std::ostream& operator<<(std::ostream& os, const Barcode<T>& barcode)
+  {
+    os << "{";
+
+    constexpr const int nBarsBeforeNewline = 10;
+    int nBars = nBarsBeforeNewline;
+
+    for (auto it = barcode.bars().begin(); it != barcode.bars().end(); ++it)
+    {
+      auto const & bar = *it;
+
+      os << "[";
+
+      if (bar.birth == -std::numeric_limits<T>::infinity())
+      {
+        os << "-oo";
+      }
+      else
+      {
+        os << bar.birth;
+      }
+
+      os << ", ";
+
+      if (bar.death == std::numeric_limits<T>::infinity())
+      {
+        os << "oo";
+      }
+      else
+      {
+        os << bar.death;
+      }
+
+      os << ")";
+
+      if (std::next(it) != barcode.bars().end())
+      {
+        if (--nBars == 0)
+        {
+          os << ",\n  ";
+          nBars = nBarsBeforeNewline;
+        }
+        else
+        {
+          os << ", ";
+        }
+      }
+
+    }
+    os << "}";
+
+    return os;
+  }
 }
 
 #endif //MASSPCF_BARCODE_H

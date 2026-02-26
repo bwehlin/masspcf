@@ -192,7 +192,7 @@ SET(MPCF_LIB_SOURCES
 )
 
 SET(MPCF_PY_PERSISTENCE_SOURCES
-  py_barcode_tensor.h py_barcode_tensor.cpp
+  py_barcode.h py_barcode.cpp
   py_persistence_pair.h py_persistence_pair.cpp
   py_ripser.h py_ripser.cpp
   pymodule_persistence.h pymodule_persistence.cpp
@@ -332,7 +332,7 @@ if(MSVC)
   target_compile_options(${CPP_MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
 else()
   #target_compile_options(${CPP_MODULE_NAME} PRIVATE -Wall -Wextra)
-  set( CMAKE_CXX_FLAGS "-Wall -Wextra" )
+  set( CMAKE_CXX_FLAGS "-Wall -Wextra -Werror=return-type" )
 endif()
 
 if (BUILD_WITH_CUDA)

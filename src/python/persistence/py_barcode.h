@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MASSPCF_PY_BARCODE_TENSOR_H
-#define MASSPCF_PY_BARCODE_TENSOR_H
+#ifndef MASSPCF_PY_BARCODE_H
+#define MASSPCF_PY_BARCODE_H
 
 #include <mpcf/persistence/persistence_pair.h>
 
@@ -24,4 +24,4 @@ namespace mpcf_py
   void register_persistence_barcode_tensor(pybind11::module_& m);
 }
 
-#endif //MASSPCF_PY_BARCODE_TENSOR_H
+#endif //MASSPCF_PY_BARCODE_H

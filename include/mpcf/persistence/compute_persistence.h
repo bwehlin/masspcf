@@ -24,12 +24,89 @@
 namespace mpcf::ph
 {
   template <typename T>
-  requires std::is_floating_point_v<T>
-  Tensor<Barcode<T>> compute_persistence_euclidean(const Tensor<T>& points)
+  Tensor<Barcode<T>> compute_persistence_euclidean(const Tensor<PointCloud<T>>& pclouds, size_t maxDim = 1)
   {
-    Tensor<Barcode<T>> ret;
+    auto shape = pclouds.shape();
+    shape.emplace_back(maxDim + 1);
+    Tensor<Barcode<T>> ret(shape);
 
-    //rp::ripser<rp::euclidean_distance_matrix> ripser;
+    ret.walk([&pclouds, &ret, maxDim](const std::vector<size_t>& index) {
+      if (index.back() != 0)
+      {
+        // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
+        return;
+      }
+
+      auto pcIdx = std::vector<size_t>(index.begin(), std::prev(index.end()));
+      auto const & points = pclouds(pcIdx);
+
+      if (points.rank() == 0 || std::any_of(points.shape().begin(), points.shape().end(), [](size_t v){ return v == 0; }))
+      {
+        // No points or all degenerate points => trivial homology
+        return;
+      }
+
+      if (points.rank() != 2)
+      {
+        throw std::runtime_error("Point cloud at index " + index_to_string(pcIdx) + " has unexpected shape " +
+            shape_to_string(points.shape()) + " (should be (m, n))");
+      }
+
+      std::vector<std::vector<rips::value_t>> rpoints;
+      rpoints.reserve(points.shape(0));
+
+      for (auto i = 0_uz; i < points.shape(0); ++i)
+      {
+        rpoints.emplace_back();
+        auto & curRPoint = rpoints.back();
+        curRPoint.resize(points.shape(1));
+        for (auto j = 0_uz; j < points.shape(1); ++j)
+        {
+          curRPoint[j] = points({i, j});
+        }
+      }
+
+      rips::euclidean_distance_matrix distanceMatrix(std::move(rpoints));
+
+      auto threshold = std::numeric_limits<rips::value_t>::infinity();
+      for (auto i = 0_uz; i < points.shape(0); ++i)
+      {
+        auto r = -std::numeric_limits<rips::value_t>::infinity();
+        for (auto j = 0_uz; j < points.shape(0); ++j)
+        {
+          r = std::max(r, distanceMatrix(i, j));
+        }
+        threshold = std::min(threshold, r);
+      }
+
+      rips::value_t ratio = 1;
+      rips::coefficient_t modulus = 2;
+
+      rips::compressed_lower_distance_matrix dist(std::move(distanceMatrix));
+      rips::ripser<rips::compressed_lower_distance_matrix> ripser(std::move(dist), maxDim /* sic */, threshold, ratio, modulus);
+      ripser.compute_barcodes();
+
+      for (auto i = 0_uz; i < maxDim + 1; ++i)
+      {
+        auto const & intervals = ripser.get_intervals(i);
+        auto retIdx = index;
+        retIdx.back() = i;
+
+        if constexpr (std::is_same_v<T, rips::value_t>)
+        {
+          ret(retIdx) = intervals;
+        }
+        else
+        {
+          // TODO: template on bar type in Ripser so that we don't have to do this conversion
+          std::vector<PersistencePair<T>> conv;
+          conv.resize(intervals.size());
+          std::transform(intervals.begin(), intervals.end(), conv.begin(), [](const PersistencePair<rips::value_t>& rpair){ return PersistencePair<T>(rpair.birth, rpair.death); });
+          ret(retIdx) = conv;
+        }
+      }
+
+    });
 
     return ret;
   }

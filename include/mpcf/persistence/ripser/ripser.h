@@ -1,7 +1,7 @@
 // This file is originally from https://github.com/Ripser/ripser and has been slightly modified to work within masspcf.
 // The modifications are such that there are no globals or static data that would cause issues with running multiple
 // ripser instances at the same time (needed for multithreading). In addition, the returned persistence pairs now are
-// represented using the mpcf::PersistencePair struct to work with the rest of the library.
+// represented using the mpcf::ph::PersistencePair struct to work with the rest of the library.
 
 /*
 
@@ -65,7 +65,7 @@
 
 //#define INDICATE_PROGRESS
 
-namespace mpcf::ph
+namespace mpcf::ph::rips
 {
 
   #ifdef USE_ROBINHOOD_HASHMAP
@@ -447,7 +447,7 @@ namespace mpcf::ph
     mutable std::vector<diameter_entry_t> cofacet_entries;
     mutable std::vector<index_t> vertices;
 
-    std::vector<std::vector<mpcf::PersistencePair<value_t>>> intervals;
+    std::vector<std::vector<PersistencePair<value_t>>> intervals;
 
     friend class simplex_coboundary_enumerator<DistanceMatrix>;
 
@@ -506,11 +506,11 @@ namespace mpcf::ph
     simplex_coboundary_enumerator<DistanceMatrix> cofacets, cofacets1, cofacets2;
 
     struct entry_hash {
-      std::size_t operator()(const rp::entry_t& e) const { return std::hash<long>()(get_index(e)); }
+      std::size_t operator()(const entry_t& e) const { return std::hash<long>()(get_index(e)); }
     };
 
     struct equal_index {
-      bool operator()(const rp::entry_t& e, const rp::entry_t& f) const {
+      bool operator()(const entry_t& e, const entry_t& f) const {
         return get_index(e) == get_index(f);
       }
     };

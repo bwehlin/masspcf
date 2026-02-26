@@ -16,6 +16,7 @@
 
 #include <mpcf/tensor.h>
 #include <mpcf/persistence/barcode.h>
+#include <mpcf/persistence/compute_persistence.h>
 
 namespace py = pybind11;
 
@@ -26,12 +27,9 @@ namespace
   class PyRipserBindings
   {
   public:
-    static mpcf::Tensor<mpcf::ph::Barcode<T>> compute_barcodes_euclidean_pcloud_ripser(mpcf::Tensor<mpcf::PointCloud<T>> pointCloud, size_t maxDim)
+    static mpcf::Tensor<mpcf::ph::Barcode<T>> compute_barcodes_euclidean_pcloud_ripser(mpcf::Tensor<mpcf::PointCloud<T>> pclouds, size_t maxDim)
     {
-      auto shape = pointCloud.shape();
-      shape.emplace_back(maxDim + 1);
-      mpcf::Tensor<mpcf::ph::Barcode<T>> ret(shape);
-      return ret;
+      return mpcf::ph::compute_persistence_euclidean(pclouds, maxDim);
     }
 
     static void register_bindings(py::module_& m, const std::string& suffix)

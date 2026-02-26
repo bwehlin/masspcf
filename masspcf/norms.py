@@ -21,7 +21,7 @@ from .async_task import _wait_for_task
 import numpy as np
 
 
-def _get_norms_backend(fs) -> cpp.Norms_f32_f32 | cpp.Norms_f64_f64:
+def _get_norms_backend(fs):
     mapping = { pcf32: cpp.Norms_f32_f32,
                 pcf64: cpp.Norms_f64_f64 }
 
@@ -60,7 +60,7 @@ def lp_norm(fs : PcfContainerLike, p=1, verbose=False):
 
     X = _to_tensor_pcf(fs)
 
-    backend = _get_norms_backend(fs)
+    backend, fs = _get_norms_backend(fs)
     out = np.zeros(X.shape, dtype=numpy_type(X))
 
     task = None

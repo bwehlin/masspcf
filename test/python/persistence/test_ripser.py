@@ -48,6 +48,38 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns
     assert isinstance(bcs, mpers.Barcode32Tensor)
     assert bcs.shape == (3, 2, 7, 4)
 
+def test_persistence_ripser_compute_euclidean_barcode_gets_correct_barcode():
+    X = np.zeros((4, 2))
+
+    # Distance space is "two 3-4-5 triangles". This gives nontrivial H0 and H1 with bars at integers.
+
+    X[0, :] = [ 0., 0. ]
+    X[1, :] = [ 0., 4. ]
+    X[2, :] = [ 3., 0. ]
+    X[3, :] = [ 3., 4. ]
+
+    bcs = mpers.compute_barcodes_euclidean_pcloud_ripser(X, maxDim=2)
+
+    h0 = bcs[0]
+    h1 = bcs[1]
+    h2 = bcs[2]
+
+    expected_h0_bars = np.array([[0., 3.], [0., 3.], [0., 4]])
+    expected_h0 = mpers.Barcode(expected_h0_bars)
+
+    expected_h1_bars = np.array([[4., 5.]])
+    expected_h1 = mpers.Barcode(expected_h1_bars)
+
+    expected_h2_bars = np.zeros((0, 2))
+    expected_h2 = mpers.Barcode(expected_h2_bars)
+
+    assert expected_h0.is_isomorphic_to(h0)
+    assert expected_h1.is_isomorphic_to(h1)
+    assert expected_h2.is_isomorphic_to(h2)
+
+
+
+
 
 """
 def test_123():

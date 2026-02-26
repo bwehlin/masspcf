@@ -14,7 +14,7 @@
 
 #include "pymodule_persistence.h"
 
-#include "py_barcode_tensor.h"
+#include "py_barcode.h"
 #include "py_persistence_pair.h"
 #include "py_ripser.h"
 

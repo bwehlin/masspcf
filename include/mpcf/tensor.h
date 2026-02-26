@@ -237,7 +237,7 @@ namespace mpcf
   }
 
   template <typename T>
-  requires std::is_floating_point_v<T>
+  requires std::is_arithmetic_v<T>
   using PointCloud = Tensor<T>;
 
 

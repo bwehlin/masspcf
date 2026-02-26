@@ -39,6 +39,16 @@ namespace mpcf::ph
     {
       return birth == rhs.birth && death == rhs.death;
     }
+
+    /**
+     * Lexicographical order on (birth, death)
+     * @param rhs `PersistencePair` to compare against
+     * @return `true` if `*this` is lexicographically smaller than `rhs`
+     */
+    [[nodiscard]] bool operator<(const PersistencePair& rhs) const noexcept
+    {
+      return birth < rhs.birth || (birth == rhs.birth && death < rhs.death);
+    }
   };
 
 }

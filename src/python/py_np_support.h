@@ -64,6 +64,11 @@ public:
     return std::vector<size_t>(m_arr.shape(), m_arr.shape() + m_arr.ndim());
   }
 
+  [[nodiscard]] size_t shape(size_t i) const
+  {
+    return m_arr.shape(i);
+  }
+
   [[nodiscard]] std::vector<size_t> strides() const
   {
     std::vector<size_t> s;
@@ -91,6 +96,18 @@ public:
     auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), 0);
     offset /= m_arr.itemsize();
     return *(m_arr.data() + offset);
+  }
+
+  template <typename... Ix>
+  [[nodiscard]] T& operator()(Ix... index)
+  {
+    return m_arr.template mutable_at(std::forward<Ix>(index)...);
+  }
+
+  template <typename... Ix>
+  [[nodiscard]] const T& operator()(Ix... index) const
+  {
+    return m_arr.template at(std::forward<Ix>(index)...);
   }
 
 private:
