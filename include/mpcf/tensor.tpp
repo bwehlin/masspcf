@@ -14,6 +14,8 @@
 * limitations under the License.
 */
 
+#include <functional>
+
 namespace mpcf
 {
   template <typename T>
@@ -120,6 +122,12 @@ namespace mpcf
     walk([this, &rhs](const std::vector<size_t>& idx){
       (*this)(idx) = rhs(idx);
     });
+  }
+
+  template <typename T>
+  [[nodiscard]] size_t Tensor<T>::size() const noexcept
+  {
+    return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies<size_t>());
   }
 
   template <typename T>

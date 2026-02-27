@@ -107,6 +107,12 @@ namespace mpcf
     [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
     [[nodiscard]] size_t rank() const noexcept { return m_shape.size(); }
 
+    /**
+     * Compute the total number of elements in the tensor.
+     * @return Total number of elements in the tensor.
+     */
+    [[nodiscard]] size_t size() const noexcept;
+
     [[nodiscard]] bool is_contiguous() const noexcept { return m_isContiguous; }
 
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }

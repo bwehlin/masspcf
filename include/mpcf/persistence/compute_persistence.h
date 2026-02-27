@@ -129,6 +129,8 @@ namespace mpcf::ph
 
       auto terminal_task = create_terminal_task(flow);
 
+      next_step(m_pclouds.size(), "Computing persistence", "pointcloud");
+
       m_ret.walk([this, &flow, &terminal_task](const std::vector<size_t>& index) {
         if (index.back() != 0)
         {
@@ -140,6 +142,7 @@ namespace mpcf::ph
           if (stop_requested())
             return;
           detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
+          add_progress(1);
         });
 
         task.precede(terminal_task);
