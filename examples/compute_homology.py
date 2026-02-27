@@ -19,7 +19,7 @@ import numpy as np
 import math
 from tqdm import trange
 
-shape = (10, 20, 30)
+shape = (100, 20, 300)
 
 min_pcloud_points = 5
 max_pcloud_points = 100

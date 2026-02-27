@@ -122,31 +122,31 @@ namespace mpcf::ph
     tf::Future<void> run_async(Executor& exec) override
     {
       tf::Taskflow flow;
-      std::vector<tf::Task> tasks;
 
       auto shape = m_pclouds.shape();
       shape.emplace_back(m_maxDim + 1);
       m_ret = Tensor<Barcode<T>>(shape);
 
-      m_ret.walk([this, &flow, &tasks](const std::vector<size_t>& index) {
+      auto terminal_task = create_terminal_task(flow);
+
+      m_ret.walk([this, &flow, &terminal_task](const std::vector<size_t>& index) {
         if (index.back() != 0)
         {
           // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
           return;
         }
 
-        tasks.emplace_back(flow.emplace([this, index] {
+        auto task = flow.emplace([this, index] {
           if (stop_requested())
             return;
           detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
-        }));
+        });
+
+        task.precede(terminal_task);
       });
 
-      tasks.emplace_back(create_terminal_task(flow));
-
-      std::cout << "Scheduling " << tasks.size() << " task(s)..." << std::endl;
-
-      flow.linearize(tasks);
+      //std::cout << "Exec has " << exec.cpu()->num_workers() << " worker(s)" << std::endl;
+      //std::cout << "Scheduling " << tasks.size() << " task(s)..." << std::endl;
 
       return exec.cpu()->run(std::move(flow));
     }
