@@ -39,10 +39,16 @@ namespace
       return mpcf::ph::barcode_to_stable_rank(barcode);
     }
 
+    static std::unique_ptr<mpcf::StoppableTask<void>> spawn_barcode_to_stable_rank_task(const mpcf::Tensor<BarcodeT>& barcodes, mpcf::Tensor<PcfT>& out)
+    {
+      return mpcf_py::execute_stoppable_task<mpcf::ph::BarcodeToStableRankTask<T>>(barcodes, out);
+    }
+
     static void register_bindings(py::module_& m, const std::string& suffix)
     {
       py::class_<PyStableRankBindings>(m, ("PersistenceStableRank" + suffix).c_str())
           .def_static("barcode_to_stable_rank", &PyStableRankBindings::barcode_to_stable_rank)
+          .def_static("spawn_barcode_to_stable_rank_task", &PyStableRankBindings::spawn_barcode_to_stable_rank_task)
           ;
     }
   };

@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 from .._tensor_base import Tensor
+from ..typing import barcode32, barcode64
 from .barcode import Barcode
 
 import numpy as np
@@ -37,6 +38,7 @@ class Barcode32Tensor(BarcodeTensor):
     def __init__(self, data : cpp_p.Barcode32Tensor):
         super().__init__()
         self._data = data
+        self.dtype = barcode32
 
     def _to_py_tensor(self, data):
         return Barcode32Tensor(data)
@@ -45,6 +47,7 @@ class Barcode64Tensor(BarcodeTensor):
     def __init__(self, data : cpp_p.Barcode64Tensor):
         super().__init__()
         self._data = data
+        self.dtype = barcode64
 
     def _to_py_tensor(self, data):
         return Barcode64Tensor(data)

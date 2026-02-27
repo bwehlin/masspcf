@@ -80,6 +80,44 @@ namespace mpcf::ph
 
     return Pcf<T, T>(std::move(pcfPoints));
   }
+
+  template <typename T>
+  class BarcodeToStableRankTask : public StoppableTask<void>
+  {
+  public:
+    BarcodeToStableRankTask(const Tensor<Barcode<T>>& barcodes, Tensor<Pcf<T, T>>& ret)
+        : m_barcodes(barcodes), m_ret(ret)
+    {
+    }
+
+  private:
+    tf::Future<void> run_async(Executor& exec) override
+    {
+      tf::Taskflow flow;
+      auto terminalTask = create_terminal_task(flow);
+
+      next_step(m_barcodes.size(), "Converting barcodes to stable rank functions", "barcode");
+
+      m_ret = Tensor<Pcf<T, T>>(m_barcodes.shape());
+
+      m_barcodes.walk([this, &flow, &terminalTask](const std::vector<size_t>& index){
+
+        auto task = flow.emplace([this, index]
+        {
+          m_ret(index) = barcode_to_stable_rank(m_barcodes(index));
+          add_progress(1);
+        });
+
+        task.precede(terminalTask);
+
+      });
+
+      return exec.cpu()->run(std::move(flow));
+    }
+
+    const Tensor<Barcode<T>>& m_barcodes;
+    Tensor<Pcf<T, T>>& m_ret;
+  };
 }
 
 #endif //MASSPCF_STABLE_RANK_H

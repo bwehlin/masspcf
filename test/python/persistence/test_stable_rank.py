@@ -93,3 +93,27 @@ def test_barcode_with_infinite_bars():
     print(np.asarray(sr))
 
     assert sr == expected_sr
+
+def test_tensor_barcode_conversion():
+    bcs = mpcf.zeros((5, 6, 7), dtype=mpcf.barcode64)
+
+    for i in range(bcs.shape[0]):
+        for j in range(bcs.shape[1]):
+            for k in range(bcs.shape[2]):
+                bc_shape = (np.random.randint(1, 20), 2)
+                bc_data = np.random.randn(*bc_shape)
+                bcs[i, j, k] = mpers.Barcode(bc_data)
+
+    srs = mpers.barcode_to_stable_rank(bcs)
+
+    assert srs.shape == bcs.shape
+
+    for i in range(bcs.shape[0]):
+        for j in range(bcs.shape[1]):
+            for k in range(bcs.shape[2]):
+                expected = mpers.barcode_to_stable_rank(bcs[i, j, k])
+
+                print(np.asarray(expected))
+                print(np.asarray(srs[i, j, k]))
+
+                assert srs[i, j, k] == expected
