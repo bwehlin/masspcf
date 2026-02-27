@@ -101,13 +101,13 @@ public:
   template <typename... Ix>
   [[nodiscard]] T& operator()(Ix... index)
   {
-    return m_arr.template mutable_at(std::forward<Ix>(index)...);
+    return m_arr.mutable_at(std::forward<Ix>(index)...);
   }
 
   template <typename... Ix>
   [[nodiscard]] const T& operator()(Ix... index) const
   {
-    return m_arr.template at(std::forward<Ix>(index)...);
+    return m_arr.at(std::forward<Ix>(index)...);
   }
 
 private:
