@@ -25,6 +25,11 @@ namespace mpcf::ph
   class Barcode
   {
   public:
+    [[nodiscard]] static bool is_infinite(T val)
+    {
+      return val == std::numeric_limits<T>::infinity() || val == std::numeric_limits<T>::max();
+    }
+
     /**
      * Constructs an empty barcode (i.e., a barcode with no bars)
      */
@@ -98,7 +103,7 @@ namespace mpcf::ph
 
       os << "[";
 
-      if (bar.birth == -std::numeric_limits<T>::infinity())
+      if (bar.birth == -std::numeric_limits<T>::infinity() || bar.birth == -std::numeric_limits<T>::max())
       {
         os << "-oo";
       }
@@ -109,7 +114,7 @@ namespace mpcf::ph
 
       os << ", ";
 
-      if (bar.death == std::numeric_limits<T>::infinity())
+      if (bar.death == std::numeric_limits<T>::infinity() || bar.death == std::numeric_limits<T>::max())
       {
         os << "oo";
       }

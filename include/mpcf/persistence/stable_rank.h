@@ -46,7 +46,7 @@ namespace mpcf::ph
       return pp.death - pp.birth;
     });
 
-    std::sort(lifetimes.begin(), lifetimes.end(), std::greater<T>());
+    std::sort(lifetimes.begin(), lifetimes.end());
 
     using PcfT = Pcf<T, T>;
     using PcfPointT = typename PcfT::point_type;
@@ -60,12 +60,22 @@ namespace mpcf::ph
     T lastLifetime = lifetimes.front();
     for (auto const & lifetime : lifetimes)
     {
-      --nAlive;
+      if (Barcode<T>::is_infinite(lastLifetime))
+      {
+        break;
+      }
+
       if (lifetime != lastLifetime)
       {
-        pcfPoints.emplace_back(lifetime, nAlive);
+        pcfPoints.emplace_back(lastLifetime, nAlive);
         lastLifetime = lifetime;
       }
+      --nAlive;
+    }
+
+    if (!Barcode<T>::is_infinite(lastLifetime))
+    {
+      pcfPoints.emplace_back(lastLifetime, nAlive);
     }
 
     return Pcf<T, T>(std::move(pcfPoints));
