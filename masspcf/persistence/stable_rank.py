@@ -12,7 +12,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from .. import _mpcf_cpp as cpp
+cpp_p = cpp.persistence
+
+from ..typing import barcode32, barcode64
+from ..tensor import _get_backend
+from ..pcf import Pcf
 from .barcode import Barcode
-from .ph_tensor import BarcodeTensor, Barcode32Tensor, Barcode64Tensor
-from .homology import compute_persistent_homology, ComplexType, DistanceType
-from .stable_rank import barcode_to_stable_rank
+
+def barcode_to_stable_rank(bc : Barcode):
+
+    backend, X = _get_backend(bc, {
+        barcode32 : cpp_p.PersistenceStableRank32,
+        barcode64 : cpp_p.PersistenceStableRank64
+    })
+
+    return Pcf(backend.barcode_to_stable_rank(X._data))

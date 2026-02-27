@@ -12,7 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .barcode import Barcode
-from .ph_tensor import BarcodeTensor, Barcode32Tensor, Barcode64Tensor
-from .homology import compute_persistent_homology, ComplexType, DistanceType
-from .stable_rank import barcode_to_stable_rank
+import masspcf as mpcf
+import masspcf.persistence as mpers
+
+import numpy as np
+
+def test_empty_barcode():
+    bc_pts = np.zeros((0, 2))
+    bc = mpers.Barcode(bc_pts)
+    sr = mpers.barcode_to_stable_rank(bc)
+
+    expected_sr_pts = np.zeros((1, 2))
+    expected_sr = mpcf.Pcf(expected_sr_pts)
+
+    assert sr == expected_sr

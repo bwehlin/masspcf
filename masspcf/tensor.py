@@ -195,5 +195,11 @@ def _get_backend(fs, backendMapping : dict):
             return _get_backend(FloatTensor(fs), backendMapping)
         elif fs.dtype == np.float64:
             return _get_backend(DoubleTensor(fs), backendMapping)
+    elif hasattr(fs, 'dtype'):
+        _validate_dtype(fs.dtype, backendMapping.keys())
+        backend = backendMapping.get(fs.dtype)
+        if backend is None:
+            raise ValueError(f'Operation not supported for objects of this type ({type(fs)} with dtype {fs.dtype})')
+        return backend, fs
 
     raise ValueError(f'Operation not supported for data of this type ({type(fs)})')

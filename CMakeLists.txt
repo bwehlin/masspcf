@@ -176,6 +176,7 @@ SET(MPCF_HEADER_FILES
   persistence/barcode.h
   persistence/compute_persistence.h
   persistence/persistence_pair.h
+  persistence/stable_rank.h
   persistence/ripser/ripser.h)
 
 SET(MPCF_SRC_FILES
@@ -195,6 +196,7 @@ SET(MPCF_PY_PERSISTENCE_SOURCES
   py_barcode.h py_barcode.cpp
   py_persistence_pair.h py_persistence_pair.cpp
   py_ripser.h py_ripser.cpp
+  py_stable_rank.h py_stable_rank.cpp
   pymodule_persistence.h pymodule_persistence.cpp
 )
 

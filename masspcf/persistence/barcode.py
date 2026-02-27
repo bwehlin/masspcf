@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+from ..typing import barcode32, barcode64
+
 from .. import _mpcf_cpp as cpp
 cpp_p = cpp.persistence
 
@@ -35,6 +37,13 @@ class Barcode:
                 self._data = cpp_p.Barcode64(bc)
             else:
                 fail = True
+        else:
+            fail = True
+
+        if isinstance(self._data, cpp_p.Barcode32):
+            self.dtype = barcode32
+        elif isinstance(self._data, cpp_p.Barcode64):
+            self.dtype = barcode64
         else:
             fail = True
 
