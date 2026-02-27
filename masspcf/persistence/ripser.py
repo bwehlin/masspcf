@@ -24,37 +24,16 @@ from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 from .. import _mpcf_cpp as cpp
 cpp_p = cpp.persistence
 
-def compute_barcodes_euclidean_pcloud_ripser(
-        X : PointCloud32Tensor | PointCloud64Tensor | FloatTensor | DoubleTensor,
+def _compute_barcodes_euclidean_pcloud_ripser(
+        X : PointCloud32Tensor | PointCloud64Tensor,
+        out : Barcode32Tensor | Barcode64Tensor,
         maxDim : int = 1):
 
     backend, X = _get_backend(X, {
         pcloud32 : cpp_p.PersistenceRipser32,
-        pcloud64 : cpp_p.PersistenceRipser64,
-        f32 : cpp_p.PersistenceRipser32,
-        f64 : cpp_p.PersistenceRipser64
+        pcloud64 : cpp_p.PersistenceRipser64
     })
 
-    if isinstance(X, FloatTensor):
-        pcX = zeros((1,), dtype=pcloud32)
-        pcX[0] = X
-        X = PointCloud32Tensor(pcX)
-    elif isinstance(X, DoubleTensor):
-        pcX = zeros((1,), dtype=pcloud64)
-        pcX[0] = X
-        X = PointCloud64Tensor(pcX)
+    return backend.spawn_ripser_pcloud_euclidean_task(X._data, out._data, maxDim)
 
-    out = backend.compute_barcodes_euclidean_pcloud_ripser(X._data, maxDim)
-
-    if isinstance(X, PointCloud32Tensor):
-        out = Barcode32Tensor(out)
-    elif isinstance(X, PointCloud64Tensor):
-        out = Barcode64Tensor(out)
-    else:
-        raise TypeError(f'Internal type error, please report this: Unhandled {type(X)}')
-
-    if len(out.shape) == 2 and out.shape[0] == 1:
-        out = out[0, :]
-
-    return out
 

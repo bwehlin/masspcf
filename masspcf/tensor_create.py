@@ -53,7 +53,7 @@ def zeros(shape : ShapeLike, dtype=pcf32):
         shape = Shape(shape) # If passed as, e.g., tuple of ints
 
     _check_deprecated_dtype(dtype)
-    _assert_valid_dtype(dtype, [pcf32, pcf64, f32, f64, pcloud32, pcloud64, float32, float64])
+    _assert_valid_dtype(dtype, [pcf32, pcf64, f32, f64, pcloud32, pcloud64, float32, float64, barcode32, barcode64])
 
     if dtype == pcf32 or dtype == float32:
         return Pcf32Tensor(cpp.Pcf32Tensor(shape))

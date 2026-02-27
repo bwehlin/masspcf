@@ -23,7 +23,7 @@ from ..tensor import (FloatTensor, DoubleTensor, PointCloud32Tensor, PointCloud6
 
 from ..typing import pcloud32, pcloud64, barcode32, barcode64
 
-from .ripser import compute_barcodes_euclidean_pcloud_ripser
+
 
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 
@@ -37,11 +37,14 @@ class ComplexType(Enum):
     VietorisRips = 1
 
 def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | FloatTensor | DoubleTensor | np.ndarray,
+                                maxDim : int = 1,
                                 distance_type : DistanceType = DistanceType.Euclidean,
-                                complex_type: ComplexType = ComplexType.VietorisRips ) \
+                                complex_type: ComplexType = ComplexType.VietorisRips,
+                                verbose : bool = True) \
         -> Barcode32Tensor | Barcode64Tensor :
 
     from ..tensor_create import zeros
+    from .ripser import _compute_barcodes_euclidean_pcloud_ripser
 
     if isinstance(X, np.ndarray):
         if X.dtype == np.float32:
@@ -51,29 +54,43 @@ def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Fl
         else:
             raise TypeError(f'Input has unsupported numpy dtype {X.dtype} (only np.float32/64 are supported).')
 
+    out = None
     if isinstance(X, FloatTensor):
         pcX = zeros((1,), dtype=pcloud32)
         pcX[0] = X
         X = PointCloud32Tensor(pcX)
-        out = zeros((1,), dtype=barcode32)
     elif isinstance(X, DoubleTensor):
         pcX = zeros((1,), dtype=pcloud64)
         pcX[0] = X
         X = PointCloud64Tensor(pcX)
+
+    if isinstance(X, PointCloud32Tensor):
+        out = zeros((1,), dtype=barcode32)
+    elif isinstance(X, PointCloud64Tensor):
         out = zeros((1,), dtype=barcode64)
 
     if complex_type == ComplexType.VietorisRips:
         # Use Ripser
         match distance_type:
             case DistanceType.Euclidean:
-                task = compute_barcodes_euclidean_pcloud_ripser()
+                task = _compute_barcodes_euclidean_pcloud_ripser(X, out, maxDim)
             case _:
                 raise ValueError(f'Distance type {distance_type} not supported for complex type {complex_type}.')
     else:
         raise ValueError(f'Unsupported complex type {complex_type}')
 
+    try:
+        _wait_for_task(task, verbose)
+    finally:
+        if task is not None:
+            task.request_stop()
+            _wait_for_task(task, verbose=verbose)
+
     if len(out.shape) == 2 and out.shape[0] == 1:
         out = out[0, :]
+
+    return out
+
 
 
 """

@@ -24,6 +24,8 @@
 
 #include "ripser/ripser.h"
 
+#include <iostream>
+
 namespace mpcf::ph
 {
   namespace detail
@@ -133,12 +135,17 @@ namespace mpcf::ph
           return;
         }
 
-        tasks.emplace_back(flow.emplace([this, index]{
+        tasks.emplace_back(flow.emplace([this, index] {
+          if (stop_requested())
+            return;
           detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
         }));
       });
 
       tasks.emplace_back(create_terminal_task(flow));
+
+      std::cout << "Scheduling " << tasks.size() << " task(s)..." << std::endl;
+
       flow.linearize(tasks);
 
       return exec.cpu()->run(std::move(flow));

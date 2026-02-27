@@ -28,12 +28,7 @@ namespace
   class PyRipserBindings
   {
   public:
-    static mpcf::Tensor<mpcf::ph::Barcode<T>> compute_barcodes_euclidean_pcloud_ripser(mpcf::Tensor<mpcf::PointCloud<T>> pclouds, size_t maxDim)
-    {
-      return mpcf::ph::compute_persistence_euclidean(pclouds, maxDim);
-    }
-
-    static std::unique_ptr<mpcf::StoppableTask<void>> async_ripser_pcloud_euclidean(const mpcf::Tensor<mpcf::PointCloud<T>>& pclouds, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim)
+    static std::unique_ptr<mpcf::StoppableTask<void>> spawn_ripser_pcloud_euclidean_task(const mpcf::Tensor<mpcf::PointCloud<T>>& pclouds, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim)
     {
       return mpcf_py::execute_stoppable_task<mpcf::ph::RipserTask<T>>(pclouds, out, maxDim);
     }
@@ -41,7 +36,7 @@ namespace
     static void register_bindings(py::module_& m, const std::string& suffix)
     {
       py::class_<PyRipserBindings>(m, ("PersistenceRipser" + suffix).c_str())
-        .def_static("compute_barcodes_euclidean_pcloud_ripser", &PyRipserBindings::compute_barcodes_euclidean_pcloud_ripser)
+        .def_static("spawn_ripser_pcloud_euclidean_task", &PyRipserBindings::spawn_ripser_pcloud_euclidean_task)
       ;
     }
   };
