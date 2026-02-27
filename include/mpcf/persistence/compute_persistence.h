@@ -157,7 +157,6 @@ namespace mpcf::ph
     RipserTask<T> task(pclouds, ret, maxDim);
     task.start_async(exec);
     task.wait();
-
     return ret;
   }
 

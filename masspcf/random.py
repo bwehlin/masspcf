@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 from . import _mpcf_cpp as cpp
-from .tensor import zeros
+from .tensor_create import zeros
 
 from .typing import pcf32, pcf64, _validate_dtype
 

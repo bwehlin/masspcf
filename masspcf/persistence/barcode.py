@@ -14,7 +14,8 @@
 
 from __future__ import annotations
 
-from .._mpcf_cpp import persistence as cpp_p
+from .. import _mpcf_cpp as cpp
+cpp_p = cpp.persistence
 
 import numpy as np
 

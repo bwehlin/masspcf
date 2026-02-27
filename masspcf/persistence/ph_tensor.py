@@ -12,12 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from ..tensor import Tensor
+from .._tensor_base import Tensor
 from .barcode import Barcode
 
 import numpy as np
 
-from .._mpcf_cpp import persistence as cpp_p
+from .. import _mpcf_cpp as cpp
+cpp_p = cpp.persistence
 
 class BarcodeTensor(Tensor):
     def __init__(self):
@@ -41,7 +42,7 @@ class Barcode32Tensor(BarcodeTensor):
         return Barcode32Tensor(data)
 
 class Barcode64Tensor(BarcodeTensor):
-    def __init__(self, data : cpp_p.Barcode32Tensor):
+    def __init__(self, data : cpp_p.Barcode64Tensor):
         super().__init__()
         self._data = data
 

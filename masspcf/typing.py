@@ -32,6 +32,12 @@ class pcloud32:
 class pcloud64:
     pass
 
+class barcode32:
+    pass
+
+class barcode64:
+    pass
+
 class _DeprecatedDtype:
     def __init__(self, name, replacement, standin):
         self._name = name

@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 from .barcode import Barcode
-from .tensor import BarcodeTensor, Barcode32Tensor, Barcode64Tensor
+from .ph_tensor import BarcodeTensor, Barcode32Tensor, Barcode64Tensor
 from .ripser import compute_barcodes_euclidean_pcloud_ripser
 
 

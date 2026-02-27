@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "py_ripser.h"
+#include "../py_async_support.h"
 
 #include <mpcf/tensor.h>
 #include <mpcf/persistence/barcode.h>
@@ -30,6 +31,11 @@ namespace
     static mpcf::Tensor<mpcf::ph::Barcode<T>> compute_barcodes_euclidean_pcloud_ripser(mpcf::Tensor<mpcf::PointCloud<T>> pclouds, size_t maxDim)
     {
       return mpcf::ph::compute_persistence_euclidean(pclouds, maxDim);
+    }
+
+    static std::unique_ptr<mpcf::StoppableTask<void>> async_ripser_pcloud_euclidean(const mpcf::Tensor<mpcf::PointCloud<T>>& pclouds, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim)
+    {
+      return mpcf_py::execute_stoppable_task<mpcf::ph::RipserTask<T>>(pclouds, out, maxDim);
     }
 
     static void register_bindings(py::module_& m, const std::string& suffix)

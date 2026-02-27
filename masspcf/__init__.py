@@ -16,13 +16,13 @@
 from .pcf import Pcf, average
 from .norms import lp_norm
 
-from .typing import (pcf32, pcf64, f32, f64, pcloud32, pcloud64,
+from .typing import (pcf32, pcf64, f32, f64, pcloud32, pcloud64, barcode32, barcode64,
                      float32, float64 # deprecated
                      )
 
-from .tensor import (Shape, zeros,
-                     FloatTensor, DoubleTensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor
-                     )
+from ._tensor_base import Shape
+from .tensor import (FloatTensor, DoubleTensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor)
+from .tensor_create import zeros
 
 from .reductions import mean, max_time
 from .serialize import from_serial_content

@@ -13,13 +13,16 @@
 #  limitations under the License.
 
 from ..tensor import (FloatTensor, DoubleTensor, PointCloud32Tensor, PointCloud64Tensor,
-                      _get_backend, zeros
+                      _get_backend
                       )
 
-from ..typing import f32, f64, pcloud32, pcloud64
-from .tensor import Barcode32Tensor, Barcode64Tensor
+from ..tensor_create import zeros
 
-from .._mpcf_cpp import persistence as cpp_p
+from ..typing import f32, f64, pcloud32, pcloud64
+from .ph_tensor import Barcode32Tensor, Barcode64Tensor
+
+from .. import _mpcf_cpp as cpp
+cpp_p = cpp.persistence
 
 def compute_barcodes_euclidean_pcloud_ripser(
         X : PointCloud32Tensor | PointCloud64Tensor | FloatTensor | DoubleTensor,
