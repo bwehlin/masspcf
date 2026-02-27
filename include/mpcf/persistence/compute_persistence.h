@@ -16,6 +16,9 @@
 #define MASSPCF_COMPUTE_PERSISTENCE_H
 
 #include "../tensor.h"
+#include "../executor.h"
+#include "../task.h"
+
 #include "barcode.h"
 #include "persistence_pair.h"
 
@@ -23,14 +26,11 @@
 
 namespace mpcf::ph
 {
-  template <typename T>
-  Tensor<Barcode<T>> compute_persistence_euclidean(const Tensor<PointCloud<T>>& pclouds, size_t maxDim = 1)
+  namespace detail
   {
-    auto shape = pclouds.shape();
-    shape.emplace_back(maxDim + 1);
-    Tensor<Barcode<T>> ret(shape);
-
-    ret.walk([&pclouds, &ret, maxDim](const std::vector<size_t>& index) {
+    template <typename T>
+    void compute_persistence_euclidean_single_impl(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index)
+    {
       if (index.back() != 0)
       {
         // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
@@ -49,7 +49,7 @@ namespace mpcf::ph
       if (points.rank() != 2)
       {
         throw std::runtime_error("Point cloud at index " + index_to_string(pcIdx) + " has unexpected shape " +
-            shape_to_string(points.shape()) + " (should be (m, n))");
+                                 shape_to_string(points.shape()) + " (should be (m, n))");
       }
 
       std::vector<std::vector<rips::value_t>> rpoints;
@@ -105,11 +105,63 @@ namespace mpcf::ph
           ret(retIdx) = conv;
         }
       }
+    }
+  }
 
-    });
+  template <typename T>
+  class RipserTask : public StoppableTask<void>
+  {
+  public:
+    RipserTask(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim = 1)
+      : m_pclouds(pclouds), m_ret(ret), m_maxDim(maxDim)
+    { }
+
+  private:
+    tf::Future<void> run_async(Executor& exec) override
+    {
+      tf::Taskflow flow;
+      std::vector<tf::Task> tasks;
+
+      auto shape = m_pclouds.shape();
+      shape.emplace_back(m_maxDim + 1);
+      m_ret = Tensor<Barcode<T>>(shape);
+
+      m_ret.walk([this, &flow, &tasks](const std::vector<size_t>& index) {
+        if (index.back() != 0)
+        {
+          // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
+          return;
+        }
+
+        tasks.emplace_back(flow.emplace([this, index]{
+          detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
+        }));
+      });
+
+      tasks.emplace_back(create_terminal_task(flow));
+      flow.linearize(tasks);
+
+      return exec.cpu()->run(std::move(flow));
+    }
+
+    const Tensor<PointCloud<T>>& m_pclouds;
+    Tensor<Barcode<T>>& m_ret;
+    size_t m_maxDim;
+
+  };
+
+  template <typename T>
+  Tensor<Barcode<T>> compute_persistence_euclidean(const Tensor<PointCloud<T>>& pclouds, size_t maxDim = 1, Executor& exec = default_executor())
+  {
+    Tensor<Barcode<T>> ret;
+    RipserTask<T> task(pclouds, ret, maxDim);
+    task.start_async(exec);
+    task.wait();
 
     return ret;
   }
+
+
 }
 
 #endif //MASSPCF_COMPUTE_PERSISTENCE_H
