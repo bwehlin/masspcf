@@ -315,7 +315,11 @@ if (BUILD_TESTER)
     CUDA_RUNTIME_LIBRARY Static
   )
 
-  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy CUDA::cudart_static)
+  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy)
+
+  if (BUILD_WITH_CUDA)
+    target_link_libraries(mpcf_test PUBLIC CUDA::cudart_static)
+  endif()
 
   if(ENABLE_COVERAGE)
     target_link_libraries(mpcf_nopy PRIVATE coverage_flags)
@@ -346,7 +350,11 @@ if (BUILD_BENCHMARKS)
     CUDA_RUNTIME_LIBRARY Static
   )
 
-  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} CUDA::cudart_static ${Boost_LIBRARIES} Threads::Threads)
+  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} ${Boost_LIBRARIES} Threads::Threads)
+
+  if (BUILD_WITH_CUDA)
+    target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} CUDA::cudart_static)
+  endif()
 endif()
 
 set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
