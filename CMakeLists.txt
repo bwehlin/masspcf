@@ -72,8 +72,6 @@ else()
   SET(LANG_CUDA )
 endif()
 
-
-
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(PROJ_NAME masspcf)
 else()
@@ -221,6 +219,8 @@ list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 
 if (BUILD_WITH_CUDA)
+  set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+
   # 1. Create a temporary list of all potential source files
   set(_ALL_SOURCES ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 
@@ -231,10 +231,19 @@ if (BUILD_WITH_CUDA)
 
   # 3. Explicitly set the language for the .cpp files to CUDA
   set_source_files_properties(${_CPP_SOURCES} PROPERTIES LANGUAGE CUDA)
-  target_link_libraries(${CPP_MODULE_NAME} PRIVATE CUDA::cudart)
+  target_link_libraries(${CPP_MODULE_NAME} PRIVATE ${CUDAToolkit_CUDART_LIBRARY})
 
   message(STATUS "!!! Marking the following for NVCC: ${_CPP_SOURCES}")
+  message(STATUS "CUDAToolkit_CUDART_LIBRARY: ${CUDAToolkit_CUDART_LIBRARY}")
 
+  target_compile_options(${CPP_MODULE_NAME} PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:
+    --expt-relaxed-constexpr
+    -Xcudafe=--diag_suppress=partial_override
+    -Xcudafe=--diag_suppress=virtual_function_decl_hidden
+    -Xcudafe=--diag_suppress=initialization_not_reachable
+    >
+    )
 
 endif()
 
@@ -311,6 +320,10 @@ if (BUILD_TESTER)
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
+  set_target_properties(mpcf_nopy PROPERTIES
+    CUDA_RUNTIME_LIBRARY Shared  # Must match the Python module's runtime
+  )
+
   set_target_properties(mpcf_test PROPERTIES
     CUDA_RUNTIME_LIBRARY Static
   )
@@ -356,8 +369,6 @@ if (BUILD_BENCHMARKS)
     target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} CUDA::cudart_static)
   endif()
 endif()
-
-set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
 
 if(MSVC)
   target_compile_options(${CPP_MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")

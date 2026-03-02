@@ -22,10 +22,6 @@
 #include "../executor.h"
 #include "../task.h"
 
-#ifdef BUILD_WITH_CUDA
-#include "../cuda/cuda_matrix_integrate.cuh"
-#endif
-
 #include <vector>
 
 #include <taskflow/algorithm/for_each.hpp>
