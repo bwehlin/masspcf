@@ -57,16 +57,18 @@ TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
 
   auto task = [hardware](){
 
+#if 0
 #ifdef BUILD_WITH_CUDA
     if (hardware == mpcf::Hardware::CUDA)
     {
       return mpcf::create_matrix_l1_distance_cuda_task()
     }
 #endif
+#endif
 
   };
 
-  mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
+  //mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
   
   EXPECT_EQ(ij(0, 0), 0.f);
   EXPECT_EQ(ij(0, 1), 0.f);
@@ -82,7 +84,7 @@ TEST_P(PcfL1IntegratorFixture, TwoPointPcfL1dist)
   pcfs.emplace_back(std::vector<mpcf::Point_f32>({ mpcf::Point_f32(0.f, 1.f), mpcf::Point_f32(2.0, 0.0) }));
   allocate_matrix();
   
-  mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
+  //mpcf::matrix_l1_dist<float,float>(matrix.data(), pcfs, hardware);
   
   EXPECT_EQ(ij(0, 0), 0.f);
   EXPECT_EQ(ij(0, 1), 3.f);

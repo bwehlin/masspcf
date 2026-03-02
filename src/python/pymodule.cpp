@@ -43,23 +43,30 @@
 
 #include <iostream>
 
+#include "py_settings.h"
+
 namespace py = pybind11;
 
 void register_random_bindings(py::handle m);
 
 namespace
 {
-  struct Settings
-  {
-    bool forceCpu = false; // Force computation on CPU
-    size_t cudaThreshold = 500; // Number of pcfs required for CUDA run to be invoked over CPU
-    bool deviceVerbose = false; // Print message for which device (CPU/CUDA) is used for the computation
+  mpcf_py::Settings g_settings;
 
+  int getNumGpus()
+  {
 #ifdef BUILD_WITH_CUDA
-    dim3 blockDim = dim3(1, 32, 1);
+    int deviceCount = 0;
+    cudaError_t error = cudaGetDeviceCount(&deviceCount);
+    if (error != cudaSuccess)
+    {
+      throw std::runtime_error(cudaGetErrorString(error));
+    }
+    return deviceCount;
+#else
+    throw std::runtime_error("This version of masspcf is compiled without GPU support.");
 #endif
-    
-  } g_settings;
+  }
 
   template <typename RetT>
   class Future
@@ -374,8 +381,10 @@ PYBIND11_MODULE(_mpcf_cpp, m) {
   m.def("set_block_dim", [](unsigned int x, unsigned int y) { g_settings.blockDim = dim3(x, y, 1); });
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
 #endif
-  
+  m.def("get_ngpus", &getNumGpus);
+
   m.def("limit_cpus", [](size_t n){ mpcf::default_executor().limit_cpu_workers(n); });
+
 
   register_random_bindings(m);
 

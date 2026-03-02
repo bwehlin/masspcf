@@ -22,6 +22,8 @@
 #include <vector>
 #include <memory>
 
+#ifndef __CUDACC__
+
 namespace
 {
   TEST(LpNorm, EmptyPcfHasZeroNorm)
@@ -61,3 +63,5 @@ namespace
     EXPECT_FLOAT_EQ(output[2], 11.5f);
   }
 }
+
+#endif

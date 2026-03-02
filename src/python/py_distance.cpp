@@ -20,6 +20,7 @@
 #include "operations.cuh"
 #include "algorithms/matrix_integrate.h"
 #include "py_async_support.h"
+#include "py_settings.h"
 
 #include <memory>
 
@@ -51,18 +52,20 @@ namespace
       auto* out = matrix.mutable_data(0);
 
 #ifdef BUILD_WITH_CUDA
-      if (!g_settings.forceCpu && std::distance(beginPcfs, endPcfs) >= g_settings.cudaThreshold)
+#if 0
+      if (!mpcf_py::g_settings.forceCpu && std::distance(beginPcfs, endPcfs) >= g_settings.cudaThreshold)
       {
-        if (g_settings.deviceVerbose)
+        if (mpcf_py::g_settings.deviceVerbose)
         {
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
 
         auto task = mpcf::create_matrix_integrate_cuda_task(out, beginPcfs, endPcfs, op, 0., std::numeric_limits<Tv>::max());
-        task->set_block_dim(g_settings.blockDim);
+        task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
       }
+#endif
 #endif
 
 // TODO: deviceVerbose

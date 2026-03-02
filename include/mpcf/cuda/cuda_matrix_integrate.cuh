@@ -30,12 +30,7 @@
 #include "cuda_matrix_integrate_structs.cuh"
 #include "cuda_device_array.cuh"
 
-#include "cuda_runtime.h"
-
-#include <taskflow/taskflow.hpp>
-
 #include <vector>
-#include <iostream>
 
 namespace mpcf
 {

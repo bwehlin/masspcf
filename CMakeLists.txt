@@ -64,16 +64,15 @@ if (BUILD_WITH_CUDA)
 
   SET(LANG_CUDA CUDA)
   add_compile_definitions(BUILD_WITH_CUDA=1)
+  find_package(CUDAToolkit REQUIRED)
+  set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
 else()
   message(STATUS "!!! Building without CUDA !!!")
 
   SET(LANG_CUDA )
 endif()
 
-if (BUILD_WITH_CUDA)
-  # It seemed easier to use .cpp and compile as CUDA than using .cu and compiling as CXX (when CUDA support is disabled)
-  set_source_files_properties(src/python/pymodule.cpp PROPERTIES LANGUAGE CUDA)
-endif()
+
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(PROJ_NAME masspcf)
@@ -222,7 +221,21 @@ list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
 
 if (BUILD_WITH_CUDA)
-  SET(CUDA_SEPARABLE_COMPILATION ON)
+  # 1. Create a temporary list of all potential source files
+  set(_ALL_SOURCES ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+
+  # 2. Filter the list to include ONLY .cpp files
+  # This excludes .tpp, .h, and .cuh files from being explicitly compiled
+  set(_CPP_SOURCES ${_ALL_SOURCES})
+  list(FILTER _CPP_SOURCES INCLUDE REGEX ".*\\.cpp$")
+
+  # 3. Explicitly set the language for the .cpp files to CUDA
+  set_source_files_properties(${_CPP_SOURCES} PROPERTIES LANGUAGE CUDA)
+  target_link_libraries(${CPP_MODULE_NAME} PRIVATE CUDA::cudart)
+
+  message(STATUS "!!! Marking the following for NVCC: ${_CPP_SOURCES}")
+
+
 endif()
 
 set(MPCF_PRIVATE_INCLUDES "include/mpcf")
@@ -298,7 +311,11 @@ if (BUILD_TESTER)
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
-  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy ${CUDART_LIBRARY})
+  set_target_properties(mpcf_test PROPERTIES
+    CUDA_RUNTIME_LIBRARY Static
+  )
+
+  target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy CUDA::cudart_static)
 
   if(ENABLE_COVERAGE)
     target_link_libraries(mpcf_nopy PRIVATE coverage_flags)
@@ -324,8 +341,12 @@ if (BUILD_BENCHMARKS)
     benchmarking/benchmark.h
     benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
     )
-  
-  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} ${CUDART_LIBRARY} ${Boost_LIBRARIES} Threads::Threads)
+
+  set_target_properties(mpcf_bench PROPERTIES
+    CUDA_RUNTIME_LIBRARY Static
+  )
+
+  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} CUDA::cudart_static ${Boost_LIBRARIES} Threads::Threads)
 endif()
 
 set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
@@ -335,18 +356,6 @@ if(MSVC)
 else()
   #target_compile_options(${CPP_MODULE_NAME} PRIVATE -Wall -Wextra)
   set( CMAKE_CXX_FLAGS "-Wall -Wextra -Werror=return-type" )
-endif()
-
-if (BUILD_WITH_CUDA)
-
-  find_package(CUDAToolkit REQUIRED)
-  message("CUDART: ${CUDAToolkit_LIBRARY_DIR}")
-  set(CUDART_LIB ${CUDAToolkit_LIBRARY_DIR}/libcudart.so)
-  file(GLOB cudart_libs ${CUDAToolkit_LIBRARY_DIR}/libcudart.so*)
-  message("cudart_libs: ${cudart_libs}")
-  
-  install(FILES ${cudart_libs} DESTINATION masspcf)
-
 endif()
 
 cmake_policy(SET CMP0177 NEW) # Normalize paths

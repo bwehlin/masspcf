@@ -146,7 +146,9 @@ namespace mpcf
      * @param f The function object to invoke at each index. If `f` returns a `bool`, `walk` stops on `f` returning `false`. All other return types/values are ignored.
      */
     template <typename UnaryFunc>
+#ifndef __CUDACC__
     requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
     void walk(UnaryFunc&& f) const;
 
     /**

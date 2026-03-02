@@ -158,7 +158,10 @@ namespace mpcf
   }
 
   template <typename T>
-  template <typename UnaryFunc> requires std::invocable<UnaryFunc, std::vector<size_t>>
+  template <typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
   void Tensor<T>::walk(UnaryFunc&& f) const
   {
     if (m_shape.empty() || std::any_of(m_shape.begin(), m_shape.end(), [](size_t n){ return n == 0; }))
