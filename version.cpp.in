@@ -1,0 +1,15 @@
+// version.cpp is generated from version.cpp.in in the project root. If you need to change the contents of version.cpp,
+// change version.cpp.in as the former will be overwritten by CMake!
+
+// Adapted from https://community.gigperformer.com/t/getting-cmake-variables-from-c/17711
+
+#include <string>
+
+namespace mpcf
+{
+  extern const std::string PROJECT_NAME = "@PROJECT_NAME@";
+  extern const std::string PROJECT_TITLE = "@PROJECT_TITLE@";
+  extern const std::string PROJECT_VERSION = "@PROJECT_VERSION@";
+  extern const std::string PROJECT_VERSION_FULL = "@PROJ_VERSION_FULL@";
+  extern const std::string PROJECT_BUILD_DATE = "@PROJECT_BUILD_DATE@";
+}

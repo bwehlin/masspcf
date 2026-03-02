@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//
-// Created by bwehlin on 2/24/26.
-//
+#ifndef MASSPCF_VERSION_H
+#define MASSPCF_VERSION_H
 
-#ifndef MASSPCF_POINT_CLOUD_H
-#define MASSPCF_POINT_CLOUD_H
-
-#include "tensor.h"
-#include <vector>
+#include <string>
 
 namespace mpcf
 {
+  // These get automatically generated from version.cpp.in in the project root directory via CMake. The generated file
+  // containing the definitions is in the binary output dir (version.cpp)
 
+  extern const std::string PROJECT_NAME;
+  extern const std::string PROJECT_TITLE;
+  extern const std::string PROJECT_VERSION;
+  extern const std::string PROJECT_VERSION_FULL;
+  extern const std::string PROJECT_BUILD_DATE;
 }
 
-#endif //MASSPCF_POINT_CLOUD_H
+#endif //MASSPCF_VERSION_H

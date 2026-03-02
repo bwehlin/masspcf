@@ -11,3 +11,54 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#include <gtest/gtest.h>
+
+#include <mpcf/io_stream.h>
+#include <mpcf/tensor.h>
+#include <mpcf/io.h>
+
+#include <sstream>
+#include <iostream>
+
+std::string to_printable(const std::string& in)
+{
+  std::stringstream out;
+
+  out << "String of length " << in.length() << ": >>";
+
+  for (auto i = 0_uz; i < in.length(); ++i)
+  {
+    if (std::isprint(in[i]))
+    {
+      out << in[i];
+    }
+    else
+    {
+      out << "\\" << static_cast<unsigned int>(in[i]);
+    }
+  }
+  out << "<<";
+  return out.str();
+}
+
+TEST(IoStream, GoAroundHasCorrectDataTypes)
+{
+  std::stringstream ss("", std::ios::out | std::ios::binary);
+
+  mpcf::Tensor<double> dblTensor;
+
+  mpcf::write(dblTensor, ss);
+
+  ASSERT_TRUE(false) << to_printable(ss.str());
+
+  //os << dblTensor;
+
+  //std::string data = ss.str();
+  //std::istringstream iss(data, std::ios::in | std::ios::binary);
+
+  //mpcf::IStream is(iss);
+
+
+
+}

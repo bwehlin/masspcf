@@ -135,6 +135,11 @@ include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 add_subdirectory(3rd/pybind11)
 
+# Adapted from https://community.gigperformer.com/t/getting-cmake-variables-from-c/17711
+string(TIMESTAMP TODAY "%d/%m/%Y")
+set (PROJECT_BUILD_DATE ${TODAY})
+configure_file (version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp @ONLY)
+
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
     include/mpcf/cuda/cuda_matrix_integrate.cuh
@@ -149,6 +154,7 @@ endif()
 
 SET(MPCF_HEADER_FILES
   config.h
+  version.h
   pcf.h
   point.h
   rectangle.h
@@ -216,7 +222,9 @@ SET(MPCF_PY_SOURCES
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
-pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+SET(MPCF_VERSION_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
+
+pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
 
 if (BUILD_WITH_CUDA)
   set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
@@ -316,7 +324,7 @@ if (BUILD_TESTER)
 
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES})
+  add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES} ${MPCF_VERSION_SOURCE})
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
@@ -518,10 +526,6 @@ elseif (MINIMAL_MODULE_BUILD)
   endif()
 
 endif()
-
-
-
-
 
 message(STATUS "!!! Stub file: ${STUB_FILE}")
 message(STATUS "!!! Install target: ${INSTALL_TARGET}")
