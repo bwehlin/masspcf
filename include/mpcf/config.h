@@ -33,8 +33,12 @@ namespace mpcf
 {
   static_assert(sizeof(float)  == 4, "float must be 32-bit");
   static_assert(sizeof(double) == 8, "double must be 64-bit");
+
   using float32_t = float;
   using float64_t = double;
+
+  static_assert(std::numeric_limits<float32_t>::is_iec559, "float32_t must be IEEE754");
+  static_assert(std::numeric_limits<float64_t>::is_iec559, "float64_t must be IEEE754");
 
   using int32_t = std::int32_t;
   using int64_t = std::int64_t;
@@ -43,8 +47,8 @@ namespace mpcf
 
   template <typename T>
   concept FloatType = std::is_floating_point_v<T>
-    || std::is_same_v<T, _Float32>
-    || std::is_same_v<T, _Float64>;
+    || std::is_same_v<T, float32_t>
+    || std::is_same_v<T, float64_t>;
 
   template <typename T>
   concept UnsignedIntType =

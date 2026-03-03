@@ -23,6 +23,8 @@
 
 namespace pybind11::detail
 {
+  // Probably not needed any more
+#if 0
   template <> class type_caster<mpcf::float32_t>
   {
   public:
@@ -88,6 +90,7 @@ namespace pybind11::detail
       return PyFloat_FromDouble(static_cast<double>(src));
     }
   };
+#endif
 } // namespace pybind11::detail
 
 #endif // MASSPCF_PYBIND_H
