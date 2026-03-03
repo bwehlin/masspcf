@@ -24,6 +24,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <memory>
+#include <string>
 
 #if defined(__clang__) || defined(__GNUC__)
 #include <cxxabi.h> // For name demangling
