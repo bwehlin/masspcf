@@ -2,6 +2,9 @@ name: Analysis
 
 on: [push, workflow_dispatch]
 
+permissions:
+  contents: write
+
 jobs:
   coverage_report:
     name: Coverage report on ${{ matrix.os }}
@@ -55,7 +58,7 @@ jobs:
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./covreport
