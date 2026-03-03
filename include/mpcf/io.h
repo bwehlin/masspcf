@@ -63,19 +63,19 @@ namespace mpcf
       using namespace std::string_literals;
 
       return std::visit([](auto&& arg) -> TensorFormat {
-        using T = Tensor<std::decay_t<decltype(arg)>>;
+        using T = std::decay_t<decltype(arg)>;
 
-        if      constexpr (std::is_same_v<T, float32_t>)      { return TensorFormat{ .baseFormat = 1, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, float64_t>)     { return TensorFormat{ .baseFormat = 1, .subFormat = 64 }; }
+        if      constexpr (std::is_same_v<T, float32_t>) { return TensorFormat{ .baseFormat = 1, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, float64_t>) { return TensorFormat{ .baseFormat = 1, .subFormat = 64 }; }
 
-        else if constexpr (std::is_same_v<T, Pcf<float32_t, float32_t>>)   { return TensorFormat{ .baseFormat = 100, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, Pcf<float32_t, float32_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 32 }; }
         else if constexpr (std::is_same_v<T, Pcf<float64_t, float64_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 64 }; }
 
-        else if constexpr (std::is_same_v<T, PointCloud<float32_t>>)    { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, PointCloud<float64_t>>)   { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }
+        else if constexpr (std::is_same_v<T, PointCloud<float32_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, PointCloud<float64_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }
 
-        else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>)   { return TensorFormat{ .baseFormat = 2000, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>)  { return TensorFormat{ .baseFormat = 2000, .subFormat = 64 }; }
+        else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>) { return TensorFormat{ .baseFormat = 2000, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>) { return TensorFormat{ .baseFormat = 2000, .subFormat = 64 }; }
 
         throw std::runtime_error("Tensor type "s + mpcf::detail::unmangled_typename<T>() +  " not supported.");
       }, tensor);
