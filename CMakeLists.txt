@@ -168,7 +168,9 @@ SET(MPCF_HEADER_FILES
   executor.h
   point_cloud.h
   io.h
-  io_stream.h
+  io/io_stream.h
+  io/pcf_io.h
+  io/point_io.h
   algorithm.h
   algorithms/iterate_rectangles.h
   algorithms/reduce.h

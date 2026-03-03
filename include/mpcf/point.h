@@ -86,6 +86,19 @@ namespace mpcf
   
   using Point_f32 = Point<float32_t, float32_t>;
   using Point_f64 = Point<float64_t, float64_t>;
+
+  template <typename P>
+  concept PointLike = requires(P p)
+  {
+    typename P::time_type;
+    typename P::value_type;
+
+    { p.t } -> std::convertible_to<typename P::time_type>;
+    { p.v } -> std::convertible_to<typename P::value_type>;
+
+    { p == p } -> std::convertible_to<bool>;
+    { p != p } -> std::convertible_to<bool>;
+  };
 }
 
 #endif

@@ -14,9 +14,9 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/io_stream.h>
-#include <mpcf/tensor.h>
+#include <../include/mpcf/io/io_stream.h>
 #include <mpcf/io.h>
+#include <mpcf/tensor.h>
 
 #include <sstream>
 #include <iostream>
@@ -61,4 +61,31 @@ TEST(IoStream, GoAroundHasCorrectDataTypes)
 
 
 
+}
+
+TEST(IoStream, TestPointRoundtrip)
+{
+  {
+    mpcf::Point_f32 pt(0.5f, 2.5f);
+
+    std::stringstream ss;
+    mpcf::io::detail::write_element(ss, pt);
+
+    std::istringstream iss(ss.str());
+    auto retPt = mpcf::io::detail::read_element<decltype(pt)>(iss);
+
+    EXPECT_EQ(pt, retPt);
+  }
+
+  {
+    mpcf::Point_f64 pt(0.5, 2.5);
+
+    std::stringstream ss;
+    mpcf::io::detail::write_element(ss, pt);
+
+    std::istringstream iss(ss.str());
+    auto retPt = mpcf::io::detail::read_element<decltype(pt)>(iss);
+
+    EXPECT_EQ(pt, retPt);
+  }
 }

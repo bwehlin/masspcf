@@ -16,7 +16,8 @@
 #define MASSPCF_IO_H
 
 #include "io.h"
-#include "io_stream.h"
+#include "io/io_stream.h"
+#include "io/point_io.h"
 #include "tensor.h"
 #include "version.h"
 
@@ -81,40 +82,6 @@ namespace mpcf
       }, tensor);
     }
 
-    inline void assert_not_bad(std::ostream& os)
-    {
-      if (os.bad())
-      {
-        throw std::runtime_error("Bad stream.");
-      }
-    }
-
-    inline void write_binary_string(std::ostream& os, const std::string& str)
-    {
-      os.write(str.c_str(), str.size());
-      assert_not_bad(os);
-    }
-
-    inline void write_binary_record(std::ostream& os, const std::string& str)
-    {
-      write_binary_string(os, str);
-      write_binary_string(os, "\36"); // \36 is ASCII record separator (decimal 30)
-    }
-
-    template <typename T, typename U>
-    requires std::is_convertible_v<U, T>
-    void write_bytes(std::ostream& os, U v)
-    {
-      auto cv = static_cast<T>(v);
-      os.write(reinterpret_cast<const char*>(&cv), sizeof(cv));
-      assert_not_bad(os);
-    }
-
-    inline void write_string(std::ostream& os, const std::string& str)
-    {
-      write_bytes<std::uint64_t>(os, str.length());
-      os << str;
-    }
 
     inline void write_endianness(std::ostream& os)
     {
@@ -190,9 +157,11 @@ namespace mpcf
       write_binary_record(os, PROJECT_BUILD_DATE);
     }
 
-    inline void write_element(std::ostream& os, float64_t elem)
+    // For new types, make sure to add io::detail::write_element in their corresponding headers
+    template <ArithmeticType T>
+    void write_element(std::ostream& os, T elem)
     {
-
+      write_bytes<float64_t>(os, elem);
     }
 
     template <IsTensor TensorT>
@@ -212,7 +181,7 @@ namespace mpcf
       auto sz = tensor.size();
       for (auto const * elem = tensor.data(); elem != tensor.data() + sz; ++elem)
       {
-
+        write_element(os, *elem);
       }
     }
 

@@ -12,46 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MASSPCF_IO_STREAM_H
-#define MASSPCF_IO_STREAM_H
+#ifndef MASSPCF_POINT_IO_H
+#define MASSPCF_POINT_IO_H
 
-#include <iosfwd>
-#include <cstddef>
+#include "io_stream.h"
+#include "../point.h"
 
-namespace mpcf
+namespace mpcf::io::detail
 {
-  class IStream
+  template <PointLike PointT>
+  void write_element(std::ostream& os, const PointT& pt)
   {
-  public:
-    IStream(std::istream& is)
-      : m_is(is)
-    {
-      read_header();
-    }
+    write_bytes<typename PointT::time_type>(os, pt.t);
+    write_bytes<typename PointT::value_type>(os, pt.v);
+  }
 
-  private:
-    bool read_header();
-    void ensured_read(char* out, size_t n);
-
-    std::istream& m_is;
-  };
-
-  class OStream
+  template <PointLike PointT>
+  PointT read_element(std::istream& is)
   {
-  public:
-    OStream(std::ostream& os)
-      : m_os(os)
-    {
-      write_header();
-    }
-
-  private:
-    void write_header();
-
-    std::ostream& m_os;
-  };
-
-
+    PointT ret;
+    ret.t = read_bytes<typename PointT::time_type>(is);
+    ret.v = read_bytes<typename PointT::value_type>(is);
+    return ret;
+  }
 }
 
-#endif //MASSPCF_IO_STREAM_H
+#endif // MASSPCF_POINT_IO_H

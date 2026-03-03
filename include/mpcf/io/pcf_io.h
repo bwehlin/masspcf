@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../include/mpcf/io/io_stream.h"
+#ifndef MASSPCF_PCF_IO_H
+#define MASSPCF_PCF_IO_H
 
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <string_view>
+#include "io_stream.h"
+#include "../pcf.h"
 
-namespace
+namespace mpcf::io::detail
 {
-  constexpr const std::string_view versionId = "1.0";
+  template <typename Tt, typename Tv>
+  void write_element(std::ostream& os, const Pcf<Tt, Tv>& pcf)
+  {
+
+  }
 }
 
+#endif // MASSPCF_PCF_IO_H
