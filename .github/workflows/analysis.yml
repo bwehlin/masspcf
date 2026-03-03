@@ -54,6 +54,12 @@ jobs:
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html --print-summary
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./covreport
+
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
