@@ -17,6 +17,45 @@
 #ifndef MASSPCF_CONFIG_H
 #define MASSPCF_CONFIG_H
 
+#include <cstdint>
+#include <concepts>
+#include <type_traits>
+
+namespace mpcf
+{
+  using float32_t = _Float32;
+  using float64_t = _Float64;
+
+  using int32_t = __int32_t;
+  using int64_t = __int64_t;
+  using uint32_t = __uint32_t;
+  using uint64_t = __uint64_t;
+
+  template <typename T>
+  concept FloatType = std::is_floating_point_v<T>
+    || std::is_same_v<T, _Float32>
+    || std::is_same_v<T, _Float64>;
+
+  template <typename T>
+  concept UnsignedIntType =
+    (std::is_integral_v<T> && std::is_unsigned_v<T>)
+    || std::is_same_v<T, uint32_t>
+    || std::is_same_v<T, uint64_t>;
+
+  template <typename T>
+  concept SignedIntType =
+    (std::is_integral_v<T> && std::is_signed_v<T>)
+    || std::is_same_v<T, int32_t>
+    || std::is_same_v<T, int64_t>;
+
+  template <typename T>
+  concept IntType = UnsignedIntType<T> || SignedIntType<T>;
+
+  template <typename T>
+  concept ArithmeticType = FloatType<T> || IntType<T>;
+
+}
+
 // ptrdiff_t/size_t user-defined literals. This will come in C++23 (as, e.g., uz instead of _uz)
 [[nodiscard]] inline size_t operator""_uz(unsigned long long v) noexcept
 {
@@ -27,9 +66,6 @@
 {
   return static_cast<ptrdiff_t>(v);
 }
-
-#include <concepts>
-#include <type_traits>
 
 namespace mpcf
 {

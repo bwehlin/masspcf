@@ -230,6 +230,13 @@ namespace mpcf
 
     std::vector<size_t> dimsToDrop;
 
+    // For now, we'll drop the assumption that the tensor is contiguous in memory
+    // as soon as we extract a subtensor. There are, however, some cases where the resulting subtensor would be
+    // contiguous that we can try to optimize for in the future (e.g., extracting the top n rows of a matrix).
+    // Things will work fine with this assumption dropped but certain operations could be a little slower (probably
+    // unlikely to matter for the type of things we're targeting).
+    ret.m_isContiguous = false;
+
     size_t i = 0;
     for (auto & slice : sliceVector)
     {
@@ -243,15 +250,6 @@ namespace mpcf
         }
         else if constexpr (std::is_same_v<argT, SliceRange>)
         {
-          // For now, we'll drop the assumption that the tensor is contiguous in memory
-          // as soon as we extract a subtensor using ranges. There are, however, some
-          // cases where the resulting subtensor would be contiguous that we can try to
-          // optimize for in the future (e.g., extracting the top n rows of a matrix).
-          // Things will work fine with this assumption dropped but certain operations
-          // could be a little slower (probably unlikely to matter for the type of
-          // things we're targeting).
-          ret.m_isContiguous = false;
-
           if (!arg.start)
           {
             arg.start = 0_z;

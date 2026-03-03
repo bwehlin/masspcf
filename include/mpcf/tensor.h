@@ -116,7 +116,7 @@ namespace mpcf
     [[nodiscard]] bool is_contiguous() const noexcept { return m_isContiguous; }
 
     [[nodiscard]] size_t offset() const noexcept { return m_offset; }
-    [[nodiscard]] value_type* data() const noexcept { return m_data.get(); }
+    [[nodiscard]] value_type* data() const noexcept { return m_data.get() + m_offset; }
 
     template <typename SliceVector>
     [[nodiscard]] Tensor operator[](SliceVector sliceVector) const;
@@ -244,8 +244,7 @@ namespace mpcf
     }
   }
 
-  template <typename T>
-  requires std::is_arithmetic_v<T>
+  template <ArithmeticType T>
   using PointCloud = Tensor<T>;
 
 

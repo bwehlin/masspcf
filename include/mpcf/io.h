@@ -15,6 +15,7 @@
 #ifndef MASSPCF_IO_H
 #define MASSPCF_IO_H
 
+#include "io.h"
 #include "io_stream.h"
 #include "tensor.h"
 #include "version.h"
@@ -27,20 +28,24 @@
 #include <cstdint>
 #include <bit>
 
+#ifdef __APPLE__
+#include "TargetConditionals.h"
+#endif
+
 namespace mpcf
 {
   using StreamableTensor = std::variant<
-      Tensor<float>,
-      Tensor<double>,
+      Tensor<float32_t>,
+      Tensor<float64_t>,
 
-      Tensor<Pcf<float, float>>,
-      Tensor<Pcf<double, double>>,
+      Tensor<Pcf<float32_t, float32_t>>,
+      Tensor<Pcf<float64_t, float64_t>>,
 
-      Tensor<PointCloud<float>>,
-      Tensor<PointCloud<double>>,
+      Tensor<PointCloud<float32_t>>,
+      Tensor<PointCloud<float64_t>>,
 
-      Tensor<ph::Barcode<float>>,
-      Tensor<ph::Barcode<double>>
+      Tensor<ph::Barcode<float32_t>>,
+      Tensor<ph::Barcode<float64_t>>
       >;
 
   namespace io::detail
@@ -94,6 +99,21 @@ namespace mpcf
       write_binary_string(os, "\36"); // \36 is ASCII record separator (decimal 30)
     }
 
+    template <typename T, typename U>
+    requires std::is_convertible_v<U, T>
+    void write_bytes(std::ostream& os, U v)
+    {
+      auto cv = static_cast<T>(v);
+      os.write(reinterpret_cast<const char*>(&cv), sizeof(cv));
+      assert_not_bad(os);
+    }
+
+    inline void write_string(std::ostream& os, const std::string& str)
+    {
+      write_bytes<std::uint64_t>(os, str.length());
+      os << str;
+    }
+
     inline void write_endianness(std::ostream& os)
     {
       if constexpr (std::endian::native == std::endian::little)
@@ -115,13 +135,48 @@ namespace mpcf
       write_binary_record(os, std::to_string(FormatVersion));
     }
 
-    inline void write_platform(std::string& os)
+
+
+    inline void write_platform(std::ostream& os)
     {
-#ifdef WIN32
-      write_binary_record(os, "WIN32");
-#elif __linux__
-      //write_binary_record(os, "LINUX");
+      // This is just for record keeping at the moment. We don't really use the information. The main purpose is if we
+      // get a bug, having this information could help us track down the problem if it's related to a specific platform.
+
+      std::string system =
+#if defined(_WIN32) || defined(_WIN64)
+      "windows";
+#elif defined(__linux__)
+      "linux";
+#elif __APPLE__
+#if defined(TARGET_OS_MAC)
+      "osx";
+#elif defined(TARGET_OS_IPHONE) or defined(TARGET_IPHONE_SIMULATOR)
+      "ios";
+#else
+      "apple_other";
 #endif
+#elif defined(ANDROID)
+      "android";
+#else
+      "other";
+#endif
+
+      std::string arch =
+#if defined(__x86_64__) || defined(_M_X64)
+      "x86_64";
+#elif defined(__i386__) || defined(_M_IX86)
+      "x86";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+      "arm64";
+#elif defined(__arm__) || defined(_M_ARM)
+      "arm";
+#elif defined(__riscv) && (__riscv_xlen == 64)
+      "riscv64";
+#else
+      "unknown-arch";
+#endif
+
+      write_string(os, system + "-" + arch);
     }
 
     inline void write_header(std::ostream& os)
@@ -132,13 +187,57 @@ namespace mpcf
       write_binary_record(os, PROJECT_VERSION_FULL);
       write_binary_record(os, PROJECT_BUILD_DATE);
     }
+
+    void write_element(std::ostream& os, double elem)
+    {
+
+    }
+
+    template <IsTensor TensorT>
+    void write_contiguous_tensor(std::ostream& os, const TensorT& tensor)
+    {
+      auto format = getFormat(tensor);
+      write_bytes<std::int32_t>(format.baseFormat);
+      write_bytes<std::int32_t>(format.subFormat);
+
+      write_bytes<std::uint64_t>(os, tensor.shape().size());
+      for (auto i = 0_uz; i < tensor.shape().size(); ++i)
+      {
+        write_bytes<std::uint64_t>(os, tensor.shape()[i]);
+        write_bytes<std::uint64_t>(os, tensor.strides()[i]);
+      }
+
+      auto sz = tensor.size();
+      for (auto const * elem = tensor.data(); elem != tensor.data() + sz; ++elem)
+      {
+
+      }
+    }
+
+    template <IsTensor TensorT>
+    void write_tensor(std::ostream& os, const TensorT& tensor)
+    {
+      if (!tensor.is_contiguous())
+      {
+        auto copy = tensor.copy();
+        if (!copy.is_contiguous())
+        {
+          // To avoid infinite loop
+          throw std::runtime_error("Tensor copy is non-contiguous/non-zero-offset (this is a bug, please report it!).");
+        }
+        write_tensor(os, copy);
+        return;
+      }
+      write_contiguous_tensor(os, tensor);
+    }
   }
 
   template <IsTensor TensorT>
   void write(const TensorT& tensor, std::ostream& os)
   {
     io::detail::write_header(os);
-
+    io::detail::write_binary_record(os, "t"); // "t" is single tensor
+    io::detail::write_tensor(os, tensor);
   }
 
 

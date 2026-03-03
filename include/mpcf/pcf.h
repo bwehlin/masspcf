@@ -27,7 +27,7 @@
 
 namespace mpcf
 {
-  template <typename Tt, typename Tv>
+  template <typename Tt, typename Tv = Tt>
   class Pcf
   {
   public:

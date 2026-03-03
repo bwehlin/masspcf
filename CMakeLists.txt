@@ -167,6 +167,7 @@ SET(MPCF_HEADER_FILES
   special_tensors.h
   executor.h
   point_cloud.h
+  io.h
   io_stream.h
   algorithm.h
   algorithms/iterate_rectangles.h
