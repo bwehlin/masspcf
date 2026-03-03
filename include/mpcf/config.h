@@ -31,8 +31,10 @@
 
 namespace mpcf
 {
-  using float32_t = _Float32;
-  using float64_t = _Float64;
+  static_assert(sizeof(float)  == 4, "float must be 32-bit");
+  static_assert(sizeof(double) == 8, "double must be 64-bit");
+  using float32_t = float;
+  using float64_t = double;
 
   using int32_t = std::int32_t;
   using int64_t = std::int64_t;
@@ -63,21 +65,6 @@ namespace mpcf
   concept ArithmeticType = FloatType<T> || IntType<T>;
 
 }
-
-// Note: we do this for now. These should be true on basically all platforms that we care about. We may have to modify
-// this assumption in the future.
-static_assert(sizeof(double) == sizeof(_Float64), "double and _Float64 must be the same size");
-static_assert(sizeof(float)  == sizeof(_Float32), "float and _Float32 must be the same size");
-
-// This is *technically* UB, but we'll live with this to make our lives a bit easier rather than having to cast what's
-// a 'float' in practice to float, etc.
-template<> struct std::is_floating_point<mpcf::float32_t> : std::true_type {};
-template<> struct std::is_floating_point<mpcf::float64_t> : std::true_type {};
-template<> struct std::numeric_limits<mpcf::float32_t> : std::numeric_limits<float> { };
-//template<> struct std::numeric_limits<mpcf::float64_t> : std::numeric_limits<double> { };
-
-template<>
-struct std::numeric_limits<_Float64> : std::numeric_limits<double> {};
 
 // ptrdiff_t/size_t user-defined literals. This will come in C++23 (as, e.g., uz instead of _uz)
 [[nodiscard]] inline size_t operator""_uz(unsigned long long v) noexcept
