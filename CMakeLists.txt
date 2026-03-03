@@ -16,48 +16,48 @@ cmake_minimum_required(VERSION 3.19)
 
 include(FetchContent)
 
-if((DEFINED ENV{MINIMAL_MODULE_BUILD}) AND (NOT $ENV{MINIMAL_MODULE_BUILD} MATCHES "0"))
+if ((DEFINED ENV{MINIMAL_MODULE_BUILD}) AND (NOT $ENV{MINIMAL_MODULE_BUILD} MATCHES "0"))
   set(MINIMAL_MODULE_BUILD ON)
   message(STATUS "!!! Minimal module build !!!")
-else()
+else ()
   message(STATUS "!!! Not Minimal module build !!!")
   set(MINIMAL_MODULE_BUILD OFF)
-endif()
+endif ()
 
-if((DEFINED ENV{BUILD_WITH_CUDA}) AND (NOT $ENV{BUILD_WITH_CUDA} MATCHES "0"))
+if ((DEFINED ENV{BUILD_WITH_CUDA}) AND (NOT $ENV{BUILD_WITH_CUDA} MATCHES "0"))
   if (APPLE)
     set(BUILD_WITH_CUDA OFF)
-  else()
+  else ()
     set(BUILD_WITH_CUDA ON)
-  endif()
-else()
+  endif ()
+else ()
   set(BUILD_WITH_CUDA OFF)
-endif()
+endif ()
 
-if((DEFINED ENV{SKIP_STUBGEN}) AND (NOT $ENV{SKIP_STUBGEN} MATCHES "0"))
+if ((DEFINED ENV{SKIP_STUBGEN}) AND (NOT $ENV{SKIP_STUBGEN} MATCHES "0"))
   set(SKIP_STUBGEN ON)
-else()
+else ()
   set(SKIP_STUBGEN OFF)
-endif()
+endif ()
 
-if((DEFINED ENV{SKIP_BACK_COPY}) AND (NOT $ENV{SKIP_BACK_COPY} MATCHES "0"))
+if ((DEFINED ENV{SKIP_BACK_COPY}) AND (NOT $ENV{SKIP_BACK_COPY} MATCHES "0"))
   set(SKIP_BACK_COPY ON)
-else()
+else ()
   set(SKIP_BACK_COPY OFF)
-endif()
+endif ()
 
 if (SKBUILD)
   set(BUILD_TESTER OFF)
   set(SKIP_STUBGEN ON) # Too many problems with stubgen and skbuild at the moment, we don't really need the stubs anyway in the release since the C++ bits are all internal...
-else()
+else ()
   set(BUILD_TESTER ON)
-endif()
+endif ()
 
 set(BUILD_BENCHMARKS OFF)
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(BUILD_BENCHMARKS OFF)
-endif()
+endif ()
 
 if (BUILD_WITH_CUDA)
   message(STATUS "!!! Building with CUDA !!!")
@@ -66,17 +66,17 @@ if (BUILD_WITH_CUDA)
   add_compile_definitions(BUILD_WITH_CUDA=1)
   find_package(CUDAToolkit REQUIRED)
   set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
-else()
+else ()
   message(STATUS "!!! Building without CUDA !!!")
 
-  SET(LANG_CUDA )
-endif()
+  SET(LANG_CUDA)
+endif ()
 
 if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(PROJ_NAME masspcf)
-else()
+else ()
   set(PROJ_NAME massivepcf)
-endif()
+endif ()
 
 # Read version info out of pyproject.toml
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml" TOML_CONTENT)
@@ -88,7 +88,7 @@ string(FIND "${TOML_CONTENT}" "[project]" PROJECT_SECTION_START)
 string(SUBSTRING "${TOML_CONTENT}" ${PROJECT_SECTION_START} -1 PROJECT_BODY)
 
 # 3. Extract the version string
-if(PROJECT_BODY MATCHES [[version[ \t]*=[ \t]*"([^"]+)"]])
+if (PROJECT_BODY MATCHES [[version[ \t]*=[ \t]*"([^"]+)"]])
   set(PROJ_VERSION_FULL "${CMAKE_MATCH_1}")
 
   # Extract only the numeric part for CMake's project() command
@@ -98,17 +98,17 @@ if(PROJECT_BODY MATCHES [[version[ \t]*=[ \t]*"([^"]+)"]])
   message(STATUS "!!! Numeric Version for CMake: ${PROJ_VERSION_NUMERIC}")
 
   set(PROJ_VERSION "${PROJ_VERSION_NUMERIC}")
-else()
+else ()
   message(FATAL "Could not detect version number from pyproject.toml!")
-endif()
+endif ()
 
 project(${PROJ_NAME} VERSION ${PROJ_VERSION_NUMERIC} LANGUAGES CXX ${LANG_CUDA})
 
-if((DEFINED ENV{ENABLE_COVERAGE}) AND (NOT $ENV{ENABLE_COVERAGE} MATCHES "0"))
+if ((DEFINED ENV{ENABLE_COVERAGE}) AND (NOT $ENV{ENABLE_COVERAGE} MATCHES "0"))
   set(ENABLE_COVERAGE ON)
-else()
+else ()
   set(ENABLE_COVERAGE OFF)
-endif()
+endif ()
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
@@ -123,10 +123,10 @@ if (WIN32)
   if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /bigobj")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-  else()
+  else ()
     add_compile_options(-Wa,-mbig-obj)
-  endif()
-endif()
+  endif ()
+endif ()
 
 find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
 
@@ -137,91 +137,93 @@ add_subdirectory(3rd/pybind11)
 
 # Adapted from https://community.gigperformer.com/t/getting-cmake-variables-from-c/17711
 string(TIMESTAMP TODAY "%d/%m/%Y")
-set (PROJECT_BUILD_DATE ${TODAY})
-configure_file (version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp @ONLY)
+set(PROJECT_BUILD_DATE ${TODAY})
+configure_file(version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp @ONLY)
 
 if (BUILD_WITH_CUDA)
   SET(MPCF_LIB_SOURCES_CUDA
-    include/mpcf/cuda/cuda_matrix_integrate.cuh
-    include/mpcf/cuda/cuda_util.cuh
-    include/mpcf/cuda/cuda_device_array.cuh
-    include/mpcf/cuda/cuda_functional_support.cuh
-    include/mpcf/cuda/cuda_matrix_integrate_structs.cuh
+      include/mpcf/cuda/cuda_matrix_integrate.cuh
+      include/mpcf/cuda/cuda_util.cuh
+      include/mpcf/cuda/cuda_device_array.cuh
+      include/mpcf/cuda/cuda_functional_support.cuh
+      include/mpcf/cuda/cuda_matrix_integrate_structs.cuh
   )
-else()
+else ()
   SET(MPCF_LIB_SOURCES_CUDA "")
-endif()
+endif ()
 
 SET(MPCF_HEADER_FILES
-  config.h
-  version.h
-  pcf.h
-  point.h
-  rectangle.h
-  operations.cuh
-  platform.h
-  random.h
-  task.h
-  tensor.h tensor.tpp
-  tensor_to_string.h
-  special_tensors.h
-  executor.h
-  point_cloud.h
-  io.h
-  io/io_stream.h
-  io/pcf_io.h
-  io/point_io.h
-  algorithm.h
-  algorithms/iterate_rectangles.h
-  algorithms/reduce.h
-  algorithms/matrix_integrate.h
-  algorithms/matrix_reduce.h
-  algorithms/subdivide.h
-  algorithms/apply_functional.h
-  block_matrix_support.cuh
-  persistence/barcode.h
-  persistence/compute_persistence.h
-  persistence/persistence_pair.h
-  persistence/stable_rank.h
-  persistence/ripser/ripser.h)
+    config.h
+    version.h
+    pcf.h
+    point.h
+    rectangle.h
+    operations.cuh
+    platform.h
+    random.h
+    task.h
+    tensor.h tensor.tpp
+    tensor_to_string.h
+    special_tensors.h
+    executor.h
+    point_cloud.h
+    io.h
+    io/io_stream.h
+    io/io_stream_base.h
+    io/pcf_io.h
+    io/point_io.h
+    io/tensor_io.h
+    algorithm.h
+    algorithms/iterate_rectangles.h
+    algorithms/reduce.h
+    algorithms/matrix_integrate.h
+    algorithms/matrix_reduce.h
+    algorithms/subdivide.h
+    algorithms/apply_functional.h
+    block_matrix_support.cuh
+    persistence/barcode.h
+    persistence/compute_persistence.h
+    persistence/persistence_pair.h
+    persistence/stable_rank.h
+    persistence/ripser/ripser.h)
 
 SET(MPCF_SRC_FILES
-  executor.cpp
-  io_stream.cpp)
+    executor.cpp
+    io_stream.cpp)
 
 list(TRANSFORM MPCF_HEADER_FILES PREPEND "include/mpcf/")
 list(TRANSFORM MPCF_SRC_FILES PREPEND "src/")
 
 SET(MPCF_LIB_SOURCES
-  ${MPCF_HEADER_FILES}
-  ${MPCF_SRC_FILES}
-  ${MPCF_LIB_SOURCES_CUDA}
+    ${MPCF_HEADER_FILES}
+    ${MPCF_SRC_FILES}
+    ${MPCF_LIB_SOURCES_CUDA}
 )
 
 SET(MPCF_PY_PERSISTENCE_SOURCES
-  py_barcode.h py_barcode.cpp
-  py_persistence_pair.h py_persistence_pair.cpp
-  py_ripser.h py_ripser.cpp
-  py_stable_rank.h py_stable_rank.cpp
-  pymodule_persistence.h pymodule_persistence.cpp
+    py_barcode.h py_barcode.cpp
+    py_persistence_pair.h py_persistence_pair.cpp
+    py_ripser.h py_ripser.cpp
+    py_stable_rank.h py_stable_rank.cpp
+    pymodule_persistence.h pymodule_persistence.cpp
 )
 
 list(TRANSFORM MPCF_PY_PERSISTENCE_SOURCES PREPEND "persistence/")
 
 SET(MPCF_PY_SOURCES
-  pybind.h
-  pymodule.cpp
-  pyrandom.cpp
-  pypcf_support.h
-  py_np_support.h
-  py_np_tensor_convert.h py_np_tensor_convert.cpp
-  py_make_from_serial_content.h py_make_from_serial_content.cpp
-  py_distance.h py_distance.cpp
-  py_norms.h py_norms.cpp
-  py_reductions.h py_reductions.cpp
-  py_tensor.h py_tensor.cpp
-  py_io.h py_io.cpp
-  ${MPCF_PY_PERSISTENCE_SOURCES}
+    pybind.h
+    pymodule.cpp
+    pyrandom.cpp
+    pypcf_support.h
+    py_np_support.h
+    py_np_tensor_convert.h py_np_tensor_convert.cpp
+    py_make_from_serial_content.h py_make_from_serial_content.cpp
+    py_distance.h py_distance.cpp
+    py_norms.h py_norms.cpp
+    py_reductions.h py_reductions.cpp
+    py_tensor.h py_tensor.cpp
+    py_io.h py_io.cpp
+    ${MPCF_PY_PERSISTENCE_SOURCES}
 )
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
@@ -249,15 +251,15 @@ if (BUILD_WITH_CUDA)
   message(STATUS "CUDAToolkit_CUDART_LIBRARY: ${CUDAToolkit_CUDART_LIBRARY}")
 
   target_compile_options(${CPP_MODULE_NAME} PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:
-    --expt-relaxed-constexpr
-    -Xcudafe=--diag_suppress=partial_override
-    -Xcudafe=--diag_suppress=virtual_function_decl_hidden
-    -Xcudafe=--diag_suppress=initialization_not_reachable
-    >
-    )
+      $<$<COMPILE_LANGUAGE:CUDA>:
+      --expt-relaxed-constexpr
+      -Xcudafe=--diag_suppress=partial_override
+      -Xcudafe=--diag_suppress=virtual_function_decl_hidden
+      -Xcudafe=--diag_suppress=initialization_not_reachable
+      >
+  )
 
-endif()
+endif ()
 
 set(MPCF_PRIVATE_INCLUDES "include/mpcf")
 set(MPCF_PUBLIC_INCLUDES "include/")
@@ -273,18 +275,17 @@ if (MSVC)
   # by using VC++ Include Directories instead of on the compiler-level
   get_filename_component(taskflow_DIR "3rd/taskflow" REALPATH)
   set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
-endif()
+endif ()
 
 # ============================================================
 # Coverage configuration (GCC / Clang only)
 # ============================================================
 
 
-
-if(ENABLE_COVERAGE)
-  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if (ENABLE_COVERAGE)
+  if (NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     message(FATAL_ERROR "Coverage only supported with GCC or Clang")
-  endif()
+  endif ()
 
   message(STATUS "!!! Coverage ENABLED !!!")
 
@@ -292,20 +293,20 @@ if(ENABLE_COVERAGE)
   add_library(coverage_flags INTERFACE)
 
   target_compile_options(coverage_flags INTERFACE
-    -O0 -g
-    --coverage               # Shorthand for arcs/test-coverage
-    -fprofile-abs-path       # Essential for finding headers in GHA
-    -fno-inline
-    -fno-inline-small-functions
-    -fno-default-inline
+      -O0 -g
+      --coverage               # Shorthand for arcs/test-coverage
+      -fprofile-abs-path       # Essential for finding headers in GHA
+      -fno-inline
+      -fno-inline-small-functions
+      -fno-default-inline
   )
 
   target_link_options(coverage_flags INTERFACE --coverage)
   target_link_libraries(coverage_flags INTERFACE gcov)
 
-else()
+else ()
   message(STATUS "!!! Coverage DISABLED !!!")
-endif()
+endif ()
 
 if (BUILD_TESTER)
   set(BUILD_GMOCK OFF)
@@ -317,14 +318,14 @@ if (BUILD_TESTER)
 
   enable_testing()
   add_executable(mpcf_test
-    test/test_block_matrix_support.cu
-    test/test_iterate_rectangles.cpp
-    test/test_l1_dist.cu
-    test/test_norms.cu
-    test/test_parallel_reduce.cpp
-    test/test_tensor_iteration.cpp
-    test/test_special_tensors.cpp
-    test/test_io_stream.cpp)
+      test/test_block_matrix_support.cu
+      test/test_iterate_rectangles.cpp
+      test/test_l1_dist.cu
+      test/test_norms.cu
+      test/test_parallel_reduce.cpp
+      test/test_tensor_iteration.cpp
+      test/test_special_tensors.cpp
+      test/test_io_stream.cpp)
 
   target_include_directories(mpcf_test PRIVATE "include/")
 
@@ -333,61 +334,61 @@ if (BUILD_TESTER)
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
   set_target_properties(mpcf_nopy PROPERTIES
-    CUDA_RUNTIME_LIBRARY Shared  # Must match the Python module's runtime
+      CUDA_RUNTIME_LIBRARY Shared  # Must match the Python module's runtime
   )
 
   set_target_properties(mpcf_test PROPERTIES
-    CUDA_RUNTIME_LIBRARY Static
+      CUDA_RUNTIME_LIBRARY Static
   )
 
   target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy)
 
   if (BUILD_WITH_CUDA)
     target_link_libraries(mpcf_test PUBLIC CUDA::cudart_static)
-  endif()
+  endif ()
 
-  if(ENABLE_COVERAGE)
+  if (ENABLE_COVERAGE)
     target_link_libraries(mpcf_nopy PRIVATE coverage_flags)
     target_link_libraries(mpcf_test PRIVATE coverage_flags)
     target_link_libraries(${CPP_MODULE_NAME} PRIVATE coverage_flags)
-  endif()
+  endif ()
 
   if (WIN32)
     get_filename_component(python_dir "${Python_EXECUTABLE}" DIRECTORY)
     set_target_properties(mpcf_test PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${python_dir}")
-  endif()
-endif()
+  endif ()
+endif ()
 
 if (BUILD_BENCHMARKS)
-  set(Boost_USE_STATIC_LIBS   ON)
+  set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_MULTITHREADED ON)
-  
+
   find_package(Boost COMPONENTS program_options system REQUIRED)
   find_package(Threads REQUIRED)
-  
+
   add_executable(mpcf_bench
-    benchmarking/bench.cpp
-    benchmarking/benchmark.h
-    benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
-    )
+      benchmarking/bench.cpp
+      benchmarking/benchmark.h
+      benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
+  )
 
   set_target_properties(mpcf_bench PROPERTIES
-    CUDA_RUNTIME_LIBRARY Static
+      CUDA_RUNTIME_LIBRARY Static
   )
 
   target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} ${Boost_LIBRARIES} Threads::Threads)
 
   if (BUILD_WITH_CUDA)
     target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} CUDA::cudart_static)
-  endif()
-endif()
+  endif ()
+endif ()
 
-if(MSVC)
+if (MSVC)
   target_compile_options(${CPP_MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
-else()
+else ()
   #target_compile_options(${CPP_MODULE_NAME} PRIVATE -Wall -Wextra)
-  set( CMAKE_CXX_FLAGS "-Wall -Wextra -Werror=return-type" )
-endif()
+  set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror=return-type")
+endif ()
 
 cmake_policy(SET CMP0177 NEW) # Normalize paths
 
@@ -408,50 +409,50 @@ if (MINIMAL_MODULE_BUILD)
   set(INSTALL_TARGET ${SITE_PKG_MASSPCF})
 
   message(STATUS "Minimal module will be installed into ${SITE_PKG_MASSPCF}")
-else()
+else ()
   set(INSTALL_TARGET masspcf)
-endif()
+endif ()
 
 install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
 
 if (LINUX OR MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN)) # Stubgen does not seem happy on CI
   add_custom_command(
-          TARGET ${CPP_MODULE_NAME}
-          POST_BUILD
-          COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
-          --output-dir "${CMAKE_CURRENT_BINARY_DIR}/stubs"
-          --ignore-invalid-expressions comment
-          COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
+      TARGET ${CPP_MODULE_NAME}
+      POST_BUILD
+      COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
+      --output-dir "${CMAKE_CURRENT_BINARY_DIR}/stubs"
+      --ignore-invalid-expressions comment
+      COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
   )
 
   set(STUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/stubs/${CPP_MODULE_NAME}")
 
   install(
-    DIRECTORY "${STUB_DIR}/"
-    DESTINATION "${INSTALL_TARGET}/${CPP_MODULE_NAME}"
-    FILES_MATCHING
-    PATTERN "*.pyi"
+      DIRECTORY "${STUB_DIR}/"
+      DESTINATION "${INSTALL_TARGET}/${CPP_MODULE_NAME}"
+      FILES_MATCHING
+      PATTERN "*.pyi"
   )
 
   add_custom_command(
-          TARGET ${CPP_MODULE_NAME}
-          POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E touch
-          ${CMAKE_CURRENT_BINARY_DIR}/py.typed
-          COMMENT "Creating py.typed"
+      TARGET ${CPP_MODULE_NAME}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E touch
+      ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+      COMMENT "Creating py.typed"
   )
 
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/py.typed" "")
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/py.typed" DESTINATION ${INSTALL_TARGET})
-endif()
+endif ()
 
 if (SKBUILD)
   # Install Python source files alongside compiled module
   install(
-          DIRECTORY masspcf/
-          DESTINATION ${INSTALL_TARGET}
-          FILES_MATCHING PATTERN "*.py"
-          PATTERN "__pycache__" EXCLUDE
+      DIRECTORY masspcf/
+      DESTINATION ${INSTALL_TARGET}
+      FILES_MATCHING PATTERN "*.py"
+      PATTERN "__pycache__" EXCLUDE
   )
 
 elseif (MINIMAL_MODULE_BUILD)
@@ -460,13 +461,12 @@ elseif (MINIMAL_MODULE_BUILD)
   file(GLOB PY_PKG_FILES "masspcf/*.py")
   #message(STATUS ${PY_PKG_FILES})
   install(
-    DIRECTORY masspcf
-    DESTINATION ${PYTHON_SITE}
+      DIRECTORY masspcf
+      DESTINATION ${PYTHON_SITE}
 
-    # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
-    REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp$)" EXCLUDE
-    )
-
+      # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
+      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp$)" EXCLUDE
+  )
 
 
   if (NOT SKIP_BACK_COPY)
@@ -474,9 +474,9 @@ elseif (MINIMAL_MODULE_BUILD)
     # Copy on Windows, symlink otherwise
     if (WIN32)
       SET(LINK_TYPE copy_if_different)
-    else()
+    else ()
       SET(LINK_TYPE create_symlink)
-    endif()
+    endif ()
 
     install(CODE "
     message(STATUS \"Syncing built extension back to source directory\")
@@ -527,9 +527,9 @@ elseif (MINIMAL_MODULE_BUILD)
 
     # Optional: Clean the symlink when running 'make clean'
     #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
-  endif()
+  endif ()
 
-endif()
+endif ()
 
 message(STATUS "!!! Stub file: ${STUB_FILE}")
 message(STATUS "!!! Install target: ${INSTALL_TARGET}")

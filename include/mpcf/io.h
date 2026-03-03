@@ -19,6 +19,7 @@
 #include "io/io_stream.h"
 #include "io/point_io.h"
 #include "io/pcf_io.h"
+#include "io/tensor_io.h"
 #include "tensor.h"
 #include "version.h"
 
@@ -36,53 +37,9 @@
 
 namespace mpcf
 {
-  using StreamableTensor = std::variant<
-      Tensor<float32_t>,
-      Tensor<float64_t>,
-
-      Tensor<Pcf<float32_t, float32_t>>,
-      Tensor<Pcf<float64_t, float64_t>>,
-
-      Tensor<PointCloud<float32_t>>,
-      Tensor<PointCloud<float64_t>>,
-
-      Tensor<ph::Barcode<float32_t>>,
-      Tensor<ph::Barcode<float64_t>>
-      >;
-
   namespace io::detail
   {
     constexpr const int FormatVersion = 1;
-
-    struct TensorFormat
-    {
-      std::int32_t baseFormat;
-      std::int32_t subFormat;
-    };
-
-    inline TensorFormat getFormat(const StreamableTensor& tensor)
-    {
-      using namespace std::string_literals;
-
-      return std::visit([](auto&& arg) -> TensorFormat {
-        using T = std::decay_t<decltype(arg)>;
-
-        if      constexpr (std::is_same_v<T, float32_t>) { return TensorFormat{ .baseFormat = 1, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, float64_t>) { return TensorFormat{ .baseFormat = 1, .subFormat = 64 }; }
-
-        else if constexpr (std::is_same_v<T, Pcf<float32_t, float32_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, Pcf<float64_t, float64_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 64 }; }
-
-        else if constexpr (std::is_same_v<T, PointCloud<float32_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, PointCloud<float64_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }
-
-        else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>) { return TensorFormat{ .baseFormat = 2000, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>) { return TensorFormat{ .baseFormat = 2000, .subFormat = 64 }; }
-
-        throw std::runtime_error("Tensor type "s + mpcf::detail::unmangled_typename<T>() +  " not supported.");
-      }, tensor);
-    }
-
 
     inline void write_endianness(std::ostream& os)
     {
@@ -158,50 +115,6 @@ namespace mpcf
       write_binary_record(os, PROJECT_BUILD_DATE);
     }
 
-    // For new types, make sure to add io::detail::write_element in their corresponding headers
-    template <ArithmeticType T>
-    void write_element(std::ostream& os, T elem)
-    {
-      write_bytes<float64_t>(os, elem);
-    }
-
-    template <IsTensor TensorT>
-    void write_contiguous_tensor(std::ostream& os, const TensorT& tensor)
-    {
-      auto format = getFormat(tensor);
-      write_bytes<std::int32_t>(os, format.baseFormat);
-      write_bytes<std::int32_t>(os, format.subFormat);
-
-      write_bytes<std::uint64_t>(os, tensor.shape().size());
-      for (auto i = 0_uz; i < tensor.shape().size(); ++i)
-      {
-        write_bytes<std::uint64_t>(os, tensor.shape()[i]);
-        write_bytes<std::uint64_t>(os, tensor.strides()[i]);
-      }
-
-      auto sz = tensor.size();
-      for (auto const * elem = tensor.data(); elem != tensor.data() + sz; ++elem)
-      {
-        write_element(os, *elem);
-      }
-    }
-
-    template <IsTensor TensorT>
-    void write_tensor(std::ostream& os, const TensorT& tensor)
-    {
-      if (!tensor.is_contiguous())
-      {
-        auto copy = tensor.copy();
-        if (!copy.is_contiguous())
-        {
-          // To avoid infinite loop
-          throw std::runtime_error("Tensor copy is non-contiguous/non-zero-offset (this is a bug, please report it!).");
-        }
-        write_tensor(os, copy);
-        return;
-      }
-      write_contiguous_tensor(os, tensor);
-    }
   }
 
   template <IsTensor TensorT>

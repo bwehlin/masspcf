@@ -48,6 +48,16 @@ namespace mpcf::io::detail
   template <typename T>
   void write_bytes(std::ostream& os, const T& v)
   {
+#ifdef MPCF_IO_DEBUG
+    std::cout << "WRITE " << sizeof(T) << " B: " << v <<  '\n';
+    auto * c = reinterpret_cast<const char*>(&v);
+    auto sz = sizeof(v);
+    std::vector<unsigned char> chars;
+    for (auto* cc = c; cc != c + sz; ++cc)
+    {
+      chars.push_back(*cc);
+    }
+#endif
     os.write(reinterpret_cast<const char*>(&v), sizeof(v));
     assert_not_bad(os);
   }
@@ -55,6 +65,9 @@ namespace mpcf::io::detail
   template <typename T>
   T read_bytes(std::istream& is)
   {
+#ifdef MPCF_IO_DEBUG
+    std::cout << "READ " << sizeof(T) << " B: ";
+#endif
     T v;
     is.read(reinterpret_cast<char*>(&v), sizeof(v));
     assert_not_bad(is);
@@ -62,6 +75,9 @@ namespace mpcf::io::detail
     {
       throw std::runtime_error("Incorrect number of bytes returned (file may be corrupted)");
     }
+#ifdef MPCF_IO_DEBUG
+    std::cout << v << '\n';
+#endif
     return v;
   }
 
@@ -97,6 +113,9 @@ namespace mpcf::io::detail
 
   template <ArithmeticType T>
   T read_element(std::istream& is);
+
+  template <ArithmeticType T>
+  void write_element(std::ostream& os, T val);
 
   template <std::forward_iterator FwdIt>
   void read_elements(std::istream& is, FwdIt dest);
