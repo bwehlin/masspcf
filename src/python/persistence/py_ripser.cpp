@@ -47,7 +47,7 @@ namespace mpcf_py
 {
   void register_persistence_ripser(pybind11::module_ &m)
   {
-    PyRipserBindings<float>::register_bindings(m, "32");
-    PyRipserBindings<double>::register_bindings(m, "64");
+    PyRipserBindings<mpcf::float32_t>::register_bindings(m, "32");
+    PyRipserBindings<mpcf::float64_t>::register_bindings(m, "64");
   }
 }

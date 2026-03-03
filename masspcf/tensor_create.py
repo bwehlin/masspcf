@@ -14,7 +14,7 @@
 
 from ._tensor_base import Shape, ShapeLike
 
-from .tensor import (FloatTensor, DoubleTensor,
+from .tensor import (Float32Tensor, Float64Tensor,
                      Pcf32Tensor, Pcf64Tensor,
                      PointCloud32Tensor, PointCloud64Tensor)
 
@@ -60,9 +60,9 @@ def zeros(shape : ShapeLike, dtype=pcf32):
     elif dtype == pcf64 or dtype == float64:
         return Pcf64Tensor(cpp.Pcf64Tensor(shape))
     elif dtype == f32:
-        return FloatTensor(cpp.FloatTensor(shape, 0.0))
+        return Float32Tensor(cpp.Float32Tensor(shape, 0.0))
     elif dtype == f64:
-        return DoubleTensor(cpp.DoubleTensor(shape, 0.0))
+        return Float64Tensor(cpp.Float64Tensor(shape, 0.0))
     elif dtype == pcloud32:
         return PointCloud32Tensor(cpp.PointCloud32Tensor(shape))
     elif dtype == pcloud64:

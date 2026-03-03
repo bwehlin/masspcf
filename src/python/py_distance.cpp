@@ -100,8 +100,8 @@ namespace mpcf_py
 
   void register_distance(py::module_& m)
   {
-    PyDistanceBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyDistanceBindings<double, double>::register_bindings(m, "_f64_f64");
+    PyDistanceBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
+    PyDistanceBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
   }
 
 }

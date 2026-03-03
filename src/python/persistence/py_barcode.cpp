@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "config.h"
 #include "py_barcode.h"
 #include "../py_tensor.h"
 #include "../py_np_support.h"
@@ -89,10 +90,10 @@ namespace mpcf_py
 
   void register_persistence_barcode_tensor(pybind11::module_ &m)
   {
-    PyPersistenceBarcodeBindings<float>::register_bindings(m, "32");
-    PyPersistenceBarcodeBindings<double>::register_bindings(m, "64");
+    PyPersistenceBarcodeBindings<mpcf::float32_t>::register_bindings(m, "32");
+    PyPersistenceBarcodeBindings<mpcf::float64_t>::register_bindings(m, "64");
 
-    register_typed_tensor_bindings<mpcf::ph::Barcode<float>>(m, "Barcode32", "");
-    register_typed_tensor_bindings<mpcf::ph::Barcode<double>>(m, "Barcode64", "");
+    register_typed_tensor_bindings<mpcf::ph::Barcode<mpcf::float32_t>>(m, "Barcode32", "");
+    register_typed_tensor_bindings<mpcf::ph::Barcode<mpcf::float64_t>>(m, "Barcode64", "");
   }
 }

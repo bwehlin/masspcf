@@ -16,7 +16,7 @@
 
 #include <mpcf/random.h>
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 #include <pybind11/numpy.h>
 
 #include "py_np_support.h"
@@ -38,12 +38,12 @@ namespace
 
     static void noisy_sin(TensorT& out, size_t nPoints)
     {
-      mpcf::noisy_function(out, nPoints, [](Tv t) { return sin(2. * M_PI * t); });
+      mpcf::noisy_function(out, nPoints, [](Tv t) { return sin(static_cast<Tv>(2. * M_PI) * t); });
     }
 
     static void noisy_cos(TensorT& out, size_t nPoints)
     {
-      mpcf::noisy_function(out, nPoints, [](Tv t) { return cos(2. * M_PI * t); });
+      mpcf::noisy_function(out, nPoints, [](Tv t) { return cos(static_cast<Tv>(2. * M_PI) * t); });
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)
@@ -61,6 +61,6 @@ namespace
 
 void register_random_bindings(py::handle m)
 {
-  PyRandomBindings<float, float>::register_bindings(m, "_f32_f32");
-  PyRandomBindings<double, double>::register_bindings(m, "_f64_f64");
+  PyRandomBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
+  PyRandomBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
 }

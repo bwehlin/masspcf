@@ -17,7 +17,7 @@
 
 #include <mpcf/persistence/persistence_pair.h>
 
-#include <pybind11/pybind11.h>
+#include "../pybind.h"
 
 namespace mpcf_py
 {

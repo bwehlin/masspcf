@@ -36,11 +36,11 @@ namespace mpcf
     // TODO: unified random generator with seeding and thread-consistency
 
     std::mt19937_64 gen;
-    std::uniform_real_distribution<Tt> tDist(0., 1.);
-    std::uniform_real_distribution<Tv> vDist(0., noise);
+    std::uniform_real_distribution<Tt> tDist(static_cast<Tt>(0.), static_cast<Tt>(1.));
+    std::uniform_real_distribution<Tv> vDist(static_cast<Tv>(0.), noise);
 
-    std::vector<Tt> randomTs(nPoints, 0.);
-    std::vector<Tv> randomNoises(nPoints, 0.);
+    std::vector<Tt> randomTs(nPoints, static_cast<Tt>(0.));
+    std::vector<Tv> randomNoises(nPoints, static_cast<Tt>(0.));
 
     out.apply([&gen, &tDist, &vDist, &randomTs, &randomNoises, &func](PcfT& f) {
 

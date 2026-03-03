@@ -68,8 +68,8 @@ namespace mpcf_py
 
   void register_norms(py::module_& m)
   {
-    PyNormsBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyNormsBindings<double, double>::register_bindings(m, "_f64_f64");
+    PyNormsBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
+    PyNormsBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
   }
 
 }

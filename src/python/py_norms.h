@@ -15,7 +15,7 @@
 #ifndef MASSPCF_PY_NORMS_H
 #define MASSPCF_PY_NORMS_H
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 
 namespace mpcf_py
 {

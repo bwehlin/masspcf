@@ -102,8 +102,8 @@ namespace mpcf_py
 
   void register_make_from_serial_content(py::module_& m)
   {
-    m.def("make_from_serial_content_32", &make_from_serial_content<float, float>);
-    m.def("make_from_serial_content_64", &make_from_serial_content<double, double>);
+    m.def("make_from_serial_content_32", &make_from_serial_content<mpcf::float32_t, mpcf::float32_t>);
+    m.def("make_from_serial_content_64", &make_from_serial_content<mpcf::float64_t, mpcf::float64_t>);
   }
 
 }

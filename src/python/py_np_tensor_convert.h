@@ -15,7 +15,7 @@
 #ifndef MASSPCF_PY_NP_TENSOR_CONVERT_H
 #define MASSPCF_PY_NP_TENSOR_CONVERT_H
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 
 namespace mpcf_py
 {

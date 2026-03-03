@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 from . import _mpcf_cpp as cpp
-from .tensor import PcfContainerLike, Pcf32Tensor, Pcf64Tensor, FloatTensor, DoubleTensor
+from .tensor import PcfContainerLike, Pcf32Tensor, Pcf64Tensor, Float32Tensor, Float64Tensor
 from .pcf import Pcf
 
 def _get_tensor_and_backend(fs):
@@ -28,7 +28,7 @@ def _to_tensor_or_val(outFs):
     if isinstance(outFs, cpp.Pcf32Tensor) or isinstance(outFs, cpp.Pcf64Tensor):
         if len(outFs.shape) == 1 and outFs.shape[0] == 1:
             return Pcf(outFs._get_element(0))
-    elif isinstance(outFs, cpp.FloatTensor) or isinstance(outFs, cpp.DoubleTensor):
+    elif isinstance(outFs, cpp.Float32Tensor) or isinstance(outFs, cpp.Float64Tensor):
         if len(outFs.shape) == 1 and outFs.shape[0] == 1:
             return outFs._get_element(0)
 
@@ -36,10 +36,10 @@ def _to_tensor_or_val(outFs):
         return Pcf32Tensor(outFs)
     elif isinstance(outFs, cpp.Pcf64Tensor):
         return Pcf64Tensor(outFs)
-    elif isinstance(outFs, cpp.FloatTensor):
-        return FloatTensor(outFs)
-    elif isinstance(outFs, cpp.DoubleTensor):
-        return DoubleTensor(outFs)
+    elif isinstance(outFs, cpp.Float32Tensor):
+        return Float32Tensor(outFs)
+    elif isinstance(outFs, cpp.Float64Tensor):
+        return Float64Tensor(outFs)
     else:
         raise ValueError('Invalid output type (this is probably a bug -- please report it!).')
 

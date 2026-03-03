@@ -46,7 +46,7 @@ TEST(IoStream, GoAroundHasCorrectDataTypes)
 {
   std::stringstream ss("", std::ios::out | std::ios::binary);
 
-  mpcf::Tensor<double> dblTensor;
+  mpcf::Tensor<mpcf::float64_t> dblTensor;
 
   mpcf::write(dblTensor, ss);
 

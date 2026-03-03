@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "config.h"
 #include "py_persistence_pair.h"
 #include <mpcf/persistence/persistence_pair.h>
 
@@ -35,7 +36,7 @@ namespace mpcf_py
 {
   void register_persistence_persistence_pair(pybind11::module_ &m)
   {
-    register_bindings_persistence_pair<float>(m, "32");
-    register_bindings_persistence_pair<double>(m, "64");
+    register_bindings_persistence_pair<mpcf::float32_t>(m, "32");
+    register_bindings_persistence_pair<mpcf::float64_t>(m, "64");
   }
 }

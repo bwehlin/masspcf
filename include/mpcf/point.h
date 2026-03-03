@@ -17,6 +17,8 @@
 #ifndef MPCF_POINT_H
 #define MPCF_POINT_H
 
+#include "config.h"
+
 #include <limits>
 
 namespace mpcf
@@ -50,12 +52,17 @@ namespace mpcf
       return infinity<time_type>();
     }
 
-    Tt t = 0.; // time
-    Tv v = 0.; // value
+    Tt t = static_cast<Tt>(0.); // time
+    Tv v = static_cast<Tv>(0.); // value
 
     Point() = default;
     Point(Tt it, Tv iv)
       : t(it), v(iv) { }
+
+    template <typename T1, typename T2>
+    Point(T1 it, T2 iv)
+      : t(static_cast<Tt>(it)), v(static_cast<Tv>(iv)) { }
+
     
     bool operator==(const Point& rhs) const
     {
@@ -77,8 +84,8 @@ namespace mpcf
     }
   };
   
-  using Point_f32 = Point<float, float>;
-  using Point_f64 = Point<double, double>;
+  using Point_f32 = Point<float32_t, float32_t>;
+  using Point_f64 = Point<float64_t, float64_t>;
 }
 
 #endif

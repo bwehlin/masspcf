@@ -36,7 +36,7 @@ namespace mpcf
    *  \end{pmatrix}.
    * \f]
    *
-   * @tparam T Element type (must be an arithmetic type, e.g., `int` or `float`, etc.)
+   * @tparam T Element type (must be an arithmetic type, e.g., `int` or `float32_t`, etc.)
    * @param shape Shape of the returned tensor
    * @return `Tensor<T>` of shape `shape` with values as described above.
    */

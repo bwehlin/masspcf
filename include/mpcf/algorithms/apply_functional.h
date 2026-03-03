@@ -69,7 +69,7 @@ namespace mpcf
   }
 
   template <typename ForwardPcfIt, typename OutputIt, typename F>
-  inline void apply_functional(ForwardPcfIt begin, ForwardPcfIt end, OutputIt beginOut, F functional, mpcf::Executor& exec = mpcf::default_executor())
+  void apply_functional(ForwardPcfIt begin, ForwardPcfIt end, OutputIt beginOut, F functional, mpcf::Executor& exec = mpcf::default_executor())
   {
     using PcfT = decltype(*begin);
 
@@ -82,7 +82,7 @@ namespace mpcf
   }
 
   template <typename PcfT>
-  inline typename PcfT::value_type l1_norm(const PcfT& f)
+  PcfT::value_type l1_norm(const PcfT& f)
   {
     typename PcfT::value_type out{ 0 };
 
@@ -94,7 +94,7 @@ namespace mpcf
   }
 
   template <typename PcfT>
-  inline typename PcfT::value_type l2_norm(const PcfT& f)
+  PcfT::value_type l2_norm(const PcfT& f)
   {
     typename PcfT::value_type out{ 0 };
 
@@ -106,7 +106,7 @@ namespace mpcf
   }
 
   template <typename PcfT>
-  inline typename PcfT::value_type lp_norm(const PcfT& f, typename PcfT::value_type p)
+  PcfT::value_type lp_norm(const PcfT& f, typename PcfT::value_type p)
   {
     typename PcfT::value_type out{ 0 };
 
@@ -118,12 +118,13 @@ namespace mpcf
   }
 
   template <typename PcfT>
-  inline typename PcfT::value_type linfinity_norm(const PcfT& f)
+  PcfT::value_type linfinity_norm(const PcfT& f)
   {
-    typename PcfT::value_type out{ 0 }; // No PCF should be empty, but if that happens we adopt the convention that L_inf=0
+    using value_type = typename PcfT::value_type;
+    value_type out{ 0 }; // No PCF should be empty, but if that happens we adopt the convention that L_inf=0
     for (auto const & pt : f.points())
     {
-      out = std::max(out, std::abs(pt.v));
+      out = std::max(out, static_cast<value_type>(std::abs(pt.v)));
     }
     return out;
   }

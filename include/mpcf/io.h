@@ -60,22 +60,24 @@ namespace mpcf
 
     inline TensorFormat getFormat(const StreamableTensor& tensor)
     {
+      using namespace std::string_literals;
+
       return std::visit([](auto&& arg) -> TensorFormat {
         using T = Tensor<std::decay_t<decltype(arg)>>;
 
-        if      constexpr (std::is_same_v<T, float>)      { return TensorFormat{ .baseFormat = 1, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, double>)     { return TensorFormat{ .baseFormat = 1, .subFormat = 64 }; }
+        if      constexpr (std::is_same_v<T, float32_t>)      { return TensorFormat{ .baseFormat = 1, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, float64_t>)     { return TensorFormat{ .baseFormat = 1, .subFormat = 64 }; }
 
-        else if constexpr (std::is_same_v<T, Pcf<float, float>>)   { return TensorFormat{ .baseFormat = 100, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, Pcf<double, double>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 64 }; }
+        else if constexpr (std::is_same_v<T, Pcf<float32_t, float32_t>>)   { return TensorFormat{ .baseFormat = 100, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, Pcf<float64_t, float64_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 64 }; }
 
-        else if constexpr (std::is_same_v<T, PointCloud<float>>)    { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, PointCloud<double>>)   { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }
+        else if constexpr (std::is_same_v<T, PointCloud<float32_t>>)    { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, PointCloud<float64_t>>)   { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }
 
-        else if constexpr (std::is_same_v<T, ph::Barcode<float>>)   { return TensorFormat{ .baseFormat = 2000, .subFormat = 32 }; }
-        else if constexpr (std::is_same_v<T, ph::Barcode<double>>)  { return TensorFormat{ .baseFormat = 2000, .subFormat = 64 }; }
+        else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>)   { return TensorFormat{ .baseFormat = 2000, .subFormat = 32 }; }
+        else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>)  { return TensorFormat{ .baseFormat = 2000, .subFormat = 64 }; }
 
-        throw std::runtime_error("Tensor type not supported.");
+        throw std::runtime_error("Tensor type "s + mpcf::detail::unmangled_typename<T>() +  " not supported.");
       }, tensor);
     }
 
@@ -188,7 +190,7 @@ namespace mpcf
       write_binary_record(os, PROJECT_BUILD_DATE);
     }
 
-    void write_element(std::ostream& os, double elem)
+    void write_element(std::ostream& os, float64_t elem)
     {
 
     }
@@ -197,8 +199,8 @@ namespace mpcf
     void write_contiguous_tensor(std::ostream& os, const TensorT& tensor)
     {
       auto format = getFormat(tensor);
-      write_bytes<std::int32_t>(format.baseFormat);
-      write_bytes<std::int32_t>(format.subFormat);
+      write_bytes<std::int32_t>(os, format.baseFormat);
+      write_bytes<std::int32_t>(os, format.subFormat);
 
       write_bytes<std::uint64_t>(os, tensor.shape().size());
       for (auto i = 0_uz; i < tensor.shape().size(); ++i)

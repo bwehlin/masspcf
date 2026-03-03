@@ -21,7 +21,7 @@ from .typing import (pcf32, pcf64, f32, f64, pcloud32, pcloud64, barcode32, barc
                      )
 
 from ._tensor_base import Shape
-from .tensor import (FloatTensor, DoubleTensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor)
+from .tensor import (Float32Tensor, Float64Tensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor)
 from .tensor_create import zeros
 
 from .reductions import mean, max_time

@@ -21,7 +21,7 @@
 
 #include <sstream>
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 
 
 namespace py = pybind11;

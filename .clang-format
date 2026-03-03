@@ -2,3 +2,4 @@
 BasedOnStyle: Microsoft
 
 IndentWidth: 2
+NamespaceIndentation: All

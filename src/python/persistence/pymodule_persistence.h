@@ -15,7 +15,7 @@
 #ifndef MASSPCF_PYMODULE_PERSISTENCE_H
 #define MASSPCF_PYMODULE_PERSISTENCE_H
 
-#include <pybind11/pybind11.h>
+#include "../pybind.h"
 
 namespace mpcf_py
 {

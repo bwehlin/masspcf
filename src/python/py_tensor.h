@@ -19,7 +19,7 @@
 #ifndef MASSPCF_PY_TENSOR_H
 #define MASSPCF_PY_TENSOR_H
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 #include <pybind11/stl.h>
 
 #include <mpcf/tensor.h>

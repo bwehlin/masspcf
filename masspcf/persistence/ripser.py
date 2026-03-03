@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from ..tensor import (FloatTensor, DoubleTensor, PointCloud32Tensor, PointCloud64Tensor,
+from ..tensor import (Float32Tensor, Float64Tensor, PointCloud32Tensor, PointCloud64Tensor,
                       _get_backend
                       )
 

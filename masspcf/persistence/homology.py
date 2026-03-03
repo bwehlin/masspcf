@@ -17,7 +17,7 @@ cpp_p = cpp.persistence
 
 from ..async_task import _wait_for_task
 
-from ..tensor import (FloatTensor, DoubleTensor, PointCloud32Tensor, PointCloud64Tensor,
+from ..tensor import (Float32Tensor, Float64Tensor, PointCloud32Tensor, PointCloud64Tensor,
                       _get_backend
                       )
 
@@ -36,7 +36,7 @@ class DistanceType(Enum):
 class ComplexType(Enum):
     VietorisRips = 1
 
-def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | FloatTensor | DoubleTensor | np.ndarray,
+def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Float32Tensor | Float64Tensor | np.ndarray,
                                 maxDim : int = 1,
                                 distance_type : DistanceType = DistanceType.Euclidean,
                                 complex_type: ComplexType = ComplexType.VietorisRips,
@@ -48,18 +48,18 @@ def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Fl
 
     if isinstance(X, np.ndarray):
         if X.dtype == np.float32:
-            X = FloatTensor(X)
+            X = Float32Tensor(X)
         elif X.dtype == np.float64:
-            X = DoubleTensor(X)
+            X = Float64Tensor(X)
         else:
             raise TypeError(f'Input has unsupported numpy dtype {X.dtype} (only np.float32/64 are supported).')
 
     out = None
-    if isinstance(X, FloatTensor):
+    if isinstance(X, Float32Tensor):
         pcX = zeros((1,), dtype=pcloud32)
         pcX[0] = X
         X = PointCloud32Tensor(pcX)
-    elif isinstance(X, DoubleTensor):
+    elif isinstance(X, Float64Tensor):
         pcX = zeros((1,), dtype=pcloud64)
         pcX[0] = X
         X = PointCloud64Tensor(pcX)

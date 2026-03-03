@@ -152,7 +152,7 @@ namespace mpcf
     }
 
     seg.left = tprev;
-    seg.right = (std::numeric_limits<TTime>::max)(); // float (0 * inf) does not produce 0, so use max instead.
+    seg.right = (std::numeric_limits<TTime>::max)(); // float32_t (0 * inf) does not produce 0, so use max instead.
     seg.value = vprev;
 
     cb(seg);

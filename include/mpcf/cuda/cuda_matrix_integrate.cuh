@@ -40,7 +40,7 @@ namespace mpcf
     template <typename T>
     size_t get_max_allocation_n(size_t nGpus) // Use first nGpus GPUs
     {
-      constexpr float allocationPct = 0.8f; // Use at most this percentage of free GPU ram for matrix (leave some space for other stuff)
+      constexpr float32_t allocationPct = 0.8f; // Use at most this percentage of free GPU ram for matrix (leave some space for other stuff)
 
       size_t retVal = std::numeric_limits<size_t>::max();
 
@@ -52,8 +52,8 @@ namespace mpcf
         size_t totalMem;
         CHK_CUDA(cudaMemGetInfo(&freeMem, &totalMem));
 
-        size_t maxMatrixAllocSz = static_cast<size_t>(static_cast<float>(freeMem) * allocationPct);
-        size_t maxAllocationN = maxMatrixAllocSz / sizeof(float);
+        size_t maxMatrixAllocSz = static_cast<size_t>(static_cast<float32_t>(freeMem) * allocationPct);
+        size_t maxAllocationN = maxMatrixAllocSz / sizeof(float32_t);
         maxAllocationN = (maxAllocationN / 1024) * 1024;
 
         retVal = std::min(retVal, maxAllocationN);

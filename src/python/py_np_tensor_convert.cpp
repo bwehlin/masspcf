@@ -57,8 +57,8 @@ namespace mpcf_py
 
   void register_np_conversions(py::module_& m)
   {
-    register_np_conversion_function<float, float>(m, "32");
-    register_np_conversion_function<double, double>(m, "64");
+    register_np_conversion_function<mpcf::float32_t, mpcf::float32_t>(m, "32");
+    register_np_conversion_function<mpcf::float64_t, mpcf::float64_t>(m, "64");
 
   }
 

@@ -16,7 +16,7 @@
 #ifndef MASSPCF_PY_IO_H
 #define MASSPCF_PY_IO_H
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 #include <iostream>
 #include <streambuf>
 #include <string>

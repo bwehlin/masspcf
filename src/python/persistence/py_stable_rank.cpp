@@ -59,7 +59,7 @@ namespace mpcf_py
 {
   void register_persistence_stable_rank(pybind11::module_ &m)
   {
-    PyStableRankBindings<float>::register_bindings(m, "32");
-    PyStableRankBindings<double>::register_bindings(m, "64");
+    PyStableRankBindings<mpcf::float32_t>::register_bindings(m, "32");
+    PyStableRankBindings<mpcf::float64_t>::register_bindings(m, "64");
   }
 }

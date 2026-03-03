@@ -29,7 +29,7 @@ class NumericTensor(Tensor):
         super().__init__()
 
     def _get_valid_setitem_dtypes(self):
-        return [NumericTensor, FloatTensor, DoubleTensor, float, int, np.ndarray]
+        return [NumericTensor, Float32Tensor, Float64Tensor, float, int, np.ndarray]
 
     def _decay_value(self, val):
         return val
@@ -40,13 +40,13 @@ class NumericTensor(Tensor):
     def __array__(self):
         return np.array(self._data)
 
-class FloatTensor(NumericTensor):
-    def __init__(self, data : cpp.FloatTensor | FloatTensor | np.ndarray):
+class Float32Tensor(NumericTensor):
+    def __init__(self, data : cpp.Float32Tensor | Float32Tensor | np.ndarray):
         super().__init__()
 
-        if isinstance(data, cpp.FloatTensor):
+        if isinstance(data, cpp.Float32Tensor):
             pass
-        elif isinstance(data, FloatTensor):
+        elif isinstance(data, Float32Tensor):
             data = data._data
         elif isinstance(data, np.ndarray):
             data = cpp.ndarray_to_tensor_32(data)
@@ -57,15 +57,15 @@ class FloatTensor(NumericTensor):
         self.dtype = f32
 
     def _to_py_tensor(self, data):
-        return FloatTensor(data)
+        return Float32Tensor(data)
 
-class DoubleTensor(NumericTensor):
-    def __init__(self, data : cpp.DoubleTensor | DoubleTensor | np.ndarray):
+class Float64Tensor(NumericTensor):
+    def __init__(self, data : cpp.Float64Tensor | Float64Tensor | np.ndarray):
         super().__init__()
 
-        if isinstance(data, cpp.DoubleTensor):
+        if isinstance(data, cpp.Float64Tensor):
             pass
-        elif isinstance(data, DoubleTensor):
+        elif isinstance(data, Float64Tensor):
             data = data._data
         elif isinstance(data, np.ndarray):
             data = cpp.ndarray_to_tensor_64(data)
@@ -76,7 +76,7 @@ class DoubleTensor(NumericTensor):
         self.dtype = f64
 
     def _to_py_tensor(self, data):
-        return DoubleTensor(data)
+        return Float64Tensor(data)
 
     def __repr__(self):
         return np.asarray(self).__repr__()
@@ -117,7 +117,7 @@ class Pcf64Tensor(PcfTensor):
 
 class PointCloudTensor(Tensor):
     def _get_valid_setitem_dtypes(self):
-        return [DoubleTensor, FloatTensor, np.ndarray, float, int]
+        return [Float64Tensor, Float32Tensor, np.ndarray, float, int]
 
 class PointCloud32Tensor(PointCloudTensor):
     def __init__(self, data : cpp.PointCloud32Tensor | PointCloud32Tensor):
@@ -138,10 +138,10 @@ class PointCloud32Tensor(PointCloudTensor):
         return PointCloud32Tensor(data)
 
     def _represent_element(self, element):
-        return FloatTensor(element)
+        return Float32Tensor(element)
 
     def _decay_value(self, val):
-        t = FloatTensor(val)
+        t = Float32Tensor(val)
         return t._data
 
 class PointCloud64Tensor(PointCloudTensor):
@@ -162,11 +162,11 @@ class PointCloud64Tensor(PointCloudTensor):
         return PointCloud64Tensor(data)
 
     def _represent_element(self, element):
-        t = DoubleTensor(element)
-        return DoubleTensor(element)
+        t = Float64Tensor(element)
+        return Float64Tensor(element)
 
     def _decay_value(self, val):
-        t = DoubleTensor(val)
+        t = Float64Tensor(val)
         return t._data
 
 
@@ -192,9 +192,9 @@ def _get_backend(fs, backendMapping : dict):
         return backend, fs
     elif isinstance(fs, np.ndarray):
         if fs.dtype == np.float32:
-            return _get_backend(FloatTensor(fs), backendMapping)
+            return _get_backend(Float32Tensor(fs), backendMapping)
         elif fs.dtype == np.float64:
-            return _get_backend(DoubleTensor(fs), backendMapping)
+            return _get_backend(Float64Tensor(fs), backendMapping)
     elif hasattr(fs, 'dtype'):
         _validate_dtype(fs.dtype, backendMapping.keys())
         backend = backendMapping.get(fs.dtype)

@@ -16,7 +16,7 @@
 
 #include <future>
 
-#include <pybind11/pybind11.h>
+#include "pybind.h"
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
@@ -173,7 +173,7 @@ namespace
       return mpcf::l2_norm(f);
     }
 
-    static Tv single_lp_norm(const mpcf::Pcf<Tt, Tv>& f, /* let's stick with double here to make life a bit easier */ double p)
+    static Tv single_lp_norm(const mpcf::Pcf<Tt, Tv>& f, /* let's stick with float64_t here to make life a bit easier */ mpcf::float64_t p)
     {
       return mpcf::lp_norm(f, Tv(p));
     }
@@ -359,8 +359,8 @@ namespace
 }
 
 PYBIND11_MODULE(_mpcf_cpp, m) {
-  PyBindings<float, float>::register_bindings(m, "_f32_f32");
-  PyBindings<double, double>::register_bindings(m, "_f64_f64");
+  PyBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
+  PyBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
   
   register_bindings_stoppable_task<void>(m, "_void");
   

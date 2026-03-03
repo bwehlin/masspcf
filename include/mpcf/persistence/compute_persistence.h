@@ -70,7 +70,7 @@ namespace mpcf::ph
 
       rips::euclidean_distance_matrix distanceMatrix(std::move(rpoints));
 
-      auto threshold = std::numeric_limits<rips::value_t>::infinity();
+      rips::value_t threshold = std::numeric_limits<rips::value_t>::infinity();
       for (auto i = 0_uz; i < points.shape(0); ++i)
       {
         auto r = -std::numeric_limits<rips::value_t>::infinity();
@@ -81,11 +81,11 @@ namespace mpcf::ph
         threshold = std::min(threshold, r);
       }
 
-      rips::value_t ratio = 1;
+      rips::value_t ratio = static_cast<rips::value_t>(1);
       rips::coefficient_t modulus = 2;
 
       rips::compressed_lower_distance_matrix dist(std::move(distanceMatrix));
-      rips::ripser<rips::compressed_lower_distance_matrix> ripser(std::move(dist), maxDim /* sic */, threshold, ratio, modulus);
+      rips::ripser<rips::compressed_lower_distance_matrix> ripser(std::move(dist), maxDim, threshold, ratio, modulus);
       ripser.compute_barcodes();
 
       for (auto i = 0_uz; i < maxDim + 1; ++i)
@@ -103,7 +103,10 @@ namespace mpcf::ph
           // TODO: template on bar type in Ripser so that we don't have to do this conversion
           std::vector<PersistencePair<T>> conv;
           conv.resize(intervals.size());
-          std::transform(intervals.begin(), intervals.end(), conv.begin(), [](const PersistencePair<rips::value_t>& rpair){ return PersistencePair<T>(rpair.birth, rpair.death); });
+          std::transform(intervals.begin(), intervals.end(), conv.begin(),
+            [](const PersistencePair<rips::value_t>& rpair) {
+              return PersistencePair<T>(static_cast<T>(rpair.birth), static_cast<T>(rpair.death));
+            });
           ret(retIdx) = conv;
         }
       }

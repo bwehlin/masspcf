@@ -56,12 +56,28 @@ namespace mpcf
     }
 
     Pcf(std::initializer_list<std::pair<Tt, Tv>> pts)
+      requires (!FloatType<Tt> || !FloatType<Tv>)
     {
-      m_points.reserve(pts.size());
-      for (auto const& pt : pts)
-      {
-        m_points.emplace_back(pt.first, pt.second);
-      }
+      // We can't have this constructor if we work with floating point types because of the overloads below, but we
+      // still want to be able to construct from pairs if we are using non-float types.
+      initFromPairs(pts);
+    }
+
+    // Note: we do this for now. These should be true on basically all platforms that we care about. We may have to
+    // modify this assumption and rewrite the initializer_list constructors below in the future.
+    static_assert(sizeof(double) == sizeof(_Float64), "double and _Float64 must be the same size");
+    static_assert(sizeof(float)  == sizeof(_Float32), "float and _Float32 must be the same size");
+
+    Pcf(std::initializer_list<std::pair<float64_t, float64_t>> pts)
+      requires (std::is_same_v<Tt, float64_t> && std::is_same_v<Tv, float64_t>)
+    {
+      initFromPairs(pts);
+    }
+
+    Pcf(std::initializer_list<std::pair<float32_t, float32_t>> pts)
+      requires (std::is_same_v<Tt, float32_t> && std::is_same_v<Tv, float32_t>)
+    {
+      initFromPairs(pts);
     }
 
     std::string to_string() const
@@ -136,11 +152,21 @@ namespace mpcf
     
 
   private:
+    template <typename T1, typename T2>
+    void initFromPairs(std::initializer_list<std::pair<T1, T2>> pts)
+    {
+      m_points.reserve(pts.size());
+      for (auto const& pt : pts)
+      {
+        m_points.emplace_back(static_cast<Tt>(pt.first), static_cast<Tv>(pt.second));
+      }
+    }
+
     std::vector<point_type> m_points;
   };
   
-  using Pcf_f32 = Pcf<float, float>;
-  using Pcf_f64 = Pcf<double, double>;
+  using Pcf_f32 = Pcf<float32_t, float32_t>;
+  using Pcf_f64 = Pcf<float64_t, float64_t>;
   
   template <typename Tt, typename Tv>
   [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)

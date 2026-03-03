@@ -65,8 +65,8 @@ namespace mpcf_py
 
   void register_reductions(py::module_& m)
   {
-    PyReductionsBindings<float, float>::register_bindings(m, "_f32_f32");
-    PyReductionsBindings<double, double>::register_bindings(m, "_f64_f64");
+    PyReductionsBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
+    PyReductionsBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
   }
 
 }

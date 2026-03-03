@@ -27,7 +27,7 @@ namespace mpcf::ph
   {
     using value_type = T;
 
-    value_type birth = 0.;
+    value_type birth = static_cast<value_type>(0.);
     value_type death = std::numeric_limits<value_type>::infinity();
 
     PersistencePair() = default;

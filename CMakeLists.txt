@@ -207,6 +207,7 @@ SET(MPCF_PY_PERSISTENCE_SOURCES
 list(TRANSFORM MPCF_PY_PERSISTENCE_SOURCES PREPEND "persistence/")
 
 SET(MPCF_PY_SOURCES
+  pybind.h
   pymodule.cpp
   pyrandom.cpp
   pypcf_support.h

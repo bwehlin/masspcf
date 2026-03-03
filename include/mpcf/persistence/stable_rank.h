@@ -37,7 +37,7 @@ namespace mpcf::ph
     std::vector<T> lifetimes;
     lifetimes.reserve(barcode.bars().size());
 
-    std::transform(barcode.bars().begin(), barcode.bars().end(), std::back_inserter(lifetimes), [](const PersistencePair<T>& pp) {
+    std::transform(barcode.bars().begin(), barcode.bars().end(), std::back_inserter(lifetimes), [](const PersistencePair<T>& pp) -> T {
       if (pp.death == std::numeric_limits<T>::max())
       {
         return std::numeric_limits<T>::max();
@@ -55,7 +55,7 @@ namespace mpcf::ph
 
     T nAlive = static_cast<T>(lifetimes.size());
 
-    pcfPoints.emplace_back(0., nAlive);
+    pcfPoints.emplace_back(static_cast<T>(0.), nAlive);
 
     T lastLifetime = lifetimes.front();
     for (auto const & lifetime : lifetimes)

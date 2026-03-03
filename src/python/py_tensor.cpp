@@ -95,13 +95,13 @@ namespace mpcf_py
   {
     register_common_bindings(m);
 
-    register_typed_tensor_bindings<double>(m, "Double", "");
-    register_typed_tensor_bindings<float>(m, "Float", "");
+    register_typed_tensor_bindings<mpcf::float64_t>(m, "Double", "");
+    register_typed_tensor_bindings<mpcf::float32_t>(m, "Float", "");
 
     register_typed_tensor_bindings<mpcf::Pcf_f32>(m, "Pcf32", "");
     register_typed_tensor_bindings<mpcf::Pcf_f64>(m, "Pcf64", "");
 
-    register_typed_tensor_bindings<mpcf::PointCloud<float>>(m, "PointCloud32", "");
-    register_typed_tensor_bindings<mpcf::PointCloud<double>>(m, "PointCloud64", "");
+    register_typed_tensor_bindings<mpcf::PointCloud<mpcf::float32_t>>(m, "PointCloud32", "");
+    register_typed_tensor_bindings<mpcf::PointCloud<mpcf::float64_t>>(m, "PointCloud64", "");
   }
 }

@@ -24,18 +24,18 @@
 class IterateRectanglesFixture : public ::testing::Test
 {
 protected:
-  using Rectangle = typename mpcf::Pcf_f32::rectangle_type;
-  using Point = typename mpcf::Pcf_f32::point_type;
+  using Rectangle = typename mpcf::Pcf_f64::rectangle_type;
+  using Point = typename mpcf::Pcf_f64::point_type;
   
   void SetUp() override
   {
     collectRectangle = [this](const Rectangle& rect){ rectangles.emplace_back(rect); };
     
-    pcfs.emplace_back(mpcf::Pcf_f32{{0., 3.}, {1., 2.}, {4., 5.}, {6., 0.}});
-    pcfs.emplace_back(mpcf::Pcf_f32{{0., 2.}, {3., 4.}, {4., 2.}, {5., 1.}, {8., 3.}});
+    pcfs.emplace_back(mpcf::Pcf_f64{{0., 3.}, {1., 2.}, {4., 5.}, {6., 0.}});
+    pcfs.emplace_back(mpcf::Pcf_f64{{0., 2.}, {3., 4.}, {4., 2.}, {5., 1.}, {8., 3.}});
   }
   
-  std::vector<mpcf::Pcf_f32> pcfs;
+  std::vector<mpcf::Pcf_f64> pcfs;
   std::vector<Rectangle> rectangles;
   
   std::function<void(const Rectangle&)> collectRectangle;
