@@ -15,15 +15,23 @@
 #ifndef MASSPCF_PCF_IO_H
 #define MASSPCF_PCF_IO_H
 
-#include "io_stream.h"
+#include "io_stream_base.h"
 #include "../pcf.h"
 
 namespace mpcf::io::detail
 {
-  template <typename Tt, typename Tv>
-  void write_element(std::ostream& os, const Pcf<Tt, Tv>& pcf)
+  template <PcfLike PcfT>
+  void write_element(std::ostream& os, const PcfT& pcf)
   {
+    write_elements(os, pcf.points().begin(), pcf.points().end());
+  }
 
+  template <PcfLike PcfT>
+  PcfT read_element(std::istream& is)
+  {
+    using point_type = PcfT::point_type;
+    auto pts = read_vector<point_type>(is);
+    return PcfT(std::move(pts));
   }
 }
 

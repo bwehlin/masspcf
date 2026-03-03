@@ -18,6 +18,7 @@
 #include "io.h"
 #include "io/io_stream.h"
 #include "io/point_io.h"
+#include "io/pcf_io.h"
 #include "tensor.h"
 #include "version.h"
 

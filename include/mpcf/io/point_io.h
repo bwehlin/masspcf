@@ -15,7 +15,7 @@
 #ifndef MASSPCF_POINT_IO_H
 #define MASSPCF_POINT_IO_H
 
-#include "io_stream.h"
+#include "io_stream_base.h"
 #include "../point.h"
 
 namespace mpcf::io::detail

@@ -17,78 +17,57 @@
 
 #include "../config.h"
 
+#include "io_stream_base.h"
+#include "point_io.h"
+#include "pcf_io.h"
+
 #include <cstddef>
+#include <vector>
 #include <iostream>
 
 namespace mpcf::io::detail
 {
-
-  template <typename CharT, typename Traits>
-  void assert_not_bad(std::basic_ios<CharT, Traits>& stream)
+  template <std::forward_iterator FwdIt>
+  void write_elements(std::ostream& os, FwdIt begin, FwdIt end)
   {
-    if (stream.bad())
-    {
-      throw std::runtime_error("Bad stream.");
-    }
-  }
-
-  inline void write_binary_string(std::ostream& os, const std::string& str)
-  {
-    os.write(str.c_str(), str.size());
-    assert_not_bad(os);
-  }
-
-  inline void write_binary_record(std::ostream& os, const std::string& str)
-  {
-    write_binary_string(os, str);
-    write_binary_string(os, "\36"); // \36 is ASCII record separator (decimal 30)
-  }
-
-  template <typename DiskT, typename MemoryT = DiskT>
-  requires std::is_convertible_v<DiskT, std::decay_t<MemoryT>>
-  void write_bytes(std::ostream& os, MemoryT&& v)
-  {
-    auto && cv = static_cast<DiskT>(v);
-    os.write(reinterpret_cast<const char*>(&cv), sizeof(cv));
-    assert_not_bad(os);
-  }
-
-  template <typename DiskT, typename MemoryT = DiskT>
-  requires std::is_convertible_v<DiskT, MemoryT>
-  MemoryT read_bytes(std::istream& is)
-  {
-    DiskT v;
-    is.read(reinterpret_cast<char*>(&v), sizeof(v));
-    assert_not_bad(is);
-    if (is.gcount() != sizeof(v))
-    {
-      throw std::runtime_error("Incorrect number of bytes returned (file may be corrupted)");
-    }
-    return static_cast<MemoryT>(v);
-  }
-
-  template <typename T, std::forward_iterator FwdIt>
-  requires std::is_convertible_v<typename FwdIt::value_type, T>
-  void write_bytes(std::ostream& os, FwdIt begin, FwdIt end)
-  {
-    auto len = std::distance(begin, end);
-    if (len < 0)
-    {
-      throw std::runtime_error("Negative length container (this is a bug, please report it!).");
-    }
-    write_bytes<mpcf::uint64_t>(os, len);
+    write_length(os, begin, end);
     for (auto it = begin; it != end; ++it)
     {
-      write_bytes<T>(os, *it);
+      write_element(os, *it);
     }
   }
 
-  inline void write_string(std::ostream& os, const std::string& str)
+  template <ArithmeticType T>
+  T read_element(std::istream& is)
   {
-    write_bytes<uint64_t>(os, str.length());
-    os << str;
+    return read_bytes<T>(is);
   }
 
+  template <std::forward_iterator FwdIt>
+  void read_elements(std::istream& is, FwdIt dest)
+  {
+    using value_type = FwdIt::value_type;
+    auto len = read_bytes<uint64_t>(is);
+    uint64_t nRead = 0;
+    for (; nRead < len; ++nRead, ++dest)
+    {
+      *dest = read_element<value_type>(is);
+    }
+  }
+
+  template <typename T, typename AT>
+  std::vector<T, AT> read_vector(std::istream& is)
+  {
+    auto len = read_bytes<uint64_t>(is);
+    std::vector<T, AT> ret;
+    ret.reserve(len);
+    uint64_t nRead = 0;
+    for (; nRead < len; ++nRead)
+    {
+      ret.emplace_back(std::move(read_element<T>(is)));
+    }
+    return ret;
+  }
 
 }
 

@@ -226,6 +226,24 @@ namespace mpcf
   {
     *os << f.to_string();
   }
+
+  template <typename F>
+  concept PcfLike = requires(F f, const F cf)
+  {
+    typename F::point_type;
+    typename F::time_type;
+    typename F::value_type;
+    typename F::rectangle_type;
+    typename F::segment_type;
+
+    requires PointLike<typename F::point_type>;
+
+    { cf.points() } -> std::convertible_to<const std::vector<typename F::point_type>&>;
+    { cf.size()   } -> std::convertible_to<std::size_t>;
+
+    { cf == cf } -> std::convertible_to<bool>;
+    { cf != cf } -> std::convertible_to<bool>;
+  };
 }
 
 #endif

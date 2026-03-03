@@ -63,29 +63,44 @@ TEST(IoStream, GoAroundHasCorrectDataTypes)
 
 }
 
-TEST(IoStream, TestPointRoundtrip)
+template <typename T>
+class IoStreamTest : public ::testing::Test {};
+
+namespace
 {
+  using FloatTypes = ::testing::Types<mpcf::float32_t, mpcf::float64_t>;
+  TYPED_TEST_SUITE(IoStreamTest, FloatTypes);
+
+  TYPED_TEST(IoStreamTest, TestPointRoundtrip)
   {
-    mpcf::Point_f32 pt(0.5f, 2.5f);
+    using PointT = mpcf::Point<TypeParam, TypeParam>;
+    PointT pt(0.5, 2.5);
 
     std::stringstream ss;
     mpcf::io::detail::write_element(ss, pt);
 
     std::istringstream iss(ss.str());
-    auto retPt = mpcf::io::detail::read_element<decltype(pt)>(iss);
+    auto retPt = mpcf::io::detail::read_element<PointT>(iss);
 
     EXPECT_EQ(pt, retPt);
   }
 
+  TYPED_TEST(IoStreamTest, TestPcfRoundtrip)
   {
-    mpcf::Point_f64 pt(0.5, 2.5);
+    using PcfT = mpcf::Pcf<TypeParam, TypeParam>;
+
+    std::vector<typename PcfT::point_type> pts({ { 0., 10. }, { 1., 20. }, { 2., 30. } });
+    PcfT pcf(std::move(pts));
+
+    static_assert(mpcf::PcfLike<PcfT>, "");
 
     std::stringstream ss;
-    mpcf::io::detail::write_element(ss, pt);
+    mpcf::io::detail::write_element(ss, pcf);
 
     std::istringstream iss(ss.str());
-    auto retPt = mpcf::io::detail::read_element<decltype(pt)>(iss);
+    auto retPcf = mpcf::io::detail::read_element<PcfT>(iss);
 
-    EXPECT_EQ(pt, retPt);
+    EXPECT_EQ(pcf, retPcf);
+
   }
 }
