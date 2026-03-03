@@ -63,11 +63,6 @@ namespace mpcf
       initFromPairs(pts);
     }
 
-    // Note: we do this for now. These should be true on basically all platforms that we care about. We may have to
-    // modify this assumption and rewrite the initializer_list constructors below in the future.
-    static_assert(sizeof(double) == sizeof(_Float64), "double and _Float64 must be the same size");
-    static_assert(sizeof(float)  == sizeof(_Float32), "float and _Float32 must be the same size");
-
     Pcf(std::initializer_list<std::pair<float64_t, float64_t>> pts)
       requires (std::is_same_v<Tt, float64_t> && std::is_same_v<Tv, float64_t>)
     {
