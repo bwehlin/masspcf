@@ -190,7 +190,7 @@ namespace mpcf
       write_binary_record(os, PROJECT_BUILD_DATE);
     }
 
-    void write_element(std::ostream& os, float64_t elem)
+    inline void write_element(std::ostream& os, float64_t elem)
     {
 
     }
