@@ -19,7 +19,7 @@ import numpy as np
 
 def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correct_dtype_and_shape():
     Xnp = np.random.randn(10, 2).astype(np.float64)
-    X = mpcf.DoubleTensor(Xnp)
+    X = mpcf.Float64Tensor(Xnp)
 
     bcs = mpers.compute_persistent_homology(X, maxDim=3, complex_type=mpers.ComplexType.VietorisRips, distance_type=mpers.DistanceType.Euclidean)
 
@@ -27,7 +27,7 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correc
     assert bcs.shape == (4,)
 
     Xnp = np.random.randn(10, 2).astype(np.float32)
-    X = mpcf.FloatTensor(Xnp)
+    X = mpcf.Float32Tensor(Xnp)
 
     bcs = mpers.compute_persistent_homology(X, maxDim=3, complex_type=mpers.ComplexType.VietorisRips, distance_type=mpers.DistanceType.Euclidean)
 

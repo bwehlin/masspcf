@@ -50,7 +50,7 @@ TEST(IoStream, GoAroundHasCorrectDataTypes)
 
   mpcf::write(dblTensor, ss);
 
-  ASSERT_TRUE(false) << to_printable(ss.str());
+  //ASSERT_TRUE(false) << to_printable(ss.str());
 
   //os << dblTensor;
 
