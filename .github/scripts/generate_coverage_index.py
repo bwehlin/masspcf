@@ -91,14 +91,8 @@ def parse_python_coverage(report_dir: str) -> str | None:
 def parse_valgrind_errors(report_dir: str, suite: str) -> str | None:
     """Return total error count from ValgrindCI HTML, e.g. '0 errors'."""
     html = _read(os.path.join(report_dir, "valgrind", suite, "index.html"))
-    # ValgrindCI summary table has a "Total" row with an error count.
-    # Look for a digit sequence near the word "Total" or in the summary header.
-    m = re.search(r'[Tt]otal\D{0,40}?(\d+)\s*error', html)
-    if m:
-        n = int(m.group(1))
-        return f"{n} error{'s' if n != 1 else ''}"
-    # Fallback: find any "N errors" pattern
-    m = re.search(r'(\d+)\s*error', html)
+    # ValgrindCI emits: <p><b>1</b> errors</p>
+    m = re.search(r'<b>(\d+)</b>\s*errors?', html)
     if m:
         n = int(m.group(1))
         return f"{n} error{'s' if n != 1 else ''}"
