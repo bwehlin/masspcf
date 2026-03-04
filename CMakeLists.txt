@@ -325,6 +325,7 @@ if (BUILD_TESTER)
       test/test_l1_dist.cu
       test/test_norms.cu
       test/test_parallel_reduce.cpp
+      test/test_tensor.cpp
       test/test_tensor_iteration.cpp
       test/test_special_tensors.cpp
       test/test_io_stream.cpp

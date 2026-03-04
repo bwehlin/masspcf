@@ -66,15 +66,12 @@ namespace mpcf
   {
     if (m_shape != rhs.m_shape)
     {
-      return false;
+      return true;
     }
 
-    bool equal = true;
-    walk([&equal, this, &rhs](const std::vector<size_t>& idx) {
-      return !(equal &= ( (*this)(idx) == rhs(idx) ) );
+    return any_of_idx([this, &rhs](const std::vector<size_t>& idx) {
+      return (*this)(idx) != rhs(idx);
     });
-
-    return !equal;
   }
 
   template <typename T>
@@ -205,6 +202,43 @@ namespace mpcf
         cur[i] = 0;
       }
     }
+  }
+
+  template <typename T>
+  template <typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, const T&>
+#endif
+  bool Tensor<T>::any_of(UnaryFunc&& f) const
+  {
+    return any_of_idx([this, &f](const std::vector<size_t>& idx){
+      return f((*this)(idx));
+    });
+  }
+
+  template <typename T>
+  template <typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  bool Tensor<T>::any_of_idx(UnaryFunc&& f) const
+  {
+    bool match = false;
+
+    // This could be made more efficient
+    walk([this, &match, &f](const std::vector<size_t>& idx) {
+
+      if (f(idx))
+      {
+        match = true;
+        return false;
+      }
+
+      return true;
+    });
+
+    return match;
+
   }
 
   template <typename T>

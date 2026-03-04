@@ -151,6 +151,18 @@ namespace mpcf
 #endif
     void walk(UnaryFunc&& f) const;
 
+    template <typename UnaryPred>
+#ifndef __CUDACC__
+    requires std::invocable<UnaryPred, const T&>
+#endif
+    bool any_of(UnaryPred&& f) const;
+
+    template <typename UnaryPred>
+#ifndef __CUDACC__
+    requires std::invocable<UnaryPred, std::vector<size_t>>
+#endif
+    bool any_of_idx(UnaryPred&& f) const;
+
     /**
      * Apply a function at each element of the tensor (uses `walk` internally to visit the elements)
      * @tparam UnaryFunc Function object of type `T&` -> `void` (non-`void` return values get discarded)
