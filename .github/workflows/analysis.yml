@@ -122,7 +122,7 @@ jobs:
       - name: Run valgrind on Pytest
         run: |
           cd test
-          valgrind --xml=yes --xml-file=./reports/vg-pytest.xml python -m pytest . -vv -s || true
+          valgrind --xml=yes --xml-file=./reports/vg-pytest.xml --suppressions=./vg_py.supp python -m pytest . -vv -s || true
           valgrind-ci ./reports/vg-pytest.xml --summary >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
 

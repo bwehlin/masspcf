@@ -1,0 +1,31 @@
+# pybind11 intentionally leaks small amounts during module initialization.
+# These are not real leaks in user code.
+
+{
+   pybind11_strdup_guard
+   Memcheck:Leak
+   fun:malloc
+   fun:strdup
+   fun:_ZN8pybind116*
+}
+
+{
+   pybind11_argument_record_vector
+   Memcheck:Leak
+   ...
+   fun:_ZN8pybind116detail26append_self_arg_if_neededEPNS0_15function_recordE
+}
+
+{
+   pybind11_initialize_generic
+   Memcheck:Leak
+   ...
+   fun:_ZN8pybind1112cpp_function18initialize_genericE*
+}
+
+{
+   pybind11_module_init
+   Memcheck:Leak
+   ...
+   fun:pybind11_init__mpcf_cpp*
+}
