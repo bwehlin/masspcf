@@ -84,8 +84,9 @@ jobs:
           mkdir -p "gh-pages-branch/${REPORT_DIR}/python"
           cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/"
           cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
+          rm -f covreport/python/.gitignore
 
-          python3 .github/scripts/generate_coverage_index.py gh-pages-branch
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch "${{ github.ref_name }}"
 
       - name: Commit and push to gh-pages
         run: |

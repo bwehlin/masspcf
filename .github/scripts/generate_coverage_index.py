@@ -3,7 +3,7 @@
 Generates index.html for the gh-pages coverage history site.
 
 Usage:
-    python generate_coverage_index.py <gh-pages-dir>
+    python generate_coverage_index.py <gh-pages-dir> [branch]
 
 The script scans <gh-pages-dir>/reports/ for subdirectories named
 YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent, and writes
@@ -53,12 +53,12 @@ def prune_old_reports(reports_root: str) -> None:
         shutil.rmtree(old_path)
 
 
-def get_entries(reports_root: str) -> list[dict]:
+def get_entries(reports_root: str, current_branch: str | None = None) -> list[dict]:
     entries = []
     if not os.path.isdir(reports_root):
         return entries
 
-    for name in sorted(os.listdir(reports_root), reverse=True):
+    for i, name in enumerate(sorted(os.listdir(reports_root), reverse=True)):
         if not os.path.isdir(os.path.join(reports_root, name)):
             continue
         m = re.match(r"(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_([0-9a-f]+)", name)
@@ -70,10 +70,13 @@ def get_entries(reports_root: str) -> list[dict]:
         else:
             label = name
             sha = ""
+        # Only the newest entry (i == 0) gets the current branch attached
+        branch = current_branch if i == 0 else None
         entries.append({
             "name": name,
             "label": label,
             "sha": sha,
+            "branch": branch,
             "cpp_path": f"reports/{name}/cpp/coverage.html",
             "python_path": f"reports/{name}/python/index.html",
         })
@@ -88,11 +91,13 @@ def render_cards(entries: list[dict]) -> str:
     for i, entry in enumerate(entries):
         is_latest = i == 0
         badge = '<span class="badge">Latest</span>' if is_latest else ""
+        branch_tag = f'<div class="report-branch">⎇ {entry["branch"]}</div>' if entry.get("branch") else ""
         cards.append(f"""
     <div class="report-card{' latest' if is_latest else ''}">
       <span class="report-index">#{i + 1}</span>
       <div class="report-info">
         <div class="report-label">{entry['label']}</div>
+        {branch_tag}
       </div>
       {badge}
       <div class="report-links">
@@ -114,15 +119,16 @@ def render_html(entries: list[dict]) -> str:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <gh-pages-dir>", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <gh-pages-dir> [branch]", file=sys.stderr)
         sys.exit(1)
 
     gh_pages_dir = sys.argv[1]
+    branch = sys.argv[2] if len(sys.argv) >= 3 else None
     reports_root = os.path.join(gh_pages_dir, "reports")
 
     prune_old_reports(reports_root)
-    entries = get_entries(reports_root)
+    entries = get_entries(reports_root, branch)
     html = render_html(entries)
 
     out_path = os.path.join(gh_pages_dir, "index.html")
