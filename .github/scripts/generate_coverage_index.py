@@ -20,6 +20,7 @@ Template files are resolved relative to this script's location:
     .github/ci/coverage/style.css
 """
 
+import json
 import os
 import re
 import shutil
@@ -64,12 +65,17 @@ def _read(path: str) -> str:
 
 
 def parse_cpp_coverage(report_dir: str) -> str | None:
-    """Return line coverage % string from gcovr HTML, e.g. '64.6%'."""
-    html = _read(os.path.join(report_dir, "cpp", "coverage.html"))
-    # gcovr emits: <td class="headerCovTableEntry...">64.6 %</td>
-    # The first such entry in the summary table is line coverage.
-    m = re.search(r'headerCovTableEntry[^"]*">\s*([\d.]+)\s*%\s*</td>', html)
-    return f"{m.group(1)}%" if m else None
+    """Return line coverage % string from gcovr JSON summary, e.g. '64.6%'."""
+    path = os.path.join(report_dir, "cpp", "coverage-summary.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        pct = data.get("line_percent") or data.get("lines", {}).get("percent")
+        if pct is not None:
+            return f"{pct:.1f}%"
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        pass
+    return None
 
 
 def parse_python_coverage(report_dir: str) -> str | None:

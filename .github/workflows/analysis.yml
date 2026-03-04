@@ -63,7 +63,7 @@ jobs:
         run: |
           mkdir -p covreport/cpp
           cd covreport/cpp
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --html-details coverage.html --print-summary
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --html-details coverage.html --json-summary coverage-summary.json --print-summary
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage artifact
