@@ -122,7 +122,7 @@ jobs:
       - name: Run valgrind on Pytest
         run: |
           cd test
-          valgrind --xml=yes --xml-file=./reports/vg-pytest.xml --suppressions=./vg_py.supp python -m pytest . -vv -s || true
+          valgrind --xml=yes --xml-file=./reports/vg-pytest.xml python -m pytest . -vv -s || true
           valgrind-ci ./reports/vg-pytest.xml --summary >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
 
@@ -132,6 +132,20 @@ jobs:
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml ../build/mpcf_test || true
           valgrind-ci ./reports/vg-gtest.xml --summary >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-gtest.xml --output-dir=./reports/vg_gtest
+
+      - name: Run helgrind on Pytest
+        run: |
+          cd test
+          valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-pytest.xml python -m pytest . -vv -s || true
+          valgrind-ci ./reports/hg-pytest.xml --summary >> $GITHUB_STEP_SUMMARY
+          valgrind-ci ./reports/hg-pytest.xml --output-dir=./reports/hg_pytest
+
+      - name: Run helgrind on GTest
+        run: |
+          cd test
+          valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-gtest.xml ../build/mpcf_test || true
+          valgrind-ci ./reports/hg-gtest.xml --summary >> $GITHUB_STEP_SUMMARY
+          valgrind-ci ./reports/hg-gtest.xml --output-dir=./reports/hg_gtest
 
       - name: Upload valgrind artifact
         uses: actions/upload-artifact@v4
@@ -177,11 +191,15 @@ jobs:
           mkdir -p "gh-pages-branch/${REPORT_DIR}/cpp"
           mkdir -p "gh-pages-branch/${REPORT_DIR}/python"
           mkdir -p "gh-pages-branch/${REPORT_DIR}/valgrind"
+          mkdir -p "gh-pages-branch/${REPORT_DIR}/helgrind"
 
           cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/"
           rm -f covreport/python/.gitignore
           cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
-          cp -r valgrind/. "gh-pages-branch/${REPORT_DIR}/valgrind/"
+          cp -r valgrind/vg_pytest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest/"
+          cp -r valgrind/vg_gtest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_gtest/"
+          cp -r valgrind/hg_pytest/. "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest/"
+          cp -r valgrind/hg_gtest/. "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest/"
           echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
 
           python3 .github/scripts/generate_coverage_index.py gh-pages-branch

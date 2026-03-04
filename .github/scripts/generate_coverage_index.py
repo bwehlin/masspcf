@@ -14,8 +14,10 @@ Each report directory is expected to contain:
     cpp/coverage.html             — gcovr HTML report
     cpp/coverage-summary.json     — gcovr JSON summary
     python/index.html             — pytest-cov HTML report
-    valgrind/vg_pytest/index.html — ValgrindCI HTML report (pytest)
-    valgrind/vg_gtest/index.html  — ValgrindCI HTML report (gtest)
+    valgrind/vg_pytest/index.html — ValgrindCI memcheck report (pytest)
+    valgrind/vg_gtest/index.html  — ValgrindCI memcheck report (gtest)
+    helgrind/hg_pytest/index.html — ValgrindCI helgrind report (pytest)
+    helgrind/hg_gtest/index.html  — ValgrindCI helgrind report (gtest)
 
 Template files are resolved relative to this script's location:
     .github/ci/coverage/index.template.html
@@ -88,9 +90,10 @@ def parse_python_coverage(report_dir: str) -> str | None:
     return m.group(1) if m else None
 
 
-def parse_valgrind_errors(report_dir: str, suite: str) -> str | None:
-    """Return total error count from ValgrindCI HTML, e.g. '0 errors'."""
-    html = _read(os.path.join(report_dir, "valgrind", suite, "index.html"))
+def parse_valgrind_errors(report_dir: str, subpath: str) -> str | None:
+    """Return total error count from a ValgrindCI HTML report, e.g. '3 errors'.
+    subpath is relative to report_dir, e.g. 'valgrind/vg_pytest'."""
+    html = _read(os.path.join(report_dir, subpath, "index.html"))
     # ValgrindCI emits: <p><b>1</b> errors</p>
     m = re.search(r'<b>(\d+)</b>\s*errors?', html)
     if m:
@@ -131,12 +134,16 @@ def get_entries(reports_root: str) -> list[dict]:
             "branch": branch,
             "cpp_coverage": parse_cpp_coverage(report_dir),
             "python_coverage": parse_python_coverage(report_dir),
-            "valgrind_pytest_errors": parse_valgrind_errors(report_dir, "vg_pytest"),
-            "valgrind_gtest_errors": parse_valgrind_errors(report_dir, "vg_gtest"),
+            "valgrind_pytest_errors": parse_valgrind_errors(report_dir, "valgrind/vg_pytest"),
+            "valgrind_gtest_errors": parse_valgrind_errors(report_dir, "valgrind/vg_gtest"),
+            "helgrind_pytest_errors": parse_valgrind_errors(report_dir, "helgrind/hg_pytest"),
+            "helgrind_gtest_errors": parse_valgrind_errors(report_dir, "helgrind/hg_gtest"),
             "cpp_path": f"reports/{name}/cpp/coverage.html",
             "python_path": f"reports/{name}/python/index.html",
             "valgrind_pytest_path": f"reports/{name}/valgrind/vg_pytest/index.html",
             "valgrind_gtest_path": f"reports/{name}/valgrind/vg_gtest/index.html",
+            "helgrind_pytest_path": f"reports/{name}/helgrind/hg_pytest/index.html",
+            "helgrind_gtest_path": f"reports/{name}/helgrind/hg_gtest/index.html",
         })
     return entries
 
@@ -159,10 +166,12 @@ def render_cards(entries: list[dict]) -> str:
         badge = '<span class="badge">Latest</span>' if is_latest else ""
         branch_tag = f'<div class="report-branch">⎇ {entry["branch"]}</div>' if entry.get("branch") else ""
 
-        cpp_stat    = _stat_badge(entry["cpp_coverage"])
-        python_stat = _stat_badge(entry["python_coverage"])
-        vg_pytest_stat = _stat_badge(entry["valgrind_pytest_errors"], is_error=True)
-        vg_gtest_stat  = _stat_badge(entry["valgrind_gtest_errors"],  is_error=True)
+        cpp_stat           = _stat_badge(entry["cpp_coverage"])
+        python_stat        = _stat_badge(entry["python_coverage"])
+        vg_pytest_stat     = _stat_badge(entry["valgrind_pytest_errors"], is_error=True)
+        vg_gtest_stat      = _stat_badge(entry["valgrind_gtest_errors"],  is_error=True)
+        hg_pytest_stat     = _stat_badge(entry["helgrind_pytest_errors"], is_error=True)
+        hg_gtest_stat      = _stat_badge(entry["helgrind_gtest_errors"],  is_error=True)
 
         cards.append(f"""
     <div class="report-card{' latest' if is_latest else ''}">
@@ -175,8 +184,10 @@ def render_cards(entries: list[dict]) -> str:
       <div class="report-links">
         <a class="report-link" href="{entry['cpp_path']}">C++ {cpp_stat}</a>
         <a class="report-link" href="{entry['python_path']}">Python {python_stat}</a>
-        <a class="report-link" href="{entry['valgrind_pytest_path']}">Valgrind pytest {vg_pytest_stat}</a>
-        <a class="report-link" href="{entry['valgrind_gtest_path']}">Valgrind gtest {vg_gtest_stat}</a>
+        <a class="report-link" href="{entry['valgrind_pytest_path']}">Memcheck pytest {vg_pytest_stat}</a>
+        <a class="report-link" href="{entry['valgrind_gtest_path']}">Memcheck gtest {vg_gtest_stat}</a>
+        <a class="report-link" href="{entry['helgrind_pytest_path']}">Helgrind pytest {hg_pytest_stat}</a>
+        <a class="report-link" href="{entry['helgrind_gtest_path']}">Helgrind gtest {hg_gtest_stat}</a>
       </div>
     </div>""")
     return "\n".join(cards)
