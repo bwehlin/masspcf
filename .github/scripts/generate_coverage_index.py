@@ -3,14 +3,16 @@
 Generates index.html for the gh-pages coverage history site.
 
 Usage:
-    python generate_coverage_index.py <gh-pages-dir> [branch]
+    python generate_coverage_index.py <gh-pages-dir>
 
 The script scans <gh-pages-dir>/reports/ for subdirectories named
 YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent, and writes
 <gh-pages-dir>/index.html.
 
 Each report directory is expected to contain:
+    branch                        — plain text file with the branch name
     cpp/coverage.html             — gcovr HTML report
+    cpp/coverage-summary.json     — gcovr JSON summary
     python/index.html             — pytest-cov HTML report
     valgrind/vg_pytest/index.html — ValgrindCI HTML report (pytest)
     valgrind/vg_gtest/index.html  — ValgrindCI HTML report (gtest)
@@ -103,12 +105,12 @@ def parse_valgrind_errors(report_dir: str, suite: str) -> str | None:
     return None
 
 
-def get_entries(reports_root: str, current_branch: str | None = None) -> list[dict]:
+def get_entries(reports_root: str) -> list[dict]:
     entries = []
     if not os.path.isdir(reports_root):
         return entries
 
-    for i, name in enumerate(sorted(os.listdir(reports_root), reverse=True)):
+    for name in sorted(os.listdir(reports_root), reverse=True):
         report_dir = os.path.join(reports_root, name)
         if not os.path.isdir(report_dir):
             continue
@@ -122,7 +124,9 @@ def get_entries(reports_root: str, current_branch: str | None = None) -> list[di
             label = name
             sha = ""
 
-        branch = current_branch if i == 0 else None
+        branch_file = os.path.join(report_dir, "branch")
+        branch = _read(branch_file).strip() or None
+
         entries.append({
             "name": name,
             "label": label,
@@ -193,15 +197,14 @@ def render_html(entries: list[dict]) -> str:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <gh-pages-dir> [branch]", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} <gh-pages-dir>", file=sys.stderr)
         sys.exit(1)
 
     gh_pages_dir = sys.argv[1]
-    branch = sys.argv[2] if len(sys.argv) >= 3 else None
     reports_root = os.path.join(gh_pages_dir, "reports")
 
     prune_old_reports(reports_root)
-    entries = get_entries(reports_root, branch)
+    entries = get_entries(reports_root)
     html = render_html(entries)
 
     out_path = os.path.join(gh_pages_dir, "index.html")

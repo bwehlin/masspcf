@@ -182,8 +182,9 @@ jobs:
           rm -f covreport/python/.gitignore
           cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
           cp -r valgrind/. "gh-pages-branch/${REPORT_DIR}/valgrind/"
+          echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
 
-          python3 .github/scripts/generate_coverage_index.py gh-pages-branch "${{ github.ref_name }}"
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch"
 
       - name: Commit and push to gh-pages
         run: |
