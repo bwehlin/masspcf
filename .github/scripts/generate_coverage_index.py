@@ -25,7 +25,7 @@ import sys
 
 MAX_REPORTS = 5
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "ci", "coverage")
+TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "..", "ci", "coverage")
 
 
 def load_template() -> str:
