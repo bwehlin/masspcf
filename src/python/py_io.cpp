@@ -55,14 +55,14 @@ namespace mpcf_py
         .def_static("save_float32_tensor",       &IoOps::save_tensor_to_file<mpcf::float32_t>)
         .def_static("save_float64_tensor",       &IoOps::save_tensor_to_file<mpcf::float64_t>)
 
-        //.def_static("save_pcf32_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>)
-        //.def_static("save_pcf64_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>)
+        .def_static("save_pcf32_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>)
+        .def_static("save_pcf64_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>)
 
         .def_static("save_point_cloud32_tensor", &IoOps::save_tensor_to_file<mpcf::PointCloud<mpcf::float32_t>>)
         .def_static("save_point_cloud64_tensor", &IoOps::save_tensor_to_file<mpcf::PointCloud<mpcf::float64_t>>)
 
-        //.def_static("save_barcode32_tensor",     &IoOps::save_tensor_to_file<mpcf::ph::Barcode<mpcf::float32_t>>)
-        //.def_static("save_barcode64_tensor",     &IoOps::save_tensor_to_file<mpcf::ph::Barcode<mpcf::float64_t>>)
+        .def_static("save_barcode32_tensor",     &IoOps::save_tensor_to_file<mpcf::ph::Barcode<mpcf::float32_t>>)
+        .def_static("save_barcode64_tensor",     &IoOps::save_tensor_to_file<mpcf::ph::Barcode<mpcf::float64_t>>)
 
         .def_static("load_tensor_from_file", &IoOps::load_tensor_from_file)
 

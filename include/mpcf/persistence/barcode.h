@@ -18,6 +18,7 @@
 #include "persistence_pair.h"
 
 #include <iosfwd>
+#include <algorithm>
 
 namespace mpcf::ph
 {

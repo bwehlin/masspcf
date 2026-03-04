@@ -106,6 +106,11 @@ namespace mpcf::io::detail
     write_bytes<mpcf::uint64_t>(os, len);
   }
 
+  inline mpcf::uint64_t read_length(std::istream& is)
+  {
+    return read_bytes<mpcf::uint64_t>(is);
+  }
+
   template <std::forward_iterator FwdIt>
   void write_bytes(std::ostream& os, FwdIt begin, FwdIt end)
   {

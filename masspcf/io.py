@@ -21,12 +21,12 @@ def _save(item: PcfContainerLike, file):
     _SAVE_DISPATCH = {
         Float32Tensor:      cpp.IoOps.save_float32_tensor,
         Float64Tensor:      cpp.IoOps.save_float64_tensor,
-        #Pcf32Tensor:        cpp.IoOps.save_pcf32_tensor,
-        #Pcf64Tensor:        cpp.IoOps.save_pcf64_tensor,
+        Pcf32Tensor:        cpp.IoOps.save_pcf32_tensor,
+        Pcf64Tensor:        cpp.IoOps.save_pcf64_tensor,
         PointCloud32Tensor: cpp.IoOps.save_point_cloud32_tensor,
         PointCloud64Tensor: cpp.IoOps.save_point_cloud64_tensor,
-        #Barcode32Tensor:    cpp.IoOps.save_barcode32_tensor,
-        #Barcode64Tensor:    cpp.IoOps.save_barcode64_tensor,
+        Barcode32Tensor:    cpp.IoOps.save_barcode32_tensor,
+        Barcode64Tensor:    cpp.IoOps.save_barcode64_tensor,
     }
 
     fn = _SAVE_DISPATCH.get(type(item))

@@ -15,6 +15,39 @@
 #ifndef MASSPCF_BARCODE_IO_H
 #define MASSPCF_BARCODE_IO_H
 
+#include "../persistence/barcode.h"
+#include "io_stream_base.h"
 
+namespace mpcf::io::detail
+{
+  template <typename T>
+  void write_element(std::ostream& os, const mpcf::ph::Barcode<T>& barcode)
+  {
+    write_length(os, barcode.bars().begin(), barcode.bars().end());
+    for (auto const & bar : barcode.bars())
+    {
+      write_bytes<T>(os, bar.birth);
+      write_bytes<T>(os, bar.death);
+    }
+
+  }
+
+  template <typename T>
+  mpcf::ph::Barcode<T> read_element(std::istream& is)
+  {
+    auto len = read_length(is);
+    std::vector<mpcf::ph::PersistencePair<T>> bars;
+    bars.reserve(len);
+    for (auto i = 0_uz; i < len; ++i)
+    {
+      auto birth = read_bytes<T>(is);
+      auto death = read_bytes<T>(is);
+
+      bars.emplace_back(birth, death);
+    }
+
+    return bars;
+  }
+}
 
 #endif //MASSPCF_BARCODE_IO_H

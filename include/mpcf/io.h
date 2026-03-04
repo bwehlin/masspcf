@@ -16,9 +16,6 @@
 #define MASSPCF_IO_H
 
 #include "io/io_stream.h"
-#include "io/point_io.h"
-#include "io/pcf_io.h"
-#include "io/tensor_io.h"
 #include "tensor.h"
 #include "version.h"
 

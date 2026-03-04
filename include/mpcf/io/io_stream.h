@@ -18,6 +18,7 @@
 #include "../config.h"
 
 #include "io_stream_base.h"
+#include "barcode_io.h"
 #include "pcf_io.h"
 #include "point_io.h"
 #include "point_cloud_io.h"
