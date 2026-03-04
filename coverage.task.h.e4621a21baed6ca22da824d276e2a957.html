@@ -82,7 +82,7 @@
   </div>
   <div class="Box-row Box-row--focus-gray py-2 d-flex">
     <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l120">mpcf::StoppableTask&lt;void&gt;::add_progress(unsigned long) (/home/runner/work/masspcf/masspcf/include/mpcf/task.h:120)</a>    </div>
-    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="441">called 441 times</div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="434">called 434 times</div>
     <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">100.0%</div>
     <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">-%</div>
     <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">100.0%</div>
@@ -152,7 +152,7 @@
   </div>
   <div class="Box-row Box-row--focus-gray py-2 d-flex">
     <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l99">mpcf::StoppableTask&lt;void&gt;::wait_for(std::chrono::duration&lt;long, std::ratio&lt;1l, 1000l&gt; &gt;)::{lambda()#1}::operator()() const (/home/runner/work/masspcf/masspcf/include/mpcf/task.h:99)</a>    </div>
-    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="177">called 177 times</div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="208">called 208 times</div>
     <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">100.0%</div>
     <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
     <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">100.0%</div>
@@ -938,7 +938,7 @@
             </div>
           </details>
         </td>
-        <td class="linecount partialCoveredLine show_partialCoveredLine">465</td>
+        <td class="linecount partialCoveredLine show_partialCoveredLine">496</td>
         <td class="src  partialCoveredLine show_partialCoveredLine"><span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="n">m_condition</span><span class="p">.</span><span class="n">wait_for</span><span class="p">(</span><span class="n">lock</span><span class="p">,</span><span class="w"> </span><span class="n">duration</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="n">this</span><span class="p">]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">m_done</span><span class="p">;</span><span class="w"> </span><span class="p">});</span></td>
       </tr>
       <tr class="source-line">
@@ -1085,7 +1085,7 @@
         <td class="lineno"><a id="l120" href="#l120">120</a></td>
         <td class="linebranch">
         </td>
-        <td class="linecount coveredLine show_coveredLine">441</td>
+        <td class="linecount coveredLine show_coveredLine">434</td>
         <td class="src  coveredLine show_coveredLine"><span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="n">add_progress</span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">n_items</span><span class="p">)</span></td>
       </tr>
       <tr class="source-line">
@@ -1099,14 +1099,14 @@
         <td class="lineno"><a id="l122" href="#l122">122</a></td>
         <td class="linebranch">
         </td>
-        <td class="linecount coveredLine show_coveredLine">441</td>
+        <td class="linecount coveredLine show_coveredLine">434</td>
         <td class="src  coveredLine show_coveredLine"><span class="w">      </span><span class="n">std</span><span class="o">::</span><span class="n">atomic_fetch_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">m_work_completed</span><span class="p">,</span><span class="w"> </span><span class="n">n_items</span><span class="p">);</span></td>
       </tr>
       <tr class="source-line">
         <td class="lineno"><a id="l123" href="#l123">123</a></td>
         <td class="linebranch">
         </td>
-        <td class="linecount coveredLine show_coveredLine">442</td>
+        <td class="linecount coveredLine show_coveredLine">438</td>
         <td class="src  coveredLine show_coveredLine"><span class="w">    </span><span class="p">}</span></td>
       </tr>
       <tr class="source-line">
@@ -1669,7 +1669,7 @@
         <hr class="block-separator"/>
         <footer class="text-center">
           Created using <a href="http://gcovr.com/en/8.6">GCOVR (Version 8.6)</a>
-          at 2026-03-03 20:53:39
+          at 2026-03-04 09:12:32
         </footer>
       </div>
     </div>
