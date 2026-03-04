@@ -10,8 +10,10 @@ YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent, and writes
 <gh-pages-dir>/index.html.
 
 Each report directory is expected to contain:
-    cpp/coverage.html   — gcovr HTML report
-    python/index.html   — pytest-cov HTML report
+    cpp/coverage.html          — gcovr HTML report
+    python/index.html          — pytest-cov HTML report
+    valgrind/vg_pytest/index.html — ValgrindCI HTML report (pytest)
+    valgrind/vg_gtest/index.html  — ValgrindCI HTML report (gtest)
 
 Template files are resolved relative to this script's location:
     .github/ci/coverage/index.template.html
@@ -79,6 +81,8 @@ def get_entries(reports_root: str, current_branch: str | None = None) -> list[di
             "branch": branch,
             "cpp_path": f"reports/{name}/cpp/coverage.html",
             "python_path": f"reports/{name}/python/index.html",
+            "valgrind_pytest_path": f"reports/{name}/valgrind/vg_pytest/index.html",
+            "valgrind_gtest_path": f"reports/{name}/valgrind/vg_gtest/index.html",
         })
     return entries
 
@@ -103,6 +107,8 @@ def render_cards(entries: list[dict]) -> str:
       <div class="report-links">
         <a class="report-link" href="{entry['cpp_path']}">C++</a>
         <a class="report-link" href="{entry['python_path']}">Python</a>
+        <a class="report-link" href="{entry['valgrind_pytest_path']}">Valgrind (pytest)</a>
+        <a class="report-link" href="{entry['valgrind_gtest_path']}">Valgrind (gtest)</a>
       </div>
     </div>""")
     return "\n".join(cards)

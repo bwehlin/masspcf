@@ -66,41 +66,11 @@ jobs:
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --html-details coverage.html --print-summary
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages-branch
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update coverage history and generate index
-        run: |
-          TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
-          SHORT_SHA="${{ github.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:7}"
-          REPORT_DIR="reports/${TIMESTAMP}_${SHORT_SHA}"
-
-          mkdir -p "gh-pages-branch/${REPORT_DIR}/cpp"
-          mkdir -p "gh-pages-branch/${REPORT_DIR}/python"
-          cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/"
-          rm -f covreport/python/.gitignore
-          cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
-          
-          python3 .github/scripts/generate_coverage_index.py gh-pages-branch "${{ github.ref_name }}"
-
-      - name: Commit and push to gh-pages
-        run: |
-          cd gh-pages-branch
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet || git commit -m "coverage: add report for ${{ github.sha }}"
-          git push
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: covreport/*
+          path: covreport/
           retention-days: 1
 
   memory_check:
@@ -163,8 +133,63 @@ jobs:
           valgrind-ci ./reports/vg-gtest.xml --summary >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-gtest.xml --output-dir=./reports/vg_gtest
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload valgrind artifact
+        uses: actions/upload-artifact@v4
         with:
           name: valgrind-output
-          path: test/reports/*
+          path: test/reports/
           retention-days: 1
+
+  publish:
+    name: Publish reports to GitHub Pages
+    runs-on: ubuntu-24.04
+    needs: [coverage_report, memory_check]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: covreport/
+
+      - name: Download valgrind artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: valgrind-output
+          path: valgrind/
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: gh-pages-branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update report history and generate index
+        run: |
+          TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          REPORT_DIR="reports/${TIMESTAMP}_${SHORT_SHA}"
+
+          mkdir -p "gh-pages-branch/${REPORT_DIR}/cpp"
+          mkdir -p "gh-pages-branch/${REPORT_DIR}/python"
+          mkdir -p "gh-pages-branch/${REPORT_DIR}/valgrind"
+
+          cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/"
+          rm -f covreport/python/.gitignore
+          cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
+          cp -r valgrind/. "gh-pages-branch/${REPORT_DIR}/valgrind/"
+
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch "${{ github.ref_name }}"
+
+      - name: Commit and push to gh-pages
+        run: |
+          cd gh-pages-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "reports: add run for ${{ github.sha }}"
+          git push
