@@ -57,11 +57,40 @@ jobs:
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html --print-summary
           gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Create coverage report
+        run: |
+          mkdir covreport
+          cd covreport
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html --print-summary
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./covreport
+          ref: gh-pages
+          path: gh-pages-branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update coverage history and generate index
+        run: |
+          TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          REPORT_DIR="reports/${TIMESTAMP}_${SHORT_SHA}"
+
+          mkdir -p "gh-pages-branch/${REPORT_DIR}"
+          cp -r covreport/. "gh-pages-branch/${REPORT_DIR}/"
+
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch
+
+      - name: Commit and push to gh-pages
+        run: |
+          cd gh-pages-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "coverage: add report for ${{ github.sha }}"
+          git push
 
       - uses: actions/upload-artifact@v4
         with:

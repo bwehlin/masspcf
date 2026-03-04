@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coverage Reports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+  <style>
+    {{style}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="eyebrow">C++ Coverage</div>
+      <h1>Coverage<br /><span>Reports</span></h1>
+      <p class="subtitle">Last {{max_reports}} runs — click any entry to view the full report</p>
+    </header>
+
+    <div class="reports-list">
+      {{cards}}
+    </div>
+
+    <footer>
+      <span><span class="dot"></span>Auto-generated on each push</span>
+      <span>Keeping last {{max_reports}} reports</span>
+    </footer>
+  </div>
+</body>
+</html>
