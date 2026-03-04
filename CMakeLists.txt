@@ -359,6 +359,8 @@ if (BUILD_TESTER)
     get_filename_component(python_dir "${Python_EXECUTABLE}" DIRECTORY)
     set_target_properties(mpcf_test PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${python_dir}")
   endif ()
+
+
 endif ()
 
 if (BUILD_BENCHMARKS)
@@ -532,6 +534,33 @@ elseif (MINIMAL_MODULE_BUILD)
   endif ()
 
 endif ()
+
+# ============================================================
+# Valgrind / debug info configuration (Linux only)
+# ============================================================
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BUILD_TESTER)
+  add_library(valgrind_flags INTERFACE)
+
+  target_compile_options(valgrind_flags INTERFACE $<$<CONFIG:Debug>:-fno-pie>)
+  target_link_options(valgrind_flags INTERFACE $<$<CONFIG:Debug>:-no-pie>)
+
+  find_program(LSB_RELEASE lsb_release)
+  if(LSB_RELEASE)
+    execute_process(
+      COMMAND ${LSB_RELEASE} -rs
+      OUTPUT_VARIABLE DISTRO_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(DISTRO_VERSION VERSION_LESS "24.04")
+      message(STATUS "Ubuntu < 24.04 detected, forcing -gdwarf-4 for valgrind compatibility")
+      target_compile_options(valgrind_flags INTERFACE $<$<CONFIG:Debug>:-gdwarf-4>)
+    endif()
+  endif()
+
+  target_link_libraries(mpcf_nopy PRIVATE valgrind_flags)
+  target_link_libraries(mpcf_test PRIVATE valgrind_flags)
+endif()
 
 message(STATUS "!!! Stub file: ${STUB_FILE}")
 message(STATUS "!!! Install target: ${INSTALL_TARGET}")
