@@ -49,13 +49,6 @@ jobs:
           cd test
           python -m pytest . || true
           ../build/mpcf_test || true
-          
-      - name: Create coverage report
-        run: |
-          mkdir covreport
-          cd covreport
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html --print-summary
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
       - name: Create coverage report
         run: |
