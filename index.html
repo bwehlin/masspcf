@@ -241,22 +241,37 @@ footer {
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="eyebrow">C++ &amp; Python Coverage</div>
-      <h1>Coverage<br /><span>Reports</span></h1>
-      <p class="subtitle">Last 5 runs — click a label to view that report</p>
-    </header>
+<div class="container">
+  <header>
+    <div class="eyebrow">C++ &amp; Python Coverage</div>
+    <h1>Coverage<br /><span>Reports</span></h1>
+    <p class="subtitle">Last 5 runs — click a label to view that report</p>
+  </header>
 
-    <div class="reports-list">
-      
+  <div class="reports-list">
+    
     <div class="report-card latest">
       <span class="report-index">#1</span>
       <div class="report-info">
-        <div class="report-label">2026-03-04 12:43:51 UTC — 915fff6</div>
+        <div class="report-label" data-utc="2026-03-04T12:57:02Z" data-sha="63b77b7">2026-03-04 12:57:02 UTC — 63b77b7</div>
         <div class="report-branch">⎇ norms</div>
       </div>
       <span class="badge">Latest</span>
+      <div class="report-links">
+        <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/cpp/coverage.html">C++ <span class="stat stat-ok">64.5%</span></a>
+        <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/python/index.html">Python <span class="stat stat-ok">69%</span></a>
+        <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/valgrind/vg_pytest/index.html">Valgrind pytest </a>
+        <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/valgrind/vg_gtest/index.html">Valgrind gtest </a>
+      </div>
+    </div>
+
+    <div class="report-card">
+      <span class="report-index">#2</span>
+      <div class="report-info">
+        <div class="report-label" data-utc="2026-03-04T12:43:51Z" data-sha="915fff6">2026-03-04 12:43:51 UTC — 915fff6</div>
+        
+      </div>
+      
       <div class="report-links">
         <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/cpp/coverage.html">C++ </a>
         <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/python/index.html">Python <span class="stat stat-ok">69%</span></a>
@@ -266,9 +281,9 @@ footer {
     </div>
 
     <div class="report-card">
-      <span class="report-index">#2</span>
+      <span class="report-index">#3</span>
       <div class="report-info">
-        <div class="report-label">2026-03-04 12:36:58 UTC — b1e01b2</div>
+        <div class="report-label" data-utc="2026-03-04T12:36:58Z" data-sha="b1e01b2">2026-03-04 12:36:58 UTC — b1e01b2</div>
         
       </div>
       
@@ -281,9 +296,9 @@ footer {
     </div>
 
     <div class="report-card">
-      <span class="report-index">#3</span>
+      <span class="report-index">#4</span>
       <div class="report-info">
-        <div class="report-label">2026-03-04 12:28:26 UTC — 031aa01</div>
+        <div class="report-label" data-utc="2026-03-04T12:28:26Z" data-sha="031aa01">2026-03-04 12:28:26 UTC — 031aa01</div>
         
       </div>
       
@@ -296,9 +311,9 @@ footer {
     </div>
 
     <div class="report-card">
-      <span class="report-index">#4</span>
+      <span class="report-index">#5</span>
       <div class="report-info">
-        <div class="report-label">2026-03-04 12:21:08 UTC — 3582e4a</div>
+        <div class="report-label" data-utc="2026-03-04T12:21:08Z" data-sha="3582e4a">2026-03-04 12:21:08 UTC — 3582e4a</div>
         
       </div>
       
@@ -309,27 +324,28 @@ footer {
         <a class="report-link" href="reports/2026-03-04_12-21-08_3582e4a/valgrind/vg_gtest/index.html">Valgrind gtest </a>
       </div>
     </div>
-
-    <div class="report-card">
-      <span class="report-index">#5</span>
-      <div class="report-info">
-        <div class="report-label">2026-03-04 12:16:26 UTC — 8788f44</div>
-        
-      </div>
-      
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-04_12-16-26_8788f44/cpp/coverage.html">C++ </a>
-        <a class="report-link" href="reports/2026-03-04_12-16-26_8788f44/python/index.html">Python </a>
-        <a class="report-link" href="reports/2026-03-04_12-16-26_8788f44/valgrind/vg_pytest/index.html">Valgrind pytest </a>
-        <a class="report-link" href="reports/2026-03-04_12-16-26_8788f44/valgrind/vg_gtest/index.html">Valgrind gtest </a>
-      </div>
-    </div>
-    </div>
-
-    <footer>
-      <span><span class="dot"></span>Auto-generated on each push</span>
-      <span>Keeping last 5 reports</span>
-    </footer>
   </div>
+
+  <footer>
+    <span><span class="dot"></span>Auto-generated on each push</span>
+    <span>Keeping last 5 reports</span>
+  </footer>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.report-label[data-utc]').forEach(function (el) {
+      var iso = el.getAttribute('data-utc');
+      var sha = el.getAttribute('data-sha');
+      if (!iso) return;
+      var d = new Date(iso);
+      var local = d.toLocaleString(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      });
+      el.textContent = local + (sha ? ' — ' + sha : '');
+    });
+  });
+</script>
 </body>
 </html>
