@@ -501,7 +501,7 @@ elseif (MINIMAL_MODULE_BUILD)
     if (NOT SKIP_STUBGEN)
 
       # Stub file
-      set(STUB_SRC_DIR \"${CMAKE_CURRENT_BINARY_DIR}/${CPP_MODULE_NAME}\")
+      set(STUB_SRC_DIR \"${CMAKE_CURRENT_BINARY_DIR}/stubs/${CPP_MODULE_NAME}\")
       set(STUB_DEST_DIR \"\${SRC_DIR}/${CPP_MODULE_NAME}\")
 
       if(UNIX)
