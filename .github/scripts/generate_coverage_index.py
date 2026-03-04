@@ -14,8 +14,8 @@ Each report directory is expected to contain:
     python/index.html   — pytest-cov HTML report
 
 Template files are resolved relative to this script's location:
-    ci/coverage/index.template.html
-    ci/coverage/style.css
+    .github/ci/coverage/index.template.html
+    .github/ci/coverage/style.css
 """
 
 import os
@@ -25,7 +25,7 @@ import sys
 
 MAX_REPORTS = 5
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "..", "ci", "coverage")
+TEMPLATES_DIR = os.path.join(SCRIPT_DIR, "ci", "coverage")
 
 
 def load_template() -> str:
