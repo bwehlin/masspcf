@@ -38,6 +38,9 @@ namespace mpcf
 {
   namespace io::detail
   {
+    constexpr const std::string HeaderIdBytes = "\1MPCF"; // This should never change!
+
+    // This should change as soon as an older version would not be able to read the data produced by the current version.
     constexpr const int FormatVersion = 1;
 
     inline void write_endianness(std::ostream& os)
@@ -56,12 +59,39 @@ namespace mpcf
       }
     }
 
-    inline void write_format_version(std::ostream& os)
+    inline void read_endianness(std::istream& is)
     {
-      write_binary_record(os, std::to_string(FormatVersion));
+      auto endiannessString = read_binary_string(is, 1);
+      if constexpr (std::endian::native == std::endian::little)
+      {
+        if (endiannessString == "e")
+        {
+          return;
+        }
+      }
+      else if constexpr (std::endian::native == std::endian::big)
+      {
+        if (endiannessString == "E")
+        {
+          return;
+        }
+      }
+      else
+      {
+        throw std::runtime_error("System not supported (unknown endianness).");
+      }
+      throw std::runtime_error("Data were saved on a platform with different endianness and cannot be read on this platform. If you need to move data in this way, please file an issue.");
     }
 
+    inline void write_format_version(std::ostream& os)
+    {
+      write_bytes<int>(os, FormatVersion);
+    }
 
+    inline int read_format_version(std::istream& is)
+    {
+      return read_bytes<int>(is);
+    }
 
     inline void write_platform(std::ostream& os)
     {
@@ -105,27 +135,79 @@ namespace mpcf
       write_string(os, system + "-" + arch);
     }
 
+
+
     inline void write_header(std::ostream& os)
     {
-      write_binary_string(os, "\1MPCF");
+      write_binary_string(os, HeaderIdBytes);
       write_endianness(os); // Will likely be little-endian until the end of time, but just to be sure!
       write_format_version(os);
-      write_binary_record(os, PROJECT_VERSION_FULL);
-      write_binary_record(os, PROJECT_BUILD_DATE);
+      write_string(os, PROJECT_VERSION_FULL);
+      write_string(os, PROJECT_BUILD_DATE);
     }
 
+    inline void read_header(std::istream& is)
+    {
+      auto idBytes = read_binary_string(is, HeaderIdBytes.length());
+      if (idBytes != HeaderIdBytes)
+      {
+        throw std::runtime_error("Unrecognized file format.");
+      }
+
+      read_endianness(is);
+
+      auto formatVersion = read_format_version(is);
+      if (formatVersion != FormatVersion)
+      {
+        throw std::runtime_error("Input file has format version " + std::to_string(formatVersion) + ". This version of masspcf only reads format version " + std::to_string(FormatVersion) + ".");
+      }
+
+      read_string(is); // PROJECT_VERSION_FULL
+      read_string(is); // PROJECT_BUILD_DATE
+    }
+
+  }
+
+  enum class FormatType : uint32_t
+  {
+    SingleTensor = 1
+  };
+
+  inline std::string formatName(uint32_t tp)
+  {
+    // C++26 reflection, please!
+    if (tp == static_cast<uint32_t>(FormatType::SingleTensor))
+    {
+      return "SingleTensor";
+    }
+    else
+    {
+      return "Unknown(" + std::to_string(tp) + ")";
+    }
   }
 
   template <IsTensor TensorT>
   void write(const TensorT& tensor, std::ostream& os)
   {
     io::detail::write_header(os);
-    io::detail::write_binary_record(os, "t"); // "t" is single tensor
+    io::detail::write_bytes<uint32_t>(os, static_cast<uint32_t>(FormatType::SingleTensor)); // "t" is single tensor
     io::detail::write_tensor(os, tensor);
   }
 
+  template <IsTensor TensorT>
+  TensorT read(std::istream& is)
+  {
+    io::detail::read_header(is);
 
+    auto formatType = io::detail::read_bytes<uint32_t>(is);
+    if (formatType != static_cast<uint32_t>(FormatType::SingleTensor))
+    {
+      throw std::runtime_error("Expected format type " + formatName(static_cast<uint32_t>(FormatType::SingleTensor))
+          + " for this operation but got format type " + formatName(formatType));
+    }
 
+    return io::detail::read_tensor<typename TensorT::value_type>(is);
+  }
 
 }
 
