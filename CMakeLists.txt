@@ -170,8 +170,10 @@ SET(MPCF_HEADER_FILES
     io.h
     io/io_stream.h
     io/io_stream_base.h
+    io/barcode_io.h
     io/pcf_io.h
     io/point_io.h
+    io/point_cloud_io.h
     io/tensor_io.h
     algorithm.h
     algorithms/iterate_rectangles.h

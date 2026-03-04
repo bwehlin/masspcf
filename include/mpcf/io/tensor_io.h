@@ -75,9 +75,27 @@ namespace mpcf::io::detail
   {
     return std::visit([](auto&& arg) -> TensorFormat {
       using TensorT = std::decay_t<decltype(arg)>;
-      using T = TensorT::value_type;
+      using T = typename TensorT::value_type;
       return tensorFormat<T>();
     }, tensor);
+  }
+
+  template <IsTensor TensorT>
+  void write_tensor(std::ostream& os, const TensorT& tensor);
+
+  template <typename T>
+  void write_element(std::ostream& os, const mpcf::Tensor<T>& t)
+  {
+    io::detail::write_tensor(os, t);
+  }
+
+  template <typename T>
+  Tensor<T> read_tensor(std::istream& is);
+
+  template <typename T>
+  mpcf::Tensor<mpcf::Tensor<T>> read_element(std::istream& is)
+  {
+    return io::detail::read_tensor<mpcf::Tensor<mpcf::Tensor<T>>>(is);
   }
 
   template <IsTensor TensorT>
@@ -97,7 +115,8 @@ namespace mpcf::io::detail
     auto sz = tensor.size();
     for (auto const * elem = tensor.data(); elem != tensor.data() + sz; ++elem)
     {
-      write_element<typename TensorT::value_type>(os, *elem);
+      //using value_type = typename TensorT::value_type;
+      write_element(os, *elem);
     }
   }
 
