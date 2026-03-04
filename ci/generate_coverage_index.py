@@ -9,6 +9,10 @@ The script scans <gh-pages-dir>/reports/ for subdirectories named
 YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent, and writes
 <gh-pages-dir>/index.html.
 
+Each report directory is expected to contain:
+    cpp/coverage.html   — gcovr HTML report
+    python/index.html   — pytest-cov HTML report
+
 Template files are resolved relative to this script's location:
     ci/coverage/index.template.html
     ci/coverage/style.css
@@ -70,7 +74,8 @@ def get_entries(reports_root: str) -> list[dict]:
             "name": name,
             "label": label,
             "sha": sha,
-            "path": f"reports/{name}/coverage.html",
+            "cpp_path": f"reports/{name}/cpp/coverage.html",
+            "python_path": f"reports/{name}/python/index.html",
         })
     return entries
 
@@ -84,14 +89,17 @@ def render_cards(entries: list[dict]) -> str:
         is_latest = i == 0
         badge = '<span class="badge">Latest</span>' if is_latest else ""
         cards.append(f"""
-    <a class="report-card{' latest' if is_latest else ''}" href="{entry['path']}">
+    <div class="report-card{' latest' if is_latest else ''}">
       <span class="report-index">#{i + 1}</span>
       <div class="report-info">
         <div class="report-label">{entry['label']}</div>
       </div>
       {badge}
-      <span class="report-arrow">&#8594;</span>
-    </a>""")
+      <div class="report-links">
+        <a class="report-link" href="{entry['cpp_path']}">C++</a>
+        <a class="report-link" href="{entry['python_path']}">Python</a>
+      </div>
+    </div>""")
     return "\n".join(cards)
 
 

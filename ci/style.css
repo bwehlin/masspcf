@@ -110,9 +110,7 @@ h1 span { color: var(--accent); }
 }
 
 .report-card:hover {
-  border-left-color: var(--accent);
   background: #13161e;
-  transform: translateX(4px);
 }
 
 .report-card:hover::after { opacity: 1; }
@@ -158,18 +156,32 @@ h1 span { color: var(--accent); }
   text-overflow: ellipsis;
 }
 
-.report-arrow {
-  font-size: 18px;
-  color: var(--muted);
+.report-links {
+  display: flex;
+  gap: 8px;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  transition: color 0.15s, transform 0.15s;
 }
 
-.report-card:hover .report-arrow {
-  color: var(--accent);
-  transform: translateX(4px);
+.report-link {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.report-link:hover {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .empty {

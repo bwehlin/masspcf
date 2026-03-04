@@ -33,7 +33,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install numpy tqdm pytest gcovr # better way to do this?
+        run: pip install numpy tqdm pytest pytest-cov gcovr
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
@@ -47,15 +47,15 @@ jobs:
       - name: Run test suites
         run: |
           cd test
-          python -m pytest . || true
+          python -m pytest . --cov --cov-report=html:../covreport/python --cov-report=term || true
           ../build/mpcf_test || true
 
-      - name: Create coverage report
+      - name: Create C++ coverage report
         run: |
-          mkdir covreport
-          cd covreport
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --html-details coverage.html --print-summary
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../build --filter ../include/ --filter ../src/ --markdown >> $GITHUB_STEP_SUMMARY
+          mkdir -p covreport/cpp
+          cd covreport/cpp
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --html-details coverage.html --print-summary
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --markdown >> $GITHUB_STEP_SUMMARY
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -118,7 +118,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install numpy tqdm pytest ValgrindCI # better way to do this?
+        run: pip install numpy tqdm pytest ValgrindCI
 
       - name: Install Valgrind and Debug Symbols
         run: |
@@ -156,6 +156,3 @@ jobs:
           name: valgrind-output
           path: test/reports/*
           retention-days: 1
-
-
-
