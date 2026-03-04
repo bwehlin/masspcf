@@ -104,7 +104,6 @@ namespace mpcf::ph
 
         auto task = flow.emplace([this, index]
         {
-          const auto& barcodes = m_barcodes; // To make sure we get const operator(...)
           m_ret(index) = barcode_to_stable_rank(m_barcodes(index));
           add_progress(1);
         });
