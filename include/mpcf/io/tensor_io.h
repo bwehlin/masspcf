@@ -118,20 +118,17 @@ namespace mpcf::io::detail
     write_contiguous_tensor(os, tensor);
   }
 
+  inline TensorFormat read_tensor_format(std::istream& is)
+  {
+    TensorFormat format;
+    format.baseFormat = read_bytes<std::int32_t>(is);
+    format.subFormat  = read_bytes<std::int32_t>(is);
+    return format;
+  }
+
   template <typename T>
   Tensor<T> read_tensor(std::istream& is)
   {
-    TensorFormat format;
-
-    format.baseFormat = read_bytes<std::int32_t>(is);
-    format.subFormat = read_bytes<std::int32_t>(is);
-
-    auto expectedFormat = tensorFormat<T>();
-    if (format != expectedFormat)
-    {
-      throw std::runtime_error("Expected tensor format " + format.toString() + " where " + expectedFormat.toString() + " was expected.");
-    }
-
     auto shapeSz = read_bytes<std::uint64_t>(is);
     std::vector<size_t> shape(shapeSz);
     std::vector<size_t> strides(shapeSz);

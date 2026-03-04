@@ -23,11 +23,12 @@
 
 namespace mpcf
 {
-  template <typename T>
+  template<typename T>
   void PrintTo(const mpcf::Tensor<T>& tensor, std::ostream* os)
   {
     *os << "Tensor[\n";
-    tensor.walk([&tensor, os](const std::vector<size_t>& index) {
+    tensor.walk([&tensor, os](const std::vector<size_t>& index)
+    {
 
       *os << "  " << index_to_string(index) << ": ";
       if constexpr (requires { *os << tensor(index); })
@@ -42,6 +43,14 @@ namespace mpcf
 
     });
     *os << "]";
+  }
+
+  namespace io::detail
+  {
+    void PrintTo(const TensorFormat& format, std::ostream* os)
+    {
+      *os << "(" << format.baseFormat << ", " << format.subFormat << ")";
+    }
   }
 }
 
@@ -141,6 +150,7 @@ namespace
     mpcf::io::detail::write_tensor(ss, tensor);
 
     std::istringstream iss(ss.str());
+    ASSERT_EQ(mpcf::io::detail::read_tensor_format(iss), mpcf::io::detail::tensorFormat<TypeParam>());
     TensorT retTensor = mpcf::io::detail::read_tensor<TypeParam>(iss);
 
     EXPECT_EQ(tensor, retTensor);
@@ -217,6 +227,7 @@ namespace
     mpcf::io::detail::write_tensor(ss, tensor);
 
     std::istringstream iss(ss.str());
+    ASSERT_EQ(mpcf::io::detail::read_tensor_format(iss), mpcf::io::detail::tensorFormat<typename decltype(tensor)::value_type>());
     auto retTensor = mpcf::io::detail::read_tensor<PcfT>(iss);
 
     EXPECT_EQ(tensor, retTensor);
@@ -239,6 +250,7 @@ namespace
     mpcf::io::detail::write_tensor(ss, tensor);
 
     std::istringstream iss(ss.str());
+    ASSERT_EQ(mpcf::io::detail::read_tensor_format(iss), mpcf::io::detail::tensorFormat<typename decltype(tensor)::value_type>());
     auto retTensor = mpcf::io::detail::read_tensor<PcfT>(iss);
 
     EXPECT_EQ(tensor, retTensor);
@@ -329,6 +341,7 @@ namespace
     mpcf::io::detail::write_tensor(ss, sliced);
 
     std::istringstream iss(ss.str());
+    ASSERT_EQ(mpcf::io::detail::read_tensor_format(iss), mpcf::io::detail::tensorFormat<typename decltype(tensor)::value_type>());
     auto retTensor = mpcf::io::detail::read_tensor<TypeParam>(iss);
 
     // The returned tensor should be contiguous and contain the sliced values
@@ -340,27 +353,6 @@ namespace
     EXPECT_EQ(retTensor({0, 3}), static_cast<TypeParam>(13));
     EXPECT_EQ(retTensor({1, 0}), static_cast<TypeParam>(20));
     EXPECT_EQ(retTensor({1, 3}), static_cast<TypeParam>(23));
-  }
-
-  // ============================================================================
-  // read_tensor throws on format mismatch
-  // ============================================================================
-  
-  TYPED_TEST(IoStreamTest, ReadTensorThrowsOnFormatMismatch)
-  {
-    // Write a float32 tensor but try to read it back as float64 (or vice versa)
-    using WriteT = mpcf::float32_t;
-    using ReadT  = mpcf::float64_t;
-  
-    mpcf::Tensor<WriteT> tensor({ 2 });
-    tensor(0) = WriteT(1);
-    tensor(1) = WriteT(2);
-  
-    std::stringstream ss;
-    mpcf::io::detail::write_tensor(ss, tensor);
-  
-    std::istringstream iss(ss.str());
-    EXPECT_THROW(mpcf::io::detail::read_tensor<ReadT>(iss), std::runtime_error);
   }
   
   // ============================================================================
@@ -451,6 +443,7 @@ namespace
     mpcf::io::detail::write_tensor(ss, tensor);
   
     std::istringstream iss(ss.str());
+    ASSERT_EQ(mpcf::io::detail::read_tensor_format(iss), mpcf::io::detail::tensorFormat<typename decltype(tensor)::value_type>());
     auto retTensor = mpcf::io::detail::read_tensor<PcfT>(iss);
   
     EXPECT_EQ(tensor, retTensor);

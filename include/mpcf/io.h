@@ -206,8 +206,35 @@ namespace mpcf
           + " for this operation but got format type " + formatName(formatType));
     }
 
+    io::detail::TensorFormat format;
+
+    format.baseFormat = io::detail::read_bytes<std::int32_t>(is);
+    format.subFormat = io::detail::read_bytes<std::int32_t>(is);
+
+    auto expectedFormat = io::detail::tensorFormat<typename TensorT::value_type>();
+    if (format != expectedFormat)
+    {
+      throw std::runtime_error("Unexpected tensor format " + format.toString() + " where " + expectedFormat.toString() + " was expected.");
+    }
+
     return io::detail::read_tensor<typename TensorT::value_type>(is);
   }
+
+#if 0
+  inline io::detail::StreamableTensor read_any_tensor(std::istream& is)
+  {
+    io::detail::read_header(is);
+
+    auto formatType = io::detail::read_bytes<uint32_t>(is);
+    if (formatType != static_cast<uint32_t>(FormatType::SingleTensor))
+    {
+      throw std::runtime_error("Expected format type " + formatName(static_cast<uint32_t>(FormatType::SingleTensor))
+                               + " for this operation but got format type " + formatName(formatType));
+    }
+
+
+  }
+#endif
 
 }
 

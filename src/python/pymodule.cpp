@@ -28,6 +28,7 @@
 
 #include <mpcf/operations.cuh>
 
+#include "py_io.h"
 #include "py_make_from_serial_content.h"
 #include "py_norms.h"
 #include "py_tensor.h"
@@ -387,6 +388,8 @@ PYBIND11_MODULE(_mpcf_cpp, m) {
 
 
   register_random_bindings(m);
+
+  mpcf_py::register_io(m);
 
   mpcf_py::register_tensor_bindings(m);
   mpcf_py::register_np_conversions(m);

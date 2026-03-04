@@ -22,6 +22,8 @@
 #include <vector>
 #include <iostream>
 
+//#define MPCF_IO_DEBUG
+
 namespace mpcf::io::detail
 {
   template <typename CharT, typename Traits>
