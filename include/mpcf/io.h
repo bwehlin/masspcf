@@ -15,7 +15,6 @@
 #ifndef MASSPCF_IO_H
 #define MASSPCF_IO_H
 
-#include "io.h"
 #include "io/io_stream.h"
 #include "io/point_io.h"
 #include "io/pcf_io.h"
@@ -124,6 +123,8 @@ namespace mpcf
     io::detail::write_binary_record(os, "t"); // "t" is single tensor
     io::detail::write_tensor(os, tensor);
   }
+
+
 
 
 }
