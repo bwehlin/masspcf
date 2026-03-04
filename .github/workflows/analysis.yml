@@ -53,7 +53,11 @@ jobs:
         run: |
           mkdir -p covreport/python
           cd test
-          python -m pytest . --cov=masspcf --cov-report=html:../covreport/python --cov-report=term || true
+          python -m pytest . \
+            --cov=masspcf \
+            --cov-report=html:../covreport/python \
+            --cov-report=json:../covreport/python/coverage.json \
+            --cov-report=term || true
           # Ensure the html report exists even if coverage data is empty
           if [ ! -f "../covreport/python/index.html" ]; then
             python -m coverage html --directory=../covreport/python || true
@@ -63,8 +67,16 @@ jobs:
         run: |
           mkdir -p covreport/cpp
           cd covreport/cpp
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --html-details coverage.html --json-summary coverage-summary.json --print-summary
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file -r . --object-directory ../../build --filter ../../include/ --filter ../../src/ --markdown >> $GITHUB_STEP_SUMMARY
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+            -r . --object-directory ../../build \
+            --filter ../../include/ --filter ../../src/ \
+            --html-details coverage.html \
+            --json-summary coverage-summary.json \
+            --print-summary
+          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+            -r . --object-directory ../../build \
+            --filter ../../include/ --filter ../../src/ \
+            --markdown >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -203,6 +215,32 @@ jobs:
           echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
 
           python3 .github/scripts/generate_coverage_index.py gh-pages-branch
+
+      - name: Write coverage badge JSONs
+        run: |
+          CPP_COV=$(python3 -c "
+          import json
+          with open('covreport/cpp/coverage-summary.json') as f:
+            d = json.load(f)
+            print(f\"{d['line_percent']:.1f}\")
+            ")
+
+          PY_COV=$(python3 -c "
+          import json
+          with open('covreport/python/coverage.json') as f:
+            d = json.load(f)
+            print(f\"{d['totals']['percent_covered']:.1f}\")
+            ")
+          
+                    for LANG in cpp py; do
+                      if [ "$LANG" = "cpp" ]; then COV=$CPP_COV; LABEL="C++ coverage"; else COV=$PY_COV; LABEL="Python coverage"; fi
+            COLOR=$(python3 -c "
+            c = float('${COV}')
+            print('brightgreen' if c >= 80 else 'yellow' if c >= 60 else 'red')
+            ")
+            echo "{\"schemaVersion\":1,\"label\":\"${LABEL}\",\"message\":\"${COV}%\",\"color\":\"${COLOR}\"}" \
+              > gh-pages-branch/${LANG}-coverage-badge.json
+          done
 
       - name: Commit and push to gh-pages
         run: |
