@@ -19,6 +19,8 @@
 #include <mpcf/tensor.h>
 #include <mpcf/io.h>
 
+#include <pybind11/stl.h>
+
 namespace py = pybind11;
 
 namespace
@@ -27,17 +29,18 @@ namespace
   {
   public:
     template <typename T>
-    static void save_tensor_to_file(const mpcf::Tensor<T>& tensor, const std::string& filename)
+    static void save_tensor_to_file(const mpcf::Tensor<T>& tensor, py::object file)
     {
-      std::ofstream file(filename, std::ios::out | std::ios::binary);
-      mpcf::write(tensor, file);
+      mpcf_py::PythonOStreamBuf buf(file);
+      std::ostream os(&buf);
+      mpcf::write(tensor, os);
     }
 
-    template <typename T>
-    static mpcf::Tensor<T> load_tensor_from_file(const std::string& filename)
+    static mpcf::io::detail::StreamableTensor load_tensor_from_file(py::object file)
     {
-      std::ifstream file(filename, std::ios::in | std::ios::binary);
-      return mpcf::read<mpcf::Tensor<T>>(file);
+      mpcf_py::PythonIStreamBuf buf(file);
+      std::istream is(&buf);
+      return mpcf::read_any_tensor(is);
     }
   };
 
@@ -48,9 +51,9 @@ namespace mpcf_py
 
   void register_io(py::module_& m)
   {
-    py::class_<IoOps>(m, "IOOps")
+    py::class_<IoOps>(m, "IoOps")
         .def_static("save_float32_tensor_to_file", &IoOps::save_tensor_to_file<mpcf::float32_t>)
-        .def_static("load_float32_tensor_from_file", &IoOps::load_tensor_from_file<mpcf::float32_t>)
+        .def_static("load_tensor_from_file", &IoOps::load_tensor_from_file)
 
         ;
   }

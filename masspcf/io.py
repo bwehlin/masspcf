@@ -16,7 +16,31 @@ from .tensor import PcfContainerLike, Float32Tensor, Float64Tensor
 
 import masspcf._mpcf_cpp as cpp
 
-def save(item : PcfContainerLike, file : str):
+def _save(item: PcfContainerLike, file):
     data = item._data
     if isinstance(item, Float32Tensor):
         cpp.IoOps.save_float32_tensor_to_file(data, file)
+    else:
+        raise TypeError(f'Unsupported tensor type {type(item)}')
+
+def _load(file):
+    cpp_tensor = cpp.IoOps.load_tensor_from_file(file)
+    if isinstance(cpp_tensor, cpp.Float32Tensor):
+        return Float32Tensor(cpp_tensor)
+    else:
+        raise TypeError(f'File contains unsupported tensor of type {type(cpp_tensor)}')
+
+def save(item: PcfContainerLike, file):
+    if isinstance(file, str):
+        with open(file, 'wb') as f:
+            _save(item, f)
+    else:
+        _save(item, file)
+
+def load(file):
+    if isinstance(file, str):
+        with open(file, 'rb') as f:
+            return _load(f)
+    else:
+        return _load(file)
+

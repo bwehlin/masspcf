@@ -20,44 +20,46 @@
 #include <iostream>
 #include <streambuf>
 #include <string>
+#include <cstdio>
 
 namespace py = pybind11;
 
 namespace mpcf_py
 {
-  class PythonBuf : public std::streambuf {
+  class PythonIStreamBuf : public std::streambuf {
   public:
-    explicit PythonBuf(py::object py_file, size_t buffer_size = 1024)
-        : py_file(std::move(py_file)), buffer(buffer_size) {
-      // Set up the internal buffer pointers: [begin, current, end]
-      setp(buffer.data(), buffer.data() + buffer.size());
-    }
-
+    explicit PythonIStreamBuf(py::object file) : file_(file) {}
   protected:
-    // Called when the buffer is full or flushed
-    int sync() override {
-      if (pbase() != pptr()) {
-        py::gil_scoped_acquire acquire; // Ensure we have the GIL
-        std::string str(pbase(), pptr());
-        py_file.attr("write")(str);
-        setp(buffer.data(), buffer.data() + buffer.size());
-      }
-      return 0;
+    int_type underflow() override {
+      auto bytes = file_.attr("read")(4096);
+      auto view = py::bytes(bytes);
+      buffer_ = std::string(view);
+      if (buffer_.empty()) return traits_type::eof();
+      setg(buffer_.data(), buffer_.data(), buffer_.data() + buffer_.size());
+      return traits_type::to_int_type(buffer_[0]);
     }
-
-    // Called when a character is written to a full buffer
-    int_type overflow(int_type ch) override {
-      if (sync() == -1) return traits_type::eof();
-      if (ch != traits_type::eof()) {
-        *pptr() = traits_type::to_char_type(ch);
-        pbump(1);
-      }
-      return ch;
-    }
-
   private:
-    py::object py_file;
-    std::vector<char> buffer;
+    py::object file_;
+    std::string buffer_;
+  };
+
+  class PythonOStreamBuf : public std::streambuf {
+  public:
+    explicit PythonOStreamBuf(py::object file) : file_(file) {}
+  protected:
+    std::streamsize xsputn(const char* s, std::streamsize n) override {
+      file_.attr("write")(py::bytes(s, n));
+      return n;
+    }
+    int_type overflow(int_type c) override {
+      if (c != EOF) {
+        char ch = static_cast<char>(c);
+        file_.attr("write")(py::bytes(&ch, 1));
+      }
+      return c;
+    }
+  private:
+    py::object file_;
   };
 
   void register_io(pybind11::module_& m);

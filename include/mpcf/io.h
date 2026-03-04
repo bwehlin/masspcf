@@ -220,7 +220,6 @@ namespace mpcf
     return io::detail::read_tensor<typename TensorT::value_type>(is);
   }
 
-#if 0
   inline io::detail::StreamableTensor read_any_tensor(std::istream& is)
   {
     io::detail::read_header(is);
@@ -232,9 +231,16 @@ namespace mpcf
                                + " for this operation but got format type " + formatName(formatType));
     }
 
+    auto format = io::detail::read_tensor_format(is);
+
+    if (format == io::detail::tensorFormat<float32_t>()) { return io::detail::read_tensor<float32_t>(is); }
+    else if (format == io::detail::tensorFormat<float64_t>()) { return io::detail::read_tensor<float64_t>(is); }
+    else
+    {
+      throw std::runtime_error("Unhandled tensor type (" + std::to_string(format.baseFormat) + ", " + std::to_string(format.subFormat) + ")");
+    }
 
   }
-#endif
 
 }
 

@@ -28,5 +28,7 @@ from .reductions import mean, max_time
 from .serialize import from_serial_content
 from .distance import pdist
 
+from .io import save, load
+
 from . import system
 from . import random
