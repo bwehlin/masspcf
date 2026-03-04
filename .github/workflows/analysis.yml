@@ -80,8 +80,10 @@ jobs:
           SHORT_SHA="${SHORT_SHA:0:7}"
           REPORT_DIR="reports/${TIMESTAMP}_${SHORT_SHA}"
 
-          mkdir -p "gh-pages-branch/${REPORT_DIR}"
-          cp -r covreport/. "gh-pages-branch/${REPORT_DIR}/"
+          mkdir -p "gh-pages-branch/${REPORT_DIR}/cpp"
+          mkdir -p "gh-pages-branch/${REPORT_DIR}/python"
+          cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/"
+          cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
 
           python3 .github/scripts/generate_coverage_index.py gh-pages-branch
 
