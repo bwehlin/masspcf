@@ -44,11 +44,20 @@ jobs:
       - name: Install module
         run: cmake --install build
 
-      - name: Run test suites
+      - name: Run C++ test suite
         run: |
           cd test
-          python -m pytest . --cov --cov-report=html:../covreport/python --cov-report=term || true
           ../build/mpcf_test || true
+
+      - name: Run Python test suite
+        run: |
+          mkdir -p covreport/python
+          cd test
+          python -m pytest . --cov --cov-report=html:../covreport/python --cov-report=term || true
+          # Ensure the html report exists even if coverage data is empty
+          if [ ! -f "../covreport/python/index.html" ]; then
+            python -m coverage html --directory=../covreport/python || true
+          fi
 
       - name: Create C++ coverage report
         run: |
