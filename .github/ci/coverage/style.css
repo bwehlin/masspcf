@@ -143,16 +143,17 @@ h1 {
 }
 
 .report-links {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   flex-shrink: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  width: 360px;
 }
 
 .report-link {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
