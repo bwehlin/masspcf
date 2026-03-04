@@ -12,21 +12,37 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="eyebrow">C++ &amp; Python Coverage</div>
-      <h1>Coverage<br /><span>Reports</span></h1>
-      <p class="subtitle">Last {{max_reports}} runs — click a label to view that report</p>
-    </header>
+<div class="container">
+  <header>
+    <div class="eyebrow">C++ &amp; Python Coverage</div>
+    <h1>Coverage<br /><span>Reports</span></h1>
+    <p class="subtitle">Last {{max_reports}} runs — click a label to view that report</p>
+  </header>
 
-    <div class="reports-list">
-      {{cards}}
-    </div>
-
-    <footer>
-      <span><span class="dot"></span>Auto-generated on each push</span>
-      <span>Keeping last {{max_reports}} reports</span>
-    </footer>
+  <div class="reports-list">
+    {{cards}}
   </div>
+
+  <footer>
+    <span><span class="dot"></span>Auto-generated on each push</span>
+    <span>Keeping last {{max_reports}} reports</span>
+  </footer>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.report-label[data-utc]').forEach(function (el) {
+      var iso = el.getAttribute('data-utc');
+      var sha = el.getAttribute('data-sha');
+      if (!iso) return;
+      var d = new Date(iso);
+      var local = d.toLocaleString(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      });
+      el.textContent = local + (sha ? ' — ' + sha : '');
+    });
+  });
+</script>
 </body>
 </html>

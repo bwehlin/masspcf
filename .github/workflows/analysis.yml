@@ -184,7 +184,7 @@ jobs:
           cp -r valgrind/. "gh-pages-branch/${REPORT_DIR}/valgrind/"
           echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
 
-          python3 .github/scripts/generate_coverage_index.py gh-pages-branch"
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch
 
       - name: Commit and push to gh-pages
         run: |

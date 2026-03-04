@@ -119,8 +119,10 @@ def get_entries(reports_root: str) -> list[dict]:
             date_str = m.group(1)
             time_str = m.group(2).replace("-", ":")
             sha = m.group(3)
+            utc_iso = f"{date_str}T{time_str}Z"
             label = f"{date_str} {time_str} UTC — {sha}"
         else:
+            utc_iso = ""
             label = name
             sha = ""
 
@@ -130,6 +132,7 @@ def get_entries(reports_root: str) -> list[dict]:
         entries.append({
             "name": name,
             "label": label,
+            "utc_iso": utc_iso,
             "sha": sha,
             "branch": branch,
             "cpp_coverage": parse_cpp_coverage(report_dir),
@@ -171,7 +174,7 @@ def render_cards(entries: list[dict]) -> str:
     <div class="report-card{' latest' if is_latest else ''}">
       <span class="report-index">#{i + 1}</span>
       <div class="report-info">
-        <div class="report-label">{entry['label']}</div>
+        <div class="report-label" data-utc="{entry['utc_iso']}" data-sha="{entry['sha']}">{entry['label']}</div>
         {branch_tag}
       </div>
       {badge}
