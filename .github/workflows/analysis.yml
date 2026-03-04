@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir -p covreport/python
           cd test
-          python -m pytest . --cov --cov-report=html:../covreport/python --cov-report=term || true
+          python -m pytest . --cov=masspcf --cov-report=html:../covreport/python --cov-report=term || true
           # Ensure the html report exists even if coverage data is empty
           if [ ! -f "../covreport/python/index.html" ]; then
             python -m coverage html --directory=../covreport/python || true
