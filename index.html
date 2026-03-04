@@ -153,16 +153,17 @@ h1 {
 }
 
 .report-links {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   flex-shrink: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  width: 360px;
 }
 
 .report-link {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
@@ -237,7 +238,6 @@ footer {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-
   </style>
 </head>
 <body>
@@ -253,10 +253,27 @@ footer {
     <div class="report-card latest">
       <span class="report-index">#1</span>
       <div class="report-info">
-        <div class="report-label" data-utc="2026-03-04T14:38:20Z" data-sha="4731376">2026-03-04 14:38:20 UTC — 4731376</div>
+        <div class="report-label" data-utc="2026-03-04T14:39:18Z" data-sha="30db204">2026-03-04 14:39:18 UTC — 30db204</div>
         <div class="report-branch">⎇ norms</div>
       </div>
       <span class="badge">Latest</span>
+      <div class="report-links">
+        <a class="report-link" href="reports/2026-03-04_14-39-18_30db204/cpp/coverage.html">C++ <span class="stat stat-ok">64.5%</span></a>
+        <a class="report-link" href="reports/2026-03-04_14-39-18_30db204/python/index.html">Python <span class="stat stat-ok">69%</span></a>
+        <a class="report-link" href="reports/2026-03-04_14-39-18_30db204/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
+        <a class="report-link" href="reports/2026-03-04_14-39-18_30db204/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-ok">0 errors</span></a>
+        <a class="report-link" href="reports/2026-03-04_14-39-18_30db204/helgrind/hg_pytest/index.html">Helgrind pytest <span class="stat stat-error">113 errors</span></a>
+        <a class="report-link" href="reports/2026-03-04_14-39-18_30db204/helgrind/hg_gtest/index.html">Helgrind gtest <span class="stat stat-error">36 errors</span></a>
+      </div>
+    </div>
+
+    <div class="report-card">
+      <span class="report-index">#2</span>
+      <div class="report-info">
+        <div class="report-label" data-utc="2026-03-04T14:38:20Z" data-sha="4731376">2026-03-04 14:38:20 UTC — 4731376</div>
+        <div class="report-branch">⎇ norms</div>
+      </div>
+      
       <div class="report-links">
         <a class="report-link" href="reports/2026-03-04_14-38-20_4731376/cpp/coverage.html">C++ <span class="stat stat-ok">64.6%</span></a>
         <a class="report-link" href="reports/2026-03-04_14-38-20_4731376/python/index.html">Python <span class="stat stat-ok">69%</span></a>
@@ -268,7 +285,7 @@ footer {
     </div>
 
     <div class="report-card">
-      <span class="report-index">#2</span>
+      <span class="report-index">#3</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-04T14:34:24Z" data-sha="9020c28">2026-03-04 14:34:24 UTC — 9020c28</div>
         <div class="report-branch">⎇ norms</div>
@@ -285,7 +302,7 @@ footer {
     </div>
 
     <div class="report-card">
-      <span class="report-index">#3</span>
+      <span class="report-index">#4</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-04T14:25:21Z" data-sha="3e99826">2026-03-04 14:25:21 UTC — 3e99826</div>
         <div class="report-branch">⎇ norms</div>
@@ -302,7 +319,7 @@ footer {
     </div>
 
     <div class="report-card">
-      <span class="report-index">#4</span>
+      <span class="report-index">#5</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-04T12:57:02Z" data-sha="63b77b7">2026-03-04 12:57:02 UTC — 63b77b7</div>
         <div class="report-branch">⎇ norms</div>
@@ -315,23 +332,6 @@ footer {
         <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-ok">0 errors</span></a>
         <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/helgrind/hg_pytest/index.html">Helgrind pytest </a>
         <a class="report-link" href="reports/2026-03-04_12-57-02_63b77b7/helgrind/hg_gtest/index.html">Helgrind gtest </a>
-      </div>
-    </div>
-
-    <div class="report-card">
-      <span class="report-index">#5</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-04T12:43:51Z" data-sha="915fff6">2026-03-04 12:43:51 UTC — 915fff6</div>
-        
-      </div>
-      
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/cpp/coverage.html">C++ </a>
-        <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/python/index.html">Python <span class="stat stat-ok">69%</span></a>
-        <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
-        <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-ok">0 errors</span></a>
-        <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/helgrind/hg_pytest/index.html">Helgrind pytest </a>
-        <a class="report-link" href="reports/2026-03-04_12-43-51_915fff6/helgrind/hg_gtest/index.html">Helgrind gtest </a>
       </div>
     </div>
   </div>
