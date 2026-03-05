@@ -14,8 +14,8 @@
 <body>
 <div class="container">
   <header>
-    <div class="eyebrow">C++ &amp; Python Coverage</div>
-    <h1>Coverage<br /><span>Reports</span></h1>
+    <div class="eyebrow">C++ &amp; Python Coverage &amp; Memory</div>
+    <h1>Analysis<br /><span>Reports</span></h1>
     <p class="subtitle">Last {{max_reports}} runs — click a label to view that report</p>
   </header>
 
@@ -51,13 +51,24 @@
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         hour12: false
       });
-      el.textContent = local + (sha ? ' — ' + sha : '');
+      el.textContent = local + (sha ? ' \u2014 ' + sha : '');
 
-      // Inject the "X ago" line
       var ago = document.createElement('div');
       ago.className = 'report-ago';
       ago.textContent = timeAgo(d);
       el.parentNode.insertBefore(ago, el.nextSibling);
+    });
+
+    // Collapsible memory sections
+    document.querySelectorAll('.memory-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wrapper = btn.closest('.report-card-wrapper');
+        var panel = wrapper.querySelector('.memory-panel');
+        var isOpen = panel.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(isOpen));
+        btn.querySelector('.toggle-icon').textContent = isOpen ? '\u25be' : '\u25b8';
+      });
     });
   });
 </script>

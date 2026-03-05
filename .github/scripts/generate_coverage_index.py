@@ -10,14 +10,17 @@ YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent, and writes
 <gh-pages-dir>/index.html.
 
 Each report directory is expected to contain:
-    branch                        — plain text file with the branch name
-    cpp/coverage.html             — gcovr HTML report
-    cpp/coverage-summary.json     — gcovr JSON summary
-    python/index.html             — pytest-cov HTML report
-    valgrind/vg_pytest/index.html — ValgrindCI memcheck report (pytest)
-    valgrind/vg_gtest/index.html  — ValgrindCI memcheck report (gtest)
-    helgrind/hg_pytest/index.html — ValgrindCI helgrind report (pytest)
-    helgrind/hg_gtest/index.html  — ValgrindCI helgrind report (gtest)
+    branch                             — plain text file with the branch name
+    cpp/coverage.html                  — gcovr HTML report
+    cpp/coverage-summary.json          — gcovr JSON summary
+    python/index.html                  — pytest-cov HTML report
+    valgrind/vg_pytest/index.html      — ValgrindCI memcheck report (pytest)
+    valgrind/vg_pytest/summary.txt     — valgrind-ci summary text
+    valgrind/vg_pytest/raw.log         — raw valgrind text output
+    valgrind/vg_pytest/raw.xml         — raw valgrind XML
+    valgrind/vg_gtest/  (same layout)
+    helgrind/hg_pytest/ (same layout)
+    helgrind/hg_gtest/  (same layout)
 
 Template files are resolved relative to this script's location:
     .github/ci/coverage/index.template.html
@@ -102,6 +105,15 @@ def parse_valgrind_errors(report_dir: str, subpath: str) -> str | None:
     return None
 
 
+def _has_memory_reports(report_dir: str) -> bool:
+    """Return True if at least one memory report subdirectory exists."""
+    for subpath in ("valgrind/vg_pytest", "valgrind/vg_gtest",
+                    "helgrind/hg_pytest", "helgrind/hg_gtest"):
+        if os.path.isdir(os.path.join(report_dir, subpath)):
+            return True
+    return False
+
+
 def get_entries(reports_root: str) -> list[dict]:
     entries = []
     if not os.path.isdir(reports_root):
@@ -132,18 +144,20 @@ def get_entries(reports_root: str) -> list[dict]:
             "utc_iso": utc_iso,
             "sha": sha,
             "branch": branch,
+            "has_memory": _has_memory_reports(report_dir),
             "cpp_coverage": parse_cpp_coverage(report_dir),
             "python_coverage": parse_python_coverage(report_dir),
             "valgrind_pytest_errors": parse_valgrind_errors(report_dir, "valgrind/vg_pytest"),
-            "valgrind_gtest_errors": parse_valgrind_errors(report_dir, "valgrind/vg_gtest"),
+            "valgrind_gtest_errors":  parse_valgrind_errors(report_dir, "valgrind/vg_gtest"),
             "helgrind_pytest_errors": parse_valgrind_errors(report_dir, "helgrind/hg_pytest"),
-            "helgrind_gtest_errors": parse_valgrind_errors(report_dir, "helgrind/hg_gtest"),
-            "cpp_path": f"reports/{name}/cpp/coverage.html",
+            "helgrind_gtest_errors":  parse_valgrind_errors(report_dir, "helgrind/hg_gtest"),
+            "cpp_path":    f"reports/{name}/cpp/coverage.html",
             "python_path": f"reports/{name}/python/index.html",
-            "valgrind_pytest_path": f"reports/{name}/valgrind/vg_pytest/index.html",
-            "valgrind_gtest_path": f"reports/{name}/valgrind/vg_gtest/index.html",
-            "helgrind_pytest_path": f"reports/{name}/helgrind/hg_pytest/index.html",
-            "helgrind_gtest_path": f"reports/{name}/helgrind/hg_gtest/index.html",
+            # Memory sub-paths (base dir for each tool/suite combo)
+            "vg_pytest_base":  f"reports/{name}/valgrind/vg_pytest",
+            "vg_gtest_base":   f"reports/{name}/valgrind/vg_gtest",
+            "hg_pytest_base":  f"reports/{name}/helgrind/hg_pytest",
+            "hg_gtest_base":   f"reports/{name}/helgrind/hg_gtest",
         })
     return entries
 
@@ -156,6 +170,25 @@ def _stat_badge(value: str | None, is_error: bool = False) -> str:
     return f'<span class="stat {css_class}">{value}</span>'
 
 
+def _memory_group(title: str, base: str) -> str:
+    """Render one memory-group block with links to summary.txt, raw.log, raw.xml."""
+    return f"""
+          <div class="memory-group">
+            <div class="memory-group-title">{title}</div>
+            <div class="memory-links">
+              <a class="memory-link" href="{base}/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="{base}/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="{base}/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>"""
+
+
 def render_cards(entries: list[dict]) -> str:
     if not entries:
         return '<div class="empty">No coverage reports found yet.</div>'
@@ -163,33 +196,52 @@ def render_cards(entries: list[dict]) -> str:
     cards = []
     for i, entry in enumerate(entries):
         is_latest = i == 0
+        wrapper_class = "report-card-wrapper" + (" latest" if is_latest else "")
         badge = '<span class="badge">Latest</span>' if is_latest else ""
-        branch_tag = f'<div class="report-branch">⎇ {entry["branch"]}</div>' if entry.get("branch") else ""
+        branch_tag = (
+            f'<div class="report-branch">&#x2387; {entry["branch"]}</div>'
+            if entry.get("branch") else ""
+        )
 
-        cpp_stat           = _stat_badge(entry["cpp_coverage"])
-        python_stat        = _stat_badge(entry["python_coverage"])
-        vg_pytest_stat     = _stat_badge(entry["valgrind_pytest_errors"], is_error=True)
-        vg_gtest_stat      = _stat_badge(entry["valgrind_gtest_errors"],  is_error=True)
-        hg_pytest_stat     = _stat_badge(entry["helgrind_pytest_errors"], is_error=True)
-        hg_gtest_stat      = _stat_badge(entry["helgrind_gtest_errors"],  is_error=True)
+        cpp_stat    = _stat_badge(entry["cpp_coverage"])
+        python_stat = _stat_badge(entry["python_coverage"])
+
+        memory_toggle = ""
+        memory_panel = ""
+        if entry["has_memory"]:
+            memory_toggle = """
+      <button class="memory-toggle" aria-expanded="false">
+        <span class="toggle-icon">&#x25b8;</span> Memory
+      </button>"""
+
+            groups = (
+                _memory_group("Valgrind — pytest",  entry["vg_pytest_base"])
+                + _memory_group("Valgrind — gtest",   entry["vg_gtest_base"])
+                + _memory_group("Helgrind — pytest", entry["hg_pytest_base"])
+                + _memory_group("Helgrind — gtest",  entry["hg_gtest_base"])
+            )
+            memory_panel = f"""
+  <div class="memory-panel">
+    <div class="memory-panel-inner">{groups}
+    </div>
+  </div>"""
 
         cards.append(f"""
-    <div class="report-card{' latest' if is_latest else ''}">
-      <span class="report-index">#{i + 1}</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="{entry['utc_iso']}" data-sha="{entry['sha']}">{entry['label']}</div>
-        {branch_tag}
-      </div>
-      {badge}
-      <div class="report-links">
-        <a class="report-link" href="{entry['cpp_path']}">C++ {cpp_stat}</a>
-        <a class="report-link" href="{entry['python_path']}">Python {python_stat}</a>
-        <a class="report-link" href="{entry['valgrind_pytest_path']}">Memcheck pytest {vg_pytest_stat}</a>
-        <a class="report-link" href="{entry['valgrind_gtest_path']}">Memcheck gtest {vg_gtest_stat}</a>
-        <a class="report-link" href="{entry['helgrind_pytest_path']}">Helgrind pytest {hg_pytest_stat}</a>
-        <a class="report-link" href="{entry['helgrind_gtest_path']}">Helgrind gtest {hg_gtest_stat}</a>
-      </div>
-    </div>""")
+<div class="{wrapper_class}">
+  <div class="report-card">
+    <span class="report-index">#{i + 1}</span>
+    <div class="report-info">
+      <div class="report-label" data-utc="{entry['utc_iso']}" data-sha="{entry['sha']}">{entry['label']}</div>
+      {branch_tag}
+    </div>
+    {badge}
+    <div class="report-links">
+      <a class="report-link" href="{entry['cpp_path']}">C++ {cpp_stat}</a>
+      <a class="report-link" href="{entry['python_path']}">Python {python_stat}</a>
+    </div>{memory_toggle}
+  </div>{memory_panel}
+</div>""")
+
     return "\n".join(cards)
 
 
