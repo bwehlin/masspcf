@@ -147,7 +147,11 @@ namespace mpcf
 
     void set_done()
     {
-      m_done = true;
+      {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_done = true;
+      }
+      m_condition.notify_all();
     }
 
   private:
