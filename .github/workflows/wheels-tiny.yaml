@@ -30,6 +30,9 @@ jobs:
       #  run: sed -i -e 's/masspcf/masspcf-cpu/g' pyproject.toml
       #  if: runner.os != 'Windows'
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
