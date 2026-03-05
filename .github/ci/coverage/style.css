@@ -16,9 +16,6 @@
   --ok-bg: #dcfce7;
   --error: #dc2626;
   --error-bg: #fee2e2;
-  --memory: #7c3aed;
-  --memory-light: #f5f3ff;
-  --memory-mid: #ddd6fe;
   --sans: 'Inter', sans-serif;
   --mono: 'DM Mono', monospace;
 }
@@ -33,7 +30,7 @@ body {
 }
 
 .container {
-  max-width: 1100px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 64px 32px 96px;
 }
@@ -71,43 +68,58 @@ h1 {
 .reports-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* ── Card wrapper ── */
 .report-card-wrapper {
-  background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
+  border: 1px solid var(--border);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .report-card-wrapper:hover {
   border-color: var(--border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
 }
 
 .report-card-wrapper.latest {
   border-color: var(--accent-mid);
 }
 
+.report-card-wrapper.latest:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.12);
+}
+
+/* The whole card is now an <a> tag */
+.report-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.report-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: var(--surface);
+  flex-wrap: wrap;
+  transition: background 0.12s;
+}
+
 .report-card-wrapper.latest .report-card {
   background: var(--accent-light);
 }
 
-.report-card-wrapper.latest:hover {
-  border-color: var(--accent);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+.report-card-link:hover .report-card {
+  background: var(--surface-hover);
 }
 
-/* ── Main card row ── */
-.report-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px 20px;
-  flex-wrap: wrap;
+.report-card-wrapper.latest .report-card-link:hover .report-card {
+  background: #e6edfd;
 }
 
 .badge {
@@ -121,7 +133,6 @@ h1 {
   border-radius: 99px;
   white-space: nowrap;
   flex-shrink: 0;
-  align-self: center;
 }
 
 .report-index {
@@ -131,7 +142,6 @@ h1 {
   width: 24px;
   text-align: right;
   flex-shrink: 0;
-  padding-top: 2px;
 }
 
 .report-info {
@@ -163,139 +173,33 @@ h1 {
   font-family: var(--mono);
 }
 
-/* Coverage link buttons */
-.report-links {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+/* Stats row — coverage % and memory error count */
+.report-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
-  width: 100%;
+  flex-wrap: wrap;
 }
 
-.report-link {
+.stat-group {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  background: var(--surface);
-  text-decoration: none;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 4px;
 }
 
-.report-link:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-light);
-}
-
-/* ── Memory toggle button ── */
-.memory-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.stat-label {
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--memory);
-  background: var(--memory-light);
-  border: 1px solid var(--memory-mid);
-  border-radius: 6px;
-  padding: 5px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  align-self: center;
-  transition: background 0.12s, border-color 0.12s;
-  font-family: var(--sans);
-}
-
-.memory-toggle:hover {
-  background: var(--memory-mid);
-  border-color: var(--memory);
-}
-
-.toggle-icon {
-  font-size: 9px;
-}
-
-/* ── Collapsible memory panel ── */
-.memory-panel {
-  display: none;
-  border-top: 1px solid var(--memory-mid);
-  background: #fdfcff;
-  padding: 20px 20px 20px 24px;
-}
-
-.memory-panel.open {
-  display: block;
-}
-
-.memory-panel-inner {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.memory-group-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--memory);
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--memory-mid);
-}
-
-.memory-links {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.memory-link {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
   font-weight: 500;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  background: var(--surface);
-  text-decoration: none;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  color: var(--subtle);
   font-family: var(--mono);
 }
 
-.memory-link:hover {
-  color: var(--memory);
-  border-color: var(--memory);
-  background: var(--memory-light);
-}
-
-.memory-link-icon {
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-/* ── Stats ── */
 .stat {
   font-size: 11px;
   font-weight: 600;
   font-family: var(--mono);
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 4px;
 }
 
@@ -309,7 +213,19 @@ h1 {
   background: var(--error-bg);
 }
 
-/* ── Empty state ── */
+/* Arrow hint */
+.card-arrow {
+  font-size: 14px;
+  color: var(--subtle);
+  flex-shrink: 0;
+  transition: color 0.12s, transform 0.12s;
+}
+
+.report-card-link:hover .card-arrow {
+  color: var(--accent);
+  transform: translateX(3px);
+}
+
 .empty {
   padding: 48px 24px;
   text-align: center;
@@ -319,7 +235,6 @@ h1 {
   font-size: 14px;
 }
 
-/* ── Footer ── */
 footer {
   margin-top: 56px;
   padding-top: 20px;
@@ -349,14 +264,8 @@ footer {
   50% { opacity: 0.4; }
 }
 
-/* ── Responsive: restore side-by-side on wider screens ── */
-@media (min-width: 640px) {
-  .report-card {
-    flex-wrap: nowrap;
-    align-items: center;
-  }
-
-  .report-links {
-    width: 240px;
-  }
+/* Responsive */
+@media (max-width: 600px) {
+  .report-stats { display: none; }
+  .card-arrow { display: none; }
 }

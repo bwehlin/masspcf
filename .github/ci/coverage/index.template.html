@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Coverage Reports</title>
+  <title>Analysis Reports</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -16,7 +16,7 @@
   <header>
     <div class="eyebrow">C++ &amp; Python Coverage &amp; Memory</div>
     <h1>Analysis<br /><span>Reports</span></h1>
-    <p class="subtitle">Last {{max_reports}} runs — click a label to view that report</p>
+    <p class="subtitle">Last {{max_reports}} runs — click a row to view that report</p>
   </header>
 
   <div class="reports-list">
@@ -57,18 +57,6 @@
       ago.className = 'report-ago';
       ago.textContent = timeAgo(d);
       el.parentNode.insertBefore(ago, el.nextSibling);
-    });
-
-    // Collapsible memory sections
-    document.querySelectorAll('.memory-toggle').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var wrapper = btn.closest('.report-card-wrapper');
-        var panel = wrapper.querySelector('.memory-panel');
-        var isOpen = panel.classList.toggle('open');
-        btn.setAttribute('aria-expanded', String(isOpen));
-        btn.querySelector('.toggle-icon').textContent = isOpen ? '\u25be' : '\u25b8';
-      });
     });
   });
 </script>
