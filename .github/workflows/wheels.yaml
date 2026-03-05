@@ -71,6 +71,6 @@ jobs:
         uses: actions/upload-artifact/merge@v4
         with:
           name: cpu-wheels
-          retention-days: 2
           pattern: cpu-wheels-*
-    
+          retention-days: 2
+
