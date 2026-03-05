@@ -68,19 +68,12 @@ namespace
 // operator==  / operator!=  — shape mismatch short-circuit
 // ============================================================================
 
-  TEST(TensorTpp, EqualityShapeMismatchReturnsFalse)
-  {
-    mpcf::Tensor<int> a({ 2, 3 });
-    mpcf::Tensor<int> b({ 3, 2 });
-    EXPECT_FALSE(a == b);
-  }
-
   TEST(TensorTpp, InequalityShapeMismatchReturnsFalse)
   {
-// NOTE: operator!= returns false on shape mismatch (see tensor.tpp)
     mpcf::Tensor<int> a({ 2, 3 });
     mpcf::Tensor<int> b({ 3, 2 });
-    EXPECT_FALSE(a != b);
+    EXPECT_TRUE(a != b);
+    EXPECT_FALSE(a == b);
   }
 
   TEST(TensorTpp, EqualityIdenticalTensors)

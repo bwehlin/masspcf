@@ -302,14 +302,9 @@ namespace mpcf
           auto step = *arg.step;
 
           if (start < 0_z)
-          {
             start = 0;
-          }
-
           if (stop > static_cast<std::ptrdiff_t>(ret.m_shape[i]))
-          {
-            stop = ret.m_shape[i];
-          }
+            stop = static_cast<std::ptrdiff_t>(ret.m_shape[i]);
 
           if (step == 0_z)
           {
@@ -321,16 +316,18 @@ namespace mpcf
             {
               ret.m_shape[i] = 0;
             }
-            ret.m_shape[i] = (*arg.stop - *arg.start + *arg.step - 1_z) / *arg.step;
+            else
+            {
+              ret.m_shape[i] = (stop - start + step - 1_z) / step;
+            }
           }
           else
           {
-            throw std::runtime_error("Negative step not supported in this release (please file an issue if you need this).");
+            throw std::runtime_error("Negative step not supported...");
           }
 
-
-          ret.m_offset += *arg.start * ret.m_strides[i];
-          ret.m_strides[i] *= *arg.step;
+          ret.m_offset += start * ret.m_strides[i]; // use clamped start
+          ret.m_strides[i] *= step;
 
         }
         // For SliceAll, don't modify shape
