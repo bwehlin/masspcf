@@ -4,4 +4,4 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    uses: ./.github/workflows/wheels.yml
+    uses: ./.github/workflows/wheels.yaml
