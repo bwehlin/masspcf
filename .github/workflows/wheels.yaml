@@ -31,7 +31,7 @@ jobs:
       #  if: runner.os != 'Windows'
 
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Set build parallelism
         shell: bash
