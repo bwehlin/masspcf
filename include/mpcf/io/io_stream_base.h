@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <vector>
 #include <iostream>
+#include <string_view>
 
 //#define MPCF_IO_DEBUG
 
@@ -35,9 +36,9 @@ namespace mpcf::io::detail
     }
   }
 
-  inline void write_binary_string(std::ostream& os, const std::string& str)
+  inline void write_binary_string(std::ostream& os, std::string_view str)
   {
-    os.write(str.c_str(), str.size());
+    os.write(str.data(), str.size());
     assert_not_bad(os);
   }
 

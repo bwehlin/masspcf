@@ -26,6 +26,7 @@
 #include <variant>
 #include <cstdint>
 #include <bit>
+#include <string_view>
 
 #ifdef __APPLE__
 #include "TargetConditionals.h"
@@ -35,7 +36,7 @@ namespace mpcf
 {
   namespace io::detail
   {
-    constexpr const std::string HeaderIdBytes = "\1MPCF"; // This should never change!
+    constexpr const std::string_view HeaderIdBytes = "\1MPCF"; // This should never change!
 
     // This should change as soon as an older version would not be able to read the data produced by the current version.
     constexpr const int FormatVersion = 1;
