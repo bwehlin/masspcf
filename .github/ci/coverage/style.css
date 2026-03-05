@@ -73,13 +73,14 @@ h1 {
 
 .report-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   padding: 16px 20px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  flex-wrap: wrap;
 }
 
 .report-card:hover {
@@ -122,7 +123,7 @@ h1 {
 
 .report-info {
   flex: 1;
-  min-width: 0;
+  min-width: 160px;
 }
 
 .report-label {
@@ -132,6 +133,13 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: var(--mono);
+}
+
+.report-ago {
+  font-size: 11px;
+  color: var(--subtle);
+  margin-top: 3px;
   font-family: var(--mono);
 }
 
@@ -147,7 +155,7 @@ h1 {
   grid-template-columns: 1fr 1fr;
   gap: 6px;
   flex-shrink: 0;
-  width: 360px;
+  width: 100%;
 }
 
 .report-link {
@@ -157,7 +165,7 @@ h1 {
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
-  padding: 5px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
   color: var(--muted);
@@ -165,6 +173,8 @@ h1 {
   text-decoration: none;
   transition: color 0.12s, border-color 0.12s, background 0.12s;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .report-link:hover {
@@ -227,4 +237,16 @@ footer {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+/* On wider screens, restore the side-by-side layout */
+@media (min-width: 640px) {
+  .report-card {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .report-links {
+    width: 360px;
+  }
 }
