@@ -26,6 +26,9 @@
   --ok-bg: #dcfce7;
   --error: #dc2626;
   --error-bg: #fee2e2;
+  --memory: #7c3aed;
+  --memory-light: #f5f3ff;
+  --memory-mid: #ddd6fe;
   --sans: 'Inter', sans-serif;
   --mono: 'DM Mono', monospace;
 }
@@ -81,32 +84,40 @@ h1 {
   gap: 8px;
 }
 
+/* ── Card wrapper ── */
+.report-card-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.report-card-wrapper:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.report-card-wrapper.latest {
+  border-color: var(--accent-mid);
+}
+
+.report-card-wrapper.latest .report-card {
+  background: var(--accent-light);
+}
+
+.report-card-wrapper.latest:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+/* ── Main card row ── */
 .report-card {
   display: flex;
   align-items: flex-start;
   gap: 16px;
   padding: 16px 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   flex-wrap: wrap;
-}
-
-.report-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  background: var(--surface-hover);
-}
-
-.report-card.latest {
-  border-color: var(--accent-mid);
-  background: var(--accent-light);
-}
-
-.report-card.latest:hover {
-  border-color: var(--accent);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
 }
 
 .badge {
@@ -120,6 +131,7 @@ h1 {
   border-radius: 99px;
   white-space: nowrap;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .report-index {
@@ -129,6 +141,7 @@ h1 {
   width: 24px;
   text-align: right;
   flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .report-info {
@@ -160,6 +173,7 @@ h1 {
   font-family: var(--mono);
 }
 
+/* Coverage link buttons */
 .report-links {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -193,6 +207,100 @@ h1 {
   background: var(--accent-light);
 }
 
+/* ── Memory toggle button ── */
+.memory-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--memory);
+  background: var(--memory-light);
+  border: 1px solid var(--memory-mid);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+  transition: background 0.12s, border-color 0.12s;
+  font-family: var(--sans);
+}
+
+.memory-toggle:hover {
+  background: var(--memory-mid);
+  border-color: var(--memory);
+}
+
+.toggle-icon {
+  font-size: 9px;
+}
+
+/* ── Collapsible memory panel ── */
+.memory-panel {
+  display: none;
+  border-top: 1px solid var(--memory-mid);
+  background: #fdfcff;
+  padding: 20px 20px 20px 24px;
+}
+
+.memory-panel.open {
+  display: block;
+}
+
+.memory-panel-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.memory-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--memory);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--memory-mid);
+}
+
+.memory-links {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.memory-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  background: var(--surface);
+  text-decoration: none;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  font-family: var(--mono);
+}
+
+.memory-link:hover {
+  color: var(--memory);
+  border-color: var(--memory);
+  background: var(--memory-light);
+}
+
+.memory-link-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* ── Stats ── */
 .stat {
   font-size: 11px;
   font-weight: 600;
@@ -211,6 +319,7 @@ h1 {
   background: var(--error-bg);
 }
 
+/* ── Empty state ── */
 .empty {
   padding: 48px 24px;
   text-align: center;
@@ -220,6 +329,7 @@ h1 {
   font-size: 14px;
 }
 
+/* ── Footer ── */
 footer {
   margin-top: 56px;
   padding-top: 20px;
@@ -249,7 +359,7 @@ footer {
   50% { opacity: 0.4; }
 }
 
-/* On wider screens, restore the side-by-side layout */
+/* ── Responsive: restore side-by-side on wider screens ── */
 @media (min-width: 640px) {
   .report-card {
     flex-wrap: nowrap;
@@ -257,7 +367,7 @@ footer {
   }
 
   .report-links {
-    width: 360px;
+    width: 240px;
   }
 }
 
@@ -266,97 +376,402 @@ footer {
 <body>
 <div class="container">
   <header>
-    <div class="eyebrow">C++ &amp; Python Coverage</div>
-    <h1>Coverage<br /><span>Reports</span></h1>
+    <div class="eyebrow">C++ &amp; Python Coverage &amp; Memory</div>
+    <h1>Analysis<br /><span>Reports</span></h1>
     <p class="subtitle">Last 5 runs — click a label to view that report</p>
   </header>
 
   <div class="reports-list">
     
-    <div class="report-card latest">
-      <span class="report-index">#1</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-05T19:23:07Z" data-sha="ec81680">2026-03-05 19:23:07 UTC — ec81680</div>
-        <div class="report-branch">⎇ main</div>
-      </div>
-      <span class="badge">Latest</span>
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/cpp/coverage.html">C++ <span class="stat stat-ok">68.3%</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/python/index.html">Python <span class="stat stat-ok">70%</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-ok">0 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_pytest/index.html">Helgrind pytest <span class="stat stat-error">123 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_gtest/index.html">Helgrind gtest <span class="stat stat-error">112 errors</span></a>
-      </div>
+<div class="report-card-wrapper latest">
+  <div class="report-card">
+    <span class="report-index">#1</span>
+    <div class="report-info">
+      <div class="report-label" data-utc="2026-03-05T19:43:56Z" data-sha="b61083a">2026-03-05 19:43:56 UTC — b61083a</div>
+      <div class="report-branch">&#x2387; main</div>
     </div>
+    <span class="badge">Latest</span>
+    <div class="report-links">
+      <a class="report-link" href="reports/2026-03-05_19-43-56_b61083a/cpp/coverage.html">C++ <span class="stat stat-ok">68.2%</span></a>
+      <a class="report-link" href="reports/2026-03-05_19-43-56_b61083a/python/index.html">Python <span class="stat stat-ok">70%</span></a>
+    </div>
+      <button class="memory-toggle" aria-expanded="false">
+        <span class="toggle-icon">&#x25b8;</span> Memory
+      </button>
+  </div>
+  <div class="memory-panel">
+    <div class="memory-panel-inner">
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/valgrind/vg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/valgrind/vg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/valgrind/vg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/valgrind/vg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/valgrind/vg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/valgrind/vg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/helgrind/hg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/helgrind/hg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/helgrind/hg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/helgrind/hg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/helgrind/hg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-43-56_b61083a/helgrind/hg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+    </div>
+  </div>
+</div>
 
-    <div class="report-card">
-      <span class="report-index">#2</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-05T19:07:46Z" data-sha="8f59c05">2026-03-05 19:07:46 UTC — 8f59c05</div>
-        <div class="report-branch">⎇ main</div>
-      </div>
-      
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/cpp/coverage.html">C++ <span class="stat stat-ok">68.3%</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/python/index.html">Python <span class="stat stat-ok">70%</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-ok">0 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_pytest/index.html">Helgrind pytest <span class="stat stat-error">121 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_gtest/index.html">Helgrind gtest <span class="stat stat-error">107 errors</span></a>
-      </div>
+<div class="report-card-wrapper">
+  <div class="report-card">
+    <span class="report-index">#2</span>
+    <div class="report-info">
+      <div class="report-label" data-utc="2026-03-05T19:23:07Z" data-sha="ec81680">2026-03-05 19:23:07 UTC — ec81680</div>
+      <div class="report-branch">&#x2387; main</div>
     </div>
+    
+    <div class="report-links">
+      <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/cpp/coverage.html">C++ <span class="stat stat-ok">68.3%</span></a>
+      <a class="report-link" href="reports/2026-03-05_19-23-07_ec81680/python/index.html">Python <span class="stat stat-ok">70%</span></a>
+    </div>
+      <button class="memory-toggle" aria-expanded="false">
+        <span class="toggle-icon">&#x25b8;</span> Memory
+      </button>
+  </div>
+  <div class="memory-panel">
+    <div class="memory-panel-inner">
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/valgrind/vg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-23-07_ec81680/helgrind/hg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+    </div>
+  </div>
+</div>
 
-    <div class="report-card">
-      <span class="report-index">#3</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-05T17:58:12Z" data-sha="52c5575">2026-03-05 17:58:12 UTC — 52c5575</div>
-        <div class="report-branch">⎇ main</div>
-      </div>
-      
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/cpp/coverage.html">C++ <span class="stat stat-ok">63.4%</span></a>
-        <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/python/index.html">Python <span class="stat stat-ok">70%</span></a>
-        <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
-        <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-ok">0 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_pytest/index.html">Helgrind pytest <span class="stat stat-error">119 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_gtest/index.html">Helgrind gtest <span class="stat stat-error">36 errors</span></a>
-      </div>
+<div class="report-card-wrapper">
+  <div class="report-card">
+    <span class="report-index">#3</span>
+    <div class="report-info">
+      <div class="report-label" data-utc="2026-03-05T19:07:46Z" data-sha="8f59c05">2026-03-05 19:07:46 UTC — 8f59c05</div>
+      <div class="report-branch">&#x2387; main</div>
     </div>
+    
+    <div class="report-links">
+      <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/cpp/coverage.html">C++ <span class="stat stat-ok">68.3%</span></a>
+      <a class="report-link" href="reports/2026-03-05_19-07-46_8f59c05/python/index.html">Python <span class="stat stat-ok">70%</span></a>
+    </div>
+      <button class="memory-toggle" aria-expanded="false">
+        <span class="toggle-icon">&#x25b8;</span> Memory
+      </button>
+  </div>
+  <div class="memory-panel">
+    <div class="memory-panel-inner">
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/valgrind/vg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_19-07-46_8f59c05/helgrind/hg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+    </div>
+  </div>
+</div>
 
-    <div class="report-card">
-      <span class="report-index">#4</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-05T16:14:11Z" data-sha="e8db5a1">2026-03-05 16:14:11 UTC — e8db5a1</div>
-        <div class="report-branch">⎇ main</div>
-      </div>
-      
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/cpp/coverage.html">C++ <span class="stat stat-ok">63.7%</span></a>
-        <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/python/index.html">Python <span class="stat stat-ok">70%</span></a>
-        <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
-        <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-error">2 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_pytest/index.html">Helgrind pytest <span class="stat stat-error">121 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_gtest/index.html">Helgrind gtest <span class="stat stat-error">36 errors</span></a>
-      </div>
+<div class="report-card-wrapper">
+  <div class="report-card">
+    <span class="report-index">#4</span>
+    <div class="report-info">
+      <div class="report-label" data-utc="2026-03-05T17:58:12Z" data-sha="52c5575">2026-03-05 17:58:12 UTC — 52c5575</div>
+      <div class="report-branch">&#x2387; main</div>
     </div>
+    
+    <div class="report-links">
+      <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/cpp/coverage.html">C++ <span class="stat stat-ok">63.4%</span></a>
+      <a class="report-link" href="reports/2026-03-05_17-58-12_52c5575/python/index.html">Python <span class="stat stat-ok">70%</span></a>
+    </div>
+      <button class="memory-toggle" aria-expanded="false">
+        <span class="toggle-icon">&#x25b8;</span> Memory
+      </button>
+  </div>
+  <div class="memory-panel">
+    <div class="memory-panel-inner">
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/valgrind/vg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_17-58-12_52c5575/helgrind/hg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+    </div>
+  </div>
+</div>
 
-    <div class="report-card">
-      <span class="report-index">#5</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-05T15:45:01Z" data-sha="a8b5caf">2026-03-05 15:45:01 UTC — a8b5caf</div>
-        <div class="report-branch">⎇ main</div>
-      </div>
-      
-      <div class="report-links">
-        <a class="report-link" href="reports/2026-03-05_15-45-01_a8b5caf/cpp/coverage.html">C++ <span class="stat stat-ok">63.7%</span></a>
-        <a class="report-link" href="reports/2026-03-05_15-45-01_a8b5caf/python/index.html">Python <span class="stat stat-ok">70%</span></a>
-        <a class="report-link" href="reports/2026-03-05_15-45-01_a8b5caf/valgrind/vg_pytest/index.html">Memcheck pytest <span class="stat stat-error">1 error</span></a>
-        <a class="report-link" href="reports/2026-03-05_15-45-01_a8b5caf/valgrind/vg_gtest/index.html">Memcheck gtest <span class="stat stat-error">2 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_15-45-01_a8b5caf/helgrind/hg_pytest/index.html">Helgrind pytest <span class="stat stat-error">110 errors</span></a>
-        <a class="report-link" href="reports/2026-03-05_15-45-01_a8b5caf/helgrind/hg_gtest/index.html">Helgrind gtest <span class="stat stat-error">40 errors</span></a>
-      </div>
+<div class="report-card-wrapper">
+  <div class="report-card">
+    <span class="report-index">#5</span>
+    <div class="report-info">
+      <div class="report-label" data-utc="2026-03-05T16:14:11Z" data-sha="e8db5a1">2026-03-05 16:14:11 UTC — e8db5a1</div>
+      <div class="report-branch">&#x2387; main</div>
     </div>
+    
+    <div class="report-links">
+      <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/cpp/coverage.html">C++ <span class="stat stat-ok">63.7%</span></a>
+      <a class="report-link" href="reports/2026-03-05_16-14-11_e8db5a1/python/index.html">Python <span class="stat stat-ok">70%</span></a>
+    </div>
+      <button class="memory-toggle" aria-expanded="false">
+        <span class="toggle-icon">&#x25b8;</span> Memory
+      </button>
+  </div>
+  <div class="memory-panel">
+    <div class="memory-panel-inner">
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Valgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/valgrind/vg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — pytest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_pytest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_pytest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_pytest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+          <div class="memory-group">
+            <div class="memory-group-title">Helgrind — gtest</div>
+            <div class="memory-links">
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_gtest/summary.txt">
+                <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_gtest/raw.log">
+                <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+              </a>
+              <a class="memory-link" href="reports/2026-03-05_16-14-11_e8db5a1/helgrind/hg_gtest/raw.xml">
+                <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+              </a>
+            </div>
+          </div>
+    </div>
+  </div>
+</div>
   </div>
 
   <footer>
@@ -387,13 +802,24 @@ footer {
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         hour12: false
       });
-      el.textContent = local + (sha ? ' — ' + sha : '');
+      el.textContent = local + (sha ? ' \u2014 ' + sha : '');
 
-      // Inject the "X ago" line
       var ago = document.createElement('div');
       ago.className = 'report-ago';
       ago.textContent = timeAgo(d);
       el.parentNode.insertBefore(ago, el.nextSibling);
+    });
+
+    // Collapsible memory sections
+    document.querySelectorAll('.memory-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wrapper = btn.closest('.report-card-wrapper');
+        var panel = wrapper.querySelector('.memory-panel');
+        var isOpen = panel.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(isOpen));
+        btn.querySelector('.toggle-icon').textContent = isOpen ? '\u25be' : '\u25b8';
+      });
     });
   });
 </script>
