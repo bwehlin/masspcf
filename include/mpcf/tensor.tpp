@@ -124,6 +124,10 @@ namespace mpcf
   template <typename T>
   [[nodiscard]] size_t Tensor<T>::size() const noexcept
   {
+    if (m_shape.empty())
+    {
+      return 0_uz;
+    }
     return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies<size_t>());
   }
 
@@ -142,12 +146,16 @@ namespace mpcf
   template <typename T>
   Tensor<T> Tensor<T>::flatten() const
   {
-    if (!m_isContiguous)
+    Tensor ret;
+    if (m_isContiguous)
     {
-      throw std::runtime_error("flatten() is only available for contiguous tensors in this release (please file an issue if you need this for your case).");
+      ret = *this;
+    }
+    else
+    {
+      ret = copy();
     }
 
-    Tensor ret = *this;
     ret.m_viewType = ViewType::Flattened;
     ret.m_shape = { get_total_size() };
     ret.m_strides = { 0_uz };

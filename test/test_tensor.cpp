@@ -93,19 +93,6 @@ namespace
     EXPECT_TRUE(a != b);
   }
 
-  TEST(TensorTpp, EqualityEarlyExitOnFirstDifference)
-  {
-// Walk with bool-returning functor stops early — exercise that path
-    mpcf::Tensor<int> a({ 5 });
-    mpcf::Tensor<int> b({ 5 });
-    a = 1;
-    b = 1;
-    b(0) = 99; // differs at very first element
-
-    EXPECT_FALSE(a == b);
-    EXPECT_TRUE(a != b);
-  }
-
 // ============================================================================
 // assign_from
 // ============================================================================
@@ -132,8 +119,8 @@ namespace
   TEST(TensorTpp, SizeOfEmptyTensor)
   {
     mpcf::Tensor<int> t;
-// Default constructor → shape {}, size = product of nothing = 1
-    EXPECT_EQ(t.size(), 1u);
+    // Default constructor → shape {}, size = 0
+    EXPECT_EQ(t.size(), 0u);
   }
 
   TEST(TensorTpp, Size1d)
@@ -174,7 +161,7 @@ namespace
     EXPECT_EQ(c.shape(0), 2u);
     EXPECT_EQ(c.shape(1), 4u);
 
-// Values should match the slice
+    // Values should match the slice
     for (size_t i = 0; i < 2; ++i)
       for (size_t j = 0; j < 4; ++j)
         EXPECT_EQ(c({ i, j }), sliced({ i, j }));
@@ -192,17 +179,19 @@ namespace
     ASSERT_EQ(flat.shape().size(), 1u);
     EXPECT_EQ(flat.shape(0), 6u);
 
-// flatten uses ViewType::Flattened with contiguous path
     for (size_t i = 0; i < 6; ++i)
       EXPECT_EQ(flat(i), static_cast<int>(i));
   }
 
-  TEST(TensorTpp, FlattenNonContiguousThrows)
+  TEST(TensorTpp, FlattenNonContiguousWorksOnCopy)
   {
     auto t = make_sequential<double>({ 4, 4 });
     auto sliced = t[std::vector<mpcf::Slice>{ mpcf::range(0, 4, 2), mpcf::all() }];
     EXPECT_FALSE(sliced.is_contiguous());
-    EXPECT_THROW(sliced.flatten(), std::runtime_error);
+    auto flat = sliced.flatten();
+    EXPECT_TRUE(flat.is_contiguous());
+
+    EXPECT_NE(sliced.data(), flat.data());
   }
 
 // ============================================================================
@@ -237,11 +226,11 @@ namespace
   {
     mpcf::Tensor<int> t; // shape {}
     int count = 0;
-// shape is empty → walk returns immediately
+    // shape is empty → walk returns immediately
     t.walk([&count](const std::vector<size_t>&) { ++count; });
-// shape {} has no zero dimension, so walk does visit the one scalar element
-// (walk only returns early if shape is empty OR any dimension is 0)
-    (void)count; // exact behaviour depends on impl; just ensure no crash
+    // shape {} has no zero dimension, so walk does visit the one scalar element
+    // (walk only returns early if shape is empty OR any dimension is 0)
+    EXPECT_EQ(count, 0);
   }
 
   TEST(TensorTpp, WalkZeroDimensionDoesNothing)
@@ -292,11 +281,11 @@ namespace
   TEST(TensorTpp, SliceIndexDropsDimension)
   {
     auto t = make_sequential<int>({ 3, 4 });
-// Index into first dim → shape becomes (4,)
+    // Index into first dim → shape becomes (4,)
     auto view = t[std::vector<mpcf::Slice>{ mpcf::index(1), mpcf::all() }];
     EXPECT_EQ(view.shape().size(), 1u);
     EXPECT_EQ(view.shape(0), 4u);
-// Row 1: values 4..7
+    // Row 1: values 4..7
     for (size_t j = 0; j < 4; ++j)
       EXPECT_EQ(view({ j }), static_cast<int>(4 + j));
   }
@@ -304,7 +293,7 @@ namespace
   TEST(TensorTpp, SliceRangeStopClampedToShape)
   {
     auto t = make_sequential<int>({ 5 });
-// stop=100 should be clamped to 5
+    // stop=100 should be clamped to 5
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(1, 100, std::nullopt) }];
     EXPECT_EQ(view.shape(0), 4u);
   }
@@ -313,7 +302,7 @@ namespace
   {
     auto t = make_sequential<int>({ 5 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(-10, 3, std::nullopt) }];
-// start clamped to 0, stop=3 → size 3
+    // start clamped to 0, stop=3 → size 3
     EXPECT_EQ(view.shape(0), 3u);
     EXPECT_EQ(view({ 0 }), 0);
     EXPECT_EQ(view({ 1 }), 1);
@@ -346,7 +335,7 @@ namespace
   TEST(TensorTpp, SliceRangeWithDefaultStartStop)
   {
     auto t = make_sequential<int>({ 5 });
-// range with no start/stop → full range
+    // range with no start/stop → full range
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(std::nullopt, std::nullopt, std::nullopt) }];
     EXPECT_EQ(view.shape(0), 5u);
     for (size_t i = 0; i < 5; ++i)
@@ -356,7 +345,7 @@ namespace
   TEST(TensorTpp, Slice3dMixed)
   {
     auto t = make_sequential<int>({ 4, 5, 6 });
-// t[1, 2:4, ::2]
+    // t[1, 2:4, ::2]
     auto view = t[std::vector<mpcf::Slice>{
         mpcf::index(1),
         mpcf::range(2, 4, std::nullopt),
@@ -367,7 +356,7 @@ namespace
     EXPECT_EQ(view.shape(0), 2u);   // rows 2,3
     EXPECT_EQ(view.shape(1), 3u);   // cols 0,2,4
 
-// t[1,2,0]=1*30+2*6+0=42; t[1,2,2]=44; t[1,2,4]=46
+    // t[1,2,0]=1*30+2*6+0=42; t[1,2,2]=44; t[1,2,4]=46
     EXPECT_EQ(view({ 0, 0 }), 1 * 30 + 2 * 6 + 0);
     EXPECT_EQ(view({ 0, 1 }), 1 * 30 + 2 * 6 + 2);
     EXPECT_EQ(view({ 0, 2 }), 1 * 30 + 2 * 6 + 4);
@@ -382,8 +371,8 @@ namespace
   {
     auto t = make_sequential<int>({ 2, 3 });
     auto flat = t.flatten();
-// Accessing flat via a 2d index should throw
-    EXPECT_THROW(flat({ 0, 0 }), std::runtime_error);
+    // Accessing flat via a 2d index should throw
+    EXPECT_THROW((void)flat({ 0, 0 }), std::runtime_error);
   }
 
 // ============================================================================
@@ -397,24 +386,6 @@ namespace
       t(i) = static_cast<int>(i * 10);
     for (size_t i = 0; i < 5; ++i)
       EXPECT_EQ(t(i), static_cast<int>(i * 10));
-  }
-
-// ============================================================================
-// Default (empty-shape) tensor can be accessed
-// ============================================================================
-
-  TEST(TensorTpp, DefaultTensorAccess)
-  {
-    mpcf::Tensor<double> t;
-
-    // walk should visit it zero times
-    int visits = 0;
-    t.walk([&visits, &t](const std::vector<size_t>& idx)
-    {
-      ++visits;
-    });
-
-    EXPECT_EQ(visits, 0);
   }
 
 } // namespace
