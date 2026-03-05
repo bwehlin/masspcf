@@ -3,6 +3,24 @@ name: BuildAndPublishTestPyPI
 on: [workflow_dispatch]
 
 jobs:
+  check_version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version not already published
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          PACKAGE=$(grep '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
+          echo "Checking if $PACKAGE==$VERSION is already on TestPyPI..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://test.pypi.org/pypi/$PACKAGE/$VERSION/json)
+          if [ "$STATUS" == "200" ]; then
+            echo "❌ $PACKAGE==$VERSION already exists on TestPyPI!"
+            exit 1
+          fi
+          echo "✅ $PACKAGE==$VERSION not found on TestPyPI, proceeding..."
+
   analysis:
     permissions:
       contents: write
