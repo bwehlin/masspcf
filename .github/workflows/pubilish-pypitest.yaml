@@ -4,7 +4,7 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    uses: ./.github/workflows/wheels.yaml
+    uses: ./.github/workflows/wheels-tiny.yaml
 
   publish:
     runs-on: ubuntu-latest

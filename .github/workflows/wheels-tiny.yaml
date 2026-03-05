@@ -1,0 +1,56 @@
+name: BuildWheelsTiny
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build_wheels_CPU:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-2025]
+
+    env:
+      BUILD_WITH_CUDA: 0
+
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      #- name: Change project name (Windows)
+      #  run: powershell -Command "(gc pyproject.toml) -replace 'masspcf', 'masspcf-cpu' | Out-File -encoding ASCII pyproject.toml"
+      #  if: runner.os == 'Windows'
+
+      #- name: Change project name (UNIX)
+      #  run: sed -i -e 's/masspcf/masspcf-cpu/g' pyproject.toml
+      #  if: runner.os != 'Windows'
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_BUILD: "cp313-win_amd64"
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpu-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+          retention-days: 1
+
+  merge_cpu_artifacts:
+    runs-on: ubuntu-latest
+    needs: build_wheels_CPU
+    steps:
+      - name: Merge Artifacts
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: cpu-wheels
+          retention-days: 2
+
