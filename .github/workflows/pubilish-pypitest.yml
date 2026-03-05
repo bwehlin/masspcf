@@ -1,0 +1,25 @@
+name: PublishTestPyPI
+
+on: [workflow_dispatch]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.actor == 'bwehlin'
+    environment:
+      name: pypi-test
+      url: https://test.pypi.org/p/masspcf-cpu
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: cpu-wheels
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
