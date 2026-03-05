@@ -15,6 +15,7 @@
 #ifndef MASSPCF_STABLE_RANK_H
 #define MASSPCF_STABLE_RANK_H
 
+#include "../task.h"
 #include "../pcf.h"
 #include "barcode.h"
 

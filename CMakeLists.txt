@@ -330,6 +330,9 @@ if (BUILD_TESTER)
       test/test_special_tensors.cpp
       test/test_io_stream.cpp
       test/test_io_readwrite.cpp
+      test/test_pcf_algebra_and_norms.cpp
+      test/test_tensor_io_core.cpp
+      test/test_barcode_and_stable_rank.cpp
     )
 
   target_include_directories(mpcf_test PRIVATE "include/")

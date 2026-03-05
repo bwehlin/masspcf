@@ -76,7 +76,7 @@ namespace mpcf::ph
       }
 
       std::vector<mpcf::ph::PersistencePair<T>> thisBars(m_bars);
-      std::vector<mpcf::ph::PersistencePair<T>> rhsBars(m_bars);
+      std::vector<mpcf::ph::PersistencePair<T>> rhsBars(rhs.m_bars);
 
       std::sort(thisBars.begin(), thisBars.end());
       std::sort(rhsBars.begin(), rhsBars.end());

@@ -41,15 +41,31 @@ namespace mpcf
   {
     using point_type = typename TPcf::point_type;
     using rectangle_type = typename TPcf::rectangle_type;
+    using value_type = typename point_type::value_type;
 
     std::vector<point_type> retPts;
-    std::size_t npts = 0;
+
+    std::size_t npts = 0_uz;
     iterate_rectangles(f.points(), g.points(), [&npts](const rectangle_type&){ ++npts; });
-    retPts.resize(npts);
-    auto i = 0ul;
-    iterate_rectangles(f.points(), g.points(), [&retPts, &i, &op](const rectangle_type& rect){
-      retPts[i++] = point_type(rect.left, op(rect));
+    retPts.reserve(npts);
+
+    value_type vLast = static_cast<value_type>(0);
+    bool first = true;
+
+    iterate_rectangles(f.points(), g.points(), [&retPts, &op, &vLast, &first](const rectangle_type& rect){
+      auto v = op(rect);
+
+      // Avoid inserting duplicate plateaus with the same value, except at t=0
+      if (first || v != vLast || rect.left == 0)
+      {
+        retPts.emplace_back(rect.left, v);
+        first = false;
+      }
+
+      vLast = v;
     });
+
+    retPts.shrink_to_fit();
 
     return TPcf(std::move(retPts));
   }
