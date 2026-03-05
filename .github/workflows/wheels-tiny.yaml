@@ -34,7 +34,13 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_ENVIRONMENT: >-
+            BUILD_WITH_CUDA=0
+            MACOSX_DEPLOYMENT_TARGET=11.0
+            CMAKE_BUILD_PARALLEL_LEVEL=0
+            CMAKE_UNITY_BUILD=ON
+            CMAKE_UNITY_BUILD_BATCH_SIZE=4
+          CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_BUILD: "cp313-win_amd64"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
 
