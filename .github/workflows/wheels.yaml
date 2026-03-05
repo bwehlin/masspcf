@@ -1,6 +1,8 @@
 name: BuildWheels
 
-on: [workflow_dispatch, workflow_call] # push
+on:
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   build_wheels_CPU:
