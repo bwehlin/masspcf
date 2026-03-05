@@ -22,6 +22,7 @@ jobs:
 
       - name: Compare wheels
         run: |
+          set -o pipefail
           echo '```' >> $GITHUB_STEP_SUMMARY
           python -u .github/scripts/compare_wheels.py -v dist/ | tee -a $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
