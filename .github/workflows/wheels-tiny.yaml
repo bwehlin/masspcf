@@ -33,6 +33,11 @@ jobs:
       - name: Install uv
         run: pip install uv
 
+      - name: Set build parallelism
+        run: |
+          echo "CMAKE_BUILD_PARALLEL_LEVEL=$env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
+          echo "Using $env:NUMBER_OF_PROCESSORS core(s) to build..."
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
@@ -40,7 +45,7 @@ jobs:
           CIBW_ENVIRONMENT: >-
             BUILD_WITH_CUDA=0
             MACOSX_DEPLOYMENT_TARGET=11.0
-            CMAKE_BUILD_PARALLEL_LEVEL=0
+            CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
           CIBW_BUILD_FRONTEND: "build[uv]"
