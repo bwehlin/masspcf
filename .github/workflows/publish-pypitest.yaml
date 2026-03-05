@@ -23,6 +23,9 @@ jobs:
           name: cpu-wheels
           path: dist/
 
+      - name: Compare wheels
+        run: python .github/scripts/compare_wheels.py -v dist/
+
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
