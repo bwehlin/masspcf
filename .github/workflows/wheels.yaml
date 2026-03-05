@@ -30,11 +30,31 @@ jobs:
       #  run: sed -i -e 's/masspcf/masspcf-cpu/g' pyproject.toml
       #  if: runner.os != 'Windows'
 
+      - name: Install uv
+        run: pip install uv
+
+      - name: Set build parallelism
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            CORES=$NUMBER_OF_PROCESSORS
+          else
+            CORES=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
+          fi
+          echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
+          echo "Using $CORES core(s) to build..."
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_ENVIRONMENT: BUILD_WITH_CUDA=0 MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_ENVIRONMENT: >-
+            BUILD_WITH_CUDA=0
+            MACOSX_DEPLOYMENT_TARGET=11.0
+            CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
+            CMAKE_UNITY_BUILD=ON
+            CMAKE_UNITY_BUILD_BATCH_SIZE=4
+          CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
 
       - uses: actions/upload-artifact@v4

@@ -4,10 +4,10 @@ import io
 from pathlib import Path
 from fnmatch import fnmatch
 
-
 IGNORE_GLOBS = [
-    #'*/_mpcf_cpp*',                         # platform-specific extension module
-    #'*/sboms/auditwheel.cdx.json',          # auditwheel metadata, varies by platform
+    '*/masspcf/_mpcf_cpp*.so*',             # Linux/Mac Python extension module
+    '*/masspcf/_mpcf_cpp*.pyd',             # Windows Python extension module
+    '*/sboms/auditwheel.cdx.json',          # auditwheel metadata, varies by platform
     'masspcf_cpu.libs/libgcc*.so*',         # bundled gcc library
     'masspcf_cpu.libs/libstdc++*.so*',      # bundled stdc++ library
 ]
