@@ -1,6 +1,6 @@
 name: BuildWheels
 
-on: [workflow_dispatch] # push
+on: [workflow_dispatch, workflow_call] # push
 
 jobs:
   build_wheels_CPU:
@@ -20,13 +20,13 @@ jobs:
         with:
           submodules: 'recursive'
       
-      - name: Change project name (Windows)
-        run: powershell -Command "(gc pyproject.toml) -replace 'masspcf', 'masspcf-cpu' | Out-File -encoding ASCII pyproject.toml"
-        if: runner.os == 'Windows'
+      #- name: Change project name (Windows)
+      #  run: powershell -Command "(gc pyproject.toml) -replace 'masspcf', 'masspcf-cpu' | Out-File -encoding ASCII pyproject.toml"
+      #  if: runner.os == 'Windows'
       
-      - name: Change project name (UNIX)
-        run: sed -i -e 's/masspcf/masspcf-cpu/g' pyproject.toml
-        if: runner.os != 'Windows'
+      #- name: Change project name (UNIX)
+      #  run: sed -i -e 's/masspcf/masspcf-cpu/g' pyproject.toml
+      #  if: runner.os != 'Windows'
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
