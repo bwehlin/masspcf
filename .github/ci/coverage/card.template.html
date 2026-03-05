@@ -1,0 +1,129 @@
+<!--
+  This snippet shows the HTML structure each "card" should produce.
+  Replace whatever your generate_coverage_index.py currently emits for each card
+  with something that renders this structure.
+
+  Variables used (same as before, plus memory report paths):
+    {is_latest}        → "latest" or ""
+    {index}            → card number, e.g. 1
+    {utc_iso}          → ISO 8601 timestamp, e.g. 2024-03-01T12:00:00Z
+    {short_sha}        → 7-char git SHA
+    {branch}           → branch name
+    {report_dir}       → relative path to this report dir, e.g. reports/2024-03-01_12-00-00_abc1234
+    {cpp_pct}          → C++ coverage %, e.g. 87.3
+    {py_pct}           → Python coverage %, e.g. 91.0
+    {has_memory}       → whether valgrind/helgrind reports exist for this run
+
+  Memory report paths follow the structure:
+    {report_dir}/valgrind/vg_pytest/   → contains index.html, raw.xml, raw.log, summary.txt
+    {report_dir}/valgrind/vg_gtest/    → same
+    {report_dir}/helgrind/hg_pytest/   → same
+    {report_dir}/helgrind/hg_gtest/    → same
+-->
+
+<div class="report-card-wrapper {is_latest}">
+
+  <!-- ── Main row ── -->
+  <div class="report-card">
+
+    <!-- Latest badge (only on first card) -->
+    <!-- {latest_badge} expands to <span class="badge">Latest</span> or "" -->
+    {latest_badge}
+
+    <!-- Run index -->
+    <span class="report-index">{index}</span>
+
+    <!-- Timestamp + branch -->
+    <div class="report-info">
+      <div class="report-label" data-utc="{utc_iso}" data-sha="{short_sha}">
+        {utc_iso}
+      </div>
+      <!-- .report-ago is injected by JS after page load -->
+      <div class="report-branch">{branch}</div>
+    </div>
+
+    <!-- Coverage links -->
+    <div class="report-links">
+      <a class="report-link" href="{report_dir}/cpp/coverage.html">
+        C++ <span class="stat stat-ok">{cpp_pct}%</span>
+      </a>
+      <a class="report-link" href="{report_dir}/python/index.html">
+        Python <span class="stat stat-ok">{py_pct}%</span>
+      </a>
+    </div>
+
+    <!-- Memory toggle (only rendered when memory reports exist) -->
+    <button class="memory-toggle" aria-expanded="false">
+      <span class="toggle-icon">&#x25b8;</span> Memory
+    </button>
+
+  </div><!-- /.report-card -->
+
+  <!-- ── Collapsible memory panel ── -->
+  <div class="memory-panel">
+    <div class="memory-panel-inner">
+
+      <div class="memory-group">
+        <div class="memory-group-title">Valgrind — pytest</div>
+        <div class="memory-links">
+          <a class="memory-link" href="{report_dir}/valgrind/vg_pytest/summary.txt">
+            <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+          </a>
+          <a class="memory-link" href="{report_dir}/valgrind/vg_pytest/raw.log">
+            <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+          </a>
+          <a class="memory-link" href="{report_dir}/valgrind/vg_pytest/raw.xml">
+            <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+          </a>
+        </div>
+      </div>
+
+      <div class="memory-group">
+        <div class="memory-group-title">Valgrind — gtest</div>
+        <div class="memory-links">
+          <a class="memory-link" href="{report_dir}/valgrind/vg_gtest/summary.txt">
+            <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+          </a>
+          <a class="memory-link" href="{report_dir}/valgrind/vg_gtest/raw.log">
+            <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+          </a>
+          <a class="memory-link" href="{report_dir}/valgrind/vg_gtest/raw.xml">
+            <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+          </a>
+        </div>
+      </div>
+
+      <div class="memory-group">
+        <div class="memory-group-title">Helgrind — pytest</div>
+        <div class="memory-links">
+          <a class="memory-link" href="{report_dir}/helgrind/hg_pytest/summary.txt">
+            <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+          </a>
+          <a class="memory-link" href="{report_dir}/helgrind/hg_pytest/raw.log">
+            <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+          </a>
+          <a class="memory-link" href="{report_dir}/helgrind/hg_pytest/raw.xml">
+            <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+          </a>
+        </div>
+      </div>
+
+      <div class="memory-group">
+        <div class="memory-group-title">Helgrind — gtest</div>
+        <div class="memory-links">
+          <a class="memory-link" href="{report_dir}/helgrind/hg_gtest/summary.txt">
+            <span class="memory-link-icon">&#x1f4cb;</span> summary.txt
+          </a>
+          <a class="memory-link" href="{report_dir}/helgrind/hg_gtest/raw.log">
+            <span class="memory-link-icon">&#x1f4c4;</span> raw.log
+          </a>
+          <a class="memory-link" href="{report_dir}/helgrind/hg_gtest/raw.xml">
+            <span class="memory-link-icon">&#x1f5c2;</span> raw.xml
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /.memory-panel-inner -->
+  </div><!-- /.memory-panel -->
+
+</div><!-- /.report-card-wrapper -->
