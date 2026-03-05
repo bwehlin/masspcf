@@ -72,4 +72,5 @@ jobs:
         with:
           name: cpu-wheels
           retention-days: 2
+          pattern: cpu-wheels-*
     
