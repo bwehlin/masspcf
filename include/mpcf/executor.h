@@ -62,7 +62,7 @@ namespace mpcf
     Executor& operator=(const Executor&) = delete;
     
     Executor(Executor&& other) noexcept
-      : m_upCpuExec(std::move(other.m_cpuExec))
+      : m_upCpuExec(std::move(other.m_upCpuExec))
       , m_cpuExec(other.m_cpuExec)
       , m_upCudaExec(std::move(other.m_upCudaExec))
     { }
