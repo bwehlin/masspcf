@@ -8,6 +8,7 @@ jobs:
 
   compare:
     runs-on: ubuntu-latest
+    needs: build
     if: github.actor == 'bwehlin'
 
     steps:
@@ -27,7 +28,7 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    needs: build
+    needs: compare
     if: github.actor == 'bwehlin'
     environment:
       name: pypi-test
