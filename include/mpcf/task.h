@@ -61,7 +61,6 @@ namespace mpcf
     
     StoppableTask& start_async(mpcf::Executor& exec)
     {
-      m_done = false;
       m_stop_requested.store(false);
       m_work_completed.store(0ul);
       m_future = run_async(exec);
@@ -95,8 +94,7 @@ namespace mpcf
 
     bool wait_for(std::chrono::milliseconds duration)
     {
-      std::unique_lock<std::mutex> lock(m_mutex);
-      return m_condition.wait_for(lock, duration, [this] { return m_done; });
+      return m_future.wait_for(duration) == std::future_status::ready;
     }
     
     void wait()
@@ -134,26 +132,6 @@ namespace mpcf
       m_work_completed.store(0);
     }
 
-    tf::Task create_terminal_task(tf::Taskflow& flow)
-    {
-      return flow.emplace([this] {
-        {
-          std::lock_guard<std::mutex> lock(m_mutex);
-          m_done = true;
-        }
-        m_condition.notify_all();
-      });
-    }
-
-    void set_done()
-    {
-      {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_done = true;
-      }
-      m_condition.notify_all();
-    }
-
   private:
     virtual tf::Future<RetT> run_async(mpcf::Executor& exec) = 0;
     
@@ -171,7 +149,6 @@ namespace mpcf
 
     std::mutex m_mutex;
     std::condition_variable m_condition;
-    bool m_done = false;
 
 #ifdef BUILD_WITH_CUDA
     dim3 m_blockDim = dim3(32, 1, 1);
@@ -184,7 +161,6 @@ namespace mpcf
   private:
     tf::Future<RetT> run_async(mpcf::Executor& /*exec*/) override
     {
-      this->set_done();
       std::promise<RetT> p;
       if constexpr (std::is_same_v<RetT, void>)
       {

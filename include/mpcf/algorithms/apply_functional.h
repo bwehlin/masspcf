@@ -52,7 +52,6 @@ namespace mpcf
         m_out(idx) = m_functional(m_in(idx));
       });
 
-      tasks.emplace_back(create_terminal_task(flow));
       flow.linearize(tasks);
       return exec.cpu()->run(std::move(flow));
     }

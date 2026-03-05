@@ -130,11 +130,9 @@ namespace mpcf::ph
       shape.emplace_back(m_maxDim + 1);
       m_ret = Tensor<Barcode<T>>(shape);
 
-      auto terminal_task = create_terminal_task(flow);
-
       next_step(m_pclouds.size(), "Computing persistence", "pointcloud");
 
-      m_ret.walk([this, &flow, &terminal_task](const std::vector<size_t>& index) {
+      m_ret.walk([this, &flow](const std::vector<size_t>& index) {
         if (index.back() != 0)
         {
           // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
@@ -147,12 +145,7 @@ namespace mpcf::ph
           detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
           add_progress(1);
         });
-
-        task.precede(terminal_task);
       });
-
-      //std::cout << "Exec has " << exec.cpu()->num_workers() << " worker(s)" << std::endl;
-      //std::cout << "Scheduling " << tasks.size() << " task(s)..." << std::endl;
 
       return exec.cpu()->run(std::move(flow));
     }
