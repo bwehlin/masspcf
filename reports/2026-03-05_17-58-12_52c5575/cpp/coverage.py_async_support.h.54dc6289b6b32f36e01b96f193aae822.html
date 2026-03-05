@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html class="theme-green">
+
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>src/python/py_async_support.h - GCC Code Coverage Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="coverage.css"/>
+    <script src="coverage.js"></script>
+  </head>
+
+  <body>
+    <div class="Layout-main">
+      <div class="Layout-main-centered-lg" style="max-width: 1280px;">
+        <div class="d-flex flex-justify-center">
+          <h1>GCC Code Coverage Report</h1>
+        </div>
+        <hr class="block-separator"/>
+        <header>
+<div id="summary-coverage.py_async_support.h.54dc6289b6b32f36e01b96f193aae822.html" class="summary">
+  <div>
+    <table class="legend">
+      <tr>
+        <th scope="row">Directory:</th>
+        <td>../../</td>
+      </tr>
+      <tr>
+        <th scope="row">Coverage:</th>
+        <td class="legend">
+          <span class="coverage-low">low: &ge; 0%</span>
+          <span class="coverage-medium">medium: &ge; 75.0%</span>
+          <span class="coverage-high">high: &ge; 90.0%</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+  <div>
+    <table class="coverage">
+      <tr>
+        <th></th>
+        <th scope="col">Coverage</th>
+        <th scope="col">Exec / Excl / Total</th>
+      </tr>
+      <tr>
+        <th scope="row">Lines:</th>
+        <td class="coverage-low">63.8%</td>
+        <td class="coverage-low">30 / 0 / 47</td>
+      </tr>
+      <tr>
+        <th scope="row">Functions:</th>
+        <td class="coverage-medium">80.0%</td>
+        <td class="coverage-medium">8 / 0 / 10</td>
+      </tr>
+      <tr>
+        <th scope="row">Branches:</th>
+        <td class="coverage-low">38.9%</td>
+        <td class="coverage-low">14 / 0 / 36</td>
+      </tr>
+    </table>
+  </div>
+</div>
+        </header>
+        <hr/>
+        <nav>
+<div class="m-3">
+  <details>
+    <summary>List of functions</summary>
+<div class="Box m-3 functionslist">
+  <div class="Box-header py-2 d-flex sticky">
+    <div role="rowheader" class="color-fg-muted flex-auto min-width-0 col-md-2 sortable sorted-ascending">Function (File:Line)</div>
+    <div role="rowheader" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline sortable">Calls</div>
+    <div role="rowheader" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2 sortable">Lines</div>
+    <div role="rowheader" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2 sortable">Branches</div>
+    <div role="rowheader" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2 sortable">Blocks</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l32">mpcf_py::execute_empty_task() (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:32)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="1">called 1 time</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">100.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">-%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">100.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;, NumpyTensor&lt;double&gt;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&gt;, std::default_delete&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;, NumpyTensor&lt;double&gt;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;, NumpyTensor&lt;double&gt;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&gt;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;, NumpyTensor&lt;double&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&amp;&gt;(mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;, NumpyTensor&lt;double&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="1">called 1 time</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">91.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;, NumpyTensor&lt;float&gt;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&gt;, std::default_delete&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;, NumpyTensor&lt;float&gt;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;, NumpyTensor&lt;float&gt;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&gt;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;, NumpyTensor&lt;float&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&amp;&gt;(mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;, NumpyTensor&lt;float&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="0">not called</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">0.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">0.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">0.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::EmptyTask&lt;void&gt;, std::default_delete&lt;mpcf::EmptyTask&lt;void&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::EmptyTask&lt;void&gt;&gt;() (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="1">called 1 time</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">88.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;double, double&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt; &gt;, std::default_delete&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;double, double&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt; &gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;double, double&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt; &gt;, double*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;double, double&gt;&amp;&gt;(double*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;double, double&gt;&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="1">called 1 time</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">92.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;float, float&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt; &gt;, std::default_delete&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;float, float&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt; &gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;float, float&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt; &gt;, float*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;float, float&gt;&amp;&gt;(float*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;float, float&gt;&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="2">called 2 times</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">92.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::ph::BarcodeToStableRankTask&lt;double&gt;, std::default_delete&lt;mpcf::ph::BarcodeToStableRankTask&lt;double&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::BarcodeToStableRankTask&lt;double&gt;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;&gt;(mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="1">called 1 time</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">90.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::ph::BarcodeToStableRankTask&lt;float&gt;, std::default_delete&lt;mpcf::ph::BarcodeToStableRankTask&lt;float&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::BarcodeToStableRankTask&lt;float&gt;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;&gt;(mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="0">not called</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">0.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">0.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">0.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::ph::RipserTask&lt;double&gt;, std::default_delete&lt;mpcf::ph::RipserTask&lt;double&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::RipserTask&lt;double&gt;, mpcf::Tensor&lt;mpcf::Tensor&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt;&amp;, unsigned long&amp;&gt;(mpcf::Tensor&lt;mpcf::Tensor&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt;&amp;, unsigned long&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="64">called 64 times</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">91.0%</div>
+  </div>
+  <div class="Box-row Box-row--focus-gray py-2 d-flex">
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 col-md-2"><a href="#l25">std::unique_ptr&lt;mpcf::ph::RipserTask&lt;float&gt;, std::default_delete&lt;mpcf::ph::RipserTask&lt;float&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::RipserTask&lt;float&gt;, mpcf::Tensor&lt;mpcf::Tensor&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;&amp;, unsigned long&amp;&gt;(mpcf::Tensor&lt;mpcf::Tensor&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;&amp;, unsigned long&amp;) (/home/runner/work/masspcf/masspcf/src/python/py_async_support.h:25)</a>    </div>
+    <div role="gridcell" class="color-fg-muted flex-auto min-width-0 d-flex flex-justify-end flex-wrap flex-items-baseline" data-sort="2">called 2 times</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">80.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">50.0%</div>
+    <div role="gridcell" class="color-fg-muted d-flex flex-justify-end flex-wrap col-2">91.0%</div>
+  </div>
+</div>  </details>
+</div>
+
+        </nav>
+        <main>
+<div class="Box m-3 file-source">
+  <div class="Box-header d-flex flex-space-between sticky">
+    src/python/py_async_support.h
+    <div class="toggle-buttons">
+      <button type="button" class="button_toggle_coveredLine show_coveredLine" value="coveredLine" title="Toggle covered lines">29 covered</button>
+      <button type="button" class="button_toggle_uncoveredLine show_uncoveredLine" value="uncoveredLine" title="Toggle uncovered lines">1 uncovered</button>
+      <button type="button" class="button_toggle_partialCoveredLine show_partialCoveredLine" value="partialCoveredLine" title="Toggle partial covered lines">1 partial covered</button>
+      <button type="button" class="button_toggle_excludedLine show_excludedLine" value="excludedLine" title="Toggle excluded lines">0 excluded</button>
+    </div>
+    <div class="nav">
+      <a class="nav prev" href="coverage.pymodule_persistence.cpp.36d6834ae638b60154a2ee98e1ffde81.html"></a>
+      <a class="nav index" href="coverage.html"></a>
+      <a class="nav next" href="coverage.py_distance.cpp.41cd5c61998c5efa751069bfafbc2965.html"></a>
+    </div>
+  </div>
+  <div class="source-table-container">
+    <table class="text-mono text-small">
+      <tr>
+        <th align="right">Line</th>
+        <th align="right">Branch</th>
+        <th align="right">Exec</th>
+        <th align="left" style="width: 100%;">Source</th>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l1" href="#l1">1</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// Copyright 2024-2026 Bjorn Wehlin</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l2" href="#l2">2</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">//</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l3" href="#l3">3</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l4" href="#l4">4</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// you may not use this file except in compliance with the License.</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l5" href="#l5">5</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// You may obtain a copy of the License at</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l6" href="#l6">6</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">//</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l7" href="#l7">7</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">//    http://www.apache.org/licenses/LICENSE-2.0</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l8" href="#l8">8</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">//</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l9" href="#l9">9</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// Unless required by applicable law or agreed to in writing, software</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l10" href="#l10">10</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l11" href="#l11">11</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l12" href="#l12">12</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// See the License for the specific language governing permissions and</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l13" href="#l13">13</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="c1">// limitations under the License.</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l14" href="#l14">14</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l15" href="#l15">15</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="cp">#ifndef MASSPCF_PY_ASYNC_SUPPORT_H</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l16" href="#l16">16</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="cp">#define MASSPCF_PY_ASYNC_SUPPORT_H</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l17" href="#l17">17</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l18" href="#l18">18</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;mpcf/task.h&gt;</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l19" href="#l19">19</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;memory&gt;</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l20" href="#l20">20</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;utility&gt;</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l21" href="#l21">21</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l22" href="#l22">22</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="n">namespace</span><span class="w"> </span><span class="n">mpcf_py</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l23" href="#l23">23</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="p">{</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l24" href="#l24">24</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="w">  </span><span class="n">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">typename</span><span class="w"> </span><span class="n">TaskT</span><span class="p">,</span><span class="w"> </span><span class="n">typename</span><span class="p">...</span><span class="w"> </span><span class="n">Args</span><span class="o">&gt;</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l25" href="#l25">25</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount coveredLine show_coveredLine">72</td>
+        <td class="src  coveredLine show_coveredLine"><span class="w">  </span><span class="p">[[</span><span class="n">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">TaskT</span><span class="o">&gt;</span><span class="w"> </span><span class="n">execute_stoppable_task</span><span class="p">(</span><span class="n">Args</span><span class="o">&amp;&amp;</span><span class="p">...</span><span class="w"> </span><span class="n">args</span><span class="p">)</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l26" href="#l26">26</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="w">  </span><span class="p">{</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l27" href="#l27">27</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount coveredLine show_coveredLine">72</td>
+        <td class="src  coveredLine show_coveredLine"><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">TaskT</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">forward</span><span class="o">&lt;</span><span class="n">Args</span><span class="o">&gt;</span><span class="p">(</span><span class="n">args</span><span class="p">)...);</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l28" href="#l28">28</a></td>
+        <td class="linebranch">
+          <details class="linebranchDetails">
+            <summary class="linebranchSummary">14/36</summary>
+            <div class="linebranchContents">
+              <div class="functionName">std::unique_ptr&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;, NumpyTensor&lt;double&gt;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&gt;, std::default_delete&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;, NumpyTensor&lt;double&gt;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;, NumpyTensor&lt;double&gt;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&gt;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;, NumpyTensor&lt;double&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&amp;&gt;(mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;, NumpyTensor&lt;double&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;double, double&gt;::lpnorm_l1(pybind11::array_t&lt;double, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;)::{lambda(mpcf::Pcf&lt;double, double&gt; const&amp;)#1}&amp;):</div>
+              <div class="takenBranch">&check; Branch 2 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;, NumpyTensor&lt;float&gt;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&gt;, std::default_delete&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;, NumpyTensor&lt;float&gt;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ApplyFunctional&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;, NumpyTensor&lt;float&gt;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&gt;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;, NumpyTensor&lt;float&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&amp;&gt;(mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;, NumpyTensor&lt;float&gt;&amp;, (anonymous namespace)::PyNormsBindings&lt;float, float&gt;::lpnorm_l1(pybind11::array_t&lt;float, 16&gt;&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;)::{lambda(mpcf::Pcf&lt;float, float&gt; const&amp;)#1}&amp;):</div>
+              <div class="notTakenBranch">&cross; Branch 2 not taken.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="notTakenBranch">&cross; Branch 5 not taken.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::EmptyTask&lt;void&gt;, std::default_delete&lt;mpcf::EmptyTask&lt;void&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::EmptyTask&lt;void&gt;&gt;():</div>
+              <div class="takenBranch">&check; Branch 2 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;double, double&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt; &gt;, std::default_delete&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;double, double&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt; &gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;double, double&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt; &gt;, double*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;double, double&gt;&amp;&gt;(double*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;double, double&gt;&amp;):</div>
+              <div class="takenBranch">&check; Branch 2 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;float, float&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt; &gt;, std::default_delete&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;float, float&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt; &gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::MatrixIntegrateCpuTask&lt;mpcf::OperationL1Dist&lt;float, float&gt;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt; &gt;, float*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;float, float&gt;&amp;&gt;(float*&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::Tensor1dValueIterator&lt;mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt; &gt;&amp;, mpcf::OperationL1Dist&lt;float, float&gt;&amp;):</div>
+              <div class="takenBranch">&check; Branch 2 taken 2 times.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 2 times.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::ph::BarcodeToStableRankTask&lt;double&gt;, std::default_delete&lt;mpcf::ph::BarcodeToStableRankTask&lt;double&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::BarcodeToStableRankTask&lt;double&gt;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;&gt;(mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;double, double&gt; &gt;&amp;):</div>
+              <div class="takenBranch">&check; Branch 2 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 1 time.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::ph::BarcodeToStableRankTask&lt;float&gt;, std::default_delete&lt;mpcf::ph::BarcodeToStableRankTask&lt;float&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::BarcodeToStableRankTask&lt;float&gt;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;&gt;(mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::Pcf&lt;float, float&gt; &gt;&amp;):</div>
+              <div class="notTakenBranch">&cross; Branch 2 not taken.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="notTakenBranch">&cross; Branch 5 not taken.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::ph::RipserTask&lt;double&gt;, std::default_delete&lt;mpcf::ph::RipserTask&lt;double&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::RipserTask&lt;double&gt;, mpcf::Tensor&lt;mpcf::Tensor&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt;&amp;, unsigned long&amp;&gt;(mpcf::Tensor&lt;mpcf::Tensor&lt;double&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;double&gt; &gt;&amp;, unsigned long&amp;):</div>
+              <div class="takenBranch">&check; Branch 2 taken 64 times.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 64 times.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+              <div class="functionName">std::unique_ptr&lt;mpcf::ph::RipserTask&lt;float&gt;, std::default_delete&lt;mpcf::ph::RipserTask&lt;float&gt; &gt; &gt; mpcf_py::execute_stoppable_task&lt;mpcf::ph::RipserTask&lt;float&gt;, mpcf::Tensor&lt;mpcf::Tensor&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;&amp;, unsigned long&amp;&gt;(mpcf::Tensor&lt;mpcf::Tensor&lt;float&gt; &gt; const&amp;, mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;&amp;, unsigned long&amp;):</div>
+              <div class="takenBranch">&check; Branch 2 taken 2 times.</div>
+              <div class="notTakenBranch">&cross; Branch 3 not taken.</div>
+              <div class="takenBranch">&check; Branch 5 taken 2 times.</div>
+              <div class="notTakenBranch">&cross; Branch 6 not taken.</div>
+            </div>
+          </details>
+        </td>
+        <td class="linecount partialCoveredLine show_partialCoveredLine">72</td>
+        <td class="src  partialCoveredLine show_partialCoveredLine"><span class="w">    </span><span class="n">task</span><span class="o">-&gt;</span><span class="n">start_async</span><span class="p">(</span><span class="n">mpcf</span><span class="o">::</span><span class="n">default_executor</span><span class="p">());</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l29" href="#l29">29</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount coveredLine show_coveredLine">72</td>
+        <td class="src  coveredLine show_coveredLine"><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">task</span><span class="p">;</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l30" href="#l30">30</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount uncoveredLine show_uncoveredLine">&cross;</td>
+        <td class="src  uncoveredLine show_uncoveredLine"><span class="w">  </span><span class="p">}</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l31" href="#l31">31</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l32" href="#l32">32</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount coveredLine show_coveredLine">1</td>
+        <td class="src  coveredLine show_coveredLine"><span class="w">  </span><span class="p">[[</span><span class="n">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">mpcf</span><span class="o">::</span><span class="n">EmptyTask</span><span class="o">&lt;</span><span class="kt">void</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">execute_empty_task</span><span class="p">()</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l33" href="#l33">33</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="w">  </span><span class="p">{</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l34" href="#l34">34</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount coveredLine show_coveredLine">1</td>
+        <td class="src  coveredLine show_coveredLine"><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">execute_stoppable_task</span><span class="o">&lt;</span><span class="n">mpcf</span><span class="o">::</span><span class="n">EmptyTask</span><span class="o">&lt;</span><span class="kt">void</span><span class="o">&gt;&gt;</span><span class="p">();</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l35" href="#l35">35</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="w">  </span><span class="p">}</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l36" href="#l36">36</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="p">}</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l37" href="#l37">37</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l38" href="#l38">38</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "><span class="cp">#endif </span><span class="c1">//MASSPCF_PY_ASYNC_SUPPORT_H</span></td>
+      </tr>
+      <tr class="source-line">
+        <td class="lineno"><a id="l39" href="#l39">39</a></td>
+        <td class="linebranch">
+        </td>
+        <td class="linecount"></td>
+        <td class="src "></td>
+      </tr>
+    </table>
+  </div>
+</div>
+        </main>
+        <hr class="block-separator"/>
+        <footer class="text-center">
+          Created using <a href="http://gcovr.com/en/8.6">GCOVR (Version 8.6)</a>
+          at 2026-03-05 17:56:22
+        </footer>
+      </div>
+    </div>
+  </body>
+
+</html>
