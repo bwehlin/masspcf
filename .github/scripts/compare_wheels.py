@@ -6,7 +6,7 @@ from fnmatch import fnmatch
 
 
 IGNORE_GLOBS = [
-    '*/_mpcf_cpp*',                         # platform-specific extension module
+    #'*/_mpcf_cpp*',                         # platform-specific extension module
     #'*/sboms/auditwheel.cdx.json',          # auditwheel metadata, varies by platform
     'masspcf_cpu.libs/libgcc*.so*',         # bundled gcc library
     'masspcf_cpu.libs/libstdc++*.so*',      # bundled stdc++ library
