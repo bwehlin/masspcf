@@ -124,10 +124,13 @@ namespace mpcf
     
     void next_step(size_t n_items, std::string_view desc, std::string_view unit)
     {
-      ++m_work_step;
-      m_work_step_desc = desc;
-      m_work_step_unit = unit;
-      m_work_total = n_items;
+      {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_work_step;
+        m_work_step_desc = desc;
+        m_work_step_unit = unit;
+        m_work_total = n_items;
+      }
       m_work_completed.store(0);
     }
 
