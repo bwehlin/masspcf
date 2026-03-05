@@ -1,6 +1,8 @@
 name: Analysis
 
-on: [workflow_dispatch] # push
+on:
+  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: write
