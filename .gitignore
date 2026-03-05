@@ -193,3 +193,5 @@ cython_debug/
 masspcf/py.typed
 masspcf/*.pyi
 masspcf/_mpcf_cpp
+collected_sources.txt
+dump*.txt
