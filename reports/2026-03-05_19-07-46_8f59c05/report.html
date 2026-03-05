@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report — 8f59c05</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 272px;
+      --header-h: 52px;
+      --bg: #f8f9fb;
+      --surface: #ffffff;
+      --surface2: #f1f4f9;
+      --border: #e2e7ef;
+      --border-bright: #c8d1de;
+      --accent: #2563eb;
+      --accent-light: #eff4ff;
+      --accent-mid: #bfcffe;
+      --accent-text: #2563eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --subtle: #9ca3af;
+      --ok: #16a34a;
+      --ok-bg: #dcfce7;
+      --error: #dc2626;
+      --error-bg: #fee2e2;
+      --warn: #d97706;
+      --warn-bg: #fef3c7;
+      --memory: #7c3aed;
+      --memory-light: #f5f3ff;
+      --memory-mid: #ddd6fe;
+      --sans: 'Inter', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top header bar ── */
+    .topbar {
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+
+    .topbar-back {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-bright);
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+
+    .topbar-back:hover {
+      color: var(--accent-text);
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .topbar-back svg { flex-shrink: 0; }
+
+    .topbar-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .topbar-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .topbar-sha {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topbar-branch {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .topbar-time {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--subtle);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: 1px solid var(--border-bright);
+      border-radius: 6px;
+      padding: 6px 8px;
+      cursor: pointer;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .hamburger:hover { color: var(--text); border-color: var(--accent); }
+
+    .hamburger svg { display: block; }
+
+    /* ── Body: sidebar + iframe ── */
+    .body-wrap {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+
+    .sidebar-section {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      gap: 8px;
+    }
+
+    .sidebar-section-header:hover { background: var(--surface2); }
+
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    .sidebar-section-badge {
+      font-size: 10px;
+      font-weight: 600;
+      font-family: var(--mono);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .badge-ok   { color: var(--ok);    background: var(--ok-bg); }
+    .badge-err  { color: var(--error);  background: var(--error-bg); }
+    .badge-warn { color: var(--warn);   background: var(--warn-bg); }
+    .badge-none { color: var(--subtle); background: var(--surface2); }
+
+    .sidebar-chevron {
+      font-size: 9px;
+      color: var(--subtle);
+      transition: transform 0.15s;
+    }
+
+    .sidebar-section.open .sidebar-chevron { transform: rotate(90deg); }
+
+    .sidebar-section-body {
+      display: none;
+      padding: 4px 0 8px;
+    }
+
+    .sidebar-section.open .sidebar-section-body { display: block; }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 16px 7px 24px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: none;
+      font-family: var(--mono);
+      border-left: 2px solid transparent;
+      transition: color 0.1s, background 0.1s, border-color 0.1s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-nav-item:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+
+    .sidebar-nav-item.active {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-left-color: var(--accent);
+    }
+
+    .sidebar-nav-item .nav-icon { font-size: 13px; flex-shrink: 0; }
+
+    .sidebar-subsection-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--subtle);
+      padding: 8px 16px 4px 16px;
+      font-family: var(--mono);
+    }
+
+    /* ── Iframe content area ── */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .content-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .content-placeholder svg { opacity: 0.25; }
+
+    #report-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      display: none;
+    }
+
+    /* ── Mobile overlay ── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 40;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .hamburger { display: flex; align-items: center; }
+      .topbar-time { display: none; }
+
+      .sidebar {
+        position: fixed;
+        top: var(--header-h);
+        left: 0;
+        bottom: 0;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        z-index: 50;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .sidebar-overlay.open { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div class="topbar">
+  <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="3" width="14" height="1.5" rx="0.75" fill="currentColor"/>
+      <rect x="1" y="7.25" width="14" height="1.5" rx="0.75" fill="currentColor"/>
+      <rect x="1" y="11.5" width="14" height="1.5" rx="0.75" fill="currentColor"/>
+    </svg>
+  </button>
+
+  <a class="topbar-back" href="../../index.html">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    All runs
+  </a>
+
+  <div class="topbar-divider"></div>
+
+  <div class="topbar-meta">
+    <div class="topbar-sha" data-utc="2026-03-05T19:07:46Z" data-sha="8f59c05">2026-03-05 19:07:46 UTC — 8f59c05</div>
+    <div class="topbar-branch">&#x2387; main</div>
+  </div>
+
+  <div class="topbar-time" id="topbar-ago"></div>
+</div>
+
+<!-- ── Body ── -->
+<div class="body-wrap">
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar" id="sidebar">
+
+    <!-- Coverage section -->
+    <div class="sidebar-section open">
+      <div class="sidebar-section-header">
+        <span class="sidebar-section-title">Coverage</span>
+        <span class="sidebar-chevron">&#x25b8;</span>
+      </div>
+      <div class="sidebar-section-body">
+        <a class="sidebar-nav-item" data-src="cpp/coverage.html" href="#">
+          <span class="nav-icon">&#x1f4ca;</span> C++
+          <span class="sidebar-section-badge badge-ok">68.3%</span>
+        </a>
+        <a class="sidebar-nav-item" data-src="python/index.html" href="#">
+          <span class="nav-icon">&#x1f40d;</span> Python
+          <span class="sidebar-section-badge badge-ok">70%</span>
+        </a>
+      </div>
+    </div>
+
+    
+    <!-- Valgrind section -->
+    <div class="sidebar-section open">
+      <div class="sidebar-section-header">
+        <span class="sidebar-section-title">Valgrind (memcheck)</span>
+        <span class="sidebar-section-badge badge-err">1 err</span>
+        <span class="sidebar-chevron">&#x25b8;</span>
+      </div>
+      <div class="sidebar-section-body">
+        <div class="sidebar-subsection-label">pytest</div>
+        
+        <a class="sidebar-nav-item" data-src="valgrind/vg_pytest/index.html" href="#">
+          <span class="nav-icon">&#x1f4ca;</span> HTML report <span class="sidebar-section-badge badge-err">1 err</span>
+        </a>
+        <a class="sidebar-nav-item" data-src="valgrind/vg_pytest/summary.txt" href="#">
+          <span class="nav-icon">&#x1f4cb;</span> summary.txt
+        </a>
+        <a class="sidebar-nav-item" data-src="valgrind/vg_pytest/raw.log" href="#">
+          <span class="nav-icon">&#x1f4c4;</span> raw.log
+        </a>
+        <a class="sidebar-nav-item" data-src="valgrind/vg_pytest/raw.xml" href="#">
+          <span class="nav-icon">&#x1f5c2;</span> raw.xml
+        </a>
+        <div class="sidebar-subsection-label">gtest</div>
+        
+        <a class="sidebar-nav-item" data-src="valgrind/vg_gtest/index.html" href="#">
+          <span class="nav-icon">&#x1f4ca;</span> HTML report <span class="sidebar-section-badge badge-ok">0 errs</span>
+        </a>
+        <a class="sidebar-nav-item" data-src="valgrind/vg_gtest/summary.txt" href="#">
+          <span class="nav-icon">&#x1f4cb;</span> summary.txt
+        </a>
+        <a class="sidebar-nav-item" data-src="valgrind/vg_gtest/raw.log" href="#">
+          <span class="nav-icon">&#x1f4c4;</span> raw.log
+        </a>
+        <a class="sidebar-nav-item" data-src="valgrind/vg_gtest/raw.xml" href="#">
+          <span class="nav-icon">&#x1f5c2;</span> raw.xml
+        </a>
+      </div>
+    </div>
+
+    <!-- Helgrind section -->
+    <div class="sidebar-section open">
+      <div class="sidebar-section-header">
+        <span class="sidebar-section-title">Helgrind</span>
+        <span class="sidebar-section-badge badge-err">228 errs</span>
+        <span class="sidebar-chevron">&#x25b8;</span>
+      </div>
+      <div class="sidebar-section-body">
+        <div class="sidebar-subsection-label">pytest</div>
+        
+        <a class="sidebar-nav-item" data-src="helgrind/hg_pytest/index.html" href="#">
+          <span class="nav-icon">&#x1f4ca;</span> HTML report <span class="sidebar-section-badge badge-err">121 errs</span>
+        </a>
+        <a class="sidebar-nav-item" data-src="helgrind/hg_pytest/summary.txt" href="#">
+          <span class="nav-icon">&#x1f4cb;</span> summary.txt
+        </a>
+        <a class="sidebar-nav-item" data-src="helgrind/hg_pytest/raw.log" href="#">
+          <span class="nav-icon">&#x1f4c4;</span> raw.log
+        </a>
+        <a class="sidebar-nav-item" data-src="helgrind/hg_pytest/raw.xml" href="#">
+          <span class="nav-icon">&#x1f5c2;</span> raw.xml
+        </a>
+        <div class="sidebar-subsection-label">gtest</div>
+        
+        <a class="sidebar-nav-item" data-src="helgrind/hg_gtest/index.html" href="#">
+          <span class="nav-icon">&#x1f4ca;</span> HTML report <span class="sidebar-section-badge badge-err">107 errs</span>
+        </a>
+        <a class="sidebar-nav-item" data-src="helgrind/hg_gtest/summary.txt" href="#">
+          <span class="nav-icon">&#x1f4cb;</span> summary.txt
+        </a>
+        <a class="sidebar-nav-item" data-src="helgrind/hg_gtest/raw.log" href="#">
+          <span class="nav-icon">&#x1f4c4;</span> raw.log
+        </a>
+        <a class="sidebar-nav-item" data-src="helgrind/hg_gtest/raw.xml" href="#">
+          <span class="nav-icon">&#x1f5c2;</span> raw.xml
+        </a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- ── Content ── -->
+  <div class="content">
+    <div class="content-placeholder" id="placeholder">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+        <path d="M9 12h6M9 16h6M9 8h2M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
+          stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>Select a report from the sidebar</span>
+    </div>
+    <iframe id="report-frame" title="Report viewer" sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+
+</div>
+
+<script>
+  (function () {
+    function timeAgo(date) {
+      var s = Math.floor((Date.now() - date) / 1000);
+      if (s < 60) return 'just now';
+      var m = Math.floor(s / 60);
+      if (m < 60) return m + ' minute' + (m === 1 ? '' : 's') + ' ago';
+      var h = Math.floor(m / 60);
+      if (h < 24) return h + ' hour' + (h === 1 ? '' : 's') + ' ago';
+      var d = Math.floor(h / 24);
+      return d + ' day' + (d === 1 ? '' : 's') + ' ago';
+    }
+
+    var shaEl = document.querySelector('.topbar-sha[data-utc]');
+    if (shaEl) {
+      var iso = shaEl.getAttribute('data-utc');
+      var sha = shaEl.getAttribute('data-sha');
+      if (iso) {
+        var d = new Date(iso);
+        var local = d.toLocaleString(undefined, {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        });
+        shaEl.textContent = local + (sha ? ' \u2014 ' + sha : '');
+        var agoEl = document.getElementById('topbar-ago');
+        if (agoEl) agoEl.textContent = timeAgo(d.getTime());
+      }
+    }
+
+    // ── Iframe navigation ──
+    var frame = document.getElementById('report-frame');
+    var placeholder = document.getElementById('placeholder');
+    var activeItem = null;
+
+    function loadReport(src) {
+      placeholder.style.display = 'none';
+      frame.style.display = 'block';
+      frame.src = src;
+    }
+
+    document.querySelectorAll('.sidebar-nav-item[data-src]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (activeItem) activeItem.classList.remove('active');
+        activeItem = el;
+        el.classList.add('active');
+        loadReport(el.getAttribute('data-src'));
+        closeSidebar();
+      });
+    });
+
+    // Load first item by default
+    var first = document.querySelector('.sidebar-nav-item[data-src]');
+    if (first) {
+      first.classList.add('active');
+      activeItem = first;
+      loadReport(first.getAttribute('data-src'));
+    }
+
+    // ── Collapsible sidebar sections ──
+    document.querySelectorAll('.sidebar-section-header').forEach(function (hdr) {
+      hdr.addEventListener('click', function () {
+        hdr.closest('.sidebar-section').classList.toggle('open');
+      });
+    });
+
+    // ── Hamburger / mobile sidebar ──
+    var sidebar = document.getElementById('sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    var hamburger = document.getElementById('hamburger-btn');
+
+    function openSidebar() {
+      sidebar.classList.add('open');
+      overlay.classList.add('open');
+    }
+
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+    }
+
+    hamburger.addEventListener('click', function () {
+      sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+    });
+
+    overlay.addEventListener('click', closeSidebar);
+  })();
+</script>
+</body>
+</html>
