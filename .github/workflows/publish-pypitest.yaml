@@ -4,6 +4,8 @@ on: [workflow_dispatch]
 
 jobs:
   analysis:
+    permissions:
+      contents: write
     uses: ./.github/workflows/analysis.yaml
 
   build:
