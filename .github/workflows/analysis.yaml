@@ -54,15 +54,17 @@ jobs:
       - name: Run Python test suite
         run: |
           mkdir -p covreport/python
-          cd test
-          python -m pytest . \
+          # Run from repo root so coverage.py picks up [tool.coverage] in
+          # pyproject.toml and the [paths] mapping resolves installed paths
+          # back to the source tree (short filenames in the HTML report).
+          python -m pytest test/ \
             --cov=masspcf \
-            --cov-report=html:../covreport/python \
-            --cov-report=json:../covreport/python/coverage.json \
+            --cov-report=html:covreport/python \
+            --cov-report=json:covreport/python/coverage.json \
             --cov-report=term || true
           # Ensure the html report exists even if coverage data is empty
-          if [ ! -f "../covreport/python/index.html" ]; then
-            python -m coverage html --directory=../covreport/python || true
+          if [ ! -f "covreport/python/index.html" ]; then
+            python -m coverage html --directory=covreport/python || true
           fi
 
       - name: Create C++ coverage report

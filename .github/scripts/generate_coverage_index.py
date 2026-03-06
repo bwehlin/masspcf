@@ -238,10 +238,10 @@ def render_cards(entries: list[dict]) -> str:
             if entry.get("branch") else ""
         )
 
-        # Total memory errors for a compact summary badge on the card
-        mem_counts = [entry["vg_pytest_errors"], entry["vg_gtest_errors"],
-                      entry["hg_pytest_errors"], entry["hg_gtest_errors"]]
-        known = [c for c in mem_counts if c is not None]
+        # Only valgrind (memcheck) errors on the main page — helgrind counts
+        # data-race errors which are a different category shown in the detail view
+        vg_counts = [entry["vg_pytest_errors"], entry["vg_gtest_errors"]]
+        known = [c for c in vg_counts if c is not None]
         if known:
             total_mem = sum(known)
             mem_cls = "stat-error" if total_mem > 0 else "stat-ok"
@@ -379,18 +379,24 @@ def _memory_nav_section(entry: dict) -> str:
     def _group_items(base: str, errors: int | None) -> str:
         err_badge = _err_badge_sidebar(errors)
         return f"""
-        <a class="sidebar-nav-item" data-src="{base}/index.html" href="#">
-          <span class="nav-icon">&#x1f4ca;</span> HTML report {err_badge}
-        </a>
-        <a class="sidebar-nav-item" data-src="{base}/summary.txt" href="#">
-          <span class="nav-icon">&#x1f4cb;</span> summary.txt
-        </a>
-        <a class="sidebar-nav-item" data-src="{base}/raw.log" href="#">
-          <span class="nav-icon">&#x1f4c4;</span> raw.log
-        </a>
-        <a class="sidebar-nav-item" data-src="{base}/raw.xml" href="#">
-          <span class="nav-icon">&#x1f5c2;</span> raw.xml
-        </a>"""
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{base}/index.html" href="#">
+            <span class="nav-icon">&#x1f4ca;</span> HTML report {err_badge}
+          </a>
+          <a class="sidebar-dl-btn" href="{base}/index.html" download title="Download">&#x2913;</a>
+        </div>
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{base}/summary.txt" href="#">
+            <span class="nav-icon">&#x1f4cb;</span> summary.txt
+          </a>
+          <a class="sidebar-dl-btn" href="{base}/summary.txt" download title="Download">&#x2913;</a>
+        </div>
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{base}/raw.xml" data-mode="xml" href="#">
+            <span class="nav-icon">&#x1f5c2;</span> raw.xml
+          </a>
+          <a class="sidebar-dl-btn" href="{base}/raw.xml" download title="Download">&#x2913;</a>
+        </div>"""
 
     vg_counts = [entry["vg_pytest_errors"], entry["vg_gtest_errors"]]
     hg_counts = [entry["hg_pytest_errors"], entry["hg_gtest_errors"]]

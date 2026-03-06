@@ -11,7 +11,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --sidebar-w: 272px;
+      --sidebar-w: 288px;
       --header-h: 52px;
       --bg: #f8f9fb;
       --surface: #ffffff;
@@ -93,10 +93,7 @@
       flex-shrink: 0;
     }
 
-    .topbar-meta {
-      flex: 1;
-      min-width: 0;
-    }
+    .topbar-meta { flex: 1; min-width: 0; }
 
     .topbar-sha {
       font-family: var(--mono);
@@ -135,10 +132,9 @@
     }
 
     .hamburger:hover { color: var(--text); border-color: var(--accent); }
-
     .hamburger svg { display: block; }
 
-    /* ── Body: sidebar + iframe ── */
+    /* ── Body: sidebar + content ── */
     .body-wrap {
       flex: 1;
       display: flex;
@@ -158,9 +154,7 @@
       z-index: 50;
     }
 
-    .sidebar-section {
-      border-bottom: 1px solid var(--border);
-    }
+    .sidebar-section { border-bottom: 1px solid var(--border); }
 
     .sidebar-section-header {
       display: flex;
@@ -204,18 +198,21 @@
 
     .sidebar-section.open .sidebar-chevron { transform: rotate(90deg); }
 
-    .sidebar-section-body {
-      display: none;
-      padding: 4px 0 8px;
-    }
-
+    .sidebar-section-body { display: none; padding: 4px 0 8px; }
     .sidebar-section.open .sidebar-section-body { display: block; }
 
+    /* ── Nav row: item + download button side-by-side ── */
+    .sidebar-nav-row {
+      display: flex;
+      align-items: stretch;
+    }
+
     .sidebar-nav-item {
+      flex: 1;
       display: flex;
       align-items: center;
       gap: 9px;
-      padding: 7px 16px 7px 24px;
+      padding: 7px 8px 7px 24px;
       font-size: 12px;
       font-weight: 500;
       color: var(--muted);
@@ -227,12 +224,10 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    .sidebar-nav-item:hover {
-      color: var(--text);
-      background: var(--surface2);
-    }
+    .sidebar-nav-item:hover { color: var(--text); background: var(--surface2); }
 
     .sidebar-nav-item.active {
       color: var(--accent);
@@ -241,6 +236,31 @@
     }
 
     .sidebar-nav-item .nav-icon { font-size: 13px; flex-shrink: 0; }
+
+    /* Download button */
+    .sidebar-dl-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      flex-shrink: 0;
+      font-size: 13px;
+      color: var(--subtle);
+      text-decoration: none;
+      border-left: 1px solid var(--border);
+      transition: color 0.1s, background 0.1s;
+    }
+
+    .sidebar-dl-btn:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* Standalone nav items (coverage section — no download pairing) */
+    .sidebar-nav-item.standalone {
+      padding-right: 16px;
+      border-left-width: 2px;
+    }
 
     .sidebar-subsection-label {
       font-size: 10px;
@@ -252,7 +272,7 @@
       font-family: var(--mono);
     }
 
-    /* ── Iframe content area ── */
+    /* ── Content area ── */
     .content {
       flex: 1;
       display: flex;
@@ -282,6 +302,86 @@
       display: none;
     }
 
+    /* ── XML viewer ── */
+    #xml-viewer {
+      display: none;
+      flex: 1;
+      overflow: auto;
+      background: var(--bg);
+      padding: 20px 24px;
+    }
+
+    .xml-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .xml-toolbar-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    .xml-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border-bright);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.1s, border-color 0.1s, background 0.1s;
+    }
+
+    .xml-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .xml-progress {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--subtle);
+    }
+
+    #xml-pre {
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    .xml-load-more {
+      display: block;
+      margin-top: 12px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 8px;
+      border: 1px dashed var(--accent-mid);
+      border-radius: 6px;
+      background: var(--accent-light);
+      transition: background 0.1s;
+    }
+
+    .xml-load-more:hover { background: #e0e9fd; }
+
     /* ── Mobile overlay ── */
     .sidebar-overlay {
       display: none;
@@ -307,10 +407,7 @@
         box-shadow: 4px 0 24px rgba(0,0,0,0.15);
       }
 
-      .sidebar.open {
-        transform: translateX(0);
-      }
-
+      .sidebar.open { transform: translateX(0); }
       .sidebar-overlay.open { display: block; }
     }
   </style>
@@ -359,14 +456,18 @@
         <span class="sidebar-chevron">&#x25b8;</span>
       </div>
       <div class="sidebar-section-body">
-        <a class="sidebar-nav-item" data-src="{{cpp_path}}" href="#">
-          <span class="nav-icon">&#x1f4ca;</span> C++
-          {{cpp_badge}}
-        </a>
-        <a class="sidebar-nav-item" data-src="{{python_path}}" href="#">
-          <span class="nav-icon">&#x1f40d;</span> Python
-          {{python_badge}}
-        </a>
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{{cpp_path}}" href="#">
+            <span class="nav-icon">&#x1f4ca;</span> C++ {{cpp_badge}}
+          </a>
+          <a class="sidebar-dl-btn" href="{{cpp_path}}" download title="Download">&#x2913;</a>
+        </div>
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{{python_path}}" href="#">
+            <span class="nav-icon">&#x1f40d;</span> Python {{python_badge}}
+          </a>
+          <a class="sidebar-dl-btn" href="{{python_path}}" download title="Download">&#x2913;</a>
+        </div>
       </div>
     </div>
 
@@ -384,12 +485,23 @@
       <span>Select a report from the sidebar</span>
     </div>
     <iframe id="report-frame" title="Report viewer" sandbox="allow-scripts allow-same-origin"></iframe>
+    <div id="xml-viewer">
+      <div class="xml-toolbar">
+        <span class="xml-toolbar-label" id="xml-label"></span>
+        <span class="xml-progress" id="xml-progress"></span>
+        <a class="xml-btn" id="xml-dl-btn" download>&#x2913; Download</a>
+      </div>
+      <pre id="xml-pre"></pre>
+      <button class="xml-load-more" id="xml-load-more" style="display:none">Load more…</button>
+    </div>
   </div>
 
 </div>
 
 <script>
   (function () {
+    var CHUNK = 50000; // characters per page
+
     function timeAgo(date) {
       var s = Math.floor((Date.now() - date) / 1000);
       if (s < 60) return 'just now';
@@ -417,15 +529,81 @@
       }
     }
 
-    // ── Iframe navigation ──
-    var frame = document.getElementById('report-frame');
+    // ── Content area elements ──
+    var frame       = document.getElementById('report-frame');
     var placeholder = document.getElementById('placeholder');
-    var activeItem = null;
+    var xmlViewer   = document.getElementById('xml-viewer');
+    var xmlPre      = document.getElementById('xml-pre');
+    var xmlLabel    = document.getElementById('xml-label');
+    var xmlProgress = document.getElementById('xml-progress');
+    var xmlDlBtn    = document.getElementById('xml-dl-btn');
+    var xmlLoadMore = document.getElementById('xml-load-more');
+    var activeItem  = null;
 
-    function loadReport(src) {
+    var xmlFull     = '';   // full text of the loaded XML
+    var xmlOffset   = 0;    // how many chars we've rendered so far
+
+    function showPlaceholder() {
+      placeholder.style.display = '';
+      frame.style.display = 'none';
+      xmlViewer.style.display = 'none';
+    }
+
+    function loadIframe(src) {
       placeholder.style.display = 'none';
+      xmlViewer.style.display = 'none';
       frame.style.display = 'block';
       frame.src = src;
+    }
+
+    function renderXmlChunk() {
+      var chunk = xmlFull.slice(xmlOffset, xmlOffset + CHUNK);
+      xmlPre.textContent += chunk;
+      xmlOffset += chunk.length;
+      var total = xmlFull.length;
+      xmlProgress.textContent = Math.min(xmlOffset, total).toLocaleString() + ' / ' + total.toLocaleString() + ' chars';
+      if (xmlOffset >= total) {
+        xmlLoadMore.style.display = 'none';
+        xmlProgress.textContent = total.toLocaleString() + ' chars (fully loaded)';
+      } else {
+        xmlLoadMore.style.display = 'block';
+      }
+    }
+
+    function loadXml(src) {
+      placeholder.style.display = 'none';
+      frame.style.display = 'none';
+      xmlViewer.style.display = 'flex';
+      xmlViewer.style.flexDirection = 'column';
+      xmlPre.textContent = '';
+      xmlFull = '';
+      xmlOffset = 0;
+      xmlLabel.textContent = src.split('/').pop();
+      xmlProgress.textContent = 'Loading…';
+      xmlLoadMore.style.display = 'none';
+      xmlDlBtn.href = src;
+      xmlDlBtn.setAttribute('download', src.split('/').pop());
+
+      fetch(src)
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+          xmlFull = text;
+          renderXmlChunk();
+        })
+        .catch(function(err) {
+          xmlPre.textContent = 'Failed to load: ' + err;
+          xmlProgress.textContent = '';
+        });
+    }
+
+    xmlLoadMore.addEventListener('click', renderXmlChunk);
+
+    function loadReport(src, mode) {
+      if (mode === 'xml') {
+        loadXml(src);
+      } else {
+        loadIframe(src);
+      }
     }
 
     document.querySelectorAll('.sidebar-nav-item[data-src]').forEach(function (el) {
@@ -434,7 +612,7 @@
         if (activeItem) activeItem.classList.remove('active');
         activeItem = el;
         el.classList.add('active');
-        loadReport(el.getAttribute('data-src'));
+        loadReport(el.getAttribute('data-src'), el.getAttribute('data-mode'));
         closeSidebar();
       });
     });
@@ -444,7 +622,7 @@
     if (first) {
       first.classList.add('active');
       activeItem = first;
-      loadReport(first.getAttribute('data-src'));
+      loadReport(first.getAttribute('data-src'), first.getAttribute('data-mode'));
     }
 
     // ── Collapsible sidebar sections ──
@@ -455,19 +633,12 @@
     });
 
     // ── Hamburger / mobile sidebar ──
-    var sidebar = document.getElementById('sidebar');
-    var overlay = document.getElementById('sidebar-overlay');
+    var sidebar   = document.getElementById('sidebar');
+    var overlay   = document.getElementById('sidebar-overlay');
     var hamburger = document.getElementById('hamburger-btn');
 
-    function openSidebar() {
-      sidebar.classList.add('open');
-      overlay.classList.add('open');
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('open');
-    }
+    function openSidebar()  { sidebar.classList.add('open');    overlay.classList.add('open'); }
+    function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
 
     hamburger.addEventListener('click', function () {
       sidebar.classList.contains('open') ? closeSidebar() : openSidebar();

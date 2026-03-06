@@ -32,6 +32,17 @@ dependencies = [ "numpy>=2.0", "tqdm" ]
 Homepage = "https://github.com/bwehlin/masspcf"
 Issues = "https://github.com/bwehlin/masspcf/issues"
 
+[tool.coverage.run]
+source = ["masspcf"]
+
+[tool.coverage.paths]
+# Map installed copies back to the source tree so the HTML report shows
+# short paths like "masspcf/io.py" instead of the full tool-cache path.
+masspcf = [
+    "masspcf",               # source tree (editable / local runs)
+    "*/masspcf",             # any prefix, e.g. site-packages/masspcf
+]
+
 [tool.cibuildwheel]
 test-sources = ["test"]
 test-requires = "pytest"
