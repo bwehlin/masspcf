@@ -134,6 +134,30 @@
     .hamburger:hover { color: var(--text); border-color: var(--accent); }
     .hamburger svg { display: block; }
 
+    /* ── Export for AI button ── */
+    .export-ai-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--mono);
+      color: var(--memory);
+      background: var(--memory-light);
+      border: 1px solid var(--memory-mid);
+      border-radius: 6px;
+      padding: 5px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+
+    .export-ai-btn:hover {
+      background: var(--memory-mid);
+      border-color: var(--memory);
+    }
+
     /* ── Body: sidebar + content ── */
     .body-wrap {
       flex: 1;
@@ -382,6 +406,119 @@
 
     .xml-load-more:hover { background: #e0e9fd; }
 
+    /* ── Export for AI modal ── */
+    .ai-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ai-modal-backdrop.open { display: flex; }
+
+    .ai-modal {
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: 10px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      width: min(760px, 95vw);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .ai-modal-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .ai-modal-title {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--mono);
+      color: var(--text);
+    }
+
+    .ai-modal-status {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--subtle);
+    }
+
+    .ai-modal-copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--mono);
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-bright);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.1s, border-color 0.1s, background 0.1s;
+    }
+
+    .ai-modal-copy-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .ai-modal-copy-btn.copied {
+      color: var(--ok);
+      border-color: var(--ok);
+      background: var(--ok-bg);
+    }
+
+    .ai-modal-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border-bright);
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      transition: color 0.1s, background 0.1s;
+    }
+
+    .ai-modal-close:hover { color: var(--text); background: var(--surface2); }
+
+    .ai-modal-body {
+      flex: 1;
+      overflow: auto;
+      padding: 16px 18px;
+    }
+
+    #ai-export-pre {
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.65;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      min-height: 120px;
+    }
+
     /* ── Mobile overlay ── */
     .sidebar-overlay {
       display: none;
@@ -395,6 +532,7 @@
     @media (max-width: 700px) {
       .hamburger { display: flex; align-items: center; }
       .topbar-time { display: none; }
+      .export-ai-btn span { display: none; } /* icon only on mobile */
 
       .sidebar {
         position: fixed;
@@ -439,6 +577,10 @@
   </div>
 
   <div class="topbar-time" id="topbar-ago"></div>
+
+  <button class="export-ai-btn" id="export-ai-btn" title="Export coverage data dump">
+    &#x2728; <span>Export for AI</span>
+  </button>
 </div>
 
 <!-- ── Body ── -->
@@ -599,6 +741,21 @@
 
 </div>
 
+<!-- ── Export for AI modal ── -->
+<div class="ai-modal-backdrop" id="ai-modal-backdrop">
+  <div class="ai-modal">
+    <div class="ai-modal-header">
+      <span class="ai-modal-title">&#x2728; Coverage dump export</span>
+      <span class="ai-modal-status" id="ai-modal-status">Loading…</span>
+      <button class="ai-modal-copy-btn" id="ai-copy-btn">&#x2398; Copy all</button>
+      <button class="ai-modal-close" id="ai-modal-close">&#x2715;</button>
+    </div>
+    <div class="ai-modal-body">
+      <pre id="ai-export-pre">Loading coverage data…</pre>
+    </div>
+  </div>
+</div>
+
 <script>
   (function () {
     var CHUNK = 50000; // characters per page
@@ -746,6 +903,161 @@
     });
 
     overlay.addEventListener('click', closeSidebar);
+
+    // ── Export for AI ──────────────────────────────────────────────────────────
+
+    var aiBackdrop = document.getElementById('ai-modal-backdrop');
+    var aiPre      = document.getElementById('ai-export-pre');
+    var aiStatus   = document.getElementById('ai-modal-status');
+    var aiCopyBtn  = document.getElementById('ai-copy-btn');
+    var aiCloseBtn = document.getElementById('ai-modal-close');
+    var exportBtn  = document.getElementById('export-ai-btn');
+
+    // Derive JSON paths from sidebar nav data-src attributes:
+    //   cpp/coverage.html  → cpp/coverage-summary.json
+    //   python/index.html  → python/coverage.json
+    function getJsonPaths() {
+      var cppSrc = '', pySrc = '';
+      document.querySelectorAll('.sidebar-nav-item[data-src]').forEach(function(el) {
+        var src = el.getAttribute('data-src') || '';
+        if (src.indexOf('cpp/coverage.html') !== -1)
+          cppSrc = src.replace('coverage.html', 'coverage-summary.json');
+        if (src.indexOf('python/index.html') !== -1)
+          pySrc = src.replace('index.html', 'coverage.json');
+      });
+      return { cpp: cppSrc, py: pySrc };
+    }
+
+    function formatPyCoverage(data) {
+      var lines = [];
+      var totals = data.totals || {};
+      lines.push('=== Python Coverage ===');
+      lines.push('Total: ' + (totals.percent_covered != null ? totals.percent_covered.toFixed(1) + '%' : 'N/A'));
+      lines.push('Covered lines: ' + (totals.covered_lines != null ? totals.covered_lines : 'N/A'));
+      lines.push('Missing lines: ' + (totals.missing_lines != null ? totals.missing_lines : 'N/A'));
+      lines.push('');
+      lines.push('Per-file breakdown:');
+      var files = data.files || {};
+      Object.keys(files).sort().forEach(function(filePath) {
+        var f = files[filePath];
+        var summary = f.summary || {};
+        var pct = summary.percent_covered != null ? summary.percent_covered.toFixed(1) + '%' : '?';
+        var displayPath = filePath.replace(/^.*masspcf\//, 'masspcf/');
+        lines.push('  ' + displayPath + ': ' + pct +
+          ' (' + (summary.covered_lines || 0) + '/' + (summary.num_statements || 0) + ' stmts)');
+        var missing = f.missing_lines || [];
+        if (missing.length > 0)
+          lines.push('    missing lines: ' + missing.join(', '));
+      });
+      return lines.join('\n');
+    }
+
+    function formatCppCoverage(data) {
+      var lines = [];
+      lines.push('=== C++ Coverage ===');
+      lines.push('Line coverage:     ' + (data.line_percent     != null ? data.line_percent.toFixed(1)     + '%' : 'N/A'));
+      lines.push('Function coverage: ' + (data.function_percent != null ? data.function_percent.toFixed(1) + '%' : 'N/A'));
+      lines.push('Branch coverage:   ' + (data.branch_percent   != null ? data.branch_percent.toFixed(1)   + '%' : 'N/A'));
+      if (data.lines)     lines.push('Lines covered:     ' + data.lines.covered     + ' / ' + data.lines.count);
+      if (data.functions) lines.push('Functions covered: ' + data.functions.covered + ' / ' + data.functions.count);
+      return lines.join('\n');
+    }
+
+    function buildHeader() {
+      var label  = (document.querySelector('.topbar-sha')    || {}).textContent || '';
+      var branch = (document.querySelector('.topbar-branch') || {}).textContent || '';
+      var lines = ['# masspcf coverage report', 'Run: ' + label.trim()];
+      if (branch.trim()) lines.push('Branch: ' + branch.trim());
+      lines.push('');
+      return lines.join('\n');
+    }
+
+    function openExportModal() {
+      aiPre.textContent = 'Loading…';
+      aiStatus.textContent = 'Fetching…';
+      aiCopyBtn.textContent = '⎘ Copy all';
+      aiCopyBtn.className = 'ai-modal-copy-btn';
+      aiBackdrop.classList.add('open');
+
+      var paths = getJsonPaths();
+      var results = { cpp: null, py: null, cppErr: null, pyErr: null };
+      var pending = 0;
+
+      function tryFinish() {
+        if (pending > 0) return;
+        var out = buildHeader();
+        if (results.py !== null)  out += formatPyCoverage(results.py)  + '\n\n';
+        else if (results.pyErr)   out += '=== Python Coverage ===\nFailed to load: ' + results.pyErr + '\n\n';
+        if (results.cpp !== null) out += formatCppCoverage(results.cpp) + '\n';
+        else if (results.cppErr)  out += '=== C++ Coverage ===\nFailed to load: '  + results.cppErr + '\n';
+        aiPre.textContent = out;
+        aiStatus.textContent = out.length.toLocaleString() + ' chars';
+      }
+
+      if (paths.py) {
+        pending++;
+        fetch(paths.py)
+          .then(function(r) { return r.json(); })
+          .then(function(d) { results.py  = d; })
+          .catch(function(e) { results.pyErr  = e.message; })
+          .finally(function() { pending--; tryFinish(); });
+      }
+      if (paths.cpp) {
+        pending++;
+        fetch(paths.cpp)
+          .then(function(r) { return r.json(); })
+          .then(function(d) { results.cpp = d; })
+          .catch(function(e) { results.cppErr = e.message; })
+          .finally(function() { pending--; tryFinish(); });
+      }
+      if (!paths.py && !paths.cpp) {
+        aiPre.textContent = buildHeader() + 'No coverage JSON files found.';
+        aiStatus.textContent = 'Nothing to load';
+      }
+    }
+
+    exportBtn.addEventListener('click', openExportModal);
+
+    aiCloseBtn.addEventListener('click', function() {
+      aiBackdrop.classList.remove('open');
+    });
+
+    aiBackdrop.addEventListener('click', function(e) {
+      if (e.target === aiBackdrop) aiBackdrop.classList.remove('open');
+    });
+
+    aiCopyBtn.addEventListener('click', function() {
+      var text = aiPre.textContent;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function() {
+        aiCopyBtn.textContent = '✓ Copied!';
+        aiCopyBtn.className = 'ai-modal-copy-btn copied';
+        setTimeout(function() {
+          aiCopyBtn.textContent = '⎘ Copy all';
+          aiCopyBtn.className = 'ai-modal-copy-btn';
+        }, 2000);
+      }).catch(function() {
+        // Fallback for browsers without clipboard API
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        aiCopyBtn.textContent = '✓ Copied!';
+        aiCopyBtn.className = 'ai-modal-copy-btn copied';
+        setTimeout(function() {
+          aiCopyBtn.textContent = '⎘ Copy all';
+          aiCopyBtn.className = 'ai-modal-copy-btn';
+        }, 2000);
+      });
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') aiBackdrop.classList.remove('open');
+    });
+
   })();
 </script>
 </body>
