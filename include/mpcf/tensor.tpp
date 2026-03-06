@@ -47,7 +47,7 @@ namespace mpcf
   template <typename U> requires std::equality_comparable_with<U, T>
   bool Tensor<T>::operator==(const Tensor<U>& rhs) const
   {
-    if (m_shape != rhs.m_shape)
+    if (m_shape != rhs.shape())
     {
       return false;
     }
@@ -64,7 +64,7 @@ namespace mpcf
   template <typename U> requires std::equality_comparable_with<U, T>
   bool Tensor<T>::operator!=(const Tensor<U>& rhs) const
   {
-    if (m_shape != rhs.m_shape)
+    if (m_shape != rhs.shape())
     {
       return true;
     }

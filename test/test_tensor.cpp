@@ -388,4 +388,141 @@ namespace
       EXPECT_EQ(t(i), static_cast<int>(i * 10));
   }
 
+// ============================================================================
+// any_of / any_of_idx
+// ============================================================================
+
+  TEST(TensorTpp, AnyOfReturnsTrueWhenPredicateMatches)
+  {
+    auto t = make_sequential<int>({ 4 });
+    EXPECT_TRUE(t.any_of([](const int& v) { return v == 3; }));
+  }
+
+  TEST(TensorTpp, AnyOfReturnsFalseWhenNoMatch)
+  {
+    auto t = make_sequential<int>({ 4 });
+    EXPECT_FALSE(t.any_of([](const int& v) { return v > 100; }));
+  }
+
+  TEST(TensorTpp, AnyOfIdxReturnsTrueWhenIndexMatches)
+  {
+    auto t = make_sequential<int>({ 3, 3 });
+    // Element at {2,2} = 8
+    EXPECT_TRUE(t.any_of_idx([&t](const std::vector<size_t>& idx) {
+      return t(idx) == 8;
+    }));
+  }
+
+  TEST(TensorTpp, AnyOfIdxReturnsFalseWhenNoMatch)
+  {
+    auto t = make_sequential<int>({ 3, 3 });
+    EXPECT_FALSE(t.any_of_idx([&t](const std::vector<size_t>& idx) {
+      return t(idx) < 0;
+    }));
+  }
+
+// ============================================================================
+// rank() / strides() / stride() / offset()
+// ============================================================================
+
+  TEST(TensorTpp, RankMatchesDimensionCount)
+  {
+    mpcf::Tensor<float> t1({ 5 });
+    EXPECT_EQ(t1.rank(), 1u);
+
+    mpcf::Tensor<float> t2({ 3, 4 });
+    EXPECT_EQ(t2.rank(), 2u);
+
+    mpcf::Tensor<float> t3({ 2, 3, 5 });
+    EXPECT_EQ(t3.rank(), 3u);
+  }
+
+  TEST(TensorTpp, StridesCorrectForRowMajor2d)
+  {
+    // shape (3, 4): stride[0]=4, stride[1]=1
+    mpcf::Tensor<int> t({ 3, 4 });
+    ASSERT_EQ(t.strides().size(), 2u);
+    EXPECT_EQ(t.stride(0), 4u);
+    EXPECT_EQ(t.stride(1), 1u);
+  }
+
+  TEST(TensorTpp, StridesCorrectFor3d)
+  {
+    // shape (2, 3, 5): stride[0]=15, stride[1]=5, stride[2]=1
+    mpcf::Tensor<double> t({ 2, 3, 5 });
+    EXPECT_EQ(t.stride(0), 15u);
+    EXPECT_EQ(t.stride(1), 5u);
+    EXPECT_EQ(t.stride(2), 1u);
+  }
+
+  TEST(TensorTpp, OffsetIsZeroForFreshTensor)
+  {
+    mpcf::Tensor<int> t({ 4, 4 });
+    EXPECT_EQ(t.offset(), 0u);
+  }
+
+  TEST(TensorTpp, OffsetNonZeroAfterIndexSlice)
+  {
+    auto t = make_sequential<int>({ 4, 4 });
+    // t[1, :] — drops first dim, offset should be stride[0]*1 = 4
+    auto view = t[std::vector<mpcf::Slice>{ mpcf::index(1), mpcf::all() }];
+    EXPECT_EQ(view.offset(), 4u);
+  }
+
+// ============================================================================
+// cross-type assign_from
+// ============================================================================
+
+  TEST(TensorTpp, AssignFromCrossTypeIntToDouble)
+  {
+    mpcf::Tensor<int> src({ 2, 2 });
+    src({ 0, 0 }) = 1; src({ 0, 1 }) = 2;
+    src({ 1, 0 }) = 3; src({ 1, 1 }) = 4;
+
+    mpcf::Tensor<double> dst({ 2, 2 });
+    dst.assign_from(src);
+
+    EXPECT_DOUBLE_EQ(dst({ 0, 0 }), 1.0);
+    EXPECT_DOUBLE_EQ(dst({ 0, 1 }), 2.0);
+    EXPECT_DOUBLE_EQ(dst({ 1, 0 }), 3.0);
+    EXPECT_DOUBLE_EQ(dst({ 1, 1 }), 4.0);
+  }
+
+  TEST(TensorTpp, AssignFromCrossTypeShapeMismatchThrows)
+  {
+    mpcf::Tensor<float> src({ 2, 3 });
+    mpcf::Tensor<double> dst({ 3, 2 });
+    EXPECT_THROW(dst.assign_from(src), std::runtime_error);
+  }
+
+// ============================================================================
+// cross-type operator== / operator!=
+// ============================================================================
+
+  TEST(TensorTpp, CrossTypeEqualityIntAndDouble)
+  {
+    mpcf::Tensor<int>    a({ 3 });
+    mpcf::Tensor<double> b({ 3 });
+    for (size_t i = 0; i < 3; ++i)
+    {
+      a(i) = static_cast<int>(i);
+      b(i) = static_cast<double>(i);
+    }
+    EXPECT_TRUE(a == b);
+    EXPECT_FALSE(a != b);
+  }
+
+  TEST(TensorTpp, CrossTypeInequalityIntAndDouble)
+  {
+    mpcf::Tensor<int>    a({ 3 });
+    mpcf::Tensor<double> b({ 3 });
+    for (size_t i = 0; i < 3; ++i)
+    {
+      a(i) = static_cast<int>(i);
+      b(i) = static_cast<double>(i) + 0.5;
+    }
+    EXPECT_FALSE(a == b);
+    EXPECT_TRUE(a != b);
+  }
+
 } // namespace

@@ -139,7 +139,7 @@ namespace mpcf::ph
           return;
         }
 
-        auto task = flow.emplace([this, index] {
+        flow.emplace([this, index] {
           if (stop_requested())
             return;
           detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
