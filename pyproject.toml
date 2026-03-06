@@ -34,6 +34,7 @@ Issues = "https://github.com/bwehlin/masspcf/issues"
 
 [tool.coverage.run]
 source = ["masspcf"]
+relative_files = true
 
 [tool.coverage.paths]
 # Map installed copies back to the source tree so the HTML report shows
