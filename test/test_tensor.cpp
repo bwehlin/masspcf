@@ -38,439 +38,392 @@ namespace
 
 
 // ============================================================================
+// Typed test suite — runs every test body for int, float, and double
+// ============================================================================
+
+  using TensorTypes = ::testing::Types<int, float, double>;
+
+  template <typename T>
+  class TensorTppTyped : public ::testing::Test {};
+  TYPED_TEST_SUITE(TensorTppTyped, TensorTypes);
+
 // operator=(const T& val)
-// ============================================================================
 
-  TEST(TensorTpp, AssignScalarFillsAllElements)
+  TYPED_TEST(TensorTppTyped, AssignScalarFillsAllElements)
   {
-    mpcf::Tensor<double> t({ 2, 3 });
-    t = 7.0;
-
-    t.walk([&t](const std::vector<size_t>& idx)
-    {
-      EXPECT_EQ(t(idx), 7.0) << "at " << idx[0] << "," << idx[1];
-    });
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 2, 3 });
+    t = T(7);
+    t.walk([&t](const std::vector<size_t>& idx) { EXPECT_EQ(t(idx), T(7)); });
   }
 
-  TEST(TensorTpp, AssignScalarOverwritesPreviousValues)
+  TYPED_TEST(TensorTppTyped, AssignScalarOverwritesPreviousValues)
   {
-    mpcf::Tensor<int> t({ 4 });
-    t(0) = 100;
-    t(1) = 200;
-    t(2) = 300;
-    t(3) = 400;
-    t = 0;
-    for (size_t i = 0; i < 4; ++i)
-      EXPECT_EQ(t(i), 0);
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 4 });
+    for (size_t i = 0; i < 4; ++i) t(i) = T(100 + i);
+    t = T(0);
+    for (size_t i = 0; i < 4; ++i) EXPECT_EQ(t(i), T(0));
   }
 
-// ============================================================================
-// operator==  / operator!=  — shape mismatch short-circuit
-// ============================================================================
+// operator== / operator!=
 
-  TEST(TensorTpp, InequalityShapeMismatchReturnsFalse)
+  TYPED_TEST(TensorTppTyped, EqualityShapeMismatch)
   {
-    mpcf::Tensor<int> a({ 2, 3 });
-    mpcf::Tensor<int> b({ 3, 2 });
-    EXPECT_TRUE(a != b);
+    using T = TypeParam;
+    mpcf::Tensor<T> a({ 2, 3 });
+    mpcf::Tensor<T> b({ 3, 2 });
     EXPECT_FALSE(a == b);
+    EXPECT_TRUE(a != b);
   }
 
-  TEST(TensorTpp, EqualityIdenticalTensors)
+  TYPED_TEST(TensorTppTyped, EqualityIdentical)
   {
-    auto a = make_sequential<float>({ 3, 4 });
-    auto b = make_sequential<float>({ 3, 4 });
+    using T = TypeParam;
+    auto a = make_sequential<T>({ 3, 4 });
+    auto b = make_sequential<T>({ 3, 4 });
     EXPECT_TRUE(a == b);
     EXPECT_FALSE(a != b);
   }
 
-  TEST(TensorTpp, InequalityOneElementDiffers)
+  TYPED_TEST(TensorTppTyped, InequalityOneElementDiffers)
   {
-    auto a = make_sequential<double>({ 2, 2 });
-    auto b = make_sequential<double>({ 2, 2 });
-    b({ 1, 1 }) = 999.0;
+    using T = TypeParam;
+    auto a = make_sequential<T>({ 2, 2 });
+    auto b = make_sequential<T>({ 2, 2 });
+    b({ 1, 1 }) = T(999);
     EXPECT_FALSE(a == b);
     EXPECT_TRUE(a != b);
   }
 
-// ============================================================================
 // assign_from
-// ============================================================================
 
-  TEST(TensorTpp, AssignFromCopiesValues)
+  TYPED_TEST(TensorTppTyped, AssignFromCopiesValues)
   {
-    auto src = make_sequential<double>({ 2, 3 });
-    mpcf::Tensor<double> dst({ 2, 3 });
+    using T = TypeParam;
+    auto src = make_sequential<T>({ 2, 3 });
+    mpcf::Tensor<T> dst({ 2, 3 });
     dst.assign_from(src);
     EXPECT_EQ(dst, src);
   }
 
-  TEST(TensorTpp, AssignFromShapeMismatchThrows)
+  TYPED_TEST(TensorTppTyped, AssignFromShapeMismatchThrows)
   {
-    mpcf::Tensor<int> src({ 2, 3 });
-    mpcf::Tensor<int> dst({ 3, 2 });
+    using T = TypeParam;
+    mpcf::Tensor<T> src({ 2, 3 });
+    mpcf::Tensor<T> dst({ 3, 2 });
     EXPECT_THROW(dst.assign_from(src), std::runtime_error);
   }
 
-// ============================================================================
 // size()
-// ============================================================================
 
-  TEST(TensorTpp, SizeOfEmptyTensor)
+  TYPED_TEST(TensorTppTyped, SizeOfEmptyTensor)
   {
-    mpcf::Tensor<int> t;
-    // Default constructor → shape {}, size = 0
+    using T = TypeParam;
+    mpcf::Tensor<T> t;
     EXPECT_EQ(t.size(), 0u);
   }
 
-  TEST(TensorTpp, Size1d)
+  TYPED_TEST(TensorTppTyped, Size1d)
   {
-    mpcf::Tensor<float> t({ 7 });
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 7 });
     EXPECT_EQ(t.size(), 7u);
   }
 
-  TEST(TensorTpp, Size3d)
+  TYPED_TEST(TensorTppTyped, Size3d)
   {
-    mpcf::Tensor<double> t({ 2, 3, 5 });
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 2, 3, 5 });
     EXPECT_EQ(t.size(), 30u);
   }
 
-// ============================================================================
 // copy()
-// ============================================================================
 
-  TEST(TensorTpp, CopyIsDeepCopy)
+  TYPED_TEST(TensorTppTyped, CopyIsDeepCopy)
   {
-    auto original = make_sequential<int>({ 3, 3 });
+    using T = TypeParam;
+    auto original = make_sequential<T>({ 3, 3 });
     auto copy = original.copy();
-
     EXPECT_EQ(original, copy);
-
-    copy({ 0, 0 }) = 9999;
+    copy({ 0, 0 }) = T(9999);
     EXPECT_NE(original({ 0, 0 }), copy({ 0, 0 }));
   }
 
-  TEST(TensorTpp, CopyOfNonContiguousTensorIsContiguous)
+  TYPED_TEST(TensorTppTyped, CopyOfNonContiguousTensorIsContiguous)
   {
-    auto t = make_sequential<double>({ 4, 4 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4, 4 });
     auto sliced = t[std::vector<mpcf::Slice>{ mpcf::range(1, 3, std::nullopt), mpcf::all() }];
     EXPECT_FALSE(sliced.is_contiguous());
-
     auto c = sliced.copy();
     EXPECT_TRUE(c.is_contiguous());
     EXPECT_EQ(c.shape(0), 2u);
     EXPECT_EQ(c.shape(1), 4u);
-
-    // Values should match the slice
     for (size_t i = 0; i < 2; ++i)
       for (size_t j = 0; j < 4; ++j)
         EXPECT_EQ(c({ i, j }), sliced({ i, j }));
   }
 
-// ============================================================================
 // flatten()
-// ============================================================================
 
-  TEST(TensorTpp, FlattenContiguous2d)
+  TYPED_TEST(TensorTppTyped, FlattenContiguous)
   {
-    auto t = make_sequential<int>({ 2, 3 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 2, 3 });
     auto flat = t.flatten();
-
     ASSERT_EQ(flat.shape().size(), 1u);
     EXPECT_EQ(flat.shape(0), 6u);
-
     for (size_t i = 0; i < 6; ++i)
-      EXPECT_EQ(flat(i), static_cast<int>(i));
+      EXPECT_EQ(flat(i), T(i));
   }
 
-  TEST(TensorTpp, FlattenNonContiguousWorksOnCopy)
+  TYPED_TEST(TensorTppTyped, FlattenNonContiguous)
   {
-    auto t = make_sequential<double>({ 4, 4 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4, 4 });
     auto sliced = t[std::vector<mpcf::Slice>{ mpcf::range(0, 4, 2), mpcf::all() }];
     EXPECT_FALSE(sliced.is_contiguous());
     auto flat = sliced.flatten();
     EXPECT_TRUE(flat.is_contiguous());
-
     EXPECT_NE(sliced.data(), flat.data());
   }
 
-// ============================================================================
-// walk() — bool-returning functor (early exit)
-// ============================================================================
+// walk()
 
-  TEST(TensorTpp, WalkBoolFunctorStopsEarly)
+  TYPED_TEST(TensorTppTyped, WalkBoolFunctorStopsEarly)
   {
-    auto t = make_sequential<int>({ 10 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 10 });
     int count = 0;
-    t.walk([&count](const std::vector<size_t>& /*idx*/) -> bool
-    {
-      ++count;
-      return count < 5; // stop after 5 visits
-    });
+    t.walk([&count](const std::vector<size_t>&) -> bool { return ++count < 5; });
     EXPECT_EQ(count, 5);
   }
 
-  TEST(TensorTpp, WalkBoolFunctorAllTrue)
+  TYPED_TEST(TensorTppTyped, WalkBoolFunctorAllTrue)
   {
-    auto t = make_sequential<int>({ 4 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4 });
     int count = 0;
-    t.walk([&count](const std::vector<size_t>&) -> bool
-    {
-      ++count;
-      return true;
-    });
+    t.walk([&count](const std::vector<size_t>&) -> bool { ++count; return true; });
     EXPECT_EQ(count, 4);
   }
 
-  TEST(TensorTpp, WalkEmptyShapeDoesNothing)
+  TYPED_TEST(TensorTppTyped, WalkEmptyShapeDoesNothing)
   {
-    mpcf::Tensor<int> t; // shape {}
-    int count = 0;
-    // shape is empty → walk returns immediately
-    t.walk([&count](const std::vector<size_t>&) { ++count; });
-    // shape {} has no zero dimension, so walk does visit the one scalar element
-    // (walk only returns early if shape is empty OR any dimension is 0)
-    EXPECT_EQ(count, 0);
-  }
-
-  TEST(TensorTpp, WalkZeroDimensionDoesNothing)
-  {
-    mpcf::Tensor<int> t({ 0, 3 });
+    using T = TypeParam;
+    mpcf::Tensor<T> t;
     int count = 0;
     t.walk([&count](const std::vector<size_t>&) { ++count; });
     EXPECT_EQ(count, 0);
   }
 
-// ============================================================================
+  TYPED_TEST(TensorTppTyped, WalkZeroDimensionDoesNothing)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 0, 3 });
+    int count = 0;
+    t.walk([&count](const std::vector<size_t>&) { ++count; });
+    EXPECT_EQ(count, 0);
+  }
+
 // apply()
-// ============================================================================
 
-  TEST(TensorTpp, ApplyDoubleAllElements)
+  TYPED_TEST(TensorTppTyped, ApplyMultipliesAllElements)
   {
-    auto t = make_sequential<double>({ 3, 3 });
-    t.apply([](double& v) { v *= 2.0; });
-
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 3, 3 });
+    t.apply([](T& v) { v = v * T(2); });
     size_t n = 0;
-    t.walk([&t, &n](const std::vector<size_t>& idx)
-    {
-      EXPECT_EQ(t(idx), static_cast<double>(n) * 2.0);
+    t.walk([&t, &n](const std::vector<size_t>& idx) {
+      EXPECT_EQ(t(idx), T(n) * T(2));
       ++n;
     });
   }
 
-  TEST(TensorTpp, ApplyOnEmptyDimensionDoesNothing)
+  TYPED_TEST(TensorTppTyped, ApplyOnEmptyDimensionDoesNothing)
   {
-    mpcf::Tensor<int> t({ 0 });
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 0 });
     int calls = 0;
-    t.apply([&calls](int&) { ++calls; });
+    t.apply([&calls](T&) { ++calls; });
     EXPECT_EQ(calls, 0);
   }
 
-// ============================================================================
-// extract() / operator[] — various Slice types
-// ============================================================================
+// extract() / operator[]
 
-  TEST(TensorTpp, SliceAllPreservesShape)
+  TYPED_TEST(TensorTppTyped, SliceAllPreservesShape)
   {
-    auto t = make_sequential<int>({ 3, 4 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 3, 4 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::all(), mpcf::all() }];
     EXPECT_EQ(view.shape(0), 3u);
     EXPECT_EQ(view.shape(1), 4u);
   }
 
-  TEST(TensorTpp, SliceIndexDropsDimension)
+  TYPED_TEST(TensorTppTyped, SliceIndexDropsDimension)
   {
-    auto t = make_sequential<int>({ 3, 4 });
-    // Index into first dim → shape becomes (4,)
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 3, 4 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::index(1), mpcf::all() }];
     EXPECT_EQ(view.shape().size(), 1u);
     EXPECT_EQ(view.shape(0), 4u);
-    // Row 1: values 4..7
     for (size_t j = 0; j < 4; ++j)
-      EXPECT_EQ(view({ j }), static_cast<int>(4 + j));
+      EXPECT_EQ(view({ j }), T(4 + j));
   }
 
-  TEST(TensorTpp, SliceRangeStopClampedToShape)
+  TYPED_TEST(TensorTppTyped, SliceRangeStopClampedToShape)
   {
-    auto t = make_sequential<int>({ 5 });
-    // stop=100 should be clamped to 5
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 5 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(1, 100, std::nullopt) }];
     EXPECT_EQ(view.shape(0), 4u);
   }
 
-  TEST(TensorTpp, SliceRangeStartNegativeClampsToZero)
+  TYPED_TEST(TensorTppTyped, SliceRangeStartNegativeClampsToZero)
   {
-    auto t = make_sequential<int>({ 5 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 5 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(-10, 3, std::nullopt) }];
-    // start clamped to 0, stop=3 → size 3
     EXPECT_EQ(view.shape(0), 3u);
-    EXPECT_EQ(view({ 0 }), 0);
-    EXPECT_EQ(view({ 1 }), 1);
-    EXPECT_EQ(view({ 2 }), 2);
+    EXPECT_EQ(view({ 0 }), T(0));
+    EXPECT_EQ(view({ 1 }), T(1));
+    EXPECT_EQ(view({ 2 }), T(2));
   }
 
-  TEST(TensorTpp, SliceRangeStopLessThanStartGivesZeroSize)
+  TYPED_TEST(TensorTppTyped, SliceRangeStopLessThanStartGivesZeroSize)
   {
-    auto t = make_sequential<int>({ 5 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 5 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(3, 1, std::nullopt) }];
     EXPECT_EQ(view.shape(0), 0u);
   }
 
-  TEST(TensorTpp, SliceRangeZeroStepGivesZeroSize)
+  TYPED_TEST(TensorTppTyped, SliceRangeZeroStepGivesZeroSize)
   {
-    auto t = make_sequential<int>({ 5 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 5 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(0, 5, 0) }];
     EXPECT_EQ(view.shape(0), 0u);
   }
 
-  TEST(TensorTpp, SliceRangeNegativeStepThrows)
+  TYPED_TEST(TensorTppTyped, SliceRangeNegativeStepThrows)
   {
-    auto t = make_sequential<int>({ 5 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 5 });
     EXPECT_THROW(
         (t[std::vector<mpcf::Slice>{ mpcf::range(4, 0, -1) }]),
         std::runtime_error
     );
   }
 
-  TEST(TensorTpp, SliceRangeWithDefaultStartStop)
+  TYPED_TEST(TensorTppTyped, SliceRangeWithDefaultStartStop)
   {
-    auto t = make_sequential<int>({ 5 });
-    // range with no start/stop → full range
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 5 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::range(std::nullopt, std::nullopt, std::nullopt) }];
     EXPECT_EQ(view.shape(0), 5u);
     for (size_t i = 0; i < 5; ++i)
-      EXPECT_EQ(view({ i }), static_cast<int>(i));
+      EXPECT_EQ(view({ i }), T(i));
   }
 
-  TEST(TensorTpp, Slice3dMixed)
+  TYPED_TEST(TensorTppTyped, Slice3dMixed)
   {
-    auto t = make_sequential<int>({ 4, 5, 6 });
-    // t[1, 2:4, ::2]
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4, 5, 6 });
     auto view = t[std::vector<mpcf::Slice>{
         mpcf::index(1),
         mpcf::range(2, 4, std::nullopt),
         mpcf::range(std::nullopt, std::nullopt, 2)
     }];
-
     EXPECT_EQ(view.shape().size(), 2u);
-    EXPECT_EQ(view.shape(0), 2u);   // rows 2,3
-    EXPECT_EQ(view.shape(1), 3u);   // cols 0,2,4
-
-    // t[1,2,0]=1*30+2*6+0=42; t[1,2,2]=44; t[1,2,4]=46
-    EXPECT_EQ(view({ 0, 0 }), 1 * 30 + 2 * 6 + 0);
-    EXPECT_EQ(view({ 0, 1 }), 1 * 30 + 2 * 6 + 2);
-    EXPECT_EQ(view({ 0, 2 }), 1 * 30 + 2 * 6 + 4);
-    EXPECT_EQ(view({ 1, 0 }), 1 * 30 + 3 * 6 + 0);
+    EXPECT_EQ(view.shape(0), 2u);
+    EXPECT_EQ(view.shape(1), 3u);
+    EXPECT_EQ(view({ 0, 0 }), T(1 * 30 + 2 * 6 + 0));
+    EXPECT_EQ(view({ 0, 1 }), T(1 * 30 + 2 * 6 + 2));
+    EXPECT_EQ(view({ 0, 2 }), T(1 * 30 + 2 * 6 + 4));
+    EXPECT_EQ(view({ 1, 0 }), T(1 * 30 + 3 * 6 + 0));
   }
 
-// ============================================================================
-// Flattened view index_to_data_index: non-1d index throws
-// ============================================================================
+// flatten() non-1d index throws
 
-  TEST(TensorTpp, FlattenedViewNon1dIndexThrows)
+  TYPED_TEST(TensorTppTyped, FlattenedViewNon1dIndexThrows)
   {
-    auto t = make_sequential<int>({ 2, 3 });
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 2, 3 });
     auto flat = t.flatten();
-    // Accessing flat via a 2d index should throw
     EXPECT_THROW((void)flat({ 0, 0 }), std::runtime_error);
   }
 
-// ============================================================================
-// 1d operator()(size_t) convenience overload
-// ============================================================================
+// 1d operator()(size_t) overload
 
-  TEST(TensorTpp, SingleIndexOverload1d)
+  TYPED_TEST(TensorTppTyped, SingleIndexOverload1d)
   {
-    mpcf::Tensor<int> t({ 5 });
-    for (size_t i = 0; i < 5; ++i)
-      t(i) = static_cast<int>(i * 10);
-    for (size_t i = 0; i < 5; ++i)
-      EXPECT_EQ(t(i), static_cast<int>(i * 10));
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 5 });
+    for (size_t i = 0; i < 5; ++i) t(i) = T(i * 10);
+    for (size_t i = 0; i < 5; ++i) EXPECT_EQ(t(i), T(i * 10));
   }
 
-// ============================================================================
 // any_of / any_of_idx
-// ============================================================================
 
-  TEST(TensorTpp, AnyOfReturnsTrueWhenPredicateMatches)
+  TYPED_TEST(TensorTppTyped, AnyOfReturnsTrueWhenPredicateMatches)
   {
-    auto t = make_sequential<int>({ 4 });
-    EXPECT_TRUE(t.any_of([](const int& v) { return v == 3; }));
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4 });
+    EXPECT_TRUE(t.any_of([](const T& v) { return v == T(3); }));
   }
 
-  TEST(TensorTpp, AnyOfReturnsFalseWhenNoMatch)
+  TYPED_TEST(TensorTppTyped, AnyOfReturnsFalseWhenNoMatch)
   {
-    auto t = make_sequential<int>({ 4 });
-    EXPECT_FALSE(t.any_of([](const int& v) { return v > 100; }));
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4 });
+    EXPECT_FALSE(t.any_of([](const T& v) { return v > T(100); }));
   }
 
-  TEST(TensorTpp, AnyOfIdxReturnsTrueWhenIndexMatches)
+  TYPED_TEST(TensorTppTyped, AnyOfIdxReturnsTrueWhenIndexMatches)
   {
-    auto t = make_sequential<int>({ 3, 3 });
-    // Element at {2,2} = 8
-    EXPECT_TRUE(t.any_of_idx([&t](const std::vector<size_t>& idx) {
-      return t(idx) == 8;
-    }));
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 3, 3 });
+    EXPECT_TRUE(t.any_of_idx([&t](const std::vector<size_t>& idx) { return t(idx) == T(8); }));
   }
 
-  TEST(TensorTpp, AnyOfIdxReturnsFalseWhenNoMatch)
+  TYPED_TEST(TensorTppTyped, AnyOfIdxReturnsFalseWhenNoMatch)
   {
-    auto t = make_sequential<int>({ 3, 3 });
-    EXPECT_FALSE(t.any_of_idx([&t](const std::vector<size_t>& idx) {
-      return t(idx) < 0;
-    }));
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 3, 3 });
+    EXPECT_FALSE(t.any_of_idx([&t](const std::vector<size_t>& idx) { return t(idx) > T(100); }));
   }
 
-// ============================================================================
 // rank() / strides() / stride() / offset()
-// ============================================================================
 
-  TEST(TensorTpp, RankMatchesDimensionCount)
+  TYPED_TEST(TensorTppTyped, RankMatchesDimensionCount)
   {
-    mpcf::Tensor<float> t1({ 5 });
-    EXPECT_EQ(t1.rank(), 1u);
-
-    mpcf::Tensor<float> t2({ 3, 4 });
-    EXPECT_EQ(t2.rank(), 2u);
-
-    mpcf::Tensor<float> t3({ 2, 3, 5 });
-    EXPECT_EQ(t3.rank(), 3u);
+    using T = TypeParam;
+    EXPECT_EQ(mpcf::Tensor<T>({ 5 }).rank(), 1u);
+    EXPECT_EQ(mpcf::Tensor<T>({ 3, 4 }).rank(), 2u);
+    EXPECT_EQ(mpcf::Tensor<T>({ 2, 3, 5 }).rank(), 3u);
   }
 
-  TEST(TensorTpp, StridesCorrectForRowMajor2d)
+  TYPED_TEST(TensorTppTyped, StridesCorrectForRowMajor2d)
   {
-    // shape (3, 4): stride[0]=4, stride[1]=1
-    mpcf::Tensor<int> t({ 3, 4 });
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3, 4 });
     ASSERT_EQ(t.strides().size(), 2u);
     EXPECT_EQ(t.stride(0), 4u);
     EXPECT_EQ(t.stride(1), 1u);
   }
 
-  TEST(TensorTpp, StridesCorrectFor3d)
+  TYPED_TEST(TensorTppTyped, OffsetNonZeroAfterIndexSlice)
   {
-    // shape (2, 3, 5): stride[0]=15, stride[1]=5, stride[2]=1
-    mpcf::Tensor<double> t({ 2, 3, 5 });
-    EXPECT_EQ(t.stride(0), 15u);
-    EXPECT_EQ(t.stride(1), 5u);
-    EXPECT_EQ(t.stride(2), 1u);
-  }
-
-  TEST(TensorTpp, OffsetIsZeroForFreshTensor)
-  {
-    mpcf::Tensor<int> t({ 4, 4 });
-    EXPECT_EQ(t.offset(), 0u);
-  }
-
-  TEST(TensorTpp, OffsetNonZeroAfterIndexSlice)
-  {
-    auto t = make_sequential<int>({ 4, 4 });
-    // t[1, :] — drops first dim, offset should be stride[0]*1 = 4
+    using T = TypeParam;
+    auto t = make_sequential<T>({ 4, 4 });
     auto view = t[std::vector<mpcf::Slice>{ mpcf::index(1), mpcf::all() }];
     EXPECT_EQ(view.offset(), 4u);
   }
 
 // ============================================================================
-// cross-type assign_from
+// Cross-type tests (not parameterizable on a single T)
 // ============================================================================
 
   TEST(TensorTpp, AssignFromCrossTypeIntToDouble)
@@ -494,10 +447,6 @@ namespace
     mpcf::Tensor<double> dst({ 3, 2 });
     EXPECT_THROW(dst.assign_from(src), std::runtime_error);
   }
-
-// ============================================================================
-// cross-type operator== / operator!=
-// ============================================================================
 
   TEST(TensorTpp, CrossTypeEqualityIntAndDouble)
   {
