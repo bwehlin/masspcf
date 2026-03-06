@@ -865,6 +865,18 @@
       lines.push('Branch coverage:   ' + (data.branch_percent   != null ? data.branch_percent.toFixed(1)   + '%' : 'N/A'));
       if (data.lines)     lines.push('Lines covered:     ' + data.lines.covered     + ' / ' + data.lines.count);
       if (data.functions) lines.push('Functions covered: ' + data.functions.covered + ' / ' + data.functions.count);
+      var files = data.files || [];
+      if (files.length > 0) {
+        lines.push('');
+        lines.push('Per-file breakdown:');
+        files.slice().sort(function(a, b) { return (a.filename || '').localeCompare(b.filename || ''); }).forEach(function(f) {
+          var pct = f.line_percent != null ? f.line_percent.toFixed(1) + '%' : '?';
+          var covered = f.line_covered != null ? f.line_covered : (f.lines ? f.lines.covered : '?');
+          var total   = f.line_total   != null ? f.line_total   : (f.lines ? f.lines.count   : '?');
+          var displayPath = (f.filename || '').replace(/^.*masspcf\//, 'masspcf/');
+          lines.push('  ' + displayPath + ': ' + pct + ' (' + covered + '/' + total + ' lines)');
+        });
+      }
       return lines.join('\n');
     }
 
