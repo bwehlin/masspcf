@@ -1,0 +1,42 @@
+[
+  {
+    "utc_iso": "2026-03-05T19:07:46Z",
+    "sha": "8f59c05",
+    "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html",
+    "cpp": 68.3,
+    "py": 70.0,
+    "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-05T19:23:07Z",
+    "sha": "ec81680",
+    "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html",
+    "cpp": 68.3,
+    "py": 70.0,
+    "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-05T19:43:56Z",
+    "sha": "b61083a",
+    "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html",
+    "cpp": 68.2,
+    "py": 70.0,
+    "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-05T19:59:10Z",
+    "sha": "93fb7ed",
+    "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html",
+    "cpp": 68.3,
+    "py": 70.0,
+    "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-06T13:28:39Z",
+    "sha": "d9e454d",
+    "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html",
+    "cpp": 68.3,
+    "py": 70.0,
+    "release_tag": null
+  }
+]

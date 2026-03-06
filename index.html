@@ -26,8 +26,18 @@
   --ok-bg: #dcfce7;
   --error: #dc2626;
   --error-bg: #fee2e2;
+  --release: #d97706;
+  --release-bg: #fef3c7;
   --sans: 'Inter', sans-serif;
   --mono: 'DM Mono', monospace;
+
+  /* ── Chart tokens ── */
+  --chart-cpp:     #2563eb;   /* accent blue  — C++ line */
+  --chart-py:      #16a34a;   /* ok green     — Python line */
+  --chart-release: #d97706;   /* amber        — release markers */
+  --chart-grid:    #e2e7ef;   /* --border */
+  --chart-text:    #6b7280;   /* --muted */
+  --chart-bg:      transparent;
 }
 
 body {
@@ -103,6 +113,15 @@ h1 {
   box-shadow: 0 2px 12px rgba(37, 99, 235, 0.12);
 }
 
+.report-card-wrapper.release {
+  border-color: #fcd34d;
+}
+
+.report-card-wrapper.release:hover {
+  border-color: var(--release);
+  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.12);
+}
+
 /* The whole card is now an <a> tag */
 .report-card-link {
   display: block;
@@ -124,6 +143,10 @@ h1 {
   background: var(--accent-light);
 }
 
+.report-card-wrapper.release .report-card {
+  background: var(--release-bg);
+}
+
 .report-card-link:hover .report-card {
   background: var(--surface-hover);
 }
@@ -132,17 +155,32 @@ h1 {
   background: #e6edfd;
 }
 
+.report-card-wrapper.release .report-card-link:hover .report-card {
+  background: #fde68a44;
+}
+
 .badge {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-mid);
   padding: 3px 8px;
   border-radius: 99px;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.badge-latest {
+  color: var(--accent);
+  background: var(--accent-mid);
+}
+
+.badge-release {
+  color: var(--release);
+  background: #fde68a;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  font-size: 11px;
 }
 
 .report-index {
@@ -280,6 +318,126 @@ footer {
   .card-arrow { display: none; }
 }
 
+/* ── Coverage chart ───────────────────────────────────────────────────────────
+   Uses the design-system tokens defined in :root above.                       */
+
+.chart-section {
+  margin-bottom: 40px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chart-wrap canvas {
+  display: block;
+  width: 100%;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1.5px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.legend-dot-release {
+  background: var(--chart-release);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1.5px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+/* Hover tooltip */
+.chart-tooltip {
+  position: absolute;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 8px 11px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 10;
+  min-width: 148px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.tt-date {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.tt-release {
+  color: var(--release);
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.tt-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.tt-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tt-sha {
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--subtle);
+}
+
+@media (max-width: 600px) {
+  .chart-legend { gap: 12px; }
+}
+
   </style>
 </head>
 <body>
@@ -293,14 +451,33 @@ footer {
   <div class="reports-list">
     
 <div class="report-card-wrapper latest">
-  <a class="report-card-link" href="reports/2026-03-05_19-59-10_93fb7ed/report.html">
+  <a class="report-card-link" href="reports/2026-03-06_13-28-39_d9e454d/report.html">
     <div class="report-card">
       <span class="report-index">#1</span>
+      <div class="report-info">
+        <div class="report-label" data-utc="2026-03-06T13:28:39Z" data-sha="d9e454d">2026-03-06 13:28:39 UTC — d9e454d</div>
+        <div class="report-branch">&#x2387; main</div>
+      </div>
+      <span class="badge badge-latest">Latest</span>
+      <div class="report-stats">
+        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">68.3%</span></span>
+        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
+        <span class="stat stat-error">231 mem errs</span>
+      </div>
+      <div class="card-arrow">&#x2192;</div>
+    </div>
+  </a>
+</div>
+
+<div class="report-card-wrapper">
+  <a class="report-card-link" href="reports/2026-03-05_19-59-10_93fb7ed/report.html">
+    <div class="report-card">
+      <span class="report-index">#2</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-05T19:59:10Z" data-sha="93fb7ed">2026-03-05 19:59:10 UTC — 93fb7ed</div>
         <div class="report-branch">&#x2387; main</div>
       </div>
-      <span class="badge">Latest</span>
+      
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">68.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
@@ -314,7 +491,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-05_19-43-56_b61083a/report.html">
     <div class="report-card">
-      <span class="report-index">#2</span>
+      <span class="report-index">#3</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-05T19:43:56Z" data-sha="b61083a">2026-03-05 19:43:56 UTC — b61083a</div>
         <div class="report-branch">&#x2387; main</div>
@@ -333,7 +510,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-05_19-23-07_ec81680/report.html">
     <div class="report-card">
-      <span class="report-index">#3</span>
+      <span class="report-index">#4</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-05T19:23:07Z" data-sha="ec81680">2026-03-05 19:23:07 UTC — ec81680</div>
         <div class="report-branch">&#x2387; main</div>
@@ -352,7 +529,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-05_19-07-46_8f59c05/report.html">
     <div class="report-card">
-      <span class="report-index">#4</span>
+      <span class="report-index">#5</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-05T19:07:46Z" data-sha="8f59c05">2026-03-05 19:07:46 UTC — 8f59c05</div>
         <div class="report-branch">&#x2387; main</div>
@@ -362,25 +539,6 @@ footer {
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">68.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
         <span class="stat stat-error">229 mem errs</span>
-      </div>
-      <div class="card-arrow">&#x2192;</div>
-    </div>
-  </a>
-</div>
-
-<div class="report-card-wrapper">
-  <a class="report-card-link" href="reports/2026-03-05_17-58-12_52c5575/report.html">
-    <div class="report-card">
-      <span class="report-index">#5</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-05T17:58:12Z" data-sha="52c5575">2026-03-05 17:58:12 UTC — 52c5575</div>
-        <div class="report-branch">&#x2387; main</div>
-      </div>
-      
-      <div class="report-stats">
-        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">63.4%</span></span>
-        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
-        <span class="stat stat-error">156 mem errs</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
     </div>
