@@ -61,8 +61,11 @@ jobs:
       url: https://pypi.org/p/masspcf
     permissions:
       id-token: write
+      contents: write
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
@@ -71,3 +74,12 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create and push version tag
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG="v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"

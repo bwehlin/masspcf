@@ -220,6 +220,13 @@ jobs:
 
       - name: Update report history and generate index
         run: |
+          # Fetch all tags and build a sha=tag map for the script
+          git fetch --tags
+          TAG_MAP=$(git tag --list | while read tag; do
+            sha=$(git rev-list -n1 "$tag" 2>/dev/null | cut -c1-7)
+            [ -n "$sha" ] && echo "${sha}=${tag}"
+          done | tr '\n' ' ')
+
           TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
           SHORT_SHA="${{ github.sha }}"
           SHORT_SHA="${SHORT_SHA:0:7}"
@@ -243,7 +250,7 @@ jobs:
 
           echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
 
-          python3 .github/scripts/generate_coverage_index.py gh-pages-branch
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch --tag-map $TAG_MAP
 
       - name: Write coverage badge JSONs
         run: python3 .github/scripts/generate_badges.py gh-pages-branch covreport

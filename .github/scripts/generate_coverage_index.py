@@ -4,12 +4,15 @@ Generates index.html for the gh-pages coverage history site, plus a
 per-run report.html detail page (with sidebar nav + iframe) for each run.
 
 Usage:
-    python generate_coverage_index.py <gh-pages-dir>
+    python generate_coverage_index.py <gh-pages-dir> [--tag-map sha1=tag1 sha2=tag2 ...]
 
 The script scans <gh-pages-dir>/reports/ for subdirectories named
-YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent, and writes:
+YYYY-MM-DD_HH-MM-SS_<sha>, keeps the 5 most recent (unpinned), and writes:
   <gh-pages-dir>/index.html
   <gh-pages-dir>/reports/<run>/report.html   (one per run)
+
+Reports whose SHA appears in --tag-map are never pruned and are shown with
+a "Release vX.Y.Z" badge on the index page.
 
 Each report directory is expected to contain:
     branch                             — plain text file with the branch name
@@ -47,14 +50,21 @@ def load_template(name: str) -> str:
         return f.read()
 
 
-def prune_old_reports(reports_root: str) -> None:
+def _dir_sha(name: str) -> str | None:
+    """Extract the short SHA from a report directory name like YYYY-MM-DD_HH-MM-SS_<sha>."""
+    m = re.match(r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_([0-9a-f]+)$", name)
+    return m.group(1) if m else None
+
+
+def prune_old_reports(reports_root: str, tag_map: dict[str, str] = {}) -> None:
     if not os.path.isdir(reports_root):
         return
     dirs = sorted(
         [d for d in os.listdir(reports_root) if os.path.isdir(os.path.join(reports_root, d))],
         reverse=True,
     )
-    for old in dirs[MAX_REPORTS:]:
+    unpinned = [d for d in dirs if _dir_sha(d) not in tag_map]
+    for old in unpinned[MAX_REPORTS:]:
         old_path = os.path.join(reports_root, old)
         print(f"Removing old report: {old_path}")
         shutil.rmtree(old_path)
@@ -104,7 +114,7 @@ def _has_memory_reports(report_dir: str) -> bool:
     return False
 
 
-def get_entries(reports_root: str) -> list[dict]:
+def get_entries(reports_root: str, tag_map: dict[str, str] = {}) -> list[dict]:
     entries = []
     if not os.path.isdir(reports_root):
         return entries
@@ -126,6 +136,7 @@ def get_entries(reports_root: str) -> list[dict]:
             sha = ""
 
         branch = _read(os.path.join(report_dir, "branch")).strip() or None
+        release_tag = tag_map.get(sha) if sha else None
 
         vg_pytest_errs  = parse_valgrind_error_count(report_dir, "valgrind/vg_pytest")
         vg_gtest_errs   = parse_valgrind_error_count(report_dir, "valgrind/vg_gtest")
@@ -138,6 +149,7 @@ def get_entries(reports_root: str) -> list[dict]:
             "utc_iso": utc_iso,
             "sha": sha,
             "branch": branch,
+            "release_tag": release_tag,
             "has_memory": _has_memory_reports(report_dir),
             "cpp_coverage": parse_cpp_coverage(report_dir),
             "python_coverage": parse_python_coverage(report_dir),
@@ -214,8 +226,13 @@ def render_cards(entries: list[dict]) -> str:
     cards = []
     for i, entry in enumerate(entries):
         is_latest = i == 0
-        wrapper_class = "report-card-wrapper" + (" latest" if is_latest else "")
-        badge = '<span class="badge">Latest</span>' if is_latest else ""
+        is_release = bool(entry.get("release_tag"))
+        wrapper_class = "report-card-wrapper" + (" latest" if is_latest else "") + (" release" if is_release else "")
+        badges = ""
+        if is_latest:
+            badges += '<span class="badge badge-latest">Latest</span>'
+        if is_release:
+            badges += f'<span class="badge badge-release">&#x1f3f7; {entry["release_tag"]}</span>'
         branch_tag = (
             f'<div class="report-branch">&#x2387; {entry["branch"]}</div>'
             if entry.get("branch") else ""
@@ -242,7 +259,7 @@ def render_cards(entries: list[dict]) -> str:
         <div class="report-label" data-utc="{entry['utc_iso']}" data-sha="{entry['sha']}">{entry['label']}</div>
         {branch_tag}
       </div>
-      {badge}
+      {badges}
       <div class="report-stats">
         {_cov_badge_index(entry['cpp_coverage']) and f'<span class="stat-group"><span class="stat-label">C++</span>{_cov_badge_index(entry["cpp_coverage"])}</span>' or ''}
         {_cov_badge_index(entry['python_coverage']) and f'<span class="stat-group"><span class="stat-label">Py</span>{_cov_badge_index(entry["python_coverage"])}</span>' or ''}
@@ -256,12 +273,98 @@ def render_cards(entries: list[dict]) -> str:
     return "\n".join(cards)
 
 
-def render_index_html(entries: list[dict]) -> str:
+  # (no CHART_CSS constant — chart styles live in style.css)
+
+
+def load_coverage_history(gh_pages_dir: str) -> list[dict]:
+    """Load the persistent coverage history JSON, or return empty list."""
+    path = os.path.join(gh_pages_dir, "coverage-history.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def save_coverage_history(gh_pages_dir: str, history: list[dict]) -> None:
+    """Write the coverage history JSON, sorted oldest-first by utc_iso."""
+    history_sorted = sorted(history, key=lambda d: d.get("utc_iso", ""))
+    path = os.path.join(gh_pages_dir, "coverage-history.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(history_sorted, f, indent=2)
+    print(f"Written coverage history ({len(history_sorted)} entries): {path}")
+
+
+def reconcile_coverage_history(gh_pages_dir: str, entries: list[dict], tag_map: dict[str, str]) -> None:
+    """Upsert all current entries into the persistent history file and refresh
+    release_tag for every record against the latest tag_map.  Pruned runs that
+    were already written to the file are preserved — only their release_tag is
+    updated if a tag now points at them."""
+    history = load_coverage_history(gh_pages_dir)
+    by_sha: dict[str, dict] = {h["sha"]: h for h in history if h.get("sha")}
+
+    # Upsert entries that are still present as report directories
+    for entry in entries:
+        cpp = entry.get("cpp_coverage")
+        py  = entry.get("python_coverage")
+        if cpp is None and py is None:
+            continue
+        sha = entry.get("sha", "")
+        record = {
+            "utc_iso":     entry["utc_iso"],
+            "sha":         sha,
+            "detail_path": entry.get("detail_path"),
+            "cpp":         float(cpp.rstrip("%")) if cpp else None,
+            "py":          float(py.rstrip("%"))  if py  else None,
+            "release_tag": tag_map.get(sha) if sha else None,
+        }
+        by_sha[sha] = record
+
+    # Refresh release_tag for pruned runs that are still in history
+    for sha, record in by_sha.items():
+        record["release_tag"] = tag_map.get(sha) or record.get("release_tag")
+
+    save_coverage_history(gh_pages_dir, list(by_sha.values()))
+
+
+def render_coverage_chart(gh_pages_dir: str, entries: list[dict]) -> str:
+    """Render a canvas coverage history chart, reading from the persistent history file.
+    Falls back to deriving points from live entries if no history file exists yet."""
+    history = load_coverage_history(gh_pages_dir)
+
+    if history:
+        points = history  # already oldest-first after save_coverage_history sort
+    else:
+        # Fallback: derive from whatever report dirs are still present
+        points = []
+        for entry in reversed(entries):
+            cpp = entry.get("cpp_coverage")
+            py  = entry.get("python_coverage")
+            if cpp is None and py is None:
+                continue
+            points.append({
+                "utc_iso":     entry["utc_iso"],
+                "sha":         entry["sha"],
+                "detail_path": entry.get("detail_path"),
+                "cpp":         float(cpp.rstrip("%")) if cpp else None,
+                "py":          float(py.rstrip("%"))  if py  else None,
+                "release_tag": entry.get("release_tag"),
+            })
+
+    if not points:
+        return ""
+
+    return load_template("chart.template.html").replace("{{data}}", json.dumps(points))
+
+
+def render_index_html(gh_pages_dir: str, entries: list[dict]) -> str:
     template = load_template("index.template.html")
     css = load_template("style.css")
     cards = render_cards(entries)
+    chart = render_coverage_chart(gh_pages_dir, entries)
     return (template
             .replace("{{style}}", css)
+            .replace("{{chart}}", chart)
             .replace("{{cards}}", cards)
             .replace("{{max_reports}}", str(MAX_REPORTS)))
 
@@ -345,14 +448,33 @@ def render_detail_html(entry: dict) -> str:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <gh-pages-dir>", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} <gh-pages-dir> [--tag-map sha1=tag1 sha2=tag2 ...]", file=sys.stderr)
         sys.exit(1)
 
     gh_pages_dir = sys.argv[1]
     reports_root = os.path.join(gh_pages_dir, "reports")
 
-    prune_old_reports(reports_root)
-    entries = get_entries(reports_root)
+    # Parse --tag-map sha=tag pairs (e.g. abc1234=v0.4.0)
+    tag_map: dict[str, str] = {}
+    args = sys.argv[2:]
+    if "--tag-map" in args:
+        idx = args.index("--tag-map")
+        for item in args[idx + 1:]:
+            if "=" in item:
+                sha, tag = item.split("=", 1)
+                tag_map[sha] = tag
+
+    if tag_map:
+        print(f"Tagged releases (will not be pruned):")
+        for sha, tag in sorted(tag_map.items()):
+            print(f"  {sha} -> {tag}")
+
+    prune_old_reports(reports_root, tag_map)
+    entries = get_entries(reports_root, tag_map)
+
+    # Upsert surviving entries into the persistent history file and refresh
+    # release tags. Pruned entries already in the file are preserved.
+    reconcile_coverage_history(gh_pages_dir, entries, tag_map)
 
     # Write per-run detail pages
     for entry in entries:
@@ -363,7 +485,7 @@ def main() -> None:
         print(f"  Written detail page: {out_path}")
 
     # Write main index
-    index_html = render_index_html(entries)
+    index_html = render_index_html(gh_pages_dir, entries)
     out_path = os.path.join(gh_pages_dir, "index.html")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(index_html)
