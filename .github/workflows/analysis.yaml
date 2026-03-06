@@ -54,25 +54,20 @@ jobs:
       - name: Run Python test suite
         run: |
           mkdir -p covreport/python
-          # Run from repo root so coverage.py picks up [tool.coverage] in
-          # pyproject.toml and the [paths] mapping resolves installed paths
-          # back to the source tree (short filenames in the HTML report).
-          python -m pytest test/ \
+          cd test
+          python -m pytest . \
             --cov=masspcf \
-            --cov-report=html:covreport/python \
-            --cov-report=json:covreport/python/coverage.json \
+            --cov-config=../pyproject.toml \
+            --cov-report=html:../covreport/python \
+            --cov-report=json:../covreport/python/coverage.json \
             --cov-report=term || true
-          # Ensure the html report and json summary exist even if coverage
-          # data is empty or pytest failed entirely
-          if [ ! -f "covreport/python/index.html" ]; then
-            python -m coverage html --directory=covreport/python || true
+          if [ ! -f "../covreport/python/index.html" ]; then
+            python -m coverage html --directory=../covreport/python || true
           fi
-          if [ ! -f "covreport/python/coverage.json" ]; then
-            python -m coverage json --outfile=covreport/python/coverage.json || true
+          if [ ! -f "../covreport/python/coverage.json" ]; then
+            python -m coverage json -o ../covreport/python/coverage.json || true
           fi
-          # Last resort: ensure the directory is non-empty so the artifact
-          # upload and subsequent cp always succeed
-          touch covreport/python/.keep
+          touch ../covreport/python/.keep
 
       - name: Create C++ coverage report
         run: |
