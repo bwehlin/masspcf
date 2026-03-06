@@ -600,7 +600,13 @@
       <div class="sidebar-section-body">
         <div class="sidebar-nav-row">
           <a class="sidebar-nav-item" data-src="cpp/coverage.html" href="#">
-            <span class="nav-icon">&#x1f4ca;</span> C++ <span class="sidebar-section-badge badge-ok">68.3%</span>
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 64 64" style="vertical-align:middle">
+                <polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#004482"/>
+                <polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="none" stroke="#659ad2" stroke-width="4"/>
+                <text x="32" y="38" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="22" fill="white">C++</text>
+              </svg>
+            </span> C++ <span class="sidebar-section-badge badge-ok">68.3%</span>
           </a>
           <a class="sidebar-dl-btn" href="cpp/coverage.html" download title="Download">&#x2913;</a>
         </div>
@@ -960,6 +966,18 @@
       lines.push('Branch coverage:   ' + (data.branch_percent   != null ? data.branch_percent.toFixed(1)   + '%' : 'N/A'));
       if (data.lines)     lines.push('Lines covered:     ' + data.lines.covered     + ' / ' + data.lines.count);
       if (data.functions) lines.push('Functions covered: ' + data.functions.covered + ' / ' + data.functions.count);
+      var files = data.files || [];
+      if (files.length > 0) {
+        lines.push('');
+        lines.push('Per-file breakdown:');
+        files.slice().sort(function(a, b) { return (a.filename || '').localeCompare(b.filename || ''); }).forEach(function(f) {
+          var pct = f.line_percent != null ? f.line_percent.toFixed(1) + '%' : '?';
+          var covered = f.line_covered != null ? f.line_covered : (f.lines ? f.lines.covered : '?');
+          var total   = f.line_total   != null ? f.line_total   : (f.lines ? f.lines.count   : '?');
+          var displayPath = (f.filename || '').replace(/^.*masspcf\//, 'masspcf/');
+          lines.push('  ' + displayPath + ': ' + pct + ' (' + covered + '/' + total + ' lines)');
+        });
+      }
       return lines.join('\n');
     }
 
