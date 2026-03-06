@@ -62,10 +62,17 @@ jobs:
             --cov-report=html:covreport/python \
             --cov-report=json:covreport/python/coverage.json \
             --cov-report=term || true
-          # Ensure the html report exists even if coverage data is empty
+          # Ensure the html report and json summary exist even if coverage
+          # data is empty or pytest failed entirely
           if [ ! -f "covreport/python/index.html" ]; then
             python -m coverage html --directory=covreport/python || true
           fi
+          if [ ! -f "covreport/python/coverage.json" ]; then
+            python -m coverage json --outfile=covreport/python/coverage.json || true
+          fi
+          # Last resort: ensure the directory is non-empty so the artifact
+          # upload and subsequent cp always succeed
+          touch covreport/python/.keep
 
       - name: Create C++ coverage report
         run: |
@@ -222,8 +229,8 @@ jobs:
 
       - name: Update report history and generate index
         run: |
-          # Fetch all tags and build a sha=tag map for the script
-          git fetch --tags
+          # Fetch tags only (avoids noisy branch output)
+          git fetch --tags --no-recurse-submodules
           TAG_MAP=$(git tag --list | while read tag; do
             sha=$(git rev-list -n1 "$tag" 2>/dev/null | cut -c1-7)
             [ -n "$sha" ] && echo "${sha}=${tag}"
@@ -241,14 +248,14 @@ jobs:
           mkdir -p "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest"
           mkdir -p "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest"
 
-          cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/"
-          rm -f covreport/python/.gitignore
-          cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"
-
-          cp -r valgrind/vg_pytest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest/"
-          cp -r valgrind/vg_gtest/.  "gh-pages-branch/${REPORT_DIR}/valgrind/vg_gtest/"
-          cp -r valgrind/hg_pytest/. "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest/"
-          cp -r valgrind/hg_gtest/.  "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest/"
+          # Copy artifacts — guard each with || true so a missing subdirectory
+          # (e.g. if a tool produced no output) doesn't abort the whole step
+          [ -d covreport/cpp ]           && cp -r covreport/cpp/.           "gh-pages-branch/${REPORT_DIR}/cpp/"           || true
+          [ -d covreport/python ]        && { rm -f covreport/python/.gitignore; cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"; } || true
+          [ -d valgrind/vg_pytest ]      && cp -r valgrind/vg_pytest/.      "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest/" || true
+          [ -d valgrind/vg_gtest ]       && cp -r valgrind/vg_gtest/.       "gh-pages-branch/${REPORT_DIR}/valgrind/vg_gtest/"  || true
+          [ -d valgrind/hg_pytest ]      && cp -r valgrind/hg_pytest/.      "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest/" || true
+          [ -d valgrind/hg_gtest ]       && cp -r valgrind/hg_gtest/.       "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest/"  || true
 
           echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
 
