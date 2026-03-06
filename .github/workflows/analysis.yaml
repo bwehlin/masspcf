@@ -60,7 +60,8 @@ jobs:
             --cov-config=../pyproject.toml \
             --cov-report=html:../covreport/python \
             --cov-report=json:../covreport/python/coverage.json \
-            --cov-report=term || true
+            --cov-report=term
+          touch ../covreport/python/.keep
           if [ ! -f "../covreport/python/index.html" ]; then
             python -m coverage html --directory=../covreport/python || true
           fi
