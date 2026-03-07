@@ -22,6 +22,10 @@
 #include "py_async_support.h"
 #include "py_settings.h"
 
+#ifdef BUILD_WITH_CUDA
+#include <mpcf/cuda/cuda_matrix_integrate_api.h>
+#endif
+
 #include <memory>
 
 #include <pybind11/numpy.h>
@@ -51,33 +55,29 @@ namespace
 
       auto* out = matrix.mutable_data(0);
 
+      auto begin = mpcf::begin1dValues(fs);
+      auto end = mpcf::end1dValues(fs);
+
 #ifdef BUILD_WITH_CUDA
-#if 0
-      if (!mpcf_py::g_settings.forceCpu && std::distance(beginPcfs, endPcfs) >= g_settings.cudaThreshold)
+      if (!mpcf_py::g_settings.forceCpu && static_cast<size_t>(std::distance(begin, end)) >= mpcf_py::g_settings.cudaThreshold)
       {
         if (mpcf_py::g_settings.deviceVerbose)
         {
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
 
-        auto task = mpcf::create_matrix_integrate_cuda_task(out, beginPcfs, endPcfs, op, 0., std::numeric_limits<Tv>::max());
+        std::vector<PcfT> pcfs(begin, end);
+        auto task = mpcf::create_cuda_matrix_integrate_l1_task(out, pcfs, Tv(0), std::numeric_limits<Tv>::max());
         task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return task;
       }
 #endif
-#endif
 
-// TODO: deviceVerbose
-#if 0
-      if (g_settings.deviceVerbose)
+      if (mpcf_py::g_settings.deviceVerbose)
       {
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
-#endif
-
-      auto begin = mpcf::begin1dValues(fs);
-      auto end = mpcf::end1dValues(fs);
 
       return mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuTask<decltype(op), decltype(begin)>>(out, begin, end, op);
     }

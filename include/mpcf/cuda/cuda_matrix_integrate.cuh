@@ -182,6 +182,10 @@ namespace mpcf
     void call_riemann_integrate(dim3 gridDim, dim3 blockDim, const DeviceKernelParams<Tt, Tv>& params, const RowInfo& rowInfo, Tt a, Tt b, ComboOp op)
     {
       cuda_riemann_integrate<Tt, Tv, ComboOp> << <gridDim, blockDim >> > (params, rowInfo, a, b, op);
+      cudaError_t err = cudaGetLastError();
+      if (err != cudaSuccess)
+        std::cerr << "Kernel launch error: "
+                  << cudaGetErrorString(err) << std::endl;
     }
 
     template <typename PcfFwdIt, typename ComboOp, typename ProgressCb = std::function<void(size_t)>>
@@ -441,8 +445,7 @@ namespace mpcf
           m_out[i * sz + j] = m_out[j * sz + i];
         }
       }));
-      
-      tasks.emplace_back(create_terminal_task(flow));
+
       flow.linearize(tasks);
 
       // We run the task as a CPU task. The actual job will spawn additional tasks on the GPU

@@ -66,6 +66,7 @@ if (BUILD_WITH_CUDA)
   add_compile_definitions(BUILD_WITH_CUDA=1)
   find_package(CUDAToolkit REQUIRED)
   set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+  set(CMAKE_CUDA_ARCHITECTURES 89)
 else ()
   message(STATUS "!!! Building without CUDA !!!")
 
@@ -234,37 +235,36 @@ SET(MPCF_VERSION_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 
 pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
 
+set(MPCF_PRIVATE_INCLUDES "include/mpcf")
+set(MPCF_PUBLIC_INCLUDES "include/")
+
 if (BUILD_WITH_CUDA)
-  set_target_properties(${CPP_MODULE_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+  # Build only the .cu files with NVCC, in a separate static library.
+  # Everything else stays compiled by the host C++ compiler.
+  add_library(mpcf_cuda STATIC
+      src/cuda/cuda_matrix_integrate.cu
+  )
+  target_include_directories(mpcf_cuda PRIVATE ${MPCF_PRIVATE_INCLUDES})
+  target_include_directories(mpcf_cuda PUBLIC ${MPCF_PUBLIC_INCLUDES})
+  target_include_directories(mpcf_cuda PRIVATE "3rd/taskflow")
+  target_include_directories(mpcf_cuda PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  target_compile_definitions(mpcf_cuda PRIVATE BUILD_WITH_CUDA=1)
 
-  # 1. Create a temporary list of all potential source files
-  set(_ALL_SOURCES ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES})
+  set_target_properties(mpcf_cuda PROPERTIES
+      CUDA_RUNTIME_LIBRARY Shared
+      CUDA_SEPARABLE_COMPILATION ON
+      CUDA_RESOLVE_DEVICE_SYMBOLS ON
+  )
 
-  # 2. Filter the list to include ONLY .cpp files
-  # This excludes .tpp, .h, and .cuh files from being explicitly compiled
-  set(_CPP_SOURCES ${_ALL_SOURCES})
-  list(FILTER _CPP_SOURCES INCLUDE REGEX ".*\\.cpp$")
-
-  # 3. Explicitly set the language for the .cpp files to CUDA
-  set_source_files_properties(${_CPP_SOURCES} PROPERTIES LANGUAGE CUDA)
-  target_link_libraries(${CPP_MODULE_NAME} PRIVATE ${CUDAToolkit_CUDART_LIBRARY})
-
-  message(STATUS "!!! Marking the following for NVCC: ${_CPP_SOURCES}")
-  message(STATUS "CUDAToolkit_CUDART_LIBRARY: ${CUDAToolkit_CUDART_LIBRARY}")
-
-  target_compile_options(${CPP_MODULE_NAME} PRIVATE
-      $<$<COMPILE_LANGUAGE:CUDA>:
+  target_compile_options(mpcf_cuda PRIVATE
       --expt-relaxed-constexpr
       -Xcudafe=--diag_suppress=partial_override
       -Xcudafe=--diag_suppress=virtual_function_decl_hidden
       -Xcudafe=--diag_suppress=initialization_not_reachable
-      >
   )
 
+  target_link_libraries(${CPP_MODULE_NAME} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
 endif ()
-
-set(MPCF_PRIVATE_INCLUDES "include/mpcf")
-set(MPCF_PUBLIC_INCLUDES "include/")
 
 target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
 target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
@@ -352,7 +352,7 @@ if (BUILD_TESTER)
   target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy)
 
   if (BUILD_WITH_CUDA)
-    target_link_libraries(mpcf_test PUBLIC CUDA::cudart_static)
+    target_link_libraries(mpcf_test PUBLIC mpcf_cuda CUDA::cudart_static)
   endif ()
 
   if (ENABLE_COVERAGE)

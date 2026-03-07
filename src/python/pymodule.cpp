@@ -39,7 +39,7 @@
 #include "persistence/pymodule_persistence.h"
 
 #ifdef BUILD_WITH_CUDA
-#include <mpcf/cuda/cuda_matrix_integrate.cuh>
+#include <mpcf/cuda/cuda_matrix_integrate_api.h>
 #endif
 
 #include <iostream>
@@ -50,9 +50,10 @@ namespace py = pybind11;
 
 void register_random_bindings(py::handle m);
 
+mpcf_py::Settings mpcf_py::g_settings;
+
 namespace
 {
-  mpcf_py::Settings g_settings;
 
   int getNumGpus()
   {
@@ -207,22 +208,7 @@ namespace
     {
       auto* out = matrix.mutable_data(0);
 
-#ifdef BUILD_WITH_CUDA
-      if (!g_settings.forceCpu && std::distance(beginPcfs, endPcfs) >= g_settings.cudaThreshold)
-      {
-        if (g_settings.deviceVerbose)
-        {
-          std::cout << "Integral computation on CUDA device(s)" << std::endl;
-        }
-
-        auto task = mpcf::create_matrix_integrate_cuda_task(out, beginPcfs, endPcfs, op, 0., std::numeric_limits<Tv>::max());
-        task->set_block_dim(g_settings.blockDim);
-        task->start_async(mpcf::default_executor());
-        return task;
-      }
-#endif
-
-      if (g_settings.deviceVerbose)
+      if (mpcf_py::g_settings.deviceVerbose)
       {
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
@@ -375,11 +361,11 @@ PYBIND11_MODULE(_mpcf_cpp, m) {
     .def(py::init<>())
     .def("wait_for", &Future<void>::wait_for);
   
-  m.def("force_cpu", [](bool on){ g_settings.forceCpu = on; });
-  m.def("set_cuda_threshold", [](size_t n){ g_settings.cudaThreshold = n; });
-  m.def("set_device_verbose", [](bool on){ g_settings.deviceVerbose = on; });
+  m.def("force_cpu", [](bool on){ mpcf_py::g_settings.forceCpu = on; });
+  m.def("set_cuda_threshold", [](size_t n){ mpcf_py::g_settings.cudaThreshold = n; });
+  m.def("set_device_verbose", [](bool on){ mpcf_py::g_settings.deviceVerbose = on; });
 #ifdef BUILD_WITH_CUDA
-  m.def("set_block_dim", [](unsigned int x, unsigned int y) { g_settings.blockDim = dim3(x, y, 1); });
+  m.def("set_block_dim", [](unsigned int x, unsigned int y) { mpcf_py::g_settings.blockDim = dim3(x, y, 1); });
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
 #endif
   m.def("get_ngpus", &getNumGpus);
