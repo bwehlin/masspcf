@@ -1,9 +1,7 @@
 name: Analysis
-
 on:
   workflow_dispatch:
   workflow_call:
-
 permissions:
   contents: write
 
@@ -11,18 +9,15 @@ jobs:
   coverage_report:
     name: Coverage report on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         os: [ ubuntu-24.04 ]
-
     env:
       BUILD_WITH_CUDA: 0
       MINIMAL_MODULE_BUILD: 1
       SKIP_STUBGEN: 1
       SKIP_BACK_COPY: 1
       ENABLE_COVERAGE: 1
-
     steps:
       - uses: actions/checkout@v6
         with:
@@ -35,10 +30,19 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install numpy tqdm pytest pytest-cov gcovr
+        run: pip install numpy tqdm pytest pytest-cov
 
-      - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
+      - name: Install LLVM toolchain (clang/llvm-cov/llvm-profdata)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm
+
+      - name: Configure CMake (Clang + coverage)
+        env:
+          ENABLE_COVERAGE: 1
+        run: |
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
 
       - name: Build module
         run: cmake --build build -j $(nproc)
@@ -46,12 +50,17 @@ jobs:
       - name: Install module
         run: cmake --install build
 
-      - name: Run C++ test suite
+      - name: Run C++ test suite (collect LLVM profiles)
+        env:
+          LLVM_PROFILE_FILE: ${{ github.workspace }}/covreport/profiles/%p-%m.profraw
         run: |
+          mkdir -p covreport/profiles
           cd test
           ../build/mpcf_test || true
 
-      - name: Run Python test suite
+      - name: Run Python test suite (coverage + LLVM profiles)
+        env:
+          LLVM_PROFILE_FILE: ${{ github.workspace }}/covreport/profiles/%p-%m.profraw
         run: |
           mkdir -p covreport/python
           cd test
@@ -70,20 +79,31 @@ jobs:
           fi
           touch ../covreport/python/.keep
 
-      - name: Create C++ coverage report
+      - name: Create C++ coverage report (LLVM)
         run: |
           mkdir -p covreport/cpp
-          cd covreport/cpp
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
-            -r . --object-directory ../../build \
-            --filter ../../include/ --filter ../../src/ \
-            --html-details coverage.html \
-            --json-summary coverage-summary.json \
-            --print-summary
-          gcovr --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
-            -r . --object-directory ../../build \
-            --filter ../../include/ --filter ../../src/ \
-            --markdown >> $GITHUB_STEP_SUMMARY
+          # Merge all .profraw into a single .profdata
+          llvm-profdata merge -sparse -o covreport/cpp/default.profdata covreport/profiles/*.profraw
+          # Discover the test exe + Python extension module built by CMake
+          OBJ_LIST="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | tr '\n' ' ')"
+          echo "Objects for llvm-cov: $OBJ_LIST"
+          # Generate HTML report (index.html + assets)
+          llvm-cov show $OBJ_LIST \
+            -instr-profile=covreport/cpp/default.profdata \
+            -format=html -output-dir=covreport/cpp \
+            -ignore-filename-regex='(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/)' \
+            -show-branches=count -show-instantiations -show-expansions
+          # Preserve downstream expectation of 'coverage.html'
+          cp covreport/cpp/index.html covreport/cpp/coverage.html || true
+          # Export JSON summary -> synthesize expected coverage-summary.json (line_percent)
+          llvm-cov export $OBJ_LIST \
+              -instr-profile=covreport/cpp/default.profdata \
+              -format=json -summary-only \
+              > covreport/cpp/llvm-cov-summary.json
+          python3 .github/scripts/llvm_cov_summary.py \
+              covreport/cpp/llvm-cov-summary.json covreport/cpp/coverage-summary.json
+          # Human-readable table in the step summary
+          llvm-cov report $OBJ_LIST -instr-profile=covreport/cpp/default.profdata >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -95,18 +115,15 @@ jobs:
   memory_check:
     name: Memory check on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         os: [ ubuntu-24.04 ]
-
     env:
       BUILD_WITH_CUDA: 0
       MINIMAL_MODULE_BUILD: 1
       SKIP_STUBGEN: 1
       SKIP_BACK_COPY: 1
       PYTHONMALLOC: malloc
-
     steps:
       - uses: actions/checkout@v6
         with:
@@ -176,18 +193,18 @@ jobs:
 
       - name: Collect raw reports
         run: |
-          cp test/reports/vg-pytest.xml        test/reports/vg_pytest/raw.xml      || true
-          cp test/reports/vg-pytest.log        test/reports/vg_pytest/raw.log      || true
+          cp test/reports/vg-pytest.xml test/reports/vg_pytest/raw.xml || true
+          cp test/reports/vg-pytest.log test/reports/vg_pytest/raw.log || true
           cp test/reports/vg-pytest-summary.txt test/reports/vg_pytest/summary.txt || true
-          cp test/reports/vg-gtest.xml         test/reports/vg_gtest/raw.xml       || true
-          cp test/reports/vg-gtest.log         test/reports/vg_gtest/raw.log       || true
-          cp test/reports/vg-gtest-summary.txt  test/reports/vg_gtest/summary.txt  || true
-          cp test/reports/hg-pytest.xml        test/reports/hg_pytest/raw.xml      || true
-          cp test/reports/hg-pytest.log        test/reports/hg_pytest/raw.log      || true
+          cp test/reports/vg-gtest.xml test/reports/vg_gtest/raw.xml || true
+          cp test/reports/vg-gtest.log test/reports/vg_gtest/raw.log || true
+          cp test/reports/vg-gtest-summary.txt test/reports/vg_gtest/summary.txt || true
+          cp test/reports/hg-pytest.xml test/reports/hg_pytest/raw.xml || true
+          cp test/reports/hg-pytest.log test/reports/hg_pytest/raw.log || true
           cp test/reports/hg-pytest-summary.txt test/reports/hg_pytest/summary.txt || true
-          cp test/reports/hg-gtest.xml         test/reports/hg_gtest/raw.xml       || true
-          cp test/reports/hg-gtest.log         test/reports/hg_gtest/raw.log       || true
-          cp test/reports/hg-gtest-summary.txt  test/reports/hg_gtest/summary.txt  || true
+          cp test/reports/hg-gtest.xml test/reports/hg_gtest/raw.xml || true
+          cp test/reports/hg-gtest.log test/reports/hg_gtest/raw.log || true
+          cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
 
       - name: Upload valgrind artifact
         uses: actions/upload-artifact@v4
@@ -200,7 +217,6 @@ jobs:
     name: Publish reports to GitHub Pages
     runs-on: ubuntu-24.04
     needs: [coverage_report, memory_check]
-
     steps:
       - uses: actions/checkout@v6
 
@@ -231,12 +247,10 @@ jobs:
             sha=$(git rev-list -n1 "$tag" 2>/dev/null | cut -c1-7)
             [ -n "$sha" ] && echo "${sha}=${tag}"
           done | tr '\n' ' ')
-
           TIMESTAMP=$(date -u '+%Y-%m-%d_%H-%M-%S')
           SHORT_SHA="${{ github.sha }}"
           SHORT_SHA="${SHORT_SHA:0:7}"
           REPORT_DIR="reports/${TIMESTAMP}_${SHORT_SHA}"
-
           mkdir -p "gh-pages-branch/${REPORT_DIR}/cpp"
           mkdir -p "gh-pages-branch/${REPORT_DIR}/python"
           mkdir -p "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest"
@@ -244,17 +258,14 @@ jobs:
           mkdir -p "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest"
           mkdir -p "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest"
 
-          # Copy artifacts — guard each with || true so a missing subdirectory
-          # (e.g. if a tool produced no output) doesn't abort the whole step
-          [ -d covreport/cpp ]           && cp -r covreport/cpp/.           "gh-pages-branch/${REPORT_DIR}/cpp/"           || true
-          [ -d covreport/python ]        && { rm -f covreport/python/.gitignore; cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"; } || true
-          [ -d valgrind/vg_pytest ]      && cp -r valgrind/vg_pytest/.      "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest/" || true
-          [ -d valgrind/vg_gtest ]       && cp -r valgrind/vg_gtest/.       "gh-pages-branch/${REPORT_DIR}/valgrind/vg_gtest/"  || true
-          [ -d valgrind/hg_pytest ]      && cp -r valgrind/hg_pytest/.      "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest/" || true
-          [ -d valgrind/hg_gtest ]       && cp -r valgrind/hg_gtest/.       "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest/"  || true
+          [ -d covreport/cpp ] && cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/" || true
+          [ -d covreport/python ] && { rm -f covreport/python/.gitignore; cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"; } || true
+          [ -d valgrind/vg_pytest ] && cp -r valgrind/vg_pytest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest/" || true
+          [ -d valgrind/vg_gtest ] && cp -r valgrind/vg_gtest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_gtest/" || true
+          [ -d valgrind/hg_pytest ] && cp -r valgrind/hg_pytest/. "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest/" || true
+          [ -d valgrind/hg_gtest ] && cp -r valgrind/hg_gtest/. "gh-pages-branch/${REPORT_DIR}/helgrind/hg_gtest/" || true
 
           echo "${{ github.ref_name }}" > "gh-pages-branch/${REPORT_DIR}/branch"
-
           python3 .github/scripts/generate_coverage_index.py gh-pages-branch --tag-map $TAG_MAP
 
       - name: Write coverage badge JSONs
