@@ -34,8 +34,10 @@ jobs:
 
       - name: Install LLVM toolchain (clang/llvm-cov/llvm-profdata)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          # Choose a major version: 20, 21, or CURRENT_LLVM_STABLE
+          sudo ./llvm.sh 21
 
       - name: Configure CMake (Clang + coverage)
         env:
