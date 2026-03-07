@@ -310,9 +310,6 @@ if (ENABLE_COVERAGE)
       -O0 -g
       -fprofile-instr-generate
       -fcoverage-mapping
-      -fno-inline
-      -fno-inline-small-functions
-      -fno-default-inline
     )
     # With Clang/LLVM, pass profiling to the linker too (do NOT link gcov).
     target_link_options(coverage_flags INTERFACE -fprofile-instr-generate)
