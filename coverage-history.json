@@ -86,5 +86,13 @@
     "cpp": 70.3,
     "py": 70.0,
     "release_tag": "v0.4.0b5"
+  },
+  {
+    "utc_iso": "2026-03-07T21:28:45Z",
+    "sha": "d757cff",
+    "detail_path": "reports/2026-03-07_21-28-45_d757cff/report.html",
+    "cpp": 70.3,
+    "py": 70.0,
+    "release_tag": null
   }
 ]

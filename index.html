@@ -461,7 +461,7 @@ footer {
 </div>
 <script>
 (function() {
-  const DATA = [{"utc_iso": "2026-03-05T19:07:46Z", "sha": "8f59c05", "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:23:07Z", "sha": "ec81680", "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:43:56Z", "sha": "b61083a", "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:59:10Z", "sha": "93fb7ed", "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:28:39Z", "sha": "d9e454d", "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:36:41Z", "sha": "f256e37", "detail_path": "reports/2026-03-06_13-36-41_f256e37/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T14:39:02Z", "sha": "5113316", "detail_path": "reports/2026-03-06_14-39-02_5113316/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:03:02Z", "sha": "31ed062", "detail_path": "reports/2026-03-06_15-03-02_31ed062/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:28:13Z", "sha": "2c087a2", "detail_path": "reports/2026-03-06_15-28-13_2c087a2/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:30:08Z", "sha": "480a106", "detail_path": "reports/2026-03-06_16-30-08_480a106/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:41:47Z", "sha": "673cf17", "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html", "cpp": 70.3, "py": 70.0, "release_tag": "v0.4.0b5"}];
+  const DATA = [{"utc_iso": "2026-03-05T19:07:46Z", "sha": "8f59c05", "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:23:07Z", "sha": "ec81680", "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:43:56Z", "sha": "b61083a", "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:59:10Z", "sha": "93fb7ed", "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:28:39Z", "sha": "d9e454d", "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:36:41Z", "sha": "f256e37", "detail_path": "reports/2026-03-06_13-36-41_f256e37/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T14:39:02Z", "sha": "5113316", "detail_path": "reports/2026-03-06_14-39-02_5113316/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:03:02Z", "sha": "31ed062", "detail_path": "reports/2026-03-06_15-03-02_31ed062/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:28:13Z", "sha": "2c087a2", "detail_path": "reports/2026-03-06_15-28-13_2c087a2/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:30:08Z", "sha": "480a106", "detail_path": "reports/2026-03-06_16-30-08_480a106/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:41:47Z", "sha": "673cf17", "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html", "cpp": 70.3, "py": 70.0, "release_tag": "v0.4.0b5"}, {"utc_iso": "2026-03-07T21:28:45Z", "sha": "d757cff", "detail_path": "reports/2026-03-07_21-28-45_d757cff/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}];
   if (!DATA.length) return;
 
   const canvas = document.getElementById('covChart');
@@ -629,15 +629,34 @@ footer {
 
   <div class="reports-list">
     
-<div class="report-card-wrapper latest release">
-  <a class="report-card-link" href="reports/2026-03-06_17-22-49_673cf17/report.html">
+<div class="report-card-wrapper latest">
+  <a class="report-card-link" href="reports/2026-03-07_21-28-45_d757cff/report.html">
     <div class="report-card">
       <span class="report-index">#1</span>
+      <div class="report-info">
+        <div class="report-label" data-utc="2026-03-07T21:28:45Z" data-sha="d757cff">2026-03-07 21:28:45 UTC — d757cff</div>
+        <div class="report-branch">&#x2387; main</div>
+      </div>
+      <span class="badge badge-latest">Latest</span>
+      <div class="report-stats">
+        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">70.3%</span></span>
+        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
+        <span class="stat stat-error">1 mem err</span>
+      </div>
+      <div class="card-arrow">&#x2192;</div>
+    </div>
+  </a>
+</div>
+
+<div class="report-card-wrapper release">
+  <a class="report-card-link" href="reports/2026-03-06_17-22-49_673cf17/report.html">
+    <div class="report-card">
+      <span class="report-index">#2</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-06T17:22:49Z" data-sha="673cf17">2026-03-06 17:22:49 UTC — 673cf17</div>
         <div class="report-branch">&#x2387; main</div>
       </div>
-      <span class="badge badge-latest">Latest</span><span class="badge badge-release">&#x1f3f7; v0.4.0b5</span>
+      <span class="badge badge-release">&#x1f3f7; v0.4.0b5</span>
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">70.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
@@ -651,7 +670,7 @@ footer {
 <div class="report-card-wrapper release">
   <a class="report-card-link" href="reports/2026-03-06_16-41-47_673cf17/report.html">
     <div class="report-card">
-      <span class="report-index">#2</span>
+      <span class="report-index">#3</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-06T16:41:47Z" data-sha="673cf17">2026-03-06 16:41:47 UTC — 673cf17</div>
         <div class="report-branch">&#x2387; main</div>
@@ -670,7 +689,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-06_16-30-08_480a106/report.html">
     <div class="report-card">
-      <span class="report-index">#3</span>
+      <span class="report-index">#4</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-06T16:30:08Z" data-sha="480a106">2026-03-06 16:30:08 UTC — 480a106</div>
         <div class="report-branch">&#x2387; main</div>
@@ -689,7 +708,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-06_15-28-13_2c087a2/report.html">
     <div class="report-card">
-      <span class="report-index">#4</span>
+      <span class="report-index">#5</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-06T15:28:13Z" data-sha="2c087a2">2026-03-06 15:28:13 UTC — 2c087a2</div>
         <div class="report-branch">&#x2387; main</div>
@@ -708,7 +727,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-06_15-03-02_31ed062/report.html">
     <div class="report-card">
-      <span class="report-index">#5</span>
+      <span class="report-index">#6</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-06T15:03:02Z" data-sha="31ed062">2026-03-06 15:03:02 UTC — 31ed062</div>
         <div class="report-branch">&#x2387; main</div>
@@ -727,7 +746,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-06_14-39-02_5113316/report.html">
     <div class="report-card">
-      <span class="report-index">#6</span>
+      <span class="report-index">#7</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-06T14:39:02Z" data-sha="5113316">2026-03-06 14:39:02 UTC — 5113316</div>
         <div class="report-branch">&#x2387; main</div>
