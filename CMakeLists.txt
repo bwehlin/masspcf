@@ -295,30 +295,17 @@ if (MSVC)
 endif ()
 
 # ============================================================
-# Coverage configuration (GCC / Clang only)
 # Coverage configuration (GCC or Clang/LLVM)
 # ============================================================
 if (ENABLE_COVERAGE)
-  if (NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    message(FATAL_ERROR "Coverage only supported with GCC or Clang")
+  # Create the interface library only once even if this block is re-entered.
+  if (NOT TARGET coverage_flags)
+    add_library(coverage_flags INTERFACE)
   endif ()
-  message(STATUS "!!! Coverage ENABLED !!!")
-  # Disable optimization for accurate coverage
-  add_library(coverage_flags INTERFACE)
-  target_compile_options(coverage_flags INTERFACE
-    -O0 -g
-    --coverage # Shorthand for arcs/test-coverage
-    -fprofile-abs-path # Essential for finding headers in GHA
-    -fno-inline
-    -fno-inline-small-functions
-    -fno-default-inline
-  )
-  target_link_options(coverage_flags INTERFACE --coverage)
-  target_link_libraries(coverage_flags INTERFACE gcov)
+
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(STATUS "!!! Coverage ENABLED (LLVM/Clang) !!!")
     # Disable optimization for accurate coverage; use LLVM source-based coverage.
-    add_library(coverage_flags INTERFACE)
     target_compile_options(coverage_flags INTERFACE
       -O0 -g
       -fprofile-instr-generate
@@ -329,10 +316,10 @@ if (ENABLE_COVERAGE)
     )
     # With Clang/LLVM, pass profiling to the linker too (do NOT link gcov).
     target_link_options(coverage_flags INTERFACE -fprofile-instr-generate)
+
   elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message(STATUS "!!! Coverage ENABLED (GCC/gcov) !!!")
     # Existing GCC/gcov-style coverage (unchanged).
-    add_library(coverage_flags INTERFACE)
     target_compile_options(coverage_flags INTERFACE
       -O0 -g
       --coverage # Shorthand for arcs/test-coverage
@@ -343,6 +330,7 @@ if (ENABLE_COVERAGE)
     )
     target_link_options(coverage_flags INTERFACE --coverage)
     target_link_libraries(coverage_flags INTERFACE gcov)
+
   else ()
     message(FATAL_ERROR "Coverage only supported with GCC or Clang/LLVM")
   endif ()
