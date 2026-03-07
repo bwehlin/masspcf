@@ -66,7 +66,22 @@ if (BUILD_WITH_CUDA)
   add_compile_definitions(BUILD_WITH_CUDA=1)
   find_package(CUDAToolkit REQUIRED)
   set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
-  set(CMAKE_CUDA_ARCHITECTURES 89)
+
+
+  if (MINIMAL_MODULE_BUILD)
+    set(CMAKE_CUDA_ARCHITECTURES native)
+  else()
+    # This matches what torch.cuda.get_gencode_flags() returns for PyTorch 2.10.0. If it's good enough for them, it's
+    # probably good enough for us. We may need to update this list sometime in the future as GPUs evolve.
+    set(CMAKE_CUDA_ARCHITECTURES
+      75
+      80
+      86
+      90
+      100
+      120
+    )
+  endif()
 else ()
   message(STATUS "!!! Building without CUDA !!!")
 
