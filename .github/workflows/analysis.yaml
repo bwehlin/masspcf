@@ -301,3 +301,23 @@ jobs:
           git add -A
           git diff --cached --quiet || git commit -m "reports: add run for ${{ github.sha }}"
           git push
+
+      - name: Wait for GitHub Pages deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Waiting for GitHub Pages to deploy..."
+          for i in $(seq 1 36); do
+            STATUS=$(gh api "repos/${{ github.repository }}/pages/deployments" \
+              --jq 'if length > 0 then .[0].status else "pending" end' 2>/dev/null || echo "unknown")
+            echo "  [$i/36] $STATUS"
+            case "$STATUS" in
+              succeed)
+                echo "GitHub Pages deployed: https://${{ github.repository_owner }}.github.io/$(basename ${{ github.repository }})/"
+                break ;;
+              deployment_failed|deployment_content_failed|deployment_attempt_error|deployment_lost|deployment_cancelled)
+                echo "Pages deployment failed: $STATUS"
+                exit 1 ;;
+            esac
+            sleep 5
+          done
