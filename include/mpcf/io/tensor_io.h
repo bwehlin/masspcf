@@ -102,9 +102,23 @@ namespace mpcf::io::detail
   template <typename T>
   Tensor<T> read_tensor(std::istream& is);
 
+  inline TensorFormat read_tensor_format(std::istream& is)
+  {
+    TensorFormat format;
+    format.baseFormat = read_bytes<std::int32_t>(is);
+    format.subFormat  = read_bytes<std::int32_t>(is);
+    return format;
+  }
+
   template <IsTensor TensorT>
   TensorT read_element(std::istream& is)
   {
+    auto format = read_tensor_format(is);
+    auto expectedFormat = tensorFormat<typename TensorT::value_type>();
+    if (format != expectedFormat)
+    {
+      throw std::runtime_error("Unexpected tensor of type " + format.toString() + " where " + expectedFormat.toString() + " was expected.");
+    }
     return io::detail::read_tensor<typename TensorT::value_type>(is);
   }
 
@@ -147,13 +161,7 @@ namespace mpcf::io::detail
     write_contiguous_tensor(os, tensor);
   }
 
-  inline TensorFormat read_tensor_format(std::istream& is)
-  {
-    TensorFormat format;
-    format.baseFormat = read_bytes<std::int32_t>(is);
-    format.subFormat  = read_bytes<std::int32_t>(is);
-    return format;
-  }
+
 
   template <typename T>
   Tensor<T> read_tensor(std::istream& is)

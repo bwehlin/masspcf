@@ -26,6 +26,8 @@ class BarcodeTensor(Tensor):
         super().__init__()
 
     def _decay_value(self, val):
+        if isinstance(val, np.ndarray):
+            return Barcode(val)._data
         return val._data
 
     def _represent_element(self, element):
