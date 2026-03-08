@@ -96,50 +96,6 @@ jobs:
           CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
           CIBW_SKIP: "*-musllinux*"
-
-          # ... keep your existing CIBW_ENVIRONMENT_* blocks ...
-
-          # Windows-only: before each build, compute and export exact Python locations to CMake
-          CIBW_BEFORE_BUILD_WINDOWS: |
-            $code = @'
-            import json, sys, sysconfig, os
-            bp = sys.base_prefix
-            inc = os.path.join(bp, "include")
-            libname = sysconfig.get_config_var("LIBRARY")  # e.g., python311.lib (may be None)
-            cands = []
-            if libname:
-              cands.append(os.path.join(bp, "libs", libname))
-              v = f"python{sys.version_info[0]}{sys.version_info[1]}"
-              cands += [os.path.join(bp, "libs", v + ".lib"), os.path.join(bp, "libs", v + "_d.lib")]
-              lib = next((c for c in cands if os.path.exists(c)), "")
-            print(json.dumps({"exe": sys.executable, "bp": bp, "inc": inc, "lib": lib, "cands": cands}))
-              '@
-                  $info = python -c $code | ConvertFrom-Json
-            
-                  if (-not $info.lib) {
-                    Write-Host "Candidate import libraries:"
-                    $info.cands | ForEach-Object { Write-Host "  - $_" }
-                    throw "Could not locate Python import library (.lib) under $($info.bp)\libs"
-                  }
-            
-                  # Tell CMake/FindPython exactly what to use
-                  $args = @(
-                    '-DPython3_FIND_STRATEGY=LOCATION',
-              '-DPython3_FIND_REGISTRY=NEVER',
-              "-DPython3_EXECUTABLE=$($info.exe)",
-              "-DPython3_LIBRARY=$($info.lib)",
-              "-DPython3_INCLUDE_DIR=$($info.inc)"
-              ) -join ' '
-              
-              if ($env:CMAKE_ARGS) {
-              $env:CMAKE_ARGS = "$env:CMAKE_ARGS $args"
-            } else {
-              $env:CMAKE_ARGS = $args
-            }
-              
-              Write-Host "CMAKE_ARGS -> $env:CMAKE_ARGS"
-      
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
