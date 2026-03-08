@@ -57,22 +57,6 @@ jobs:
           Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
           Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s nvcc_12.8 cudart_12.8 visual_studio_integration_12.8"
 
-
-      - name: Repair CUDA VS integration (Windows, cache hit)
-        if: runner.os == 'Windows' && matrix.cuda == 1 && steps.cache-cuda.outputs.cache-hit == 'true'
-        shell: pwsh
-        run: |
-          $cudaRoot = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8"
-          $vsIntegration = Join-Path $cudaRoot "extras\visual_studio_integration\CudaPostInstallVSIntegration.exe"
-          if (Test-Path $vsIntegration) {
-              & $vsIntegration /silent
-              Write-Host "Repaired CUDA Visual Studio Integration."
-          } else {
-              Write-Host "VS Integration helper missing — falling back to tiny installer."
-              Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
-              Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s visual_studio_integration_12.8"
-          }
-
       - name: Add CUDA to PATH (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
         shell: pwsh
@@ -81,7 +65,6 @@ jobs:
           Add-Content $env:GITHUB_PATH "$cudaRoot\bin"
           Add-Content $env:GITHUB_ENV "CUDA_PATH=$cudaRoot"
           Add-Content $env:GITHUB_ENV "CUDA_PATH_V12_8=$cudaRoot"
-
 
       - name: Verify CUDA & MSVC (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
@@ -121,41 +104,7 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
-          # Windows-only: before each build, compute and export exact Python locations to CMake
-          CIBW_BEFORE_BUILD_WINDOWS: |
-            $code = @'
-            import json, sys, sysconfig, os
-            bp = sys.base_prefix
-            inc = os.path.join(bp, "include")
-            libname = sysconfig.get_config_var("LIBRARY")
-            cands = []
-            if libname:
-                cands.append(os.path.join(bp, "libs", libname))
-            v = f"python{sys.version_info[0]}{sys.version_info[1]}"
-            cands += [os.path.join(bp, "libs", v + ".lib"), os.path.join(bp, "libs", v + "_d.lib")]
-            lib = next((c for c in cands if os.path.exists(c)), "")
-            print(json.dumps({"exe": sys.executable, "bp": bp, "inc": inc, "lib": lib, "cands": cands}))
-            '@
-            $info = python -c $code | ConvertFrom-Json
-            if (-not $info.lib) {
-              Write-Host "Candidate import libraries:"
-              $info.cands | ForEach-Object { Write-Host "  - $_" }
-              throw "Could not locate Python import library (.lib) under $($info.bp)\libs"
-            }
-            $args = @(
-              '-DPython3_FIND_STRATEGY=LOCATION',
-              '-DPython3_FIND_REGISTRY=NEVER',
-              "-DPython3_EXECUTABLE=$($info.exe)",
-              "-DPython3_LIBRARY=$($info.lib)",
-              "-DPython3_INCLUDE_DIR=$($info.inc)"
-            ) -join ' '
-            if ($env:CMAKE_ARGS) {
-              $env:CMAKE_ARGS = "$env:CMAKE_ARGS $args"
-            } else {
-              $env:CMAKE_ARGS = $args
-            }
-            Write-Host "CMAKE_ARGS -> $env:CMAKE_ARGS"
-      
+            CMAKE_ARGS=${{ matrix.cuda == 1 && '-DCUDAToolkit_ROOT=%CUDA_PATH% -DCMAKE_CUDA_COMPILER=%CUDA_PATH%/bin/nvcc.exe
 
       - name: Save CUDA toolkit cache (Windows)
         if: always() && runner.os == 'Windows' && steps.cache-cuda.outputs.cache-hit != 'true'
