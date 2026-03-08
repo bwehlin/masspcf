@@ -66,6 +66,21 @@ endif ()
 set(Python_FIND_VIRTUALENV STANDARD)
 find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
 
+
+# --- Windows/NuGet hardening: if the import library wasn't resolved, compute it from the interpreter ---
+if (WIN32 AND NOT Python3_LIBRARY)
+  execute_process(
+      COMMAND "${Python3_EXECUTABLE}" -c "import sys,sysconfig,os; bp=sys.base_prefix; lib=sysconfig.get_config_var('LIBRARY'); candidates=[os.path.join(bp,'libs',lib) if lib else '']; v=f'python{sys.version_info[0]}{sys.version_info[1]}'; candidates+=[os.path.join(bp,'libs',v+'.lib'), os.path.join(bp,'libs',v+'_d.lib')]; print(next((c for c in candidates if c and os.path.exists(c)), ''))"
+      OUTPUT_VARIABLE _PY_LIB_CANDIDATE
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (NOT _PY_LIB_CANDIDATE)
+    message(FATAL_ERROR "Could not locate Python import library (.lib) next to ${Python3_EXECUTABLE}")
+  endif()
+  set(Python3_LIBRARY "${_PY_LIB_CANDIDATE}" CACHE FILEPATH "Python import library" FORCE)
+endif()
+
+
 if (BUILD_WITH_CUDA)
   message(STATUS "!!! Building with CUDA !!!")
 
@@ -212,6 +227,7 @@ endif ()
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
+set(PYBIND11_FINDPYTHON ON)
 add_subdirectory(3rd/pybind11)
 
 # Adapted from https://community.gigperformer.com/t/getting-cmake-variables-from-c/17711
