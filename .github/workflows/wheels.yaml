@@ -42,71 +42,12 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
-  # ... previous steps ...
-
-      - name: Restore CUDA toolkit cache (Windows)
-        if: runner.os == 'Windows'
-        id: cache-cuda
-        uses: actions/cache/restore@v4
-        with:
-          path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8
-          key: cuda-12.8.0-windows-nvcc-cudart-vsint
-
       - name: Install CUDA toolkit (Windows)
-        if: runner.os == 'Windows' && steps.cache-cuda.outputs.cache-hit != 'true'
+        if: runner.os == 'Windows' && matrix.cuda == 1
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
           Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s nvcc_12.8 cudart_12.8 visual_studio_integration_12.8"
-
-      - name: Add CUDA to PATH (Windows)
-        if: runner.os == 'Windows' && matrix.cuda == 1
-        shell: pwsh
-        run: |
-          $cudaRoot = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8"
-          Add-Content $env:GITHUB_PATH "$cudaRoot\bin"
-          Add-Content $env:GITHUB_ENV "CUDA_PATH=$cudaRoot"
-          Add-Content $env:GITHUB_ENV "CUDA_PATH_V12_8=$cudaRoot"
-
-      - name: Repair CUDA VS integration (Windows, cache hit)
-        if: runner.os == 'Windows' && matrix.cuda == 1 && steps.cache-cuda.outputs.cache-hit == 'true'
-        shell: pwsh
-        run: |
-          $cudaRoot = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8"
-          $helper   = Join-Path $cudaRoot "extras\visual_studio_integration\CudaPostInstallVSIntegration.exe"
-          if (Test-Path $helper) {
-            & $helper /silent
-            Write-Host "Repaired CUDA Visual Studio Integration via helper."
-          } else {
-            Write-Host "VS Integration helper missing — falling back to small installer."
-            $ver  = '12.8.0'
-            $url  = "https://developer.download.nvidia.com/compute/cuda/$ver/network_installers/cuda_${ver}_windows_network.exe"
-            $file = "cuda_setup.exe"
-            $ProgressPreference = 'SilentlyContinue'
-            Invoke-WebRequest -Uri $url -OutFile $file
-            Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s visual_studio_integration_12.8"
-            Write-Host "Repaired CUDA Visual Studio Integration via tiny installer."
-          }
-
-      - name: Activate MSVC env and export (Windows)
-        if: runner.os == 'Windows' && matrix.cuda == 1
-        shell: pwsh
-        run: |
-          $vcvars = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat'
-          if (!(Test-Path $vcvars)) { $vcvars = 'C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat' }
-          if (!(Test-Path $vcvars)) { $vcvars = 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat' }
-          if (!(Test-Path $vcvars)) { throw "Could not find vcvars64.bat" }
-          $null = cmd /c "`"$vcvars`" >nul && set" # prime current shell via PATH additions below
-          # Export only Path into GITHUB_PATH; others are usually not necessary here
-          & "cmd" /c "`"$vcvars`" >nul && where cl.exe"
-          cl /Bv
-
-      - name: Verify CUDA & MSVC (Windows)
-        if: runner.os == 'Windows' && matrix.cuda == 1
-        shell: pwsh
-        run: |
-          nvcc --version
-
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
