@@ -18,6 +18,7 @@ jobs:
       SKIP_STUBGEN: 1
       SKIP_BACK_COPY: 1
       ENABLE_COVERAGE: 1
+      LLVM_VERSION: 21
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,11 +37,11 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 21
-          sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-21 100
-          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-21 100
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
+          sudo ./llvm.sh $LLVM_VERSION
+          sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
 
           # Verify:
           clang --version
@@ -51,9 +52,10 @@ jobs:
       - name: Configure CMake (Clang + coverage)
         env:
           ENABLE_COVERAGE: 1
+          CC: clang
+          CXX: clang++
         run: |
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug \
-                -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build module
         run: cmake --build build -j $(nproc)
