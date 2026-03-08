@@ -11,7 +11,15 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-22.04-arm, macos-26, windows-2025]
+        include:
+          - os: ubuntu-22.04
+            cuda: 1
+          - os: ubuntu-22.04-arm
+            cuda: 0
+          - os: macos-26
+            cuda: 0
+          - os: windows-2025
+            cuda: 1
 
     steps:
 
@@ -41,27 +49,26 @@ jobs:
           CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
           CIBW_SKIP: "*-musllinux*"
-          CIBW_BEFORE_ALL_LINUX: |
-            if [ "$(uname -m)" = "x86_64" ]; then
-              curl -o /etc/yum.repos.d/cuda.repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
-              dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8
-            fi
+          CIBW_BEFORE_ALL_LINUX: >-
+            curl -o /etc/yum.repos.d/cuda.repo
+            https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
+            dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8
           CIBW_ENVIRONMENT_LINUX: >-
-            BUILD_WITH_CUDA=$([ "$(uname -m)" = "x86_64" ] && echo 1 || echo 0)
+            BUILD_WITH_CUDA=${{ matrix.cuda }}
             PATH=/usr/local/cuda/bin:$PATH
             CUDAToolkit_ROOT=/usr/local/cuda
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
           CIBW_ENVIRONMENT_MACOS: >-
-            BUILD_WITH_CUDA=0
+            BUILD_WITH_CUDA=${{ matrix.cuda }}
             MACOSX_DEPLOYMENT_TARGET=11.0
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
           CIBW_BEFORE_ALL_WINDOWS: pip install nvidia-cuda-nvcc-cu12 nvidia-cuda-runtime-cu12
           CIBW_ENVIRONMENT_WINDOWS: >-
-            BUILD_WITH_CUDA=1
+            BUILD_WITH_CUDA=${{ matrix.cuda }}
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
