@@ -413,6 +413,15 @@ else ()
 endif ()
 
 if (BUILD_TESTER)
+  # On GitHub Actions there is no GPU, so build the tester CPU-only even when
+  # the Python modules are built with CUDA. CUDA tests are excluded in this case.
+  if (BUILD_WITH_CUDA AND NOT DEFINED ENV{GITHUB_ACTIONS})
+    set(BUILD_CUDA_TESTER ON)
+  else ()
+    set(BUILD_CUDA_TESTER OFF)
+    message(STATUS "!!! Tester built without CUDA (no GPU on this runner) !!!")
+  endif ()
+
   set(BUILD_GMOCK OFF)
   set(INSTALL_GTEST OFF)
   set(gtest_force_shared_crt ON)
@@ -421,11 +430,9 @@ if (BUILD_TESTER)
   add_subdirectory("3rd/googletest")
 
   enable_testing()
-  add_executable(mpcf_test
-      test/test_block_matrix_support.cu
+
+  set(MPCF_TEST_SOURCES_COMMON
       test/test_iterate_rectangles.cpp
-      test/test_l1_dist.cu
-      test/test_norms.cu
       test/test_parallel_reduce.cpp
       test/test_tensor.cpp
       test/test_tensor_iteration.cpp
@@ -435,11 +442,22 @@ if (BUILD_TESTER)
       test/test_pcf_algebra_and_norms.cpp
       test/test_tensor_io_core.cpp
       test/test_barcode_and_stable_rank.cpp
+  )
+
+  if (BUILD_CUDA_TESTER)
+    add_executable(mpcf_test
+        test/test_block_matrix_support.cu
+        test/test_l1_dist.cu
+        test/test_norms.cu
+        ${MPCF_TEST_SOURCES_COMMON}
     )
+  else ()
+    add_executable(mpcf_test ${MPCF_TEST_SOURCES_COMMON})
+  endif ()
 
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  if (BUILD_WITH_CUDA)
+  if (BUILD_CUDA_TESTER)
     add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_VERSION_SOURCE})
     target_compile_definitions(mpcf_nopy PUBLIC BUILD_WITH_CUDA=1)
     target_link_libraries(mpcf_nopy PRIVATE mpcf_cuda)
@@ -449,17 +467,18 @@ if (BUILD_TESTER)
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
-  set_target_properties(mpcf_nopy PROPERTIES
-      CUDA_RUNTIME_LIBRARY Shared  # Must match the Python module's runtime
-  )
-
-  set_target_properties(mpcf_test PROPERTIES
-      CUDA_RUNTIME_LIBRARY Static
-  )
+  if (BUILD_CUDA_TESTER)
+    set_target_properties(mpcf_nopy PROPERTIES
+        CUDA_RUNTIME_LIBRARY Shared  # Must match the Python module's runtime
+    )
+    set_target_properties(mpcf_test PROPERTIES
+        CUDA_RUNTIME_LIBRARY Static
+    )
+  endif ()
 
   target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy)
 
-  if (BUILD_WITH_CUDA)
+  if (BUILD_CUDA_TESTER)
     target_link_libraries(mpcf_test PUBLIC mpcf_cuda CUDA::cudart_static)
   endif ()
 
