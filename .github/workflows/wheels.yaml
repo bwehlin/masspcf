@@ -62,9 +62,16 @@ jobs:
         if: runner.os == 'Windows' && matrix.cuda == 1 && steps.cache-cuda.outputs.cache-hit == 'true'
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
-          # Only VS integration component; no payload redownload if already present in cache
-          Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s visual_studio_integration_12.8"
+          $cudaRoot = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8"
+          $vsIntegration = Join-Path $cudaRoot "extras\visual_studio_integration\CudaPostInstallVSIntegration.exe"
+          if (Test-Path $vsIntegration) {
+              & $vsIntegration /silent
+              Write-Host "Repaired CUDA Visual Studio Integration."
+          } else {
+              Write-Host "VS Integration helper missing — falling back to tiny installer."
+              Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
+              Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s visual_studio_integration_12.8"
+          }
 
       - name: Add CUDA to PATH (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
