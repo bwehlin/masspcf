@@ -5,30 +5,27 @@ on:
   workflow_call:
 
 jobs:
-  build_wheels_CPU:
+  build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-22.04-arm, macos-26, windows-2025]
-    
-    env: 
-      BUILD_WITH_CUDA: 0
 
     steps:
 
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-      
-      #- name: Change project name (Windows)
-      #  run: powershell -Command "(gc pyproject.toml) -replace 'masspcf', 'masspcf-cpu' | Out-File -encoding ASCII pyproject.toml"
-      #  if: runner.os == 'Windows'
-      
-      #- name: Change project name (UNIX)
-      #  run: sed -i -e 's/masspcf/masspcf-cpu/g' pyproject.toml
-      #  if: runner.os != 'Windows'
+
+      - name: Install CUDA toolkit (Windows)
+        if: runner.os == 'Windows'
+        uses: Jimver/cuda-toolkit@v0.2.30
+        with:
+          cuda: '12.8.0'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cudart_dev", "visual_studio_integration"]'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -48,29 +45,45 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_ENVIRONMENT: >-
+          CIBW_BUILD_FRONTEND: "build[uv]"
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
+          CIBW_SKIP: "*-musllinux*"
+          CIBW_BEFORE_ALL_LINUX: >-
+            curl -o /etc/yum.repos.d/cuda.repo
+            https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
+            dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8
+          CIBW_ENVIRONMENT_LINUX: >-
+            BUILD_WITH_CUDA=1
+            PATH=/usr/local/cuda/bin:$PATH
+            CUDAToolkit_ROOT=/usr/local/cuda
+            CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
+            CMAKE_UNITY_BUILD=ON
+            CMAKE_UNITY_BUILD_BATCH_SIZE=4
+          CIBW_ENVIRONMENT_MACOS: >-
             BUILD_WITH_CUDA=0
             MACOSX_DEPLOYMENT_TARGET=11.0
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
-          CIBW_BUILD_FRONTEND: "build[uv]"
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            BUILD_WITH_CUDA=1
+            CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
+            CMAKE_UNITY_BUILD=ON
+            CMAKE_UNITY_BUILD_BATCH_SIZE=4
 
       - uses: actions/upload-artifact@v4
-        with: 
-          name: cpu-wheels-${{ matrix.os }}
+        with:
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
           retention-days: 1
-  
-  merge_cpu_artifacts:
+
+  merge_artifacts:
     runs-on: ubuntu-latest
-    needs: build_wheels_CPU
+    needs: build_wheels
     steps:
       - name: Merge Artifacts
         uses: actions/upload-artifact/merge@v4
         with:
-          name: cpu-wheels
-          pattern: "*wheels-*"
+          name: wheels
+          pattern: "wheels-*"
           retention-days: 2
-
