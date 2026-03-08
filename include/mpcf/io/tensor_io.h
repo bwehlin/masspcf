@@ -16,12 +16,22 @@
 #define MASSPCF_TENSOR_IO_H
 
 #include "io_stream_base.h"
+#include "barcode_io.h"
 #include "../tensor.h"
 #include "../pcf.h"
 #include "../persistence/barcode.h"
 
 namespace mpcf::io::detail
 {
+  template <typename T>
+  struct is_barcode : std::false_type {};
+
+  template <typename T>
+  struct is_barcode<ph::Barcode<T>> : std::true_type { using scalar_type = T; };
+
+  template <typename T>
+  inline constexpr bool is_barcode_v = is_barcode<T>::value;
+
   using StreamableTensor = std::variant<
       Tensor<float32_t>,
       Tensor<float64_t>,
@@ -92,10 +102,10 @@ namespace mpcf::io::detail
   template <typename T>
   Tensor<T> read_tensor(std::istream& is);
 
-  template <typename T>
-  mpcf::Tensor<mpcf::Tensor<T>> read_element(std::istream& is)
+  template <IsTensor TensorT>
+  TensorT read_element(std::istream& is)
   {
-    return io::detail::read_tensor<mpcf::Tensor<mpcf::Tensor<T>>>(is);
+    return io::detail::read_tensor<typename TensorT::value_type>(is);
   }
 
   template <IsTensor TensorT>
@@ -166,7 +176,10 @@ namespace mpcf::io::detail
     auto sz = ret.size();
     for (auto * elem = ret.data(); elem != ret.data() + sz; ++elem)
     {
-      *elem = read_element<T>(is);
+      if constexpr (is_barcode_v<T>)
+        *elem = read_barcode<typename is_barcode<T>::scalar_type>(is);
+      else
+        *elem = read_element<T>(is);
     }
 
     return ret;

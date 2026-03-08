@@ -35,11 +35,24 @@ def _save(item: PcfContainerLike, file):
     fn(item._data, file)
 
 def _load(file):
+    cpp_p = cpp.persistence
+
+    _LOAD_DISPATCH = {
+        cpp.Float32Tensor:      Float32Tensor,
+        cpp.Float64Tensor:      Float64Tensor,
+        cpp.Pcf32Tensor:        Pcf32Tensor,
+        cpp.Pcf64Tensor:        Pcf64Tensor,
+        cpp.PointCloud32Tensor: PointCloud32Tensor,
+        cpp.PointCloud64Tensor: PointCloud64Tensor,
+        cpp_p.Barcode32Tensor:  Barcode32Tensor,
+        cpp_p.Barcode64Tensor:  Barcode64Tensor,
+    }
+
     cpp_tensor = cpp.IoOps.load_tensor_from_file(file)
-    if isinstance(cpp_tensor, cpp.Float32Tensor):
-        return Float32Tensor(cpp_tensor)
-    else:
+    ctor = _LOAD_DISPATCH.get(type(cpp_tensor))
+    if ctor is None:
         raise TypeError(f'File contains unsupported tensor of type {type(cpp_tensor)}')
+    return ctor(cpp_tensor)
 
 def save(item: PcfContainerLike, file):
     if isinstance(file, str):

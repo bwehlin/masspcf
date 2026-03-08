@@ -33,7 +33,7 @@ namespace mpcf::io::detail
   }
 
   template <typename T>
-  mpcf::ph::Barcode<T> read_element(std::istream& is)
+  mpcf::ph::Barcode<T> read_barcode(std::istream& is)
   {
     auto len = read_length(is);
     std::vector<mpcf::ph::PersistencePair<T>> bars;
@@ -46,8 +46,9 @@ namespace mpcf::io::detail
       bars.emplace_back(birth, death);
     }
 
-    return bars;
+    return mpcf::ph::Barcode<T>(std::move(bars));
   }
+
 }
 
 #endif //MASSPCF_BARCODE_IO_H
