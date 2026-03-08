@@ -49,8 +49,47 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "cuda-toolkit[nvcc]"
-          # Optional: runtime libs if your build/test needs them
-          # python -m pip install "cuda-toolkit[cudart]"
+
+      - name: Activate MSVC & export CUDA_PATH/PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          REM --- Find latest MSVC install that has the C++ tools ---
+          for /f "usebackq delims=" %%i in (`
+            "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
+              -latest -products * ^
+              -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
+              -property installationPath
+          `) do set VSPATH=%%i
+          
+          if not defined VSPATH (
+            echo MSVC Build Tools not found
+            exit /b 1
+          )
+          
+          REM --- Initialize MSVC environment (x64) ---
+          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
+          
+          REM --- Discover PyPI-installed nvcc (nvidia-cuda-nvcc) and export PATH/CUDA_PATH ---
+          python - <<PY
+            import os, importlib
+            m = importlib.import_module("nvidia_cuda_nvcc")
+            root = os.path.dirname(m.__file__)
+            binp = os.path.join(root, "bin")
+          # Add to PATH for subsequent steps
+          with open(os.environ["GITHUB_PATH"], "a", encoding="utf-8") as f:
+            f.write(binp + "\n")
+          # Expose CUDA_PATH so CMake can use -DCUDAToolkit_ROOT=%CUDA_PATH%
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+            f.write(f"CUDA_PATH={root}\n")
+            print("Resolved CUDA_PATH =", root)
+            print("Resolved CUDA bin  =", binp)
+            PY
+            
+            REM --- Sanity checks ---
+            where cl
+            where nvcc || (echo nvcc was not placed on PATH & exit /b 1)
+            nvcc --version
 
       - name: Locate MSVC and prime environment (Windows)
         if: runner.os == 'Windows'
