@@ -108,13 +108,13 @@ jobs:
           llvm-cov show $FIRST_OBJ $EXTRA_OBJS \
             $INSTR_PROFILE $IGNORE \
             -format=html -output-dir=covreport/cpp \
-            -show-line-counts-or-regions
+            -show-line-counts-or-regions -show-instantiations=false
           # Generate detailed HTML report (branches + expansions) in a subdirectory
           llvm-cov show $FIRST_OBJ $EXTRA_OBJS \
             $INSTR_PROFILE $IGNORE \
             -format=html -output-dir=covreport/cpp/detailed \
             -show-line-counts-or-regions -show-branches=count \
-            -show-instantiations -show-expansions
+            -show-instantiations -show-expansions -demangle
           # Preserve downstream expectation of 'coverage.html'
           cp covreport/cpp/index.html covreport/cpp/coverage.html || true
           # Export JSON summary -> synthesize expected coverage-summary.json (line_percent)
@@ -306,16 +306,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Waiting for GitHub Pages to deploy..."
+          echo "Waiting for GitHub Pages deployment to start..."
+          sleep 5
+          DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments?environment=github-pages&per_page=1" \
+            --jq '.[0].id' 2>/dev/null)
+          if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
+            echo "No Pages deployment found, skipping."
+            exit 0
+          fi
+          echo "Polling deployment $DEPLOY_ID..."
           for i in $(seq 1 36); do
-            STATUS=$(gh api "repos/${{ github.repository }}/pages/deployments" \
-              --jq 'if length > 0 then .[0].status else "pending" end' 2>/dev/null || echo "unknown")
+            STATUS=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses?per_page=1" \
+              --jq '.[0].state' 2>/dev/null || echo "unknown")
             echo "  [$i/36] $STATUS"
             case "$STATUS" in
-              succeed)
+              success)
                 echo "GitHub Pages deployed: https://${{ github.repository_owner }}.github.io/$(basename ${{ github.repository }})/"
                 break ;;
-              deployment_failed|deployment_content_failed|deployment_attempt_error|deployment_lost|deployment_cancelled)
+              error|failure)
                 echo "Pages deployment failed: $STATUS"
                 exit 1 ;;
             esac
