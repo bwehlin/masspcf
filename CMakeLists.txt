@@ -73,7 +73,7 @@ if (BUILD_WITH_CUDA)
     execute_process(
         COMMAND "${Python_EXECUTABLE}" -c "if True:
         import importlib.util, pathlib
-        for pkg in ('nvidia.cu13', 'nvidia.cu12', 'nvidia.cuda_runtime'):
+        for pkg in ('nvidia.cu13', 'nvidia.cu12', 'nvidia.cuda_nvcc', 'nvidia.cuda_runtime'):
             spec = importlib.util.find_spec(pkg)
             if spec and spec.submodule_search_locations:
                 print(pathlib.Path(spec.submodule_search_locations[0]).resolve())

@@ -19,13 +19,6 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Install CUDA toolkit (Windows)
-        if: runner.os == 'Windows'
-        uses: Jimver/cuda-toolkit@v0.2.30
-        with:
-          cuda: '13.1.0'
-          method: 'network'
-          sub-packages: '["nvcc", "cudart", "cudart_dev"]'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -48,12 +41,13 @@ jobs:
           CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
           CIBW_SKIP: "*-musllinux*"
-          CIBW_BEFORE_ALL_LINUX: >-
-            curl -o /etc/yum.repos.d/cuda.repo
-            https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
-            dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8
+          CIBW_BEFORE_ALL_LINUX: |
+            if [ "$(uname -m)" = "x86_64" ]; then
+              curl -o /etc/yum.repos.d/cuda.repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
+              dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8
+            fi
           CIBW_ENVIRONMENT_LINUX: >-
-            BUILD_WITH_CUDA=1
+            BUILD_WITH_CUDA=$([ "$(uname -m)" = "x86_64" ] && echo 1 || echo 0)
             PATH=/usr/local/cuda/bin:$PATH
             CUDAToolkit_ROOT=/usr/local/cuda
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
@@ -65,6 +59,7 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
+          CIBW_BEFORE_ALL_WINDOWS: pip install nvidia-cuda-nvcc-cu12 nvidia-cuda-runtime-cu12
           CIBW_ENVIRONMENT_WINDOWS: >-
             BUILD_WITH_CUDA=1
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
