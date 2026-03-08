@@ -104,7 +104,7 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
-            CMAKE_ARGS=${{ matrix.cuda == 1 && '-DCUDAToolkit_ROOT=%CUDA_PATH% -DCMAKE_CUDA_COMPILER=%CUDA_PATH%/bin/nvcc.exe -DCMAKE_CUDA_ARCHITECTURES=75;80;86;90;100;120' || '' }}
+            CMAKE_ARGS=${{ matrix.cuda == 1 && '-DCUDAToolkit_ROOT=%CUDA_PATH% -DCMAKE_CUDA_COMPILER=%CUDA_PATH%/bin/nvcc.exe' || '' }}
 
       - name: Save CUDA toolkit cache (Windows)
         if: always() && runner.os == 'Windows' && steps.cache-cuda.outputs.cache-hit != 'true'
