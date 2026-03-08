@@ -114,7 +114,7 @@ jobs:
             $INSTR_PROFILE $IGNORE \
             -format=html -output-dir=covreport/cpp/detailed \
             -show-line-counts-or-regions -show-branches=count \
-            -show-instantiations -show-expansions -demangle
+            -show-instantiations -show-expansions --Xdemangler c++filt
           # Preserve downstream expectation of 'coverage.html'
           cp covreport/cpp/index.html covreport/cpp/coverage.html || true
           # Export JSON summary -> synthesize expected coverage-summary.json (line_percent)
