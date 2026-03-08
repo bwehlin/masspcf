@@ -111,7 +111,7 @@ jobs:
           # Export JSON summary -> synthesize expected coverage-summary.json (line_percent)
           llvm-cov export $OBJ_LIST \
               -instr-profile=covreport/cpp/default.profdata \
-              -format=json -summary-only \
+              -summary-only \
               > covreport/cpp/llvm-cov-summary.json
           python3 .github/scripts/llvm_cov_summary.py \
               covreport/cpp/llvm-cov-summary.json covreport/cpp/coverage-summary.json
