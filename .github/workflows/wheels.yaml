@@ -49,6 +49,7 @@ jobs:
         with:
           path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8
           key: cuda-12.8.0-windows-nvcc-cudart
+          save-always: true
 
       - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
