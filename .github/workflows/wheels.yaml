@@ -42,12 +42,14 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
+      # Use the same Python everywhere (recommended)
       - name: Setup Python
-        if: runner.os == 'Windows' && matrix.cuda == 1
+        if: runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.12'
 
+      # Install NVIDIA's NVCC via PyPI (fast; no 10‑min CUDA installer)
       - name: Install CUDA NVCC (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
         shell: bash
@@ -55,14 +57,44 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "cuda-toolkit[nvcc]"
 
-      # 2) Activate MSVC & export CUDA_PATH/PATH so nvcc is available everywhere
-      - name: Activate MSVC & export CUDA_PATH/PATH (Windows)
+      # Find nvcc.exe under site-packages/nvidia/** and emit helper files
+      - name: Resolve nvcc & CUDA paths (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, site, sys
+          paths = set(site.getsitepackages() + [site.getusersitepackages()])
+          nvcc = None
+          for p in paths:
+              base = os.path.join(p, 'nvidia')
+              if not os.path.isdir(base):
+                  continue
+              for root, _, files in os.walk(base):
+                  if 'nvcc.exe' in files:
+                      nvcc = os.path.join(root, 'nvcc.exe')
+                      break
+              if nvcc:
+                  break
+          if not nvcc:
+              print("nvcc.exe not found under any site-packages/nvidia/**", file=sys.stderr)
+              sys.exit(1)
+          nvcc_bin = os.path.dirname(nvcc)
+          cuda_path = os.path.dirname(nvcc_bin)
+          with open('nvcc_bin.txt', 'w', encoding='utf-8') as f:
+              f.write(nvcc_bin)
+          with open('cuda_path.txt', 'w', encoding='utf-8') as f:
+              f.write(cuda_path)
+          PY
+
+      # Activate MSVC for any VS version; export PATH and CUDA_PATH
+      - name: Activate MSVC & export CUDA_PATH/PATH (Windows)
+        if: runner.os == 'Windows'
         shell: cmd
         run: |
           setlocal EnableExtensions EnableDelayedExpansion
 
-          REM ---- Locate latest MSVC with C++ tools ----
+          REM Locate the newest Visual Studio with C++ tools
           for /f "usebackq delims=" %%i in (`
             "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
               -latest -products * ^
@@ -75,64 +107,24 @@ jobs:
             exit /b 1
           )
 
-          REM ---- Initialize MSVC environment (x64) for this step ----
+          REM Initialize MSVC environment (x64) for this shell
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
 
-          REM ---- Find the site-packages location of the NVCC wheel (nvidia-cuda-nvcc) ----
-          for /f "usebackq tokens=1,* delims=:" %%A in (`
-            python -m pip show nvidia-cuda-nvcc ^| findstr /b /c:"Location:"
-          `) do set "SITEPKG=%%B"
+          REM Read helper files produced by the previous step
+          set /p NVCC_BIN=<nvcc_bin.txt
+          set /p CUDA_PATH=<cuda_path.txt
 
-          REM Trim leading spaces from SITEPKG
-          for /f "tokens=* delims= " %%S in ("!SITEPKG!") do set "SITEPKG=%%S"
-
-          if not defined SITEPKG (
-            echo Could not determine site-packages location for nvidia-cuda-nvcc
-            python -m pip show nvidia-cuda-nvcc
+          if not exist "%NVCC_BIN%\nvcc.exe" (
+            echo nvcc.exe not found at "%NVCC_BIN%\nvcc.exe"
             exit /b 1
           )
 
-          REM ---- Compose CUDA_PATH and NVCC bin directory from wheel layout ----
-          set "CUDA_PATH=!SITEPKG!\nvidia_cuda_nvcc"
-          set "NVCC_BIN=!CUDA_PATH!\bin"
+          REM Make nvcc available now and for subsequent steps
+          set "PATH=%NVCC_BIN%;%PATH%"
+          echo %NVCC_BIN%>> "%GITHUB_PATH%"
+          echo CUDA_PATH=%CUDA_PATH%>> "%GITHUB_ENV%"
 
-          if not exist "!NVCC_BIN!\nvcc.exe" (
-            echo nvcc.exe not found at "!NVCC_BIN!\nvcc.exe"
-            dir /b /s "!SITEPKG!\nvidia_cuda_nvcc"
-            exit /b 1
-          )
-
-          REM ---- Make nvcc available now and in subsequent steps ----
-          set "PATH=!NVCC_BIN!;!PATH!"
-          echo !NVCC_BIN!>> "%GITHUB_PATH%"
-          echo CUDA_PATH=!CUDA_PATH!>> "%GITHUB_ENV%"
-
-          REM ---- Sanity checks ----
-          where cl
-          where nvcc || (echo nvcc was not placed on PATH & exit /b 1)
-      
-
-      - name: Locate MSVC and prime environment (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          :: Find latest VS/MSVC that has C++ tools
-          for /f "usebackq delims=" %%i in (`
-            "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
-              -latest -products * ^
-              -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
-              -property installationPath
-          `) do set VSPATH=%%i
-          
-          if not defined VSPATH (
-            echo "MSVC Build Tools not found"; exit /b 1
-          )
-          
-          :: Export a temporary .cmd we can call inside cibuildwheel hooks if needed
-          echo call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 > %GITHUB_WORKSPACE%\_msvc_env.cmd
-          
-          :: Prove toolchain is ready
-          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
+          REM Sanity checks
           where cl
           where nvcc
           nvcc --version
