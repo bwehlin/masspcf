@@ -124,12 +124,9 @@ jobs:
           echo %NVCC_BIN%>> "%GITHUB_PATH%"
           echo CUDA_PATH=%CUDA_PATH%>> "%GITHUB_ENV%"
 
-          REM Export cl.exe directory so Ninja can find MSVC
-          for /f "delims=" %%c in ('where cl') do (
-            echo %%~dpc>> "%GITHUB_PATH%"
-            goto :cl_found
-          )
-          :cl_found
+          REM Export all MSVC / Windows SDK directories so Ninja can find
+          REM cl.exe, link.exe, rc.exe, mt.exe, etc.
+          python -c "import os; f=open(os.environ['GITHUB_PATH'],'a'); [f.write(p+chr(10)) for p in os.environ['PATH'].split(';') if 'MSVC' in p or 'Windows Kits' in p]"
 
           REM Export INCLUDE / LIB so cl.exe can find headers and libraries
           echo INCLUDE=%INCLUDE%>> "%GITHUB_ENV%"
