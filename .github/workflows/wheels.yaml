@@ -42,6 +42,14 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
+      - name: Install CUDA toolkit (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
+          Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s nvcc_12.8 cudart_12.8"
+          Add-Content $env:GITHUB_PATH "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin"
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
@@ -66,10 +74,8 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
-          CIBW_BEFORE_ALL_WINDOWS: pip install nvidia-cuda-nvcc-cu12 nvidia-cuda-runtime-cu12
           CIBW_ENVIRONMENT_WINDOWS: >-
             BUILD_WITH_CUDA=${{ matrix.cuda }}
-            CMAKE_GENERATOR=Ninja
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
