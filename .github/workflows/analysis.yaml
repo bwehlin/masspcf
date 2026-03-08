@@ -52,8 +52,8 @@ jobs:
       - name: Configure CMake (Clang + coverage)
         env:
           ENABLE_COVERAGE: 1
-          CC: clang
-          CXX: clang++
+          CC: clang-${{ env.LLVM_VERSION }}
+          CXX: clang++-${{ env.LLVM_VERSION }}
         run: |
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
