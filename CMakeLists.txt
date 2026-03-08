@@ -78,6 +78,15 @@ if (WIN32 AND NOT Python_LIBRARY)
     message(FATAL_ERROR "Could not locate Python import library (.lib) next to ${Python_EXECUTABLE}")
   endif()
   set(Python_LIBRARY "${_PY_LIB_CANDIDATE}" CACHE FILEPATH "Python import library" FORCE)
+  message(STATUS "!!! Python import library resolved to: ${_PY_LIB_CANDIDATE}")
+
+  # find_package(Python) already ran, so the Python::Module target exists but
+  # lacks the import library.  Patch it so pybind11_add_module links correctly.
+  get_filename_component(_PY_LIB_DIR "${_PY_LIB_CANDIDATE}" DIRECTORY)
+  if (TARGET Python::Module)
+    set_property(TARGET Python::Module APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${_PY_LIB_CANDIDATE}")
+  endif()
+  link_directories("${_PY_LIB_DIR}")
 endif()
 
 
