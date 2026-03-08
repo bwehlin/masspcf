@@ -42,13 +42,31 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
-      - name: Install CUDA toolkit (Windows)
+      - name: Cache CUDA toolkit (Windows)
         if: runner.os == 'Windows'
+        id: cache-cuda
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8
+            C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\BuildCustomizations\CUDA 12.8*
+          key: cuda-12.8.0-windows-nvcc-cudart-vsint
+
+      - name: Install CUDA toolkit (Windows)
+        if: runner.os == 'Windows' && steps.cache-cuda.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://developer.download.nvidia.com/compute/cuda/12.8.0/network_installers/cuda_12.8.0_windows_network.exe" -OutFile cuda_setup.exe
           Start-Process -Wait -FilePath .\cuda_setup.exe -ArgumentList "-s nvcc_12.8 cudart_12.8 visual_studio_integration_12.8"
-          Add-Content $env:GITHUB_PATH "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin"
+
+      - name: Add CUDA to PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cudaRoot = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8"
+          Add-Content $env:GITHUB_PATH "$cudaRoot\bin"
+          Add-Content $env:GITHUB_ENV "CUDA_PATH=$cudaRoot"
+          Add-Content $env:GITHUB_ENV "CUDA_PATH_V12_8=$cudaRoot"
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
