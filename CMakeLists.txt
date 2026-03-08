@@ -250,6 +250,15 @@ SET(MPCF_VERSION_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 
 pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
 
+# Standalone GPU detection module (no CUDA dependency)
+pybind11_add_module(_gpu_detect MODULE src/gpu_detect/gpu_detect.cpp)
+target_link_libraries(_gpu_detect PRIVATE pybind11::headers)
+if (APPLE)
+  target_link_libraries(_gpu_detect PRIVATE "-framework IOKit" "-framework CoreFoundation")
+elseif (WIN32)
+  target_link_libraries(_gpu_detect PRIVATE dxgi)
+endif ()
+
 set(MPCF_PRIVATE_INCLUDES "include/mpcf")
 set(MPCF_PUBLIC_INCLUDES "include/")
 
@@ -448,7 +457,7 @@ else ()
   set(INSTALL_TARGET masspcf)
 endif ()
 
-install(TARGETS ${CPP_MODULE_NAME} DESTINATION ${INSTALL_TARGET})
+install(TARGETS ${CPP_MODULE_NAME} _gpu_detect DESTINATION ${INSTALL_TARGET})
 
 if (LINUX OR MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN)) # Stubgen does not seem happy on CI
   add_custom_command(
