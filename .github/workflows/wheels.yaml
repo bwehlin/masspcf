@@ -55,46 +55,62 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "cuda-toolkit[nvcc]"
 
+      # 2) Activate MSVC & export CUDA_PATH/PATH so nvcc is available everywhere
       - name: Activate MSVC & export CUDA_PATH/PATH (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.cuda == 1
         shell: cmd
         run: |
-          REM --- Find latest MSVC install that has the C++ tools ---
+          setlocal EnableExtensions EnableDelayedExpansion
+
+          REM ---- Locate latest MSVC with C++ tools ----
           for /f "usebackq delims=" %%i in (`
             "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
               -latest -products * ^
               -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
               -property installationPath
-          `) do set VSPATH=%%i
+          `) do set "VSPATH=%%i"
 
           if not defined VSPATH (
             echo MSVC Build Tools not found
             exit /b 1
           )
 
-          REM --- Initialize MSVC environment (x64) ---
+          REM ---- Initialize MSVC environment (x64) for this step ----
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
 
-          REM --- Discover PyPI-installed CUDA paths (nvidia-cuda-nvcc) ---
-          for /f "usebackq delims=" %%p in (`
-            python -c "import os,importlib,sys; m=importlib.import_module('nvidia_cuda_nvcc'); sys.stdout.write(os.path.dirname(m.__file__))"
-          `) do set CUDA_PATH=%%p
+          REM ---- Find the site-packages location of the NVCC wheel (nvidia-cuda-nvcc) ----
+          for /f "usebackq tokens=1,* delims=:" %%A in (`
+            python -m pip show nvidia-cuda-nvcc ^| findstr /b /c:"Location:"
+          `) do set "SITEPKG=%%B"
 
-          for /f "usebackq delims=" %%p in (`
-            python -c "import os,importlib,sys; m=importlib.import_module('nvidia_cuda_nvcc'); sys.stdout.write(os.path.join(os.path.dirname(m.__file__),'bin'))"
-          `) do set NVCC_BIN=%%p
+          REM Trim leading spaces from SITEPKG
+          for /f "tokens=* delims= " %%S in ("!SITEPKG!") do set "SITEPKG=%%S"
 
-          REM --- Make nvcc available immediately in this step ---
-          set PATH=%NVCC_BIN%;%PATH%
+          if not defined SITEPKG (
+            echo Could not determine site-packages location for nvidia-cuda-nvcc
+            python -m pip show nvidia-cuda-nvcc
+            exit /b 1
+          )
 
-          REM --- Persist for subsequent steps (GitHub Actions) ---
-          echo %NVCC_BIN%>> "%GITHUB_PATH%"
-          echo CUDA_PATH=%CUDA_PATH%>> "%GITHUB_ENV%"
+          REM ---- Compose CUDA_PATH and NVCC bin directory from wheel layout ----
+          set "CUDA_PATH=!SITEPKG!\nvidia_cuda_nvcc"
+          set "NVCC_BIN=!CUDA_PATH!\bin"
 
-          REM --- Sanity checks ---
+          if not exist "!NVCC_BIN!\nvcc.exe" (
+            echo nvcc.exe not found at "!NVCC_BIN!\nvcc.exe"
+            dir /b /s "!SITEPKG!\nvidia_cuda_nvcc"
+            exit /b 1
+          )
+
+          REM ---- Make nvcc available now and in subsequent steps ----
+          set "PATH=!NVCC_BIN!;!PATH!"
+          echo !NVCC_BIN!>> "%GITHUB_PATH%"
+          echo CUDA_PATH=!CUDA_PATH!>> "%GITHUB_ENV%"
+
+          REM ---- Sanity checks ----
           where cl
           where nvcc || (echo nvcc was not placed on PATH & exit /b 1)
-          nvcc --version
+      
 
       - name: Locate MSVC and prime environment (Windows)
         if: runner.os == 'Windows'
