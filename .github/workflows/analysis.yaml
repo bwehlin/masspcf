@@ -39,8 +39,11 @@ jobs:
           sudo ./llvm.sh 21
           sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-21 100
           sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-21 100
-          
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
+
           # Verify:
+          clang --version
           llvm-cov --version
           llvm-profdata --version
 
