@@ -42,14 +42,13 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
-      - name: Cache CUDA toolkit (Windows)
+      - name: Restore CUDA toolkit cache (Windows)
         if: runner.os == 'Windows'
         id: cache-cuda
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8
           key: cuda-12.8.0-windows-nvcc-cudart
-          save-always: true
 
       - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
@@ -104,6 +103,13 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
+
+      - name: Save CUDA toolkit cache (Windows)
+        if: always() && runner.os == 'Windows' && steps.cache-cuda.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8
+          key: cuda-12.8.0-windows-nvcc-cudart
 
       - uses: actions/upload-artifact@v4
         with:
