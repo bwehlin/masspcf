@@ -79,7 +79,7 @@ jobs:
           if not nvcc:
               print("nvcc.exe not found under any site-packages/nvidia/**", file=sys.stderr)
               sys.exit(1)
-          nvcc_bin = os.path.dirname(nvcc)
+          nvcc_bin = os.path.dirname(nvcc).replace('\\', '/')
           cuda_path = os.path.dirname(nvcc_bin)
           with open('nvcc_bin.txt', 'w', encoding='utf-8') as f:
               f.write(nvcc_bin)
@@ -119,10 +119,21 @@ jobs:
             exit /b 1
           )
 
-          REM Make nvcc available now and for subsequent steps
+          REM Make nvcc + cl.exe available for subsequent steps (Ninja needs them on PATH)
           set "PATH=%NVCC_BIN%;%PATH%"
           echo %NVCC_BIN%>> "%GITHUB_PATH%"
           echo CUDA_PATH=%CUDA_PATH%>> "%GITHUB_ENV%"
+
+          REM Export cl.exe directory so Ninja can find MSVC
+          for /f "delims=" %%c in ('where cl') do (
+            echo %%~dpc>> "%GITHUB_PATH%"
+            goto :cl_found
+          )
+          :cl_found
+
+          REM Export INCLUDE / LIB so cl.exe can find headers and libraries
+          echo INCLUDE=%INCLUDE%>> "%GITHUB_ENV%"
+          echo LIB=%LIB%>> "%GITHUB_ENV%"
 
           REM Sanity checks
           where cl
@@ -161,7 +172,8 @@ jobs:
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
-            CMAKE_ARGS=${{ matrix.cuda == 1 && '"-G Ninja -DCUDAToolkit_ROOT=${CUDA_PATH} -DCMAKE_CUDA_COMPILER=${CUDA_PATH}/bin/nvcc.exe"' || '' }}
+            SKBUILD_CMAKE_GENERATOR=Ninja
+            CMAKE_ARGS=${{ matrix.cuda == 1 && '"-DCUDAToolkit_ROOT=${CUDA_PATH} -DCMAKE_CUDA_COMPILER=${CUDA_PATH}/bin/nvcc.exe"' || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
