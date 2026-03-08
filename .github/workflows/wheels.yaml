@@ -61,35 +61,35 @@ jobs:
               -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
               -property installationPath
           `) do set VSPATH=%%i
-          
+
           if not defined VSPATH (
             echo MSVC Build Tools not found
             exit /b 1
           )
-          
+
           REM --- Initialize MSVC environment (x64) ---
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
-          
-          REM --- Discover PyPI-installed nvcc (nvidia-cuda-nvcc) and export PATH/CUDA_PATH ---
-          python - <<PY
-            import os, importlib
-            m = importlib.import_module("nvidia_cuda_nvcc")
-            root = os.path.dirname(m.__file__)
-            binp = os.path.join(root, "bin")
-          # Add to PATH for subsequent steps
-          with open(os.environ["GITHUB_PATH"], "a", encoding="utf-8") as f:
-            f.write(binp + "\n")
-          # Expose CUDA_PATH so CMake can use -DCUDAToolkit_ROOT=%CUDA_PATH%
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
-            f.write(f"CUDA_PATH={root}\n")
-            print("Resolved CUDA_PATH =", root)
-            print("Resolved CUDA bin  =", binp)
-            PY
-            
-            REM --- Sanity checks ---
-            where cl
-            where nvcc || (echo nvcc was not placed on PATH & exit /b 1)
-            nvcc --version
+
+          REM --- Discover PyPI-installed CUDA paths (nvidia-cuda-nvcc) ---
+          for /f "usebackq delims=" %%p in (`
+            python -c "import os,importlib,sys; m=importlib.import_module('nvidia_cuda_nvcc'); sys.stdout.write(os.path.dirname(m.__file__))"
+          `) do set CUDA_PATH=%%p
+
+          for /f "usebackq delims=" %%p in (`
+            python -c "import os,importlib,sys; m=importlib.import_module('nvidia_cuda_nvcc'); sys.stdout.write(os.path.join(os.path.dirname(m.__file__),'bin'))"
+          `) do set NVCC_BIN=%%p
+
+          REM --- Make nvcc available immediately in this step ---
+          set PATH=%NVCC_BIN%;%PATH%
+
+          REM --- Persist for subsequent steps (GitHub Actions) ---
+          echo %NVCC_BIN%>> "%GITHUB_PATH%"
+          echo CUDA_PATH=%CUDA_PATH%>> "%GITHUB_ENV%"
+
+          REM --- Sanity checks ---
+          where cl
+          where nvcc || (echo nvcc was not placed on PATH & exit /b 1)
+          nvcc --version
 
       - name: Locate MSVC and prime environment (Windows)
         if: runner.os == 'Windows'
