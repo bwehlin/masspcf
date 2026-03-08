@@ -63,6 +63,7 @@ if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(BUILD_BENCHMARKS OFF)
 endif ()
 
+set(Python_FIND_VIRTUALENV STANDARD)
 find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
 
 if (BUILD_WITH_CUDA)
