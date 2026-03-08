@@ -182,6 +182,9 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
             --log-file=./reports/vg-pytest.log \
+            --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             python -m pytest . -vv -s || true
           valgrind-ci ./reports/vg-pytest.xml --summary | tee ./reports/vg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
@@ -191,6 +194,9 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml \
             --log-file=./reports/vg-gtest.log \
+            --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             ../build/mpcf_test || true
           valgrind-ci ./reports/vg-gtest.xml --summary | tee ./reports/vg-gtest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-gtest.xml --output-dir=./reports/vg_gtest
@@ -306,14 +312,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Waiting for GitHub Pages deployment to start..."
-          sleep 5
-          DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments?environment=github-pages&per_page=1" \
-            --jq '.[0].id' 2>/dev/null)
-          if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
-            echo "No Pages deployment found, skipping."
+          # Capture the current latest deployment ID before our push is processed
+          PREV_ID=$(gh api "repos/${{ github.repository }}/deployments?environment=github-pages&per_page=1" \
+            --jq '.[0].id' 2>/dev/null || echo "null")
+          echo "Previous deployment ID: $PREV_ID"
+
+          # Wait for a new deployment to appear
+          echo "Waiting for new Pages deployment to be created..."
+          DEPLOY_ID="null"
+          for i in $(seq 1 24); do
+            DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments?environment=github-pages&per_page=1" \
+              --jq '.[0].id' 2>/dev/null || echo "null")
+            if [ "$DEPLOY_ID" != "null" ] && [ "$DEPLOY_ID" != "$PREV_ID" ]; then
+              echo "New deployment detected: $DEPLOY_ID"
+              break
+            fi
+            echo "  [$i/24] waiting for new deployment..."
+            sleep 5
+          done
+
+          if [ "$DEPLOY_ID" = "null" ] || [ "$DEPLOY_ID" = "$PREV_ID" ]; then
+            echo "No new Pages deployment appeared, skipping."
             exit 0
           fi
+
+          # Poll until the deployment succeeds
           echo "Polling deployment $DEPLOY_ID..."
           for i in $(seq 1 36); do
             STATUS=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses?per_page=1" \
