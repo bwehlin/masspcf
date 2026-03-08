@@ -212,7 +212,6 @@ endif ()
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-set(PYBIND11_FINDPYTHON ON)
 add_subdirectory(3rd/pybind11)
 
 # Adapted from https://community.gigperformer.com/t/getting-cmake-variables-from-c/17711
