@@ -98,25 +98,28 @@ jobs:
           # Merge all .profraw into a single .profdata
           llvm-profdata merge -sparse -o covreport/cpp/default.profdata covreport/profiles/*.profraw
           # Discover the test exe + Python extension module built by CMake
-          OBJ_LIST="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | tr '\n' ' ')"
-          echo "Objects for llvm-cov: $OBJ_LIST"
-          # Generate HTML report (index.html + assets)
-          llvm-cov show $OBJ_LIST \
-            -instr-profile=covreport/cpp/default.profdata \
+          FIRST_OBJ="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | head -1)"
+          EXTRA_OBJS="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | tail -n +2 | sed 's/^/-object /' | tr '\n' ' ')"
+          echo "Objects for llvm-cov: $FIRST_OBJ $EXTRA_OBJS"
+          INSTR_PROFILE="-instr-profile=covreport/cpp/default.profdata"
+          IGNORE="-ignore-filename-regex=(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/)"
+          # Generate HTML report with per-line detail (index.html + per-file pages)
+          llvm-cov show $FIRST_OBJ $EXTRA_OBJS \
+            $INSTR_PROFILE $IGNORE \
             -format=html -output-dir=covreport/cpp \
-            -ignore-filename-regex='(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/)' \
-            -show-branches=count -show-instantiations -show-expansions
+            -show-line-counts-or-regions -show-branches=count \
+            -show-instantiations -show-expansions
           # Preserve downstream expectation of 'coverage.html'
           cp covreport/cpp/index.html covreport/cpp/coverage.html || true
           # Export JSON summary -> synthesize expected coverage-summary.json (line_percent)
-          llvm-cov export $OBJ_LIST \
-              -instr-profile=covreport/cpp/default.profdata \
+          llvm-cov export $FIRST_OBJ $EXTRA_OBJS \
+              $INSTR_PROFILE $IGNORE \
               -summary-only \
               > covreport/cpp/llvm-cov-summary.json
           python3 .github/scripts/llvm_cov_summary.py \
               covreport/cpp/llvm-cov-summary.json covreport/cpp/coverage-summary.json
           # Human-readable table in the step summary
-          llvm-cov report $OBJ_LIST -instr-profile=covreport/cpp/default.profdata >> $GITHUB_STEP_SUMMARY
+          llvm-cov report $FIRST_OBJ $EXTRA_OBJS $INSTR_PROFILE $IGNORE >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
