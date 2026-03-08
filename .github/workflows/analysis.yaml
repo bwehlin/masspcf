@@ -102,7 +102,7 @@ jobs:
           EXTRA_OBJS="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | tail -n +2 | sed 's/^/-object /' | tr '\n' ' ')"
           echo "Objects for llvm-cov: $FIRST_OBJ $EXTRA_OBJS"
           INSTR_PROFILE="-instr-profile=covreport/cpp/default.profdata"
-          IGNORE="-ignore-filename-regex=(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/)"
+          IGNORE="-ignore-filename-regex=(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/|test/)"
           # Generate compact HTML report (line counts only)
           mkdir -p covreport/cpp/detailed
           llvm-cov show $FIRST_OBJ $EXTRA_OBJS \
