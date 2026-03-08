@@ -58,9 +58,12 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
           CIBW_SKIP: "*-musllinux*"
           CIBW_BEFORE_ALL_LINUX: >-
+            bash -c '
+            [ "$(uname -m)" != "x86_64" ] && exit 0;
+            [ -f /lib/ld-musl-x86_64.so.1 ] && exit 0;
             curl -o /etc/yum.repos.d/cuda.repo
             https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
-            dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8
+            dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8'
           CIBW_ENVIRONMENT_LINUX: >-
             BUILD_WITH_CUDA=${{ matrix.cuda }}
             PATH=/usr/local/cuda/bin:$PATH
