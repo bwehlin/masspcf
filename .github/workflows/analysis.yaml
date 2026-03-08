@@ -103,10 +103,16 @@ jobs:
           echo "Objects for llvm-cov: $FIRST_OBJ $EXTRA_OBJS"
           INSTR_PROFILE="-instr-profile=covreport/cpp/default.profdata"
           IGNORE="-ignore-filename-regex=(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/)"
-          # Generate HTML report with per-line detail (index.html + per-file pages)
+          # Generate compact HTML report (line counts only)
+          mkdir -p covreport/cpp/detailed
           llvm-cov show $FIRST_OBJ $EXTRA_OBJS \
             $INSTR_PROFILE $IGNORE \
             -format=html -output-dir=covreport/cpp \
+            -show-line-counts-or-regions
+          # Generate detailed HTML report (branches + expansions) in a subdirectory
+          llvm-cov show $FIRST_OBJ $EXTRA_OBJS \
+            $INSTR_PROFILE $IGNORE \
+            -format=html -output-dir=covreport/cpp/detailed \
             -show-line-counts-or-regions -show-branches=count \
             -show-instantiations -show-expansions
           # Preserve downstream expectation of 'coverage.html'

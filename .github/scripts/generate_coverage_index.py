@@ -163,6 +163,7 @@ def get_entries(reports_root: str, tag_map: dict[str, str] = {}) -> list[dict]:
             "python_path":  f"reports/{name}/python/index.html",
             # Paths relative to the run dir (used in report.html iframe srcs)
             "cpp_rel":             "cpp/coverage.html",
+            "cpp_detailed_rel":    "cpp/detailed/index.html",
             "python_rel":          "python/index.html",
             "vg_pytest_rel_base":  "valgrind/vg_pytest",
             "vg_gtest_rel_base":   "valgrind/vg_gtest",
@@ -444,6 +445,7 @@ def render_detail_html(entry: dict) -> str:
             .replace("{{label}}", entry["label"])
             .replace("{{branch_display}}", branch_display)
             .replace("{{cpp_path}}", entry["cpp_rel"])
+            .replace("{{cpp_detailed_path}}", entry["cpp_detailed_rel"])
             .replace("{{python_path}}", entry["python_rel"])
             .replace("{{cpp_badge}}", _cov_badge_sidebar(entry["cpp_coverage"]))
             .replace("{{python_badge}}", _cov_badge_sidebar(entry["python_coverage"]))
