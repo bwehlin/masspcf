@@ -345,7 +345,7 @@ namespace
 
 }
 
-PYBIND11_MODULE(_mpcf_cpp, m) {
+PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
   PyBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
   PyBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
   
@@ -372,6 +372,13 @@ PYBIND11_MODULE(_mpcf_cpp, m) {
 
   m.def("limit_cpus", [](size_t n){ mpcf::default_executor().limit_cpu_workers(n); });
 
+  m.def("_build_type", [] {
+#ifdef BUILD_WITH_CUDA
+    return std::string("CUDA");
+#else
+    return std::string("CPU");
+#endif
+  });
 
   register_random_bindings(m);
 

@@ -82,3 +82,5 @@ def set_device_verbose(on : bool):
   """
   cpp.set_device_verbose(on)
 
+def build_type():
+  return cpp._build_type()

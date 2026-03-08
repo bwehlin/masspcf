@@ -24,14 +24,18 @@ else ()
   set(MINIMAL_MODULE_BUILD OFF)
 endif ()
 
-if ((DEFINED ENV{BUILD_WITH_CUDA}) AND (NOT $ENV{BUILD_WITH_CUDA} MATCHES "0"))
-  if (APPLE)
+if (DEFINED ENV{BUILD_WITH_CUDA})
+  if ($ENV{BUILD_WITH_CUDA} MATCHES "0")
+    set(BUILD_WITH_CUDA OFF)
+  elseif (APPLE)
     set(BUILD_WITH_CUDA OFF)
   else ()
     set(BUILD_WITH_CUDA ON)
   endif ()
-else ()
+elseif (APPLE)
   set(BUILD_WITH_CUDA OFF)
+else ()
+  set(BUILD_WITH_CUDA ON)
 endif ()
 
 if ((DEFINED ENV{SKIP_STUBGEN}) AND (NOT $ENV{SKIP_STUBGEN} MATCHES "0"))
@@ -59,14 +63,53 @@ if (SKBUILD OR MINIMAL_MODULE_BUILD)
   set(BUILD_BENCHMARKS OFF)
 endif ()
 
+find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
+
 if (BUILD_WITH_CUDA)
   message(STATUS "!!! Building with CUDA !!!")
 
-  SET(LANG_CUDA CUDA)
-  add_compile_definitions(BUILD_WITH_CUDA=1)
-  find_package(CUDAToolkit REQUIRED)
-  set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+  # If CUDAToolkit_ROOT is not set, try to find a pip-installed CUDA toolkit
+  if (NOT DEFINED CUDAToolkit_ROOT AND NOT DEFINED ENV{CUDAToolkit_ROOT})
+    execute_process(
+        COMMAND "${Python_EXECUTABLE}" -c "if True:
+        import importlib.util, pathlib
+        for pkg in ('nvidia.cu13', 'nvidia.cu12', 'nvidia.cuda_runtime'):
+            spec = importlib.util.find_spec(pkg)
+            if spec and spec.submodule_search_locations:
+                print(pathlib.Path(spec.submodule_search_locations[0]).resolve())
+                break"
+        OUTPUT_VARIABLE _PIP_CUDA_ROOT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if (_PIP_CUDA_ROOT)
+      message(STATUS "!!! Found pip-installed CUDA toolkit: ${_PIP_CUDA_ROOT}")
+      set(CUDAToolkit_ROOT "${_PIP_CUDA_ROOT}")
+      set(CMAKE_CUDA_COMPILER "${_PIP_CUDA_ROOT}/bin/nvcc")
 
+      # Pip-installed CUDA uses lib/ instead of lib64/; help nvcc and FindCUDAToolkit find the libraries
+      if (EXISTS "${_PIP_CUDA_ROOT}/lib" AND NOT EXISTS "${_PIP_CUDA_ROOT}/lib64")
+        # Pip CUDA ships only versioned .so files (e.g. libcudart.so.13).
+        # Create unversioned symlinks in the build dir so the linker can
+        # resolve -lcudart etc., without modifying the pip installation.
+        set(_PIP_CUDA_LINK_DIR "${CMAKE_CURRENT_BINARY_DIR}/_pip_cuda_links")
+        file(MAKE_DIRECTORY "${_PIP_CUDA_LINK_DIR}")
+        file(GLOB _PIP_CUDA_VERSIONED_LIBS "${_PIP_CUDA_ROOT}/lib/lib*.so.*")
+        foreach(_VLIB IN LISTS _PIP_CUDA_VERSIONED_LIBS)
+          get_filename_component(_VLIB_NAME "${_VLIB}" NAME)
+          string(REGEX REPLACE "\\.so\\..*" ".so" _UNVERSIONED_NAME "${_VLIB_NAME}")
+          if (NOT EXISTS "${_PIP_CUDA_LINK_DIR}/${_UNVERSIONED_NAME}")
+            file(CREATE_LINK "${_VLIB}" "${_PIP_CUDA_LINK_DIR}/${_UNVERSIONED_NAME}" SYMBOLIC)
+          endif ()
+        endforeach()
+
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -L${_PIP_CUDA_ROOT}/lib -L${_PIP_CUDA_LINK_DIR}")
+        link_directories("${_PIP_CUDA_LINK_DIR}" "${_PIP_CUDA_ROOT}/lib")
+      endif ()
+    endif ()
+  endif ()
+
+  SET(LANG_CUDA CUDA)
 
   if (MINIMAL_MODULE_BUILD)
     set(CMAKE_CUDA_ARCHITECTURES native)
@@ -120,6 +163,21 @@ endif ()
 
 project(${PROJ_NAME} VERSION ${PROJ_VERSION_NUMERIC} LANGUAGES CXX ${LANG_CUDA})
 
+if (BUILD_WITH_CUDA)
+  if (_PIP_CUDA_ROOT AND EXISTS "${_PIP_CUDA_ROOT}/lib" AND NOT EXISTS "${_PIP_CUDA_ROOT}/lib64")
+    # Pip-installed CUDA uses lib/ instead of lib64/ and ships only versioned
+    # .so files (e.g. libcudart.so.13 instead of libcudart.so).
+    # FindCUDAToolkit can't find these, so we locate them ourselves.
+    file(GLOB _PIP_CUDART "${_PIP_CUDA_ROOT}/lib/libcudart.so*")
+    if (_PIP_CUDART)
+      list(GET _PIP_CUDART 0 _PIP_CUDART_LIB)
+      set(CUDA_CUDART "${_PIP_CUDART_LIB}" CACHE FILEPATH "CUDA runtime library" FORCE)
+    endif ()
+  endif ()
+  find_package(CUDAToolkit REQUIRED)
+  set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+endif ()
+
 if ((DEFINED ENV{ENABLE_COVERAGE}) AND (NOT $ENV{ENABLE_COVERAGE} MATCHES "0"))
   set(ENABLE_COVERAGE ON)
 else ()
@@ -128,7 +186,13 @@ endif ()
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
-set(CPP_MODULE_NAME "_mpcf_cpp")
+set(CPP_MODULE_NAME_CPU "_mpcf_cpp_cpu")
+set(CPP_MODULE_NAMES ${CPP_MODULE_NAME_CPU})
+
+if (BUILD_WITH_CUDA)
+  set(CPP_MODULE_NAME_CUDA "_mpcf_cpp_cuda")
+  list(APPEND CPP_MODULE_NAMES ${CPP_MODULE_NAME_CUDA})
+endif ()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -144,8 +208,6 @@ if (WIN32)
   endif ()
 endif ()
 
-find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
-
 include_directories("3rd/taskflow")
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
@@ -156,17 +218,13 @@ string(TIMESTAMP TODAY "%d/%m/%Y")
 set(PROJECT_BUILD_DATE ${TODAY})
 configure_file(version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp @ONLY)
 
-if (BUILD_WITH_CUDA)
-  SET(MPCF_LIB_SOURCES_CUDA
-      include/mpcf/cuda/cuda_matrix_integrate.cuh
-      include/mpcf/cuda/cuda_util.cuh
-      include/mpcf/cuda/cuda_device_array.cuh
-      include/mpcf/cuda/cuda_functional_support.cuh
-      include/mpcf/cuda/cuda_matrix_integrate_structs.cuh
-  )
-else ()
-  SET(MPCF_LIB_SOURCES_CUDA "")
-endif ()
+SET(MPCF_LIB_SOURCES_CUDA
+    include/mpcf/cuda/cuda_matrix_integrate.cuh
+    include/mpcf/cuda/cuda_util.cuh
+    include/mpcf/cuda/cuda_device_array.cuh
+    include/mpcf/cuda/cuda_functional_support.cuh
+    include/mpcf/cuda/cuda_matrix_integrate_structs.cuh
+)
 
 SET(MPCF_HEADER_FILES
     config.h
@@ -215,7 +273,6 @@ list(TRANSFORM MPCF_SRC_FILES PREPEND "src/")
 SET(MPCF_LIB_SOURCES
     ${MPCF_HEADER_FILES}
     ${MPCF_SRC_FILES}
-    ${MPCF_LIB_SOURCES_CUDA}
 )
 
 SET(MPCF_PY_PERSISTENCE_SOURCES
@@ -248,8 +305,6 @@ list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
 SET(MPCF_VERSION_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 
-pybind11_add_module(${CPP_MODULE_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
-
 # Standalone GPU detection module (no CUDA dependency)
 pybind11_add_module(_gpu_detect MODULE src/gpu_detect/gpu_detect.cpp)
 target_link_libraries(_gpu_detect PRIVATE pybind11::headers)
@@ -278,6 +333,7 @@ if (BUILD_WITH_CUDA)
       CUDA_RUNTIME_LIBRARY Shared
       CUDA_SEPARABLE_COMPILATION ON
       CUDA_RESOLVE_DEVICE_SYMBOLS ON
+      POSITION_INDEPENDENT_CODE ON
   )
 
   target_compile_options(mpcf_cuda PRIVATE
@@ -286,15 +342,27 @@ if (BUILD_WITH_CUDA)
       -Xcudafe=--diag_suppress=virtual_function_decl_hidden
       -Xcudafe=--diag_suppress=initialization_not_reachable
   )
-
-  target_link_libraries(${CPP_MODULE_NAME} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
 endif ()
 
-target_include_directories(${CPP_MODULE_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
-target_include_directories(${CPP_MODULE_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
+# Create both CPU and (optionally) CUDA Python modules
+foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+  if (MOD_NAME STREQUAL CPP_MODULE_NAME_CUDA)
+    pybind11_add_module(${MOD_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
+    target_compile_definitions(${MOD_NAME} PRIVATE BUILD_WITH_CUDA=1)
+    target_link_libraries(${MOD_NAME} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
+  else ()
+    pybind11_add_module(${MOD_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
+  endif ()
 
-target_link_libraries(${CPP_MODULE_NAME} PRIVATE pybind11::headers)
-target_compile_definitions(${CPP_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION_FULL})
+  target_compile_definitions(${MOD_NAME} PRIVATE MPCF_MODULE_NAME=${MOD_NAME})
+  target_include_directories(${MOD_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
+  target_include_directories(${MOD_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
+  target_link_libraries(${MOD_NAME} PRIVATE pybind11::headers)
+  target_compile_definitions(${MOD_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION_FULL})
+endforeach()
+
+# Convenience target so CLion (and plain cmake --build) can build all Python modules at once
+add_custom_target(_mpcf_cpp DEPENDS ${CPP_MODULE_NAMES})
 
 if (MSVC)
   # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
@@ -371,7 +439,13 @@ if (BUILD_TESTER)
 
   target_include_directories(mpcf_test PRIVATE "include/")
 
-  add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES} ${MPCF_VERSION_SOURCE})
+  if (BUILD_WITH_CUDA)
+    add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_VERSION_SOURCE})
+    target_compile_definitions(mpcf_nopy PUBLIC BUILD_WITH_CUDA=1)
+    target_link_libraries(mpcf_nopy PRIVATE mpcf_cuda)
+  else ()
+    add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES} ${MPCF_VERSION_SOURCE})
+  endif ()
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
 
@@ -392,7 +466,9 @@ if (BUILD_TESTER)
   if (ENABLE_COVERAGE)
     target_link_libraries(mpcf_nopy PRIVATE coverage_flags)
     target_link_libraries(mpcf_test PRIVATE coverage_flags)
-    target_link_libraries(${CPP_MODULE_NAME} PRIVATE coverage_flags)
+    foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+      target_link_libraries(${MOD_NAME} PRIVATE coverage_flags)
+    endforeach()
   endif ()
 
   if (WIN32)
@@ -420,21 +496,26 @@ if (BUILD_BENCHMARKS)
       CUDA_RUNTIME_LIBRARY Static
   )
 
-  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} ${Boost_LIBRARIES} Threads::Threads)
+  target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME_CPU} ${Boost_LIBRARIES} Threads::Threads)
 
   if (BUILD_WITH_CUDA)
-    target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME} CUDA::cudart_static)
+    target_link_libraries(mpcf_bench PUBLIC ${CPP_MODULE_NAME_CUDA} CUDA::cudart_static)
   endif ()
 endif ()
 
-if (MSVC)
-  target_compile_options(${CPP_MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
-else ()
-  #target_compile_options(${CPP_MODULE_NAME} PRIVATE -Wall -Wextra)
+foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+  if (MSVC)
+    target_compile_options(${MOD_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>")
+  endif ()
+endforeach()
+
+if (NOT MSVC)
   set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror=return-type")
 endif ()
 
-cmake_policy(SET CMP0177 NEW) # Normalize paths
+if (POLICY CMP0177)
+  cmake_policy(SET CMP0177 NEW) # Normalize paths
+endif ()
 
 if (MINIMAL_MODULE_BUILD)
   message(STATUS "Python Executable: ${Python_EXECUTABLE}")
@@ -457,29 +538,29 @@ else ()
   set(INSTALL_TARGET masspcf)
 endif ()
 
-install(TARGETS ${CPP_MODULE_NAME} _gpu_detect DESTINATION ${INSTALL_TARGET})
+install(TARGETS ${CPP_MODULE_NAMES} _gpu_detect DESTINATION ${INSTALL_TARGET})
 
 if (LINUX OR MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN)) # Stubgen does not seem happy on CI
+  foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+    add_custom_command(
+        TARGET ${MOD_NAME}
+        POST_BUILD
+        COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${MOD_NAME}
+        --output-dir "${CMAKE_CURRENT_BINARY_DIR}/stubs"
+        --ignore-invalid-expressions comment
+        COMMENT "Generating Python stubs for ${MOD_NAME}..."
+    )
+
+    install(
+        DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/stubs/${MOD_NAME}/"
+        DESTINATION "${INSTALL_TARGET}/${MOD_NAME}"
+        FILES_MATCHING
+        PATTERN "*.pyi"
+    )
+  endforeach()
+
   add_custom_command(
-      TARGET ${CPP_MODULE_NAME}
-      POST_BUILD
-      COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen ${CPP_MODULE_NAME}
-      --output-dir "${CMAKE_CURRENT_BINARY_DIR}/stubs"
-      --ignore-invalid-expressions comment
-      COMMENT "Generating Python stubs for ${CPP_MODULE_NAME}..."
-  )
-
-  set(STUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/stubs/${CPP_MODULE_NAME}")
-
-  install(
-      DIRECTORY "${STUB_DIR}/"
-      DESTINATION "${INSTALL_TARGET}/${CPP_MODULE_NAME}"
-      FILES_MATCHING
-      PATTERN "*.pyi"
-  )
-
-  add_custom_command(
-      TARGET ${CPP_MODULE_NAME}
+      TARGET ${CPP_MODULE_NAME_CPU}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E touch
       ${CMAKE_CURRENT_BINARY_DIR}/py.typed
@@ -509,7 +590,7 @@ elseif (MINIMAL_MODULE_BUILD)
       DESTINATION ${PYTHON_SITE}
 
       # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
-      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp$)" EXCLUDE
+      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp_cpu$|_mpcf_cpp_cuda$)" EXCLUDE
   )
 
 
@@ -522,52 +603,54 @@ elseif (MINIMAL_MODULE_BUILD)
       SET(LINK_TYPE create_symlink)
     endif ()
 
-    install(CODE "
-    message(STATUS \"Syncing built extension back to source directory\")
+    foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+      install(CODE "
+      message(STATUS \"Syncing built extension ${MOD_NAME} back to source directory\")
 
-    set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
+      set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
 
-    # Extension file
-    set(EXT_FILE \"$<TARGET_FILE:${CPP_MODULE_NAME}>\")
-    get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
-    set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
-
-    if(UNIX)
-      file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
-    else()
-      file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
-    endif()
-
-    if (NOT SKIP_STUBGEN)
-
-      # Stub file
-      set(STUB_SRC_DIR \"${CMAKE_CURRENT_BINARY_DIR}/stubs/${CPP_MODULE_NAME}\")
-      set(STUB_DEST_DIR \"\${SRC_DIR}/${CPP_MODULE_NAME}\")
+      # Extension file
+      set(EXT_FILE \"$<TARGET_FILE:${MOD_NAME}>\")
+      get_filename_component(EXT_NAME \"\${EXT_FILE}\" NAME)
+      set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
 
       if(UNIX)
-        # Check if the destination already exists (as a folder or a symlink)
-        if(NOT EXISTS \"\${STUB_DEST_DIR}\")
-          message(STATUS \"Creating initial symlink for stubs: \${STUB_DEST_DIR}\")
-          file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
-        else()
-          # Optional: Check if it's pointing to the WRONG place (e.g., after a build dir change)
-          file(READ_SYMLINK \"\${STUB_DEST_DIR}\" CURRENT_LINK_TARGET)
-          if(NOT \"\${CURRENT_LINK_TARGET}\" STREQUAL \"\${STUB_SRC_DIR}\")
-            message(STATUS \"Updating stale symlink for stubs...\")
-            file(REMOVE_RECURSE \"\${STUB_DEST_DIR}\")
-            file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
-          else()
-            message(STATUS \"Symlink for stubs already exists and is correct.\")
-          endif()
-        endif()
+        file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
+      else()
+        file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
       endif()
 
-      # py.typed (small file — copy everywhere)
-      file(COPY
-        \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
-        DESTINATION \"\${SRC_DIR}\")
-    endif()
-    ")
+      if (NOT SKIP_STUBGEN)
+
+        # Stub file
+        set(STUB_SRC_DIR \"${CMAKE_CURRENT_BINARY_DIR}/stubs/${MOD_NAME}\")
+        set(STUB_DEST_DIR \"\${SRC_DIR}/${MOD_NAME}\")
+
+        if(UNIX)
+          # Check if the destination already exists (as a folder or a symlink)
+          if(NOT EXISTS \"\${STUB_DEST_DIR}\")
+            message(STATUS \"Creating initial symlink for stubs: \${STUB_DEST_DIR}\")
+            file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
+          else()
+            # Optional: Check if it's pointing to the WRONG place (e.g., after a build dir change)
+            file(READ_SYMLINK \"\${STUB_DEST_DIR}\" CURRENT_LINK_TARGET)
+            if(NOT \"\${CURRENT_LINK_TARGET}\" STREQUAL \"\${STUB_SRC_DIR}\")
+              message(STATUS \"Updating stale symlink for stubs...\")
+              file(REMOVE_RECURSE \"\${STUB_DEST_DIR}\")
+              file(CREATE_LINK \"\${STUB_SRC_DIR}\" \"\${STUB_DEST_DIR}\" SYMBOLIC)
+            else()
+              message(STATUS \"Symlink for stubs already exists and is correct.\")
+            endif()
+          endif()
+        endif()
+
+        # py.typed (small file — copy everywhere)
+        file(COPY
+          \"${CMAKE_CURRENT_BINARY_DIR}/py.typed\"
+          DESTINATION \"\${SRC_DIR}\")
+      endif()
+      ")
+    endforeach()
 
     # Optional: Clean the symlink when running 'make clean'
     #set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${SYMLINK_NAME}")
