@@ -193,6 +193,8 @@ cython_debug/
 masspcf/py.typed
 masspcf/*.pyi
 masspcf/_mpcf_cpp
+masspcf/_mpcf_cpp_cpu
+masspcf/_mpcf_cpp_cuda
 collected_sources.txt
 dump*.txt
 covreport
