@@ -50,6 +50,10 @@ jobs:
           path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8
           key: cuda-12.8.0-windows-nvcc-cudart
 
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install CUDA toolkit (Windows)
         if: runner.os == 'Windows' && steps.cache-cuda.outputs.cache-hit != 'true'
         shell: pwsh
@@ -96,8 +100,6 @@ jobs:
           CIBW_ENVIRONMENT_WINDOWS: >-
             BUILD_WITH_CUDA=${{ matrix.cuda }}
             CMAKE_GENERATOR=Ninja
-            CC=cl
-            CXX=cl
             CMAKE_BUILD_PARALLEL_LEVEL=$CMAKE_BUILD_PARALLEL_LEVEL
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
