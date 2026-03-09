@@ -109,7 +109,10 @@ for file in files:
     target = os.path.join(masspcf_temp_dir, os.path.basename(file))
 
     if is_windows:
-        shutil.copy2(file, target)
+        if os.path.isdir(file):
+            shutil.copytree(file, target)
+        else:
+            shutil.copy2(file, target)
     else:
         os.symlink(file, target)
 
