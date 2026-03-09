@@ -42,7 +42,7 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
-          name: cpu-wheels
+          name: wheels
           path: dist/
 
       - name: Compare wheels
@@ -69,7 +69,7 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
-          name: cpu-wheels
+          name: wheels
           path: dist/
 
       - name: Publish to PyPI
