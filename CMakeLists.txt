@@ -674,7 +674,8 @@ elseif (MINIMAL_MODULE_BUILD)
       DESTINATION ${PYTHON_SITE}
 
       # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
-      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp_cpu$|_mpcf_cpp_cuda$)" EXCLUDE
+      # Use substring match for _mpcf_cpp to also catch the old _mpcf_cpp name and both _mpcf_cpp_cpu/_mpcf_cpp_cuda
+      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp)" EXCLUDE
   )
 
 
@@ -686,6 +687,32 @@ elseif (MINIMAL_MODULE_BUILD)
     else ()
       SET(LINK_TYPE create_symlink)
     endif ()
+
+    # Remove stale files from the old single-module layout (_mpcf_cpp without cpu/cuda suffix)
+    install(CODE "
+      # Helper: remove all _mpcf_cpp.cpython-*.so from a directory (whether symlink or real file)
+      macro(remove_old_mpcf_cpp_so _dir)
+        file(GLOB _OLD_SO_FILES \"\${_dir}/_mpcf_cpp.cpython-*.so\")
+        foreach(_F IN LISTS _OLD_SO_FILES)
+          message(STATUS \"Removing stale old-layout module: \${_F}\")
+          file(REMOVE \"\${_F}\")
+        endforeach()
+      endmacro()
+
+      set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
+
+      # Remove old _mpcf_cpp stub-dir symlink from source tree
+      set(_OLD_STUB_LINK \"\${SRC_DIR}/_mpcf_cpp\")
+      if(IS_SYMLINK \"\${_OLD_STUB_LINK}\")
+        message(STATUS \"Removing stale symlink \${_OLD_STUB_LINK}\")
+        file(REMOVE \"\${_OLD_STUB_LINK}\")
+      endif()
+
+      # Remove old _mpcf_cpp.cpython-*.so from source tree and from site-packages
+      # (the .so shadows the _mpcf_cpp.py dispatcher because Python prefers extension modules)
+      remove_old_mpcf_cpp_so(\"\${SRC_DIR}\")
+      remove_old_mpcf_cpp_so(\"${SITE_PKG_MASSPCF}\")
+    ")
 
     foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
       install(CODE "
@@ -699,6 +726,10 @@ elseif (MINIMAL_MODULE_BUILD)
       set(EXT_DEST \"\${SRC_DIR}/\${EXT_NAME}\")
 
       if(UNIX)
+        # Remove stale symlink before (re-)creating — handles build-dir changes
+        if(IS_SYMLINK \"\${EXT_DEST}\")
+          file(REMOVE \"\${EXT_DEST}\")
+        endif()
         file(CREATE_LINK \"\${EXT_FILE}\" \"\${EXT_DEST}\" SYMBOLIC)
       else()
         file(COPY \"\${EXT_FILE}\" DESTINATION \"\${SRC_DIR}\")
