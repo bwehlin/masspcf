@@ -27,7 +27,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.imgmath',
               'sphinxcontrib.youtube',
-              'nbsphinx']
+              'nbsphinx',
+              'sphinx_design']
               #'breathe',
               #'exhale']
 
@@ -75,8 +76,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-#html_theme = 'pydata_sphinx_theme'
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
+#html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 # --- Create a temporary bundle of 'masspcf' and (a fake) 'mpcf_cpp' from the Python source in ../masspcf. This is only for documentation purposes (so that we don't have to keep reinstalling, including recompiling, masspcf everytime we want to update the docs). The setup has been tested on Linux and should probably work on OSX. It is unclear if it'll work on Windows.

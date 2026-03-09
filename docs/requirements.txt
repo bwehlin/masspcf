@@ -1,4 +1,5 @@
-sphinx-rtd-theme
+pydata-sphinx-theme
+sphinx-design
 numpy
 tqdm
 matplotlib
