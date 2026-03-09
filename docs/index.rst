@@ -12,8 +12,13 @@ The basic objects are *numpy*-like (multidimensional) arrays of PCFs, on which w
    :caption: Contents:
 
    installing
-   acknowledgments
+   concepts
+   tensors
+   distances
+   persistence
+   gpu
    tutorials
+   acknowledgments
 
 .. toctree::
    :maxdepth: 1
