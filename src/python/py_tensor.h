@@ -196,6 +196,7 @@ namespace mpcf_py
 
       .def("copy", &TTensor::copy)
       .def("flatten", &TTensor::flatten)
+      .def("is_contiguous", &TTensor::is_contiguous)
     ;
 
   }

@@ -37,8 +37,17 @@ class NumericTensor(Tensor):
     def _represent_element(self, element):
         return element
 
-    def __array__(self):
-        return np.array(self._data)
+    def __array__(self, dtype=None, copy=None):
+        if self._data.is_contiguous():
+           data = self._data
+        else:
+            data = self.copy()._data
+
+        arr = np.array(data)
+
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        return arr
 
     def __eq__(self, other):
         if isinstance(other, np.ndarray):

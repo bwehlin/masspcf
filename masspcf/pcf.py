@@ -131,8 +131,11 @@ class Pcf:
     dtname = 'float32' if self.vtype is np.float32 else 'float64' # TODO: mixed vtype/ttype?
     return f'<PCF size={self._data.size()}, dtype={dtname}>'
 
-  def __array__(self):
-    return np.asarray(self._data)
+  def __array__(self, dtype=None, copy=None):
+    arr = np.asarray(self._data)
+    if dtype is not None:
+      arr = arr.astype(dtype, copy=False)
+    return arr
 
   def __eq__(self, other):
     return np.array_equal(self.__array__(), np.asarray(other))
