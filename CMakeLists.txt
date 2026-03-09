@@ -82,6 +82,24 @@ if (WIN32)
   if (_PY_BASE_PREFIX AND EXISTS "${_PY_BASE_PREFIX}/libs")
     link_directories("${_PY_BASE_PREFIX}/libs")
     message(STATUS "!!! Python libs dir added to linker path: ${_PY_BASE_PREFIX}/libs")
+
+    # For free-threaded Python (e.g. cp314t), the import library is named
+    # python314t.lib, but Python's own pyconfig.h emits:
+    #   #pragma comment(lib, "python314.lib")
+    # which causes LNK1104.  Create a copy with the expected name in the
+    # build directory and add that directory to the linker search path.
+    set(_v_base "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}")
+    set(_ft_lib "${_PY_BASE_PREFIX}/libs/${_v_base}t.lib")
+    set(_std_lib "${_PY_BASE_PREFIX}/libs/${_v_base}.lib")
+    if (EXISTS "${_ft_lib}" AND NOT EXISTS "${_std_lib}")
+      set(_py_alias_dir "${CMAKE_CURRENT_BINARY_DIR}/_py_lib_alias")
+      file(MAKE_DIRECTORY "${_py_alias_dir}")
+      execute_process(
+          COMMAND "${CMAKE_COMMAND}" -E copy "${_ft_lib}" "${_py_alias_dir}/${_v_base}.lib"
+      )
+      link_directories("${_py_alias_dir}")
+      message(STATUS "!!! Created ${_v_base}.lib alias for free-threaded Python in ${_py_alias_dir}")
+    endif()
   endif()
 
   # If find_package didn't resolve the import library, patch Python::Module so that
@@ -89,7 +107,11 @@ if (WIN32)
   if (NOT Python_LIBRARY)
     set(_v "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}")
     set(_PY_LIB_CANDIDATE "")
-    foreach(_candidate "${_PY_BASE_PREFIX}/libs/${_v}.lib" "${_PY_BASE_PREFIX}/libs/${_v}_d.lib")
+    foreach(_candidate
+        "${_PY_BASE_PREFIX}/libs/${_v}t.lib"
+        "${_PY_BASE_PREFIX}/libs/${_v}.lib"
+        "${_PY_BASE_PREFIX}/libs/${_v}_d.lib"
+        "${_PY_BASE_PREFIX}/libs/${_v}t_d.lib")
       if (EXISTS "${_candidate}")
         set(_PY_LIB_CANDIDATE "${_candidate}")
         break()
@@ -392,7 +414,7 @@ foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
   if (MOD_NAME STREQUAL CPP_MODULE_NAME_CUDA)
     pybind11_add_module(${MOD_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
     target_compile_definitions(${MOD_NAME} PRIVATE BUILD_WITH_CUDA=1)
-    target_link_libraries(${MOD_NAME} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
+    target_link_libraries(${MOD_NAME} PRIVATE mpcf_cuda CUDA::cudart)
   else ()
     pybind11_add_module(${MOD_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
   endif ()
