@@ -150,6 +150,8 @@ jobs:
             curl -o /etc/yum.repos.d/cuda.repo
             https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
             dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8'
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
+            auditwheel repair --exclude 'libcudart*' -w {dest_dir} {wheel}
           CIBW_ENVIRONMENT_LINUX: >-
             BUILD_WITH_CUDA=${{ matrix.cuda }}
             PATH=/usr/local/cuda/bin:$PATH
