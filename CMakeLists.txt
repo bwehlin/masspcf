@@ -67,26 +67,43 @@ set(Python_FIND_VIRTUALENV STANDARD)
 find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
 
 
-# --- Windows/NuGet hardening: if the import library wasn't resolved, compute it from the interpreter ---
-if (WIN32 AND NOT Python_LIBRARY)
+# --- Windows/NuGet hardening: ensure Python import library is findable by the linker ---
+# pybind11 headers emit #pragma comment(lib, "pythonXX.lib") on MSVC, which requires the
+# Python libs/ directory to be in the linker search path.  Pre-installed Python versions
+# (3.10-3.12) live under C:\hostedtoolcache\windows\Python\ which MSVC already searches,
+# but newer versions installed only via the cibuildwheel NuGet cache are not in that path.
+# Always add sys.base_prefix/libs unconditionally on Windows.
+if (WIN32)
   execute_process(
-      COMMAND "${Python_EXECUTABLE}" -c "import sys,sysconfig,os; bp=sys.base_prefix; lib=sysconfig.get_config_var('LIBRARY'); candidates=[os.path.join(bp,'libs',lib) if lib else '']; v=f'python{sys.version_info[0]}{sys.version_info[1]}'; candidates+=[os.path.join(bp,'libs',v+'.lib'), os.path.join(bp,'libs',v+'_d.lib')]; print(next((c for c in candidates if c and os.path.exists(c)), ''))"
-      OUTPUT_VARIABLE _PY_LIB_CANDIDATE
+      COMMAND "${Python_EXECUTABLE}" -c "import sys; print(sys.base_prefix)"
+      OUTPUT_VARIABLE _PY_BASE_PREFIX
       OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  if (NOT _PY_LIB_CANDIDATE)
-    message(FATAL_ERROR "Could not locate Python import library (.lib) next to ${Python_EXECUTABLE}")
+  if (_PY_BASE_PREFIX AND EXISTS "${_PY_BASE_PREFIX}/libs")
+    link_directories("${_PY_BASE_PREFIX}/libs")
+    message(STATUS "!!! Python libs dir added to linker path: ${_PY_BASE_PREFIX}/libs")
   endif()
-  set(Python_LIBRARY "${_PY_LIB_CANDIDATE}" CACHE FILEPATH "Python import library" FORCE)
-  message(STATUS "!!! Python import library resolved to: ${_PY_LIB_CANDIDATE}")
 
-  # find_package(Python) already ran, so the Python::Module target exists but
-  # lacks the import library.  Patch it so pybind11_add_module links correctly.
-  get_filename_component(_PY_LIB_DIR "${_PY_LIB_CANDIDATE}" DIRECTORY)
-  if (TARGET Python::Module)
-    set_property(TARGET Python::Module APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${_PY_LIB_CANDIDATE}")
+  # If find_package didn't resolve the import library, patch Python::Module so that
+  # targets linking against it get the full path (avoids relying solely on #pragma comment).
+  if (NOT Python_LIBRARY)
+    set(_v "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}")
+    set(_PY_LIB_CANDIDATE "")
+    foreach(_candidate "${_PY_BASE_PREFIX}/libs/${_v}.lib" "${_PY_BASE_PREFIX}/libs/${_v}_d.lib")
+      if (EXISTS "${_candidate}")
+        set(_PY_LIB_CANDIDATE "${_candidate}")
+        break()
+      endif()
+    endforeach()
+    if (NOT _PY_LIB_CANDIDATE)
+      message(FATAL_ERROR "Could not locate Python import library (.lib) in ${_PY_BASE_PREFIX}/libs")
+    endif()
+    set(Python_LIBRARY "${_PY_LIB_CANDIDATE}" CACHE FILEPATH "Python import library" FORCE)
+    message(STATUS "!!! Python import library resolved to: ${_PY_LIB_CANDIDATE}")
+    if (TARGET Python::Module)
+      set_property(TARGET Python::Module APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${_PY_LIB_CANDIDATE}")
+    endif()
   endif()
-  link_directories("${_PY_LIB_DIR}")
 endif()
 
 
