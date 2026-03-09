@@ -40,6 +40,11 @@ class NumericTensor(Tensor):
     def __array__(self):
         return np.array(self._data)
 
+    def __eq__(self, other):
+        if isinstance(other, np.ndarray):
+            return np.array_equal(np.asarray(self), other)
+        return super().__eq__(other)
+
 class Float32Tensor(NumericTensor):
     def __init__(self, data : cpp.Float32Tensor | Float32Tensor | np.ndarray):
         super().__init__()
@@ -162,7 +167,6 @@ class PointCloud64Tensor(PointCloudTensor):
         return PointCloud64Tensor(data)
 
     def _represent_element(self, element):
-        t = Float64Tensor(element)
         return Float64Tensor(element)
 
     def _decay_value(self, val):

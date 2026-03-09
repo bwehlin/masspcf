@@ -132,15 +132,15 @@ namespace mpcf_py
 
           std::vector<pybind11::ssize_t> strides(self.strides().size(), 0);
           std::transform(self.strides().begin(), self.strides().end(), strides.begin(),
-              [](size_t v) { return static_cast<pybind11::ssize_t>(v); });
+              [](size_t v) { return static_cast<pybind11::ssize_t>(v * sizeof(T)); });
 
           return pybind11::buffer_info(
               static_cast<void*>(self.data() + self.offset()),
               sizeof(T),
               pybind11::format_descriptor<T>::format(),
               self.rank(),
-              self.shape(),
-              self.strides()
+              shape,
+              strides
           );
         });
 
