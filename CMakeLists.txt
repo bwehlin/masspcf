@@ -674,8 +674,8 @@ elseif (MINIMAL_MODULE_BUILD)
       DESTINATION ${PYTHON_SITE}
 
       # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
-      # Use substring match for _mpcf_cpp to also catch the old _mpcf_cpp name and both _mpcf_cpp_cpu/_mpcf_cpp_cuda
-      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|_mpcf_cpp)" EXCLUDE
+      # Note: _mpcf_cpp.py is the backend dispatcher and must be installed; .so files are excluded via \.so$ already
+      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed)" EXCLUDE
   )
 
 
