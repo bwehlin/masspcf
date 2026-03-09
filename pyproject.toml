@@ -51,7 +51,7 @@ test-command = """
 python ./test/print_wheel_contents.py && python -m pytest --verbose ./test
 """
 # Skip 32-bit builds
-skip = ["*-win32", "*-manylinux_i686",
+skip = ["*-win32", "*-manylinux_i686", "*-musllinux*",
     "cp*t-win_arm64", # Seems like t Python is missing on Win Arm atm
     "cp*t-win_amd64"  # Skip Windows free-threaded until we can figure out build issues on GH Actions
 ]
