@@ -89,7 +89,7 @@ jobs:
 
       # Activate MSVC for any VS version; export PATH and CUDA_PATH
       - name: Activate MSVC & export CUDA_PATH/PATH (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.cuda == 1
         shell: cmd
         run: |
           setlocal EnableExtensions EnableDelayedExpansion
