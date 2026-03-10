@@ -66,7 +66,7 @@ jobs:
         run: |
           conda install -y cuda-compiler -c nvidia
           $condaBase = (conda info --base).Trim()
-          $cudaPath = "$condaBase\Library"
+          $cudaPath = ("$condaBase\Library") -replace '\\', '/'
           "CUDA_PATH=$cudaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "$cudaPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
