@@ -228,6 +228,22 @@ endif ()
 project(${PROJ_NAME} VERSION ${PROJ_VERSION_NUMERIC} LANGUAGES CXX ${LANG_CUDA})
 
 if (BUILD_WITH_CUDA)
+  # After project() the CUDA compiler path is known; derive the toolkit root from it
+  # if CUDAToolkit_ROOT is still unset (handles the case where nvcc is on PATH but the
+  # toolkit root was not automatically detected).
+  if (NOT CUDAToolkit_ROOT AND CMAKE_CUDA_COMPILER)
+    message(STATUS "981273987398272319872139873219832798321738291732198732198732198327198321739821")
+
+    get_filename_component(_CUDA_BIN_DIR "${CMAKE_CUDA_COMPILER}" DIRECTORY)
+    get_filename_component(_CUDA_DERIVED_ROOT "${_CUDA_BIN_DIR}" DIRECTORY)
+
+    message(STATUS "Search ${_CUDA_DERIVED_ROOT}")
+    if (EXISTS "${_CUDA_DERIVED_ROOT}/include/cuda_runtime.h")
+      set(CUDAToolkit_ROOT "${_CUDA_DERIVED_ROOT}" CACHE PATH "CUDA toolkit root (derived from nvcc path)" FORCE)
+      message(STATUS "!!! Derived CUDAToolkit_ROOT from CMAKE_CUDA_COMPILER: ${CUDAToolkit_ROOT}")
+    endif ()
+  endif ()
+
   if (_PIP_CUDA_ROOT AND EXISTS "${_PIP_CUDA_ROOT}/lib" AND NOT EXISTS "${_PIP_CUDA_ROOT}/lib64")
     # Pip-installed CUDA uses lib/ instead of lib64/ and ships only versioned
     # .so files (e.g. libcudart.so.13 instead of libcudart.so).
@@ -273,7 +289,7 @@ if (WIN32)
 endif ()
 
 include_directories("3rd/taskflow")
-include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUDAToolkit_INCLUDE_DIRS})
 
 set(PYBIND11_FINDPYTHON ON)
 add_subdirectory(3rd/pybind11)
@@ -391,7 +407,7 @@ if (BUILD_WITH_CUDA)
   target_include_directories(mpcf_cuda PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_cuda PUBLIC ${MPCF_PUBLIC_INCLUDES})
   target_include_directories(mpcf_cuda PRIVATE "3rd/taskflow")
-  target_include_directories(mpcf_cuda PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  target_include_directories(mpcf_cuda PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUDAToolkit_INCLUDE_DIRS})
   target_compile_definitions(mpcf_cuda PRIVATE BUILD_WITH_CUDA=1)
 
   set_target_properties(mpcf_cuda PROPERTIES
@@ -435,6 +451,20 @@ if (MSVC)
   get_filename_component(taskflow_DIR "3rd/taskflow" REALPATH)
   set(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$(VC_IncludePath);$(WindowsSDK_IncludePath);${taskflow_DIR};${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 endif ()
+
+# --- Detect free-threaded Python (PEP 703) ---
+execute_process(
+  COMMAND "${Python_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('Py_GIL_DISABLED'))"
+  OUTPUT_VARIABLE PY_GIL_DISABLED_RAW
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+if (PY_GIL_DISABLED_RAW STREQUAL "1")
+  message(STATUS "!!! Building against FREE-THREADED Python: enabling Py_GIL_DISABLED !!!")
+  foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+    target_compile_definitions(${MOD_NAME} PRIVATE Py_GIL_DISABLED=1)
+  endforeach()
+endif()
 
 # ============================================================
 # Coverage configuration (GCC or Clang/LLVM)
@@ -780,7 +810,7 @@ endif ()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BUILD_TESTER)
   add_library(valgrind_flags INTERFACE)
 
-  target_compile_options(valgrind_flags INTERFACE $<$<CONFIG:Debug>:-fno-pie>)
+  target_compile_options(valgrind_flags INTERFACE $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-fno-pie>)
   target_link_options(valgrind_flags INTERFACE $<$<CONFIG:Debug>:-no-pie>)
 
   find_program(LSB_RELEASE lsb_release)
@@ -792,7 +822,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BUILD_TESTER)
     )
     if(DISTRO_VERSION VERSION_LESS "24.04")
       message(STATUS "Ubuntu < 24.04 detected, forcing -gdwarf-4 for valgrind compatibility")
-      target_compile_options(valgrind_flags INTERFACE $<$<CONFIG:Debug>:-gdwarf-4>)
+      target_compile_options(valgrind_flags INTERFACE $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-gdwarf-4>)
     endif()
   endif()
 
@@ -800,11 +830,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BUILD_TESTER)
   target_link_libraries(mpcf_test PRIVATE valgrind_flags)
 endif()
 
-message(STATUS "!!! Stub file: ${STUB_FILE}")
-message(STATUS "!!! Install target: ${INSTALL_TARGET}")
+message(STATUS "!!! Stub file:          ${STUB_FILE}")
+message(STATUS "!!! Install target:     ${INSTALL_TARGET}")
 
-message(STATUS "!!! C compiler:        ${CMAKE_C_COMPILER}")
-message(STATUS "!!! C++ compiler:      ${CMAKE_CXX_COMPILER}")
-message(STATUS "!!! Compiler ID:       ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "!!! Python_ROOT_DIR:   ${Python_ROOT_DIR}")
-message(STATUS "!!! Python_EXECUTABLE: ${Python_EXECUTABLE}")
+message(STATUS "!!! C compiler:         ${CMAKE_C_COMPILER}")
+message(STATUS "!!! C++ compiler:       ${CMAKE_CXX_COMPILER}")
+message(STATUS "!!! Compiler ID:        ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "!!! Python_ROOT_DIR:    ${Python_ROOT_DIR}")
+message(STATUS "!!! Python_EXECUTABLE:  ${Python_EXECUTABLE}")
+message(STATUS "!!! CUDAToolkit_ROOT:             ${CUDAToolkit_ROOT}")
+message(STATUS "!!! CUDAToolkit_INCLUDE_DIRS:     ${CUDAToolkit_INCLUDE_DIRS}")
+message(STATUS "!!! CUDAToolkit_CUDART_LIBRARY:   ${CUDAToolkit_CUDART_LIBRARY}")
+message(STATUS "!!! CMAKE_LIBRARY_PATH:           ${CMAKE_LIBRARY_PATH}")
