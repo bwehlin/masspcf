@@ -111,8 +111,10 @@ jobs:
             curl -o /etc/yum.repos.d/cuda.repo
             https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
             dnf install -y --nogpgcheck cuda-nvcc-${{ matrix.cuda_tag }} cuda-cudart-devel-${{ matrix.cuda_tag }} &&
-            ln -sfn /usr/local/cuda-${{ matrix.cuda_tag }} /usr/local/cuda &&
-            /usr/local/cuda/bin/nvcc --version'
+            CUDA_NVCC="$(find /usr/local -path "*/bin/nvcc" -print -quit)" &&
+            "$CUDA_NVCC" --version &&
+            CUDA_DIR="$(dirname "$(dirname "$CUDA_NVCC")")" &&
+            ln -sfn "$CUDA_DIR" /usr/local/cuda'
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
             auditwheel repair --exclude 'libcudart*' -w {dest_dir} {wheel}
           CIBW_ENVIRONMENT_LINUX: >-
