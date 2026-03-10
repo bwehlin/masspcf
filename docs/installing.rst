@@ -42,7 +42,7 @@ After installing, import ``masspcf`` and create your first piecewise constant fu
                             [2, 3],
                             [5, 0]]))
 
-To work with a collection of PCFs, store them in a 1-D ``Array``:
+To work with a collection of PCFs, store them in a 1-D tensor created with ``mpcf.zeros``:
 
 .. code-block:: python
 
@@ -50,14 +50,16 @@ To work with a collection of PCFs, store them in a 1-D ``Array``:
     f2 = mpcf.Pcf(np.array([[0., 2.], [4., 7.], [8., 1.], [9., 0.]]))
     f3 = mpcf.Pcf(np.array([[0.,  4.], [2., 3.], [3., 1.], [5., 0.]]))
 
-    X = mpcf.Array([f1, f2, f3])
+    X = mpcf.zeros((3,))
+    X[0] = f1
+    X[1] = f2
+    X[2] = f3
 
-You can then compute pairwise :math:`L^p` distances or an :math:`L^2` kernel matrix in one call:
+You can then compute pairwise :math:`L^p` distances in one call:
 
 .. code-block:: python
 
     D = mpcf.pdist(X)       # pairwise L1 distance matrix (default p=1)
-    K = mpcf.l2_kernel(X)   # L2 kernel matrix
 
 Higher-dimensional arrays of PCFs are supported too, with NumPy-style indexing and reductions:
 

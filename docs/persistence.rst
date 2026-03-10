@@ -12,7 +12,7 @@ Background
 
 The output is a **persistence barcode**: a collection of intervals :math:`[b_i, d_i)`, where each interval records the birth :math:`b_i` and death :math:`d_i` of a topological feature. Features that persist over a wide range of scales are considered significant, while short-lived features are often regarded as noise.
 
-The **stable rank** is a functional summary of a persistence barcode. It is a piecewise constant function that counts, for each threshold :math:`t`, how many bars in the barcode have length at least :math:`t`. Because stable ranks are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
+The (1d) **stable rank** is a functional summary of a persistence barcode [CR20]_ [GC17]_ [SCL17]_. It is a piecewise constant function that counts, for each threshold :math:`t`, how many bars in the barcode have length at least :math:`t`. Because stable ranks are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
 
 
 The pipeline
@@ -62,7 +62,7 @@ Higher-dimensional tensors work as well::
 Step 2: Computing persistent homology
 =======================================
 
-:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes::
+:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser [B21]_ under the hood.
 
    from masspcf import persistence as mpers
 
@@ -188,3 +188,15 @@ You can also convert a single barcode to a stable rank::
 
    sr = barcode_to_stable_rank(bc)
    # sr is a Pcf
+
+
+References
+==========
+
+.. [B21] Bauer, U. (2021). Ripser: efficient computation of Vietoris–Rips persistence barcodes. *Journal of Applied and Computational Topology*, 5(3), 391–423.
+
+.. [CR20] Chachólski, W., & Riihimäki, H. (2020). Metrics and stabilization in one parameter persistence. *SIAM Journal on Applied Algebra and Geometry*, 4(1), 69–98.
+
+.. [GC17] Gäfvert, O., & Chachólski, W. (2017). Stable invariants for multiparameter persistence. *arXiv preprint* arXiv:1703.03632.
+
+.. [SCL17] Scolamiero, M., Chachólski, W., Lundman, A., Ramanujam, R., & Öberg, S. (2017). Multidimensional persistence and noise. *Foundations of Computational Mathematics*, 17, 1367–1406.
