@@ -55,42 +55,21 @@ jobs:
         if: runner.os == 'Windows' && matrix.cuda == 1
         shell: cmd
         run: |
-          conda install -y cuda -c nvidia
+          conda install -y cuda-compiler -c nvidia
           echo CUDA_PATH=%CONDA_PREFIX%\Library>> "%GITHUB_ENV%"
           echo %CONDA_PREFIX%\Library\bin>> "%GITHUB_PATH%"
 
-      # Activate MSVC for any VS version; export PATH and CUDA_PATH
-      - name: Activate MSVC & export env (Windows)
+      # Activate MSVC (x64); exports INCLUDE, LIB, PATH to GITHUB_ENV automatically
+      - name: Activate MSVC (Windows)
+        if: runner.os == 'Windows' && matrix.cuda == 1
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Sanity-check cl & nvcc (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
         shell: cmd
         run: |
-          setlocal EnableExtensions EnableDelayedExpansion
-
-          REM Locate the newest Visual Studio with C++ tools
-          for /f "usebackq delims=" %%i in (`
-            "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
-              -latest -products * ^
-              -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
-              -property installationPath
-          `) do set "VSPATH=%%i"
-
-          if not defined VSPATH (
-            echo MSVC Build Tools not found
-            exit /b 1
-          )
-
-          REM Initialize MSVC environment (x64) for this shell
-          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
-
-          REM Export all MSVC / Windows SDK directories so Ninja can find
-          REM cl.exe, link.exe, rc.exe, mt.exe, etc.
-          python -c "import os; f=open(os.environ['GITHUB_PATH'],'a'); [f.write(p+chr(10)) for p in os.environ['PATH'].split(';') if 'MSVC' in p or 'Windows Kits' in p]"
-
-          REM Export INCLUDE / LIB so cl.exe can find headers and libraries
-          echo INCLUDE=%INCLUDE%>> "%GITHUB_ENV%"
-          echo LIB=%LIB%>> "%GITHUB_ENV%"
-
-          REM Sanity checks
           where cl
           where nvcc
           nvcc --version
