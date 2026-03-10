@@ -190,5 +190,13 @@
     "cpp": 81.4,
     "py": 74.0,
     "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-10T18:55:03Z",
+    "sha": "7f23109",
+    "detail_path": "reports/2026-03-10_18-55-03_7f23109/report.html",
+    "cpp": 82.2,
+    "py": 72.0,
+    "release_tag": null
   }
 ]
