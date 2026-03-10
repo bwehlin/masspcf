@@ -42,7 +42,17 @@ if cuda_ext is None:
     print("No CUDA extension module in this wheel", file=sys.stderr)
     sys.exit(10)
 
-from masspcf._cudart_preload import _preload_cudart
+_cudart_path = masspcf_dir / "_cudart_preload.py"
+if not _cudart_path.exists():
+    print("masspcf._cudart_preload.py not found", file=sys.stderr)
+    sys.exit(1)
+_cudart_spec = importlib.util.spec_from_file_location("_cudart_preload", _cudart_path)
+if _cudart_spec is None or _cudart_spec.loader is None:
+    print("Failed to load _cudart_preload spec", file=sys.stderr)
+    sys.exit(1)
+_cudart_mod = importlib.util.module_from_spec(_cudart_spec)
+_cudart_spec.loader.exec_module(_cudart_mod)
+_preload_cudart = _cudart_mod._preload_cudart
 
 try:
     _preload_cudart()
