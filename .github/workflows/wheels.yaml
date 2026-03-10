@@ -42,53 +42,18 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
-      # Use the same Python everywhere (recommended)
-      - name: Setup Python
-        if: runner.os == 'Windows'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      # Install NVIDIA's NVCC via PyPI (fast; no 10‑min CUDA installer)
-      - name: Install CUDA NVCC (Windows)
+      # Install CUDA toolkit from the nvidia conda channel (ensures nvcc, ptxas,
+      # and cudart all come from the same coherent version).
+      - name: Install CUDA via conda (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
-        shell: bash
+        shell: cmd
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install cuda-toolkit[nvcc]
-
-      # Find nvcc.exe under site-packages/nvidia/** and emit helper files
-      - name: Resolve nvcc & CUDA paths (Windows)
-        if: runner.os == 'Windows' && matrix.cuda == 1
-        shell: bash
-        run: |
-          python - <<'PY'
-          import os, site, sys
-          paths = set(site.getsitepackages() + [site.getusersitepackages()])
-          nvcc = None
-          for p in paths:
-              base = os.path.join(p, 'nvidia')
-              if not os.path.isdir(base):
-                  continue
-              for root, _, files in os.walk(base):
-                  if 'nvcc.exe' in files:
-                      nvcc = os.path.join(root, 'nvcc.exe')
-                      break
-              if nvcc:
-                  break
-          if not nvcc:
-              print("nvcc.exe not found under any site-packages/nvidia/**", file=sys.stderr)
-              sys.exit(1)
-          nvcc_bin = os.path.dirname(nvcc).replace('\\', '/')
-          cuda_path = os.path.dirname(nvcc_bin)
-          with open('nvcc_bin.txt', 'w', encoding='utf-8') as f:
-              f.write(nvcc_bin)
-          with open('cuda_path.txt', 'w', encoding='utf-8') as f:
-              f.write(cuda_path)
-          PY
+          conda install -y cuda -c nvidia
+          echo CUDA_PATH=%CONDA_PREFIX%\Library>> "%GITHUB_ENV%"
+          echo %CONDA_PREFIX%\Library\bin>> "%GITHUB_PATH%"
 
       # Activate MSVC for any VS version; export PATH and CUDA_PATH
-      - name: Activate MSVC & export CUDA_PATH/PATH (Windows)
+      - name: Activate MSVC & export env (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
         shell: cmd
         run: |
@@ -109,20 +74,6 @@ jobs:
 
           REM Initialize MSVC environment (x64) for this shell
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
-
-          REM Read helper files produced by the previous step
-          set /p NVCC_BIN=<nvcc_bin.txt
-          set /p CUDA_PATH=<cuda_path.txt
-
-          if not exist "%NVCC_BIN%\nvcc.exe" (
-            echo nvcc.exe not found at "%NVCC_BIN%\nvcc.exe"
-            exit /b 1
-          )
-
-          REM Make nvcc + cl.exe available for subsequent steps (Ninja needs them on PATH)
-          set "PATH=%NVCC_BIN%;%PATH%"
-          echo %NVCC_BIN%>> "%GITHUB_PATH%"
-          echo CUDA_PATH=%CUDA_PATH%>> "%GITHUB_ENV%"
 
           REM Export all MSVC / Windows SDK directories so Ninja can find
           REM cl.exe, link.exe, rc.exe, mt.exe, etc.
