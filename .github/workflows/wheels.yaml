@@ -62,11 +62,13 @@ jobs:
       # and cudart all come from the same coherent version).
       - name: Install CUDA via conda (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
-        shell: cmd
+        shell: pwsh
         run: |
           conda install -y cuda-compiler -c nvidia
-          echo CUDA_PATH=%CONDA_PREFIX%\Library>> "%GITHUB_ENV%"
-          echo %CONDA_PREFIX%\Library\bin>> "%GITHUB_PATH%"
+          $condaBase = (conda info --base).Trim()
+          $cudaPath = "$condaBase\Library"
+          "CUDA_PATH=$cudaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "$cudaPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Sanity-check cl & nvcc (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
