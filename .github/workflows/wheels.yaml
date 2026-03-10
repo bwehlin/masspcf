@@ -12,12 +12,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             cuda: 1
             cuda_tag: 12-8
             cuda_major: 12
             artifact_suffix: "-cuda12"
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             cuda: 1
             cuda_tag: 13-1
             cuda_major: 13
@@ -156,7 +156,7 @@ jobs:
     needs: build_wheels
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2025]
+        os: [ubuntu-24.04, windows-2025]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
