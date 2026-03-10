@@ -42,6 +42,15 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=$CORES" >> $GITHUB_ENV
           echo "Using $CORES core(s) to build..."
 
+      # Activate MSVC FIRST — before conda touches the environment.
+      # ilammy/msvc-dev-cmd calls VsDevCmd.bat and exports INCLUDE/LIB/PATH
+      # to GITHUB_ENV so they persist for all subsequent steps.
+      - name: Activate MSVC (Windows)
+        if: runner.os == 'Windows' && matrix.cuda == 1
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Setup Miniconda (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
         uses: conda-incubator/setup-miniconda@v3
@@ -58,13 +67,6 @@ jobs:
           conda install -y cuda-compiler -c nvidia
           echo CUDA_PATH=%CONDA_PREFIX%\Library>> "%GITHUB_ENV%"
           echo %CONDA_PREFIX%\Library\bin>> "%GITHUB_PATH%"
-
-      # Activate MSVC (x64); exports INCLUDE, LIB, PATH to GITHUB_ENV automatically
-      - name: Activate MSVC (Windows)
-        if: runner.os == 'Windows' && matrix.cuda == 1
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
       - name: Sanity-check cl & nvcc (Windows)
         if: runner.os == 'Windows' && matrix.cuda == 1
