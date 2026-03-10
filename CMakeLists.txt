@@ -266,11 +266,22 @@ endif ()
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
-set(CPP_MODULE_NAME_CPU "_mpcf_cpp_cpu")
+set(CPP_MODULE_NAME_CPU "_mpcf_cpu")
 set(CPP_MODULE_NAMES ${CPP_MODULE_NAME_CPU})
 
 if (BUILD_WITH_CUDA)
-  set(CPP_MODULE_NAME_CUDA "_mpcf_cpp_cuda")
+  set(_CUDA_MOD_SUFFIX "")
+  if (DEFINED CUDAToolkit_VERSION_MAJOR)
+    set(_CUDA_MOD_SUFFIX "${CUDAToolkit_VERSION_MAJOR}")
+  elseif (DEFINED CUDAToolkit_VERSION)
+    string(REGEX MATCH "^[0-9]+" _CUDA_MOD_SUFFIX "${CUDAToolkit_VERSION}")
+  endif ()
+
+  if (_CUDA_MOD_SUFFIX)
+    set(CPP_MODULE_NAME_CUDA "_mpcf_cuda${_CUDA_MOD_SUFFIX}")
+  else ()
+    set(CPP_MODULE_NAME_CUDA "_mpcf_cuda")
+  endif ()
   list(APPEND CPP_MODULE_NAMES ${CPP_MODULE_NAME_CUDA})
 endif ()
 
@@ -426,15 +437,17 @@ if (BUILD_WITH_CUDA)
 endif ()
 
 # Create both CPU and (optionally) CUDA Python modules
-foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
-  if (MOD_NAME STREQUAL CPP_MODULE_NAME_CUDA)
-    pybind11_add_module(${MOD_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
-    target_compile_definitions(${MOD_NAME} PRIVATE BUILD_WITH_CUDA=1)
-    target_link_libraries(${MOD_NAME} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
-  else ()
-    pybind11_add_module(${MOD_NAME} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
-  endif ()
+pybind11_add_module(${CPP_MODULE_NAME_CPU} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
+# Do NOT define BUILD_WITH_CUDA for the CPU module: code uses #ifdef BUILD_WITH_CUDA,
+# so a value of 0 would still enable CUDA code paths.
 
+if (BUILD_WITH_CUDA)
+  pybind11_add_module(${CPP_MODULE_NAME_CUDA} MODULE ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
+  target_compile_definitions(${CPP_MODULE_NAME_CUDA} PRIVATE BUILD_WITH_CUDA=1)
+  target_link_libraries(${CPP_MODULE_NAME_CUDA} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
+endif ()
+
+foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
   target_compile_definitions(${MOD_NAME} PRIVATE MPCF_MODULE_NAME=${MOD_NAME})
   target_include_directories(${MOD_NAME} PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(${MOD_NAME} PUBLIC ${MPCF_PUBLIC_INCLUDES})
@@ -443,7 +456,7 @@ foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
 endforeach()
 
 # Convenience target so CLion (and plain cmake --build) can build all Python modules at once
-add_custom_target(_mpcf_cpp DEPENDS ${CPP_MODULE_NAMES})
+add_custom_target(_mpcf DEPENDS ${CPP_MODULE_NAMES})
 
 if (MSVC)
   # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
@@ -704,7 +717,7 @@ elseif (MINIMAL_MODULE_BUILD)
       DESTINATION ${PYTHON_SITE}
 
       # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
-      # Note: _mpcf_cpp.py is the backend dispatcher and must be installed; .so files are excluded via \.so$ already
+      # Note: _mpcf.py is the backend dispatcher and must be installed; .so files are excluded via \.so$ already
       REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed)" EXCLUDE
   )
 
@@ -718,11 +731,11 @@ elseif (MINIMAL_MODULE_BUILD)
       SET(LINK_TYPE create_symlink)
     endif ()
 
-    # Remove stale files from the old single-module layout (_mpcf_cpp without cpu/cuda suffix)
+    # Remove stale files from the old single-module layout (_mpcf without cpu/cuda suffix)
     install(CODE "
-      # Helper: remove all _mpcf_cpp.cpython-*.so from a directory (whether symlink or real file)
-      macro(remove_old_mpcf_cpp_so _dir)
-        file(GLOB _OLD_SO_FILES \"\${_dir}/_mpcf_cpp.cpython-*.so\")
+      # Helper: remove all _mpcf.cpython-*.so from a directory (whether symlink or real file)
+      macro(remove_old_mpcf_so _dir)
+        file(GLOB _OLD_SO_FILES \"\${_dir}/_mpcf.cpython-*.so\")
         foreach(_F IN LISTS _OLD_SO_FILES)
           message(STATUS \"Removing stale old-layout module: \${_F}\")
           file(REMOVE \"\${_F}\")
@@ -731,17 +744,17 @@ elseif (MINIMAL_MODULE_BUILD)
 
       set(SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/masspcf\")
 
-      # Remove old _mpcf_cpp stub-dir symlink from source tree
-      set(_OLD_STUB_LINK \"\${SRC_DIR}/_mpcf_cpp\")
+      # Remove old _mpcf stub-dir symlink from source tree
+      set(_OLD_STUB_LINK \"\${SRC_DIR}/_mpcf\")
       if(IS_SYMLINK \"\${_OLD_STUB_LINK}\")
         message(STATUS \"Removing stale symlink \${_OLD_STUB_LINK}\")
         file(REMOVE \"\${_OLD_STUB_LINK}\")
       endif()
 
-      # Remove old _mpcf_cpp.cpython-*.so from source tree and from site-packages
-      # (the .so shadows the _mpcf_cpp.py dispatcher because Python prefers extension modules)
-      remove_old_mpcf_cpp_so(\"\${SRC_DIR}\")
-      remove_old_mpcf_cpp_so(\"${SITE_PKG_MASSPCF}\")
+      # Remove old _mpcf.cpython-*.so from source tree and from site-packages
+      # (the .so shadows the _mpcf.py dispatcher because Python prefers extension modules)
+      remove_old_mpcf_so(\"\${SRC_DIR}\")
+      remove_old_mpcf_so(\"${SITE_PKG_MASSPCF}\")
     ")
 
     foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)

@@ -5,10 +5,10 @@ from pathlib import Path
 from fnmatch import fnmatch
 
 IGNORE_GLOBS = [
-    'masspcf/_mpcf_cpp_cpu*.so*',       # Linux/Mac Python extension module (CPU)
-    'masspcf/_mpcf_cpp_cpu*.pyd',       # Windows Python extension module (CPU)
-    'masspcf/_mpcf_cpp_cuda*.so*',      # Linux/Mac Python extension module (CUDA)
-    'masspcf/_mpcf_cpp_cuda*.pyd',      # Windows Python extension module (CUDA)
+    'masspcf/_mpcf_cpu*.so*',       # Linux/Mac Python extension module (CPU)
+    'masspcf/_mpcf_cpu*.pyd',       # Windows Python extension module (CPU)
+    'masspcf/_mpcf_cuda*.so*',      # Linux/Mac Python extension module (CUDA)
+    'masspcf/_mpcf_cuda*.pyd',      # Windows Python extension module (CUDA)
     'masspcf/_gpu_detect*.so*',         # Linux/Mac Python extension module (GPU detect)
     'masspcf/_gpu_detect*.pyd',         # Windows Python extension module (GPU detect)
     '*/sboms/auditwheel.cdx.json',      # auditwheel metadata, varies by platform

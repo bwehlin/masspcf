@@ -27,5 +27,5 @@
    pybind11_module_init
    Memcheck:Leak
    ...
-   fun:pybind11_init__mpcf_cpp*
+   fun:pybind11_init__mpcf*
 }

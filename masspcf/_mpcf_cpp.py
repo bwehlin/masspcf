@@ -12,13 +12,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-"""Backend selector: loads _mpcf_cpp_cuda if an NVIDIA GPU is detected,
-otherwise falls back to _mpcf_cpp_cpu."""
+"""Backend selector: loads a versioned _mpcf_cudaXX module if an NVIDIA GPU is detected,
+otherwise falls back to _mpcf_cpu."""
 
 import ctypes
 import ctypes.util
 import importlib
 import importlib.util
+import pkgutil
+import re
 import os
 import pathlib
 import sys
@@ -49,19 +51,40 @@ def _preload_cudart():
             ctypes.CDLL(sys_lib, mode=_rtld_global)
 
 
+def _find_cuda_backend_name():
+    package_dir = os.path.dirname(__file__)
+    candidates = []
+    for mod in pkgutil.iter_modules([package_dir]):
+        name = mod.name
+        if not name.startswith('_mpcf_cuda'):
+            continue
+        match = re.fullmatch(r'_mpcf_cuda(\d+)?', name)
+        if not match:
+            continue
+        version = int(match.group(1) or 0)
+        candidates.append((version, name))
+    if not candidates:
+        return None
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
 _backend = None
 
 if os.environ.get('MPCF_FORCE_CPU', '0') == '0' and _has_nvidia_gpu():
     try:
         _preload_cudart()
-        _backend = importlib.import_module('._mpcf_cpp_cuda', package='masspcf')
+        _cuda_backend = _find_cuda_backend_name()
+        if _cuda_backend is None:
+            raise ImportError("No _mpcf_cuda* backend found")
+        _backend = importlib.import_module(f'.{_cuda_backend}', package='masspcf')
     except Exception as _e:
         import warnings
         warnings.warn(f'Failed to load CUDA backend ({_e}); falling back to CPU. '
                       f'Make sure CUDA is installed (system) or via pip install cuda-toolkit[cudart].', RuntimeWarning, stacklevel=2)
 
 if _backend is None:
-    _backend = importlib.import_module('._mpcf_cpp_cpu', package='masspcf')
+    _backend = importlib.import_module('._mpcf_cpu', package='masspcf')
 
 # Populate this module's namespace with everything from the backend
 _this = sys.modules[__name__]

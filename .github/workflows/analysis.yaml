@@ -98,8 +98,8 @@ jobs:
           # Merge all .profraw into a single .profdata
           llvm-profdata merge -sparse -o covreport/cpp/default.profdata covreport/profiles/*.profraw
           # Discover the test exe + Python extension module built by CMake
-          FIRST_OBJ="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | head -1)"
-          EXTRA_OBJS="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf_cpp*.so' \) | tail -n +2 | sed 's/^/-object /' | tr '\n' ' ')"
+          FIRST_OBJ="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf*.so' \) | head -1)"
+          EXTRA_OBJS="$(find build -type f \( -name 'mpcf_test' -o -name '_mpcf*.so' \) | tail -n +2 | sed 's/^/-object /' | tr '\n' ' ')"
           echo "Objects for llvm-cov: $FIRST_OBJ $EXTRA_OBJS"
           INSTR_PROFILE="-instr-profile=covreport/cpp/default.profdata"
           IGNORE="-ignore-filename-regex=(3rd/|/usr/include/|.*/site-packages/|.*/pybind11/|test/)"
