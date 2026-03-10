@@ -19,7 +19,7 @@ jobs:
           - os: macos-26
             cuda: 0
           - os: windows-2025
-            cuda: 0
+            cuda: 1
 
     steps:
 
