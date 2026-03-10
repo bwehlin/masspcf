@@ -14,12 +14,30 @@ jobs:
         include:
           - os: ubuntu-22.04
             cuda: 1
+            cuda_tag: 12-8
+            cuda_major: 12
+            artifact_suffix: "-cuda12"
+          - os: ubuntu-22.04
+            cuda: 1
+            cuda_tag: 13-1
+            cuda_major: 13
+            artifact_suffix: "-cuda13"
           - os: ubuntu-22.04-arm
             cuda: 0
+            artifact_suffix: "-cpu"
           - os: macos-26
             cuda: 0
+            artifact_suffix: "-cpu"
           - os: windows-2025
             cuda: 1
+            cuda_version: 12.8
+            cuda_major: 12
+            artifact_suffix: "-cuda12"
+          - os: windows-2025
+            cuda: 1
+            cuda_version: 13.1
+            cuda_major: 13
+            artifact_suffix: "-cuda13"
 
     steps:
 
@@ -64,7 +82,7 @@ jobs:
         if: runner.os == 'Windows' && matrix.cuda == 1
         shell: pwsh
         run: |
-          conda install -y cuda-compiler -c nvidia
+          conda install -y cuda-compiler=${{ matrix.cuda_version }} -c nvidia
           $condaBase = (conda info --base).Trim()
           $cudaPath = ("$condaBase\Library") -replace '\\', '/'
           "CUDA_PATH=$cudaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -78,6 +96,13 @@ jobs:
           where nvcc
           nvcc --version
 
+      - name: Print CUDA version (Linux)
+        if: runner.os == 'Linux' && matrix.cuda == 1
+        shell: bash
+        run: |
+          which nvcc
+          nvcc --version
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
@@ -88,9 +113,11 @@ jobs:
             bash -c '
             [ "$(uname -m)" != "x86_64" ] && exit 0;
             [ -f /lib/ld-musl-x86_64.so.1 ] && exit 0;
+            [ "${{ matrix.cuda }}" != "1" ] && exit 0;
             curl -o /etc/yum.repos.d/cuda.repo
             https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&
-            dnf install -y --nogpgcheck cuda-nvcc-12-8 cuda-cudart-devel-12-8'
+            dnf install -y --nogpgcheck cuda-nvcc-${{ matrix.cuda_tag }} cuda-cudart-devel-${{ matrix.cuda_tag }} &&
+            ln -sfn /usr/local/cuda-${{ matrix.cuda_tag }} /usr/local/cuda'
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
             auditwheel repair --exclude 'libcudart*' -w {dest_dir} {wheel}
           CIBW_ENVIRONMENT_LINUX: >-
@@ -113,18 +140,65 @@ jobs:
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
             CMAKE_ARGS=${{ matrix.cuda == 1 && '"-G Ninja -DCUDAToolkit_ROOT=${CUDA_PATH} -DCMAKE_CUDA_COMPILER=${CUDA_PATH}/bin/nvcc.exe"' || '' }}
       - uses: actions/upload-artifact@v4
+        if: matrix.cuda == 1
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-src-${{ matrix.os }}${{ matrix.artifact_suffix }}
           path: ./wheelhouse/*.whl
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.cuda == 0
+        with:
+          name: wheels-final-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+          retention-days: 1
+
+  merge_cuda_wheels:
+    runs-on: ubuntu-latest
+    needs: build_wheels
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-src-${{ matrix.os }}-cuda12
+          path: ./wheelhouse-cuda12
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-src-${{ matrix.os }}-cuda13
+          path: ./wheelhouse-cuda13
+      - name: Merge CUDA wheels
+        shell: bash
+        run: |
+          mkdir -p wheelhouse-merged
+          for w12 in wheelhouse-cuda12/*.whl; do
+            name=$(basename "$w12")
+            w13="wheelhouse-cuda13/$name"
+            if [ ! -f "$w13" ]; then
+              echo "Missing CUDA 13 wheel for $name"
+              exit 1
+            fi
+            python .github/scripts/merge_cuda_wheels.py \
+              --base-wheel "$w12" \
+              --extra-wheel "$w13" \
+              --output-dir wheelhouse-merged \
+              --cuda-major 13
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-final-${{ matrix.os }}
+          path: ./wheelhouse-merged/*.whl
           retention-days: 1
 
   merge_artifacts:
     runs-on: ubuntu-latest
-    needs: build_wheels
+    needs: [build_wheels, merge_cuda_wheels]
     steps:
       - name: Merge Artifacts
         uses: actions/upload-artifact/merge@v4
         with:
           name: wheels
-          pattern: "wheels-*"
+          pattern: "wheels-final-*"
           retention-days: 2
