@@ -692,7 +692,7 @@ endif ()
 
 install(TARGETS ${CPP_MODULE_NAMES} _gpu_detect DESTINATION ${INSTALL_TARGET})
 
-if (LINUX OR (NOT SKBUILD AND (NOT SKIP_STUBGEN))) # Stubgen does not seem happy on CI
+if ((LINUX OR (NOT SKBUILD)) AND (NOT SKIP_STUBGEN)) # Stubgen does not seem happy on CI
   foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
     add_custom_command(
         TARGET ${MOD_NAME}
