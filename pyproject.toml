@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "masspcf"
-version = "0.4.0b6"
+version = "0.4.0b7"
 authors = [ { name="Bjorn H. Wehlin", email="bwehlin@kth.se" } ]
 description = "Massively parallel computations for piecewise constant functions"
 readme = "README.md"
@@ -26,7 +26,7 @@ classifiers = [
     "Environment :: GPU :: NVIDIA CUDA",
     "Topic :: Scientific/Engineering"
 ]
-dependencies = [ "numpy>=2.0", "tqdm" ]
+dependencies = [ "numpy>=2.0", "tqdm", "matplotlib" ]
 
 [project.urls]
 Homepage = "https://github.com/bwehlin/masspcf"
