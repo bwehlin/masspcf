@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>/home/runner/work/masspcf/masspcf/include/mpcf/tensor.tpp</title>
+    <link href='valgrind.css' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+    <script src="valgrind.js"></script>
+</head>
+
+<body>
+    <div class="global">
+        <div class="header">
+            <h1>/home/runner/work/masspcf/masspcf/include/mpcf/tensor.tpp</h1>
+            <p><b>2</b> errors</p>
+            <button class="next_error">Goto First Error</button>
+        </div>
+        <div class="listing">
+            <pre class="code">
+<code class="c++"><span class="line_number">1</span>/*
+<span class="line_number">2</span>* Copyright 2024-2026 Bjorn Wehlin
+<span class="line_number">3</span>*
+<span class="line_number">4</span>* Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);
+<span class="line_number">5</span>* you may not use this file except in compliance with the License.
+<span class="line_number">6</span>* You may obtain a copy of the License at
+<span class="line_number">7</span>*
+<span class="line_number">8</span>*    http://www.apache.org/licenses/LICENSE-2.0
+<span class="line_number">9</span>*
+<span class="line_number">10</span>* Unless required by applicable law or agreed to in writing, software
+<span class="line_number">11</span>* distributed under the License is distributed on an &#34;AS IS&#34; BASIS,
+<span class="line_number">12</span>* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<span class="line_number">13</span>* See the License for the specific language governing permissions and
+<span class="line_number">14</span>* limitations under the License.
+<span class="line_number">15</span>*/
+<span class="line_number">16</span>
+<span class="line_number">17</span>#include &lt;functional&gt;
+<span class="line_number">18</span>
+<span class="line_number">19</span>namespace mpcf
+<span class="line_number">20</span>{
+<span class="line_number">21</span>  template &lt;typename T&gt;
+<span class="line_number">22</span>  Tensor&lt;T&gt;::Tensor(const std::vector&lt;size_t&gt;&amp; shape, const T&amp; init)
+<span class="line_number">23</span>    : m_shape(shape)
+<span class="line_number">24</span>  {
+<span class="line_number">25</span>    auto sz = get_total_size();
+<span class="line_number">26</span>    m_data = std::make_shared&lt;T[]&gt;(sz);
+<span class="line_number">27</span>    std::fill_n(m_data.get(), sz, init);
+<span class="line_number">28</span>
+<span class="line_number">29</span>    // Compute strides
+<span class="line_number">30</span>    if (!m_shape.empty())
+<span class="line_number">31</span>    {
+<span class="line_number">32</span>      m_strides = m_shape;
+<span class="line_number">33</span>
+<span class="line_number">34</span>      std::partial_sum(m_shape.rbegin(), std::prev(m_shape.rend()), std::next(m_strides.rbegin()), std::multiplies&lt;&gt;());
+<span class="line_number">35</span>      m_strides.back() = 1;
+<span class="line_number">36</span>    }
+<span class="line_number">37</span>  }
+<span class="line_number">38</span>
+<span class="line_number">39</span>  template &lt;typename T&gt;
+<span class="line_number">40</span>  Tensor&lt;T&gt;&amp; Tensor&lt;T&gt;::operator=(const T&amp; val)
+<span class="line_number">41</span>  {
+<span class="line_number">42</span>    apply([&amp;val](T&amp; element){ element = val; });
+<span class="line_number">43</span>    return *this;
+<span class="line_number">44</span>  }
+<span class="line_number">45</span>
+<span class="line_number">46</span>  template &lt;typename T&gt;
+<span class="line_number">47</span>  template &lt;typename U&gt; requires std::equality_comparable_with&lt;U, T&gt;
+<span class="line_number">48</span>  bool Tensor&lt;T&gt;::operator==(const Tensor&lt;U&gt;&amp; rhs) const
+<span class="line_number">49</span>  {
+<span class="line_number">50</span>    if (m_shape != rhs.shape())
+<span class="line_number">51</span>    {
+<span class="line_number">52</span>      return false;
+<span class="line_number">53</span>    }
+<span class="line_number">54</span>
+<span class="line_number">55</span>    bool equal = true;
+<span class="line_number">56</span>    walk([&amp;equal, this, &amp;rhs](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">57</span>      return (equal &amp;= ( (*this)(idx) == rhs(idx) ) );
+<span class="line_number">58</span>    });
+<span class="line_number">59</span>
+<span class="line_number">60</span>    return equal;
+<span class="line_number">61</span>  }
+<span class="line_number">62</span>
+<span class="line_number">63</span>  template &lt;typename T&gt;
+<span class="line_number">64</span>  template &lt;typename U&gt; requires std::equality_comparable_with&lt;U, T&gt;
+<span class="line_number">65</span>  bool Tensor&lt;T&gt;::operator!=(const Tensor&lt;U&gt;&amp; rhs) const
+<span class="line_number">66</span>  {
+<span class="line_number">67</span>    if (m_shape != rhs.shape())
+<span class="line_number">68</span>    {
+<span class="line_number">69</span>      return true;
+<span class="line_number">70</span>    }
+<span class="line_number">71</span>
+<span class="line_number">72</span>    return any_of_idx([this, &amp;rhs](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">73</span>      return (*this)(idx) != rhs(idx);
+<span class="line_number">74</span>    });
+<span class="line_number">75</span>  }
+<span class="line_number">76</span>
+<span class="line_number">77</span>  template &lt;typename T&gt;
+<span class="line_number">78</span>  template &lt;typename SliceVector&gt;
+<span class="line_number">79</span>  Tensor&lt;T&gt; Tensor&lt;T&gt;::operator[](SliceVector sliceVector) const
+<span class="line_number">80</span>  {
+<span class="line_number">81</span>    return extract(sliceVector);
+<span class="line_number">82</span>  }
+<span class="line_number">83</span>
+<span class="line_number">84</span>  template &lt;typename T&gt;
+<span class="line_number">85</span>  const T&amp; Tensor&lt;T&gt;::operator()(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">86</span>  {
+<span class="line_number">87</span>    return index_to_ref(index);
+<span class="line_number">88</span>  }
+<span class="line_number">89</span>
+<span class="line_number">90</span>  template &lt;typename T&gt;
+<span class="line_number">91</span>  T&amp; Tensor&lt;T&gt;::operator()(const std::vector&lt;size_t&gt;&amp; index)
+<span class="line_number">92</span>  {
+<span class="line_number">93</span>    return index_to_ref(index);
+<span class="line_number">94</span>  }
+<span class="line_number">95</span>
+<span class="line_number">96</span>  template &lt;typename T&gt;
+<span class="line_number">97</span>  const T&amp; Tensor&lt;T&gt;::operator()(size_t index) const
+<span class="line_number">98</span>  {
+<span class="line_number">99</span>    return index_to_ref({ index });
+<span class="line_number">100</span>  }
+<span class="line_number">101</span>
+<span class="line_number">102</span>  template &lt;typename T&gt;
+<span class="line_number">103</span>  T&amp; Tensor&lt;T&gt;::operator()(size_t index)
+<span class="line_number">104</span>  {
+<span class="line_number">105</span>    return index_to_ref({ index });
+<span class="line_number">106</span>  }
+<span class="line_number">107</span>
+<span class="line_number">108</span>  template &lt;typename T&gt;
+<span class="line_number">109</span>  template &lt;typename U&gt;
+<span class="line_number">110</span>  requires std::is_convertible_v&lt;U, T&gt;
+<span class="line_number">111</span>  void Tensor&lt;T&gt;::assign_from(const Tensor&lt;U&gt;&amp; rhs)
+<span class="line_number">112</span>  {
+<span class="line_number">113</span>    if (shape() != rhs.shape())
+<span class="line_number">114</span>    {
+<span class="line_number">115</span>      throw std::runtime_error(&#34;Incommensurate shapes (tried to assign from a tensor of shape &#34; + shape_to_string(rhs.shape()) + &#34; to a tensor of shape &#34; +
+<span class="line_number">116</span>          shape_to_string(shape()) + &#34;)&#34;);
+<span class="line_number">117</span>    }
+<span class="line_number">118</span>
+<span class="line_number">119</span>    walk([this, &amp;rhs](const std::vector&lt;size_t&gt;&amp; idx){
+<span class="line_number">120</span>      (*this)(idx) = rhs(idx);
+<span class="line_number">121</span>    });
+<span class="line_number">122</span>  }
+<span class="line_number">123</span>
+<span class="line_number">124</span>  template &lt;typename T&gt;
+<span class="line_number">125</span>  template &lt;typename U&gt;
+<span class="line_number">126</span>  requires CanDivideBy&lt;T, U&gt;
+<span class="line_number">127</span>  Tensor&lt;T&gt;&amp; Tensor&lt;T&gt;::operator/=(const U&amp; u)
+<span class="line_number">128</span>  {
+<span class="line_number">129</span>    apply([&amp;u](T&amp; val){
+<span class="line_number">130</span>      val /= u;
+<span class="line_number">131</span>    });
+<span class="line_number">132</span>
+<span class="line_number">133</span>    return *this;
+<span class="line_number">134</span>  }
+<span class="line_number">135</span>
+<span class="line_number">136</span>  template &lt;typename T&gt;
+<span class="line_number">137</span>  template &lt;typename U&gt;
+<span class="line_number">138</span>  requires CanDivideBy&lt;T, U&gt;
+<span class="line_number">139</span>  Tensor&lt;T&gt; Tensor&lt;T&gt;::operator/(const U&amp; u) const
+<span class="line_number">140</span>  {
+<span class="line_number">141</span>    Tensor&lt;T&gt; ret = *this;
+<span class="line_number">142</span>    ret /= u;
+<span class="line_number">143</span>    return ret;
+<span class="line_number">144</span>  }
+<span class="line_number">145</span>
+<span class="line_number">146</span>  template &lt;typename T&gt;
+<span class="line_number">147</span>  [[nodiscard]] size_t Tensor&lt;T&gt;::size() const noexcept
+<span class="line_number">148</span>  {
+<span class="line_number">149</span>    if (m_shape.empty())
+<span class="line_number">150</span>    {
+<span class="line_number">151</span>      return 0_uz;
+<span class="line_number">152</span>    }
+<span class="line_number">153</span>    return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies&lt;size_t&gt;());
+<span class="line_number">154</span>  }
+<span class="line_number">155</span>
+<span class="line_number">156</span>  template &lt;typename T&gt;
+<span class="line_number">157</span>  Tensor&lt;T&gt; Tensor&lt;T&gt;::copy() const
+<span class="line_number">158</span>  {
+<span class="line_number">159</span>    Tensor&lt;T&gt; ret(shape());
+<span class="line_number">160</span>
+<span class="line_number">161</span>    walk([&amp;ret, this](const std::vector&lt;size_t&gt;&amp; idx){
+<span class="line_number">162</span>      ret(idx) = (*this)(idx);
+<span class="line_number">163</span>    });
+<span class="line_number">164</span>
+<span class="line_number">165</span>    return ret;
+<span class="line_number">166</span>  }
+<span class="line_number">167</span>
+<span class="line_number">168</span>  template &lt;typename T&gt;
+<span class="line_number">169</span>  Tensor&lt;T&gt; Tensor&lt;T&gt;::flatten() const
+<span class="line_number">170</span>  {
+<span class="line_number">171</span>    Tensor ret;
+<span class="line_number">172</span>    if (m_isContiguous)
+<span class="line_number">173</span>    {
+<span class="line_number">174</span>      ret = *this;
+<span class="line_number">175</span>    }
+<span class="line_number">176</span>    else
+<span class="line_number">177</span>    {
+<span class="line_number">178</span>      ret = copy();
+<span class="line_number">179</span>    }
+<span class="line_number">180</span>
+<span class="line_number">181</span>    ret.m_viewType = ViewType::Flattened;
+<span class="line_number">182</span>    ret.m_shape = { get_total_size() };
+<span class="line_number">183</span>    ret.m_strides = { 0_uz };
+<span class="line_number">184</span>    return ret;
+<span class="line_number">185</span>  }
+<span class="line_number">186</span>
+<span class="line_number">187</span>  template &lt;typename T&gt;
+<span class="line_number">188</span>  template &lt;typename UnaryFunc&gt;
+<span class="line_number">189</span>#ifndef __CUDACC__
+<span class="line_number">190</span>  requires std::invocable&lt;UnaryFunc, std::vector&lt;size_t&gt;&gt;
+<span class="line_number">191</span>#endif
+<span class="line_number">192</span>  void Tensor&lt;T&gt;::walk(UnaryFunc&amp;&amp; f) const
+<span class="line_number">193</span>  {
+<span class="line_number">194</span>    if (m_shape.empty() || std::any_of(m_shape.begin(), m_shape.end(), [](size_t n){ return n == 0; }))
+<span class="line_number">195</span>    {
+<span class="line_number">196</span>      return;
+<span class="line_number">197</span>    }
+<span class="line_number">198</span>    auto ndim = m_shape.size();
+<span class="line_number">199</span>
+<span class="line_number">200</span>    std::vector&lt;size_t&gt; cur(ndim, 0_uz);
+<span class="line_number">201</span>
+<span class="line_number">202</span>    while (true)
+<span class="line_number">203</span>    {
+<span class="line_number">204</span>      if constexpr (std::is_same_v&lt;decltype(f(cur)), bool&gt;)
+<span class="line_number">205</span>      {
+<span class="line_number">206</span>        // If f returns bool, stop walking on false being returned.
+<span class="line_number">207</span>        if (!f(cur))
+<span class="line_number">208</span>        {
+<span class="line_number">209</span>          return;
+<span class="line_number">210</span>        }
+<span class="line_number">211</span>      }
+<span class="line_number">212</span>      else
+<span class="line_number">213</span>      {
+<span class="line_number">214</span>        f(cur);
+<span class="line_number">215</span>      }
+<span class="line_number">216</span>
+<span class="line_number">217</span>
+<span class="line_number">218</span>      for (ptrdiff_t i = ndim - 1; i &gt;= 0 ; --i)
+<span class="line_number">219</span>      {
+<span class="line_number">220</span>        ++cur[i];
+<span class="line_number">221</span>
+<span class="line_number">222</span>        if (cur[i] &lt; m_shape[i])
+<span class="line_number">223</span>        {
+<span class="line_number">224</span>          break;
+<span class="line_number">225</span>        }
+<span class="line_number">226</span>
+<span class="line_number">227</span>        if (i == 0)
+<span class="line_number">228</span>        {
+<span class="line_number">229</span>          return;
+<span class="line_number">230</span>        }
+<span class="line_number">231</span>
+<span class="line_number">232</span>        cur[i] = 0;
+<span class="line_number">233</span>      }
+<span class="line_number">234</span>    }
+<span class="line_number">235</span>  }
+<span class="line_number">236</span>
+<span class="line_number">237</span>  template &lt;typename T&gt;
+<span class="line_number">238</span>  template &lt;typename UnaryFunc&gt;
+<span class="line_number">239</span>#ifndef __CUDACC__
+<span class="line_number">240</span>  requires std::invocable&lt;UnaryFunc, const T&amp;&gt;
+<span class="line_number">241</span>#endif
+<span class="line_number">242</span>  bool Tensor&lt;T&gt;::any_of(UnaryFunc&amp;&amp; f) const
+<span class="line_number">243</span>  {
+<span class="line_number">244</span>    return any_of_idx([this, &amp;f](const std::vector&lt;size_t&gt;&amp; idx){
+<span class="line_number">245</span>      return f((*this)(idx));
+<span class="line_number">246</span>    });
+<span class="line_number">247</span>  }
+<span class="line_number">248</span>
+<span class="line_number">249</span>  template &lt;typename T&gt;
+<span class="line_number">250</span>  template &lt;typename UnaryFunc&gt;
+<span class="line_number">251</span>#ifndef __CUDACC__
+<span class="line_number">252</span>  requires std::invocable&lt;UnaryFunc, std::vector&lt;size_t&gt;&gt;
+<span class="line_number">253</span>#endif
+<span class="line_number">254</span>  bool Tensor&lt;T&gt;::any_of_idx(UnaryFunc&amp;&amp; f) const
+<span class="line_number">255</span>  {
+<span class="line_number">256</span>    bool match = false;
+<span class="line_number">257</span>
+<span class="line_number">258</span>    // This could be made more efficient
+<span class="line_number">259</span>    walk([this, &amp;match, &amp;f](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">260</span>
+<span class="line_number">261</span>      if (f(idx))
+<span class="line_number">262</span>      {
+<span class="line_number">263</span>        match = true;
+<span class="line_number">264</span>        return false;
+<span class="line_number">265</span>      }
+<span class="line_number">266</span>
+<span class="line_number">267</span>      return true;
+<span class="line_number">268</span>    });
+<span class="line_number">269</span>
+<span class="line_number">270</span>    return match;
+<span class="line_number">271</span>
+<span class="line_number">272</span>  }
+<span class="line_number">273</span>
+<span class="line_number">274</span>  template &lt;typename T&gt;
+<span class="line_number">275</span>  template &lt;typename UnaryFunc&gt; requires std::invocable&lt;UnaryFunc, T&amp;&gt;
+<span class="line_number">276</span>  void Tensor&lt;T&gt;::apply(UnaryFunc&amp;&amp; f)
+<span class="line_number">277</span>  {
+<span class="line_number">278</span>    walk([&amp;f, this](const std::vector&lt;size_t&gt;&amp; idx){ f((*this)(idx)); });
+<span class="line_number">279</span>  }
+<span class="line_number">280</span>
+<span class="line_number">281</span>  template &lt;typename T&gt;
+<span class="line_number">282</span>  template &lt;typename SliceVector&gt;
+<span class="line_number">283</span>  Tensor&lt;T&gt; Tensor&lt;T&gt;::extract(SliceVector sliceVector) const
+<span class="line_number">284</span>  {
+<span class="line_number">285</span>    Tensor ret;
+<span class="line_number">286</span>
+<span class="line_number">287</span>    ret.m_data = m_data; // view
+<span class="line_number">288</span>
+<span class="line_number">289</span>    // temporary just to get sizes
+<span class="line_number">290</span>    ret.m_shape = m_shape;
+<span class="line_number">291</span>    ret.m_strides = m_strides;
+<span class="line_number">292</span>
+<span class="line_number">293</span>    ret.m_offset = m_offset;
+<span class="line_number">294</span>
+<span class="line_number">295</span>    std::vector&lt;size_t&gt; dimsToDrop;
+<span class="line_number">296</span>
+<span class="line_number">297</span>    // For now, we&#39;ll drop the assumption that the tensor is contiguous in memory
+<span class="line_number">298</span>    // as soon as we extract a subtensor. There are, however, some cases where the resulting subtensor would be
+<span class="line_number">299</span>    // contiguous that we can try to optimize for in the future (e.g., extracting the top n rows of a matrix).
+<span class="line_number">300</span>    // Things will work fine with this assumption dropped but certain operations could be a little slower (probably
+<span class="line_number">301</span>    // unlikely to matter for the type of things we&#39;re targeting).
+<span class="line_number">302</span>    ret.m_isContiguous = false;
+<span class="line_number">303</span>
+<span class="line_number">304</span>    size_t i = 0;
+<span class="line_number">305</span>    for (auto &amp; slice : sliceVector)
+<span class="line_number">306</span>    {
+<span class="line_number">307</span>      std::visit([i, &amp;slice, &amp;ret, &amp;dimsToDrop](auto&amp;&amp; arg) {
+<span class="line_number">308</span>        using argT = std::decay_t&lt;decltype(arg)&gt;;
+<span class="line_number">309</span>        if constexpr (std::is_same_v&lt;argT, SliceIndex&gt;)
+<span class="line_number">310</span>        {
+<span class="line_number">311</span>          ret.m_shape[i] = 1;
+<span class="line_number">312</span>          ret.m_offset += arg.index * ret.m_strides[i];
+<span class="line_number">313</span>          dimsToDrop.emplace_back(i);
+<span class="line_number">314</span>        }
+<span class="line_number">315</span>        else if constexpr (std::is_same_v&lt;argT, SliceRange&gt;)
+<span class="line_number">316</span>        {
+<span class="line_number">317</span>          if (!arg.start)
+<span class="line_number">318</span>          {
+<span class="line_number">319</span>            arg.start = 0_z;
+<span class="line_number">320</span>          }
+<span class="line_number">321</span>          if (!arg.stop)
+<span class="line_number">322</span>          {
+<span class="line_number">323</span>            arg.stop = static_cast&lt;ptrdiff_t&gt;(ret.m_shape[i]);
+<span class="line_number">324</span>          }
+<span class="line_number">325</span>          if (!arg.step)
+<span class="line_number">326</span>          {
+<span class="line_number">327</span>            arg.step = 1_z;
+<span class="line_number">328</span>          }
+<span class="line_number">329</span>
+<span class="line_number">330</span>          auto start = *arg.start;
+<span class="line_number">331</span>          auto stop = *arg.stop;
+<span class="line_number">332</span>          auto step = *arg.step;
+<span class="line_number">333</span>
+<span class="line_number">334</span>          if (start &lt; 0_z)
+<span class="line_number">335</span>            start = 0;
+<span class="line_number">336</span>          if (stop &gt; static_cast&lt;std::ptrdiff_t&gt;(ret.m_shape[i]))
+<span class="line_number">337</span>            stop = static_cast&lt;std::ptrdiff_t&gt;(ret.m_shape[i]);
+<span class="line_number">338</span>
+<span class="line_number">339</span>          if (step == 0_z)
+<span class="line_number">340</span>          {
+<span class="line_number">341</span>            ret.m_shape[i] = 0;
+<span class="line_number">342</span>          }
+<span class="line_number">343</span>          else if (step &gt; 0)
+<span class="line_number">344</span>          {
+<span class="line_number">345</span>            if (stop &lt;= start)
+<span class="line_number">346</span>            {
+<span class="line_number">347</span>              ret.m_shape[i] = 0;
+<span class="line_number">348</span>            }
+<span class="line_number">349</span>            else
+<span class="line_number">350</span>            {
+<span class="line_number">351</span>              ret.m_shape[i] = (stop - start + step - 1_z) / step;
+<span class="line_number">352</span>            }
+<span class="line_number">353</span>          }
+<span class="line_number">354</span>          else
+<span class="line_number">355</span>          {
+<span class="line_number">356</span>            throw std::runtime_error(&#34;Negative step not supported...&#34;);
+<span class="line_number">357</span>          }
+<span class="line_number">358</span>
+<span class="line_number">359</span>          ret.m_offset += start * ret.m_strides[i]; // use clamped start
+<span class="line_number">360</span>          ret.m_strides[i] *= step;
+<span class="line_number">361</span>
+<span class="line_number">362</span>        }
+<span class="line_number">363</span>        // For SliceAll, don&#39;t modify shape
+<span class="line_number">364</span>      }, slice);
+<span class="line_number">365</span>      ++i;
+<span class="line_number">366</span>    }
+<span class="line_number">367</span>
+<span class="line_number">368</span>    size_t nDroppedDims = 0_uz;
+<span class="line_number">369</span>    for (auto dim : dimsToDrop)
+<span class="line_number">370</span>    {
+<span class="line_number">371</span>      ret.m_shape.erase(ret.m_shape.begin() + dim - nDroppedDims);
+<span class="line_number">372</span>      ret.m_strides.erase(ret.m_strides.begin() + dim - nDroppedDims);
+<span class="line_number">373</span>      ++nDroppedDims;
+<span class="line_number">374</span>    }
+<span class="line_number">375</span>
+<span class="line_number">376</span>    return ret;
+<span class="line_number">377</span>  }
+<span class="line_number">378</span>
+<span class="line_number">379</span>
+<span class="line_number">380</span>  template &lt;typename T&gt;
+<span class="line_number">381</span>  size_t Tensor&lt;T&gt;::get_total_size() const
+<span class="line_number">382</span>  {
+<span class="line_number">383</span>    return std::accumulate(m_shape.begin(), m_shape.end(), 1_uz, std::multiplies&lt;&gt;());
+<span class="line_number">384</span>  }
+<span class="line_number">385</span>
+<span class="line_number">386</span>  template &lt;typename T&gt;
+<span class="line_number">387</span>  size_t Tensor&lt;T&gt;::index_to_data_index(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">388</span>  {
+<span class="line_number">389</span>    size_t ret = 0_uz;
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 4 at 0x1FFEFFECD8 by thread #2</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/include/mpcf/tensor.tpp:417<br>
+                                    <code class="cpp">mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;::index_to_ref(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">414</span>  template &lt;typename T&gt;
+<span class="line_number">415</span>  const T&amp; Tensor&lt;T&gt;::index_to_ref(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">416</span>  {
+<span class="line_number">417</span><span class="error">    return m_data[index_to_data_index(index)];
+</span><span class="line_number">418</span>  }
+<span class="line_number">419</span>
+<span class="line_number">420</span>  template &lt;typename T&gt;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/include/mpcf/tensor.tpp:87<br>
+                                    <code class="cpp">mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">84</span>  template &lt;typename T&gt;
+<span class="line_number">85</span>  const T&amp; Tensor&lt;T&gt;::operator()(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">86</span>  {
+<span class="line_number">87</span><span class="error">    return index_to_ref(index);
+</span><span class="line_number">88</span>  }
+<span class="line_number">89</span>
+<span class="line_number">90</span>  template &lt;typename T&gt;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/include/mpcf/persistence/stable_rank.h:107<br>
+                                    <code class="cpp">mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}::operator()() const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">104</span>
+<span class="line_number">105</span>        auto task = flow.emplace([this, index]
+<span class="line_number">106</span>        {
+<span class="line_number">107</span><span class="error">          m_ret(index) = barcode_to_stable_rank(m_barcodes(index));
+</span><span class="line_number">108</span>          add_progress(1);
+<span class="line_number">109</span>        });
+<span class="line_number">110</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:61<br>
+                                    <code class="cpp">void std::__invoke_impl&lt;void, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;&gt;(std::__invoke_other, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">58</span>  template&lt;typename _Res, typename _Fn, typename... _Args&gt;
+<span class="line_number">59</span>    constexpr _Res
+<span class="line_number">60</span>    __invoke_impl(__invoke_other, _Fn&amp;&amp; __f, _Args&amp;&amp;... __args)
+<span class="line_number">61</span><span class="error">    { return std::forward&lt;_Fn&gt;(__f)(std::forward&lt;_Args&gt;(__args)...); }
+</span><span class="line_number">62</span>
+<span class="line_number">63</span>  template&lt;typename _Res, typename _MemFun, typename _Tp, typename... _Args&gt;
+<span class="line_number">64</span>    constexpr _Res
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:111<br>
+                                    <code class="cpp">std::enable_if&lt;is_invocable_r_v&lt;void, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;&gt;, void&gt;::type std::__invoke_r&lt;void, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;&gt;(mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">108</span>      using __type = typename __result::type;
+<span class="line_number">109</span>      using __tag = typename __result::__invoke_type;
+<span class="line_number">110</span>      if constexpr (is_void_v&lt;_Res&gt;)
+<span class="line_number">111</span><span class="error">	std::__invoke_impl&lt;__type&gt;(__tag{}, std::forward&lt;_Callable&gt;(__fn),
+</span><span class="line_number">112</span>					std::forward&lt;_Args&gt;(__args)...);
+<span class="line_number">113</span>      else
+<span class="line_number">114</span>	return std::__invoke_impl&lt;__type&gt;(__tag{},
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:290<br>
+                                    <code class="cpp">std::_Function_handler&lt;void (), mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&gt;::_M_invoke(std::_Any_data const&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">287</span>      static _Res
+<span class="line_number">288</span>      _M_invoke(const _Any_data&amp; __functor, _ArgTypes&amp;&amp;... __args)
+<span class="line_number">289</span>      {
+<span class="line_number">290</span><span class="error">	return std::__invoke_r&lt;_Res&gt;(*_Base::_M_get_pointer(__functor),
+</span><span class="line_number">291</span>				     std::forward&lt;_ArgTypes&gt;(__args)...);
+<span class="line_number">292</span>      }
+<span class="line_number">293</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:591<br>
+                                    <code class="cpp">std::function&lt;void ()&gt;::operator()() const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">588</span>      {
+<span class="line_number">589</span>	if (_M_empty())
+<span class="line_number">590</span>	  __throw_bad_function_call();
+<span class="line_number">591</span><span class="error">	return _M_invoker(_M_functor, std::forward&lt;_ArgTypes&gt;(__args)...);
+</span><span class="line_number">592</span>      }
+<span class="line_number">593</span>
+<span class="line_number">594</span>#if __cpp_rtti
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1887<br>
+                                    <code class="cpp">tf::Executor::_invoke_static_task(tf::Worker&amp;, tf::Node*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1884</span>// Procedure: _invoke_static_task
+<span class="line_number">1885</span>inline void Executor::_invoke_static_task(Worker&amp; worker, Node* node) {
+<span class="line_number">1886</span>  _observer_prologue(worker, node);
+<span class="line_number">1887</span><span class="error">  TF_EXECUTOR_EXCEPTION_HANDLER(worker, node, {
+</span><span class="line_number">1888</span>    std::get_if&lt;Node::Static&gt;(&amp;node-&gt;_handle)-&gt;work();
+<span class="line_number">1889</span>  });
+<span class="line_number">1890</span>  _observer_epilogue(worker, node);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1662<br>
+                                    <code class="cpp">tf::Executor::_invoke(tf::Worker&amp;, tf::Node*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1659</span>  switch(node-&gt;_handle.index()) {
+<span class="line_number">1660</span>    // static task
+<span class="line_number">1661</span>    case Node::STATIC:{
+<span class="line_number">1662</span><span class="error">      _invoke_static_task(worker, node);
+</span><span class="line_number">1663</span>    }
+<span class="line_number">1664</span>    break;
+<span class="line_number">1665</span>    
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1424<br>
+                                    <code class="cpp">tf::Executor::_exploit_task(tf::Worker&amp;, tf::Node*&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1421</span>// Procedure: _exploit_task
+<span class="line_number">1422</span>inline void Executor::_exploit_task(Worker&amp; w, Node*&amp; t) {
+<span class="line_number">1423</span>  while(t) {
+<span class="line_number">1424</span><span class="error">    _invoke(w, t);
+</span><span class="line_number">1425</span>    t = w._wsq.pop();
+<span class="line_number">1426</span>  }
+<span class="line_number">1427</span>}
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1327<br>
+                                    <code class="cpp">tf::Executor::_spawn(unsigned long, std::shared_ptr&lt;tf::WorkerInterface&gt;)::{lambda()#1}::operator()() const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1324</span>        while(1) {
+<span class="line_number">1325</span>
+<span class="line_number">1326</span>          // drains out the local queue first
+<span class="line_number">1327</span><span class="error">          _exploit_task(worker, t);
+</span><span class="line_number">1328</span>
+<span class="line_number">1329</span>          // steals and waits for tasks
+<span class="line_number">1330</span>          if(_wait_for_task(worker, t) == false) {
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">390</span><span class="error">    switch (m_viewType)</span>
+<span class="line_number">391</span>    {
+<span class="line_number">392</span>    case ViewType::Base:
+<span class="line_number">393</span>      ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 0_uz);
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x1FFEFFECD0 by thread #2</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/include/mpcf/tensor.tpp:417<br>
+                                    <code class="cpp">mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;::index_to_ref(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">414</span>  template &lt;typename T&gt;
+<span class="line_number">415</span>  const T&amp; Tensor&lt;T&gt;::index_to_ref(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">416</span>  {
+<span class="line_number">417</span><span class="error">    return m_data[index_to_data_index(index)];
+</span><span class="line_number">418</span>  }
+<span class="line_number">419</span>
+<span class="line_number">420</span>  template &lt;typename T&gt;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/include/mpcf/tensor.tpp:87<br>
+                                    <code class="cpp">mpcf::Tensor&lt;mpcf::ph::Barcode&lt;float&gt; &gt;::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">84</span>  template &lt;typename T&gt;
+<span class="line_number">85</span>  const T&amp; Tensor&lt;T&gt;::operator()(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">86</span>  {
+<span class="line_number">87</span><span class="error">    return index_to_ref(index);
+</span><span class="line_number">88</span>  }
+<span class="line_number">89</span>
+<span class="line_number">90</span>  template &lt;typename T&gt;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/include/mpcf/persistence/stable_rank.h:107<br>
+                                    <code class="cpp">mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}::operator()() const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">104</span>
+<span class="line_number">105</span>        auto task = flow.emplace([this, index]
+<span class="line_number">106</span>        {
+<span class="line_number">107</span><span class="error">          m_ret(index) = barcode_to_stable_rank(m_barcodes(index));
+</span><span class="line_number">108</span>          add_progress(1);
+<span class="line_number">109</span>        });
+<span class="line_number">110</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:61<br>
+                                    <code class="cpp">void std::__invoke_impl&lt;void, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;&gt;(std::__invoke_other, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">58</span>  template&lt;typename _Res, typename _Fn, typename... _Args&gt;
+<span class="line_number">59</span>    constexpr _Res
+<span class="line_number">60</span>    __invoke_impl(__invoke_other, _Fn&amp;&amp; __f, _Args&amp;&amp;... __args)
+<span class="line_number">61</span><span class="error">    { return std::forward&lt;_Fn&gt;(__f)(std::forward&lt;_Args&gt;(__args)...); }
+</span><span class="line_number">62</span>
+<span class="line_number">63</span>  template&lt;typename _Res, typename _MemFun, typename _Tp, typename... _Args&gt;
+<span class="line_number">64</span>    constexpr _Res
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:111<br>
+                                    <code class="cpp">std::enable_if&lt;is_invocable_r_v&lt;void, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;&gt;, void&gt;::type std::__invoke_r&lt;void, mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;&gt;(mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">108</span>      using __type = typename __result::type;
+<span class="line_number">109</span>      using __tag = typename __result::__invoke_type;
+<span class="line_number">110</span>      if constexpr (is_void_v&lt;_Res&gt;)
+<span class="line_number">111</span><span class="error">	std::__invoke_impl&lt;__type&gt;(__tag{}, std::forward&lt;_Callable&gt;(__fn),
+</span><span class="line_number">112</span>					std::forward&lt;_Args&gt;(__args)...);
+<span class="line_number">113</span>      else
+<span class="line_number">114</span>	return std::__invoke_impl&lt;__type&gt;(__tag{},
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:290<br>
+                                    <code class="cpp">std::_Function_handler&lt;void (), mpcf::ph::BarcodeToStableRankTask&lt;float&gt;::run_async(mpcf::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const::{lambda()#1}&gt;::_M_invoke(std::_Any_data const&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">287</span>      static _Res
+<span class="line_number">288</span>      _M_invoke(const _Any_data&amp; __functor, _ArgTypes&amp;&amp;... __args)
+<span class="line_number">289</span>      {
+<span class="line_number">290</span><span class="error">	return std::__invoke_r&lt;_Res&gt;(*_Base::_M_get_pointer(__functor),
+</span><span class="line_number">291</span>				     std::forward&lt;_ArgTypes&gt;(__args)...);
+<span class="line_number">292</span>      }
+<span class="line_number">293</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:591<br>
+                                    <code class="cpp">std::function&lt;void ()&gt;::operator()() const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">588</span>      {
+<span class="line_number">589</span>	if (_M_empty())
+<span class="line_number">590</span>	  __throw_bad_function_call();
+<span class="line_number">591</span><span class="error">	return _M_invoker(_M_functor, std::forward&lt;_ArgTypes&gt;(__args)...);
+</span><span class="line_number">592</span>      }
+<span class="line_number">593</span>
+<span class="line_number">594</span>#if __cpp_rtti
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1887<br>
+                                    <code class="cpp">tf::Executor::_invoke_static_task(tf::Worker&amp;, tf::Node*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1884</span>// Procedure: _invoke_static_task
+<span class="line_number">1885</span>inline void Executor::_invoke_static_task(Worker&amp; worker, Node* node) {
+<span class="line_number">1886</span>  _observer_prologue(worker, node);
+<span class="line_number">1887</span><span class="error">  TF_EXECUTOR_EXCEPTION_HANDLER(worker, node, {
+</span><span class="line_number">1888</span>    std::get_if&lt;Node::Static&gt;(&amp;node-&gt;_handle)-&gt;work();
+<span class="line_number">1889</span>  });
+<span class="line_number">1890</span>  _observer_epilogue(worker, node);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1662<br>
+                                    <code class="cpp">tf::Executor::_invoke(tf::Worker&amp;, tf::Node*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1659</span>  switch(node-&gt;_handle.index()) {
+<span class="line_number">1660</span>    // static task
+<span class="line_number">1661</span>    case Node::STATIC:{
+<span class="line_number">1662</span><span class="error">      _invoke_static_task(worker, node);
+</span><span class="line_number">1663</span>    }
+<span class="line_number">1664</span>    break;
+<span class="line_number">1665</span>    
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1424<br>
+                                    <code class="cpp">tf::Executor::_exploit_task(tf::Worker&amp;, tf::Node*&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1421</span>// Procedure: _exploit_task
+<span class="line_number">1422</span>inline void Executor::_exploit_task(Worker&amp; w, Node*&amp; t) {
+<span class="line_number">1423</span>  while(t) {
+<span class="line_number">1424</span><span class="error">    _invoke(w, t);
+</span><span class="line_number">1425</span>    t = w._wsq.pop();
+<span class="line_number">1426</span>  }
+<span class="line_number">1427</span>}
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/masspcf/masspcf/3rd/taskflow/taskflow/core/executor.hpp:1327<br>
+                                    <code class="cpp">tf::Executor::_spawn(unsigned long, std::shared_ptr&lt;tf::WorkerInterface&gt;)::{lambda()#1}::operator()() const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1324</span>        while(1) {
+<span class="line_number">1325</span>
+<span class="line_number">1326</span>          // drains out the local queue first
+<span class="line_number">1327</span><span class="error">          _exploit_task(worker, t);
+</span><span class="line_number">1328</span>
+<span class="line_number">1329</span>          // steals and waits for tasks
+<span class="line_number">1330</span>          if(_wait_for_task(worker, t) == false) {
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">394</span><span class="error">      ret += m_offset;</span>
+<span class="line_number">395</span>      //std::cout &lt;&lt; &#34;Translated &#34; &lt;&lt;  &#34; -&gt; &#34; &lt;&lt; ret &lt;&lt; std::endl;
+<span class="line_number">396</span>      return ret;
+<span class="line_number">397</span>    case ViewType::Flattened:
+<span class="line_number">398</span>      if (index.size() != 1_uz)
+<span class="line_number">399</span>      {
+<span class="line_number">400</span>        throw std::runtime_error(&#34;Index into flat tensor should be 1d.&#34;);
+<span class="line_number">401</span>      }
+<span class="line_number">402</span>
+<span class="line_number">403</span>      if (m_isContiguous)
+<span class="line_number">404</span>      {
+<span class="line_number">405</span>        return m_offset + index[0];
+<span class="line_number">406</span>      }
+<span class="line_number">407</span>
+<span class="line_number">408</span>      return ret;
+<span class="line_number">409</span>    }
+<span class="line_number">410</span>
+<span class="line_number">411</span>    throw std::runtime_error(&#34;Unhandled view type!&#34;);
+<span class="line_number">412</span>  }
+<span class="line_number">413</span>
+<span class="line_number">414</span>  template &lt;typename T&gt;
+<span class="line_number">415</span>  const T&amp; Tensor&lt;T&gt;::index_to_ref(const std::vector&lt;size_t&gt;&amp; index) const
+<span class="line_number">416</span>  {
+<span class="line_number">417</span>    return m_data[index_to_data_index(index)];
+<span class="line_number">418</span>  }
+<span class="line_number">419</span>
+<span class="line_number">420</span>  template &lt;typename T&gt;
+<span class="line_number">421</span>  T&amp; Tensor&lt;T&gt;::index_to_ref(const std::vector&lt;size_t&gt;&amp; index)
+<span class="line_number">422</span>  {
+<span class="line_number">423</span>    return m_data[index_to_data_index(index)];
+<span class="line_number">424</span>  }
+<span class="line_number">425</span>}
+</code>
+            </pre>
+        </div>
+    </div>
+</body>
+
+</html>
