@@ -101,6 +101,14 @@ namespace mpcf
     requires std::is_convertible_v<U, T>
     void assign_from(const Tensor<U>& rhs);
 
+    template <typename U>
+    requires CanDivideBy<T, U>
+    Tensor& operator/=(const U& u);
+
+    template <typename U>
+    requires CanDivideBy<T, U>
+    [[nodiscard]] Tensor operator/(const U& u) const;
+
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }

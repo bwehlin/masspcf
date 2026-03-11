@@ -26,6 +26,8 @@
 #include <memory>
 #include <string>
 
+#include "concepts.h"
+
 #if defined(__clang__) || defined(__GNUC__)
 #include <cxxabi.h> // For name demangling
 #endif

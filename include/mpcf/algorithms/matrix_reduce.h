@@ -23,6 +23,7 @@
 #include "reduce.h"
 
 #include <iostream>
+#include <utility>
 
 namespace mpcf
 {
@@ -36,8 +37,12 @@ namespace mpcf
     std::cout << std::endl;
   };
 
-  template <typename PcfT> //, typename ReductionF>
-  Tensor<PcfT> parallel_tensor_reduce(const Tensor<PcfT>& in, size_t dim, Executor& exec = default_executor())
+  template <typename PcfT, typename ReductionF>
+  Tensor<PcfT> parallel_tensor_reduce(
+      const Tensor<PcfT>& in,
+      size_t dim,
+      ReductionF&& reduction,
+      Executor& exec = default_executor())
   {
     auto shape = in.shape();
 
@@ -52,7 +57,8 @@ namespace mpcf
     }
 
     Tensor<PcfT> ret(shape);
-    ret.walk([&ret, &in, &inIdx, inDimSize, dim](const std::vector<size_t>& idx){
+    auto op = std::forward<ReductionF>(reduction);
+    ret.walk([&ret, &in, &inIdx, inDimSize, dim, &op](const std::vector<size_t>& idx){
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
       if (inIdx.size() > 1)
@@ -71,12 +77,21 @@ namespace mpcf
 
       auto & out = ret(idx);
 
-      out = reduce(tmp, [inDimSize](const typename PcfT::rectangle_type& rect) {
-        return rect.top + rect.bottom;
-      });
-
-      out /= inDimSize;
+      out = reduce(tmp, op);
     });
+
+    return ret;
+  }
+
+  template <typename PcfT>
+  Tensor<PcfT> mean(const Tensor<PcfT>& in, size_t dim, Executor& exec = default_executor())
+  {
+    auto ret = parallel_tensor_reduce(in, dim, [](const typename PcfT::rectangle_type& rect) {
+      return rect.top + rect.bottom;
+    }, exec);
+
+    const auto inDimSize = in.shape()[dim];
+    ret /= inDimSize;
 
     return ret;
   }

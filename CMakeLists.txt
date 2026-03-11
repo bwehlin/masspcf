@@ -316,6 +316,7 @@ SET(MPCF_LIB_SOURCES_CUDA
 
 SET(MPCF_HEADER_FILES
     config.h
+    concepts.h
     version.h
     pcf.h
     point.h

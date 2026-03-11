@@ -36,7 +36,7 @@ namespace
 
     static tensor_type mean(const tensor_type& tensor, size_t dim)
     {
-      return mpcf::parallel_tensor_reduce(tensor, dim);
+      return mpcf::mean(tensor, dim);
     }
 
     static mpcf::Tensor<Tt> max_time(const tensor_type& tensor, size_t dim)

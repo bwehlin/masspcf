@@ -122,6 +122,28 @@ namespace mpcf
   }
 
   template <typename T>
+  template <typename U>
+  requires CanDivideBy<T, U>
+  Tensor<T>& Tensor<T>::operator/=(const U& u)
+  {
+    apply([&u](T& val){
+      val /= u;
+    });
+
+    return *this;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanDivideBy<T, U>
+  Tensor<T> Tensor<T>::operator/(const U& u) const
+  {
+    Tensor<T> ret = *this;
+    ret /= u;
+    return ret;
+  }
+
+  template <typename T>
   [[nodiscard]] size_t Tensor<T>::size() const noexcept
   {
     if (m_shape.empty())
