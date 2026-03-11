@@ -1,3 +1,2 @@
 #!/bin/bash
-
-export MINIMAL_MODULE_BUILD=1
+# No env vars required; minimal module build is the default when not using SKBUILD.

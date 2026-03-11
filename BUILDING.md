@@ -4,9 +4,9 @@
 
 ## Minimal module build
 
-In your IDE, it's recommended to have the environment variable MINIMAL_MODULE_BUILD=1 set. With this enabled, building and installing masspcf can be done via "make" rather than a full pip install. 
+Minimal module builds are now enabled whenever `SKBUILD` is not in use (i.e., plain CMake builds). In your IDE, just run a normal CMake configure/build/install and you can use `make` instead of a full `pip install`.
 
-**Before doing this, you should run a manual pip install . first!**  
+**Before doing this, you should run a manual `pip install .` first!**
 
 ## Building the documentation
 

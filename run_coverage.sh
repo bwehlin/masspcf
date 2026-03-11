@@ -56,7 +56,6 @@ echo
 
 # ── Environment (mirrors CI) ──────────────────────────────────────────────────
 export BUILD_WITH_CUDA=0
-export MINIMAL_MODULE_BUILD=1
 export SKIP_STUBGEN=1
 export SKIP_BACK_COPY=1
 export ENABLE_COVERAGE=1

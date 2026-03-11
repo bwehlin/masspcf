@@ -16,12 +16,10 @@ cmake_minimum_required(VERSION 3.19)
 
 include(FetchContent)
 
-if ((DEFINED ENV{MINIMAL_MODULE_BUILD}) AND (NOT $ENV{MINIMAL_MODULE_BUILD} MATCHES "0"))
-  set(MINIMAL_MODULE_BUILD ON)
-  message(STATUS "!!! Minimal module build !!!")
+if (SKBUILD)
+  message(STATUS "!!! Not Minimal module build (SKBUILD ON) !!!")
 else ()
-  message(STATUS "!!! Not Minimal module build !!!")
-  set(MINIMAL_MODULE_BUILD OFF)
+  message(STATUS "!!! Minimal module build (SKBUILD OFF) !!!")
 endif ()
 
 if (DEFINED ENV{BUILD_WITH_CUDA})
@@ -58,10 +56,6 @@ else ()
 endif ()
 
 set(BUILD_BENCHMARKS OFF)
-
-if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  set(BUILD_BENCHMARKS OFF)
-endif ()
 
 set(Python_FIND_VIRTUALENV STANDARD)
 find_package(Python 3.10 REQUIRED COMPONENTS Development.Module Interpreter)
@@ -175,7 +169,7 @@ if (BUILD_WITH_CUDA)
 
   SET(LANG_CUDA CUDA)
 
-  if (MINIMAL_MODULE_BUILD)
+  if (NOT SKBUILD)
     set(CMAKE_CUDA_ARCHITECTURES native)
   else()
     # This matches what torch.cuda.get_gencode_flags() returns for PyTorch 2.10.0. If it's good enough for them, it's
@@ -195,11 +189,7 @@ else ()
   SET(LANG_CUDA)
 endif ()
 
-if (SKBUILD OR MINIMAL_MODULE_BUILD)
-  set(PROJ_NAME masspcf)
-else ()
-  set(PROJ_NAME massivepcf)
-endif ()
+set(PROJ_NAME masspcf)
 
 # Read version info out of pyproject.toml
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml" TOML_CONTENT)
@@ -678,7 +668,7 @@ if (POLICY CMP0177)
   cmake_policy(SET CMP0177 NEW) # Normalize paths
 endif ()
 
-if (MINIMAL_MODULE_BUILD)
+if (NOT SKBUILD)
   message(STATUS "Python Executable: ${Python_EXECUTABLE}")
 
   execute_process(
@@ -701,7 +691,7 @@ endif ()
 
 install(TARGETS ${CPP_MODULE_NAMES} _gpu_detect DESTINATION ${INSTALL_TARGET})
 
-if (LINUX OR MINIMAL_MODULE_BUILD AND (NOT SKIP_STUBGEN)) # Stubgen does not seem happy on CI
+if (LINUX OR (NOT SKBUILD AND (NOT SKIP_STUBGEN))) # Stubgen does not seem happy on CI
   foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
     add_custom_command(
         TARGET ${MOD_NAME}
@@ -741,7 +731,7 @@ if (SKBUILD)
       PATTERN "__pycache__" EXCLUDE
   )
 
-elseif (MINIMAL_MODULE_BUILD)
+elseif (NOT SKBUILD)
 
 
   file(GLOB PY_PKG_FILES "masspcf/*.py")
@@ -752,7 +742,8 @@ elseif (MINIMAL_MODULE_BUILD)
 
       # Allow symlinking in CPP module for completions in IDE during development (__pycache__ should never be installed)
       # Note: _mpcf.py is the backend dispatcher and must be installed; .so files are excluded via \.so$ already
-      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed)" EXCLUDE
+      # Exclude stub symlink dirs (_mpcf_cpu/_mpcf_cuda*) to avoid clashing with installed stubs/extensions.
+      REGEX "(__pycache__|\\.so$|\\.pyi$|py\\.typed|/_mpcf_[^./]+$)" EXCLUDE
   )
 
 
