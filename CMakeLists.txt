@@ -580,6 +580,15 @@ if (BUILD_TESTER)
   endif ()
 
   target_include_directories(mpcf_test PRIVATE "include/")
+  if (BUILD_WITH_CUDA)
+    target_include_directories(mpcf_test PRIVATE ${MPCF_CUDA_INCLUDE_DIRS})
+    if (CUDAToolkit_ROOT AND EXISTS "${CUDAToolkit_ROOT}/include/cuda_runtime.h")
+      target_compile_options(mpcf_test PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/I${CUDAToolkit_ROOT}/include>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-I${CUDAToolkit_ROOT}/include>
+      )
+    endif ()
+  endif ()
 
   if (BUILD_CUDA_TESTER)
     add_library(mpcf_nopy STATIC ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_VERSION_SOURCE})
@@ -590,6 +599,15 @@ if (BUILD_TESTER)
   endif ()
   target_include_directories(mpcf_nopy PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_nopy PUBLIC ${MPCF_PUBLIC_INCLUDES})
+  if (BUILD_WITH_CUDA)
+    target_include_directories(mpcf_nopy PRIVATE ${MPCF_CUDA_INCLUDE_DIRS})
+    if (CUDAToolkit_ROOT AND EXISTS "${CUDAToolkit_ROOT}/include/cuda_runtime.h")
+      target_compile_options(mpcf_nopy PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/I${CUDAToolkit_ROOT}/include>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-I${CUDAToolkit_ROOT}/include>
+      )
+    endif ()
+  endif ()
 
   if (BUILD_CUDA_TESTER)
     set_target_properties(mpcf_nopy PROPERTIES
