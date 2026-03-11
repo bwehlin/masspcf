@@ -256,6 +256,13 @@ if (BUILD_WITH_CUDA)
   endif ()
   find_package(CUDAToolkit REQUIRED)
   set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+
+  set(MPCF_CUDA_INCLUDE_DIRS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUDAToolkit_INCLUDE_DIRS})
+  if (CUDAToolkit_ROOT AND EXISTS "${CUDAToolkit_ROOT}/include/cuda_runtime.h")
+    list(APPEND MPCF_CUDA_INCLUDE_DIRS "${CUDAToolkit_ROOT}/include")
+  endif ()
+  list(REMOVE_DUPLICATES MPCF_CUDA_INCLUDE_DIRS)
+  include_directories(${MPCF_CUDA_INCLUDE_DIRS})
 endif ()
 
 if ((DEFINED ENV{ENABLE_COVERAGE}) AND (NOT $ENV{ENABLE_COVERAGE} MATCHES "0"))
@@ -300,7 +307,6 @@ if (WIN32)
 endif ()
 
 include_directories("3rd/taskflow")
-include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUDAToolkit_INCLUDE_DIRS})
 
 set(PYBIND11_FINDPYTHON ON)
 add_subdirectory(3rd/pybind11)
@@ -408,6 +414,9 @@ endif ()
 
 set(MPCF_PRIVATE_INCLUDES "include/mpcf")
 set(MPCF_PUBLIC_INCLUDES "include/")
+if (BUILD_WITH_CUDA)
+  list(APPEND MPCF_PRIVATE_INCLUDES ${MPCF_CUDA_INCLUDE_DIRS})
+endif ()
 
 if (BUILD_WITH_CUDA)
   # Build only the .cu files with NVCC, in a separate static library.
@@ -418,7 +427,7 @@ if (BUILD_WITH_CUDA)
   target_include_directories(mpcf_cuda PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_cuda PUBLIC ${MPCF_PUBLIC_INCLUDES})
   target_include_directories(mpcf_cuda PRIVATE "3rd/taskflow")
-  target_include_directories(mpcf_cuda PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUDAToolkit_INCLUDE_DIRS})
+  target_include_directories(mpcf_cuda PRIVATE ${MPCF_CUDA_INCLUDE_DIRS})
   target_compile_definitions(mpcf_cuda PRIVATE BUILD_WITH_CUDA=1)
 
   set_target_properties(mpcf_cuda PROPERTIES
@@ -444,6 +453,13 @@ pybind11_add_module(${CPP_MODULE_NAME_CPU} MODULE ${MPCF_LIB_SOURCES} ${MPCF_PY_
 if (BUILD_WITH_CUDA)
   pybind11_add_module(${CPP_MODULE_NAME_CUDA} MODULE ${MPCF_LIB_SOURCES} ${MPCF_LIB_SOURCES_CUDA} ${MPCF_PY_SOURCES} ${MPCF_VERSION_SOURCE})
   target_compile_definitions(${CPP_MODULE_NAME_CUDA} PRIVATE BUILD_WITH_CUDA=1)
+  target_include_directories(${CPP_MODULE_NAME_CUDA} PRIVATE ${MPCF_CUDA_INCLUDE_DIRS})
+  if (CUDAToolkit_ROOT AND EXISTS "${CUDAToolkit_ROOT}/include/cuda_runtime.h")
+    target_compile_options(${CPP_MODULE_NAME_CUDA} PRIVATE
+      $<$<CXX_COMPILER_ID:MSVC>:/I${CUDAToolkit_ROOT}/include>
+      $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-I${CUDAToolkit_ROOT}/include>
+    )
+  endif ()
   target_link_libraries(${CPP_MODULE_NAME_CUDA} PRIVATE mpcf_cuda ${CUDAToolkit_CUDART_LIBRARY})
 endif ()
 
