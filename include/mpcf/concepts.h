@@ -18,9 +18,27 @@
 namespace mpcf
 {
   template <typename T, typename U>
-  concept CanDivideBy = requires(T t, U u)
+  concept CanDivide = requires(T t, U u)
   {
     t / u;
+  };
+
+  template <typename T, typename U>
+  concept CanMultiply = requires(T t, U u)
+  {
+    t * u;
+  };
+
+  template <typename T, typename U>
+  concept CanAdd = requires(T t, U u)
+  {
+    t + u;
+  };
+
+  template <typename T, typename U>
+  concept CanSubtract = requires(T t, U u)
+  {
+    t - u;
   };
 }
 

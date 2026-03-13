@@ -423,6 +423,166 @@ namespace
   }
 
 // ============================================================================
+// Arithmetic operators
+// ============================================================================
+
+  TYPED_TEST(TensorTppTyped, DivideAssign)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(6); t(1) = T(4); t(2) = T(2);
+    t /= T(2);
+    EXPECT_EQ(t(0), T(3));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(1));
+  }
+
+  TYPED_TEST(TensorTppTyped, Divide)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(6); t(1) = T(4); t(2) = T(2);
+    auto result = t / T(2);
+    EXPECT_EQ(result(0), T(3));
+    EXPECT_EQ(result(1), T(2));
+    EXPECT_EQ(result(2), T(1));
+    EXPECT_EQ(t(0), T(6));
+    EXPECT_EQ(t(1), T(4));
+    EXPECT_EQ(t(2), T(2));
+  }
+
+  TYPED_TEST(TensorTppTyped, MultiplyAssign)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    t *= T(4);
+    EXPECT_EQ(t(0), T(4));
+    EXPECT_EQ(t(1), T(8));
+    EXPECT_EQ(t(2), T(12));
+  }
+
+  TYPED_TEST(TensorTppTyped, Multiply)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    auto result = t * T(4);
+    EXPECT_EQ(result(0), T(4));
+    EXPECT_EQ(result(1), T(8));
+    EXPECT_EQ(result(2), T(12));
+    EXPECT_EQ(t(0), T(1));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(3));
+  }
+
+  TYPED_TEST(TensorTppTyped, AddAssign)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    t += T(10);
+    EXPECT_EQ(t(0), T(11));
+    EXPECT_EQ(t(1), T(12));
+    EXPECT_EQ(t(2), T(13));
+  }
+
+  TYPED_TEST(TensorTppTyped, Add)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    auto result = t + T(10);
+    EXPECT_EQ(result(0), T(11));
+    EXPECT_EQ(result(1), T(12));
+    EXPECT_EQ(result(2), T(13));
+    EXPECT_EQ(t(0), T(1));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(3));
+  }
+
+  TYPED_TEST(TensorTppTyped, SubtractAssign)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(5); t(1) = T(7); t(2) = T(9);
+    t -= T(3);
+    EXPECT_EQ(t(0), T(2));
+    EXPECT_EQ(t(1), T(4));
+    EXPECT_EQ(t(2), T(6));
+  }
+
+  TYPED_TEST(TensorTppTyped, Subtract)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(5); t(1) = T(7); t(2) = T(9);
+    auto result = t - T(3);
+    EXPECT_EQ(result(0), T(2));
+    EXPECT_EQ(result(1), T(4));
+    EXPECT_EQ(result(2), T(6));
+    EXPECT_EQ(t(0), T(5));
+    EXPECT_EQ(t(1), T(7));
+    EXPECT_EQ(t(2), T(9));
+  }
+
+  TYPED_TEST(TensorTppTyped, FreeMultiply)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    auto result = T(4) * t;
+    EXPECT_EQ(result(0), T(4));
+    EXPECT_EQ(result(1), T(8));
+    EXPECT_EQ(result(2), T(12));
+    EXPECT_EQ(t(0), T(1));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(3));
+  }
+
+  TYPED_TEST(TensorTppTyped, FreeAdd)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    auto result = T(10) + t;
+    EXPECT_EQ(result(0), T(11));
+    EXPECT_EQ(result(1), T(12));
+    EXPECT_EQ(result(2), T(13));
+    EXPECT_EQ(t(0), T(1));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(3));
+  }
+
+  TYPED_TEST(TensorTppTyped, FreeSubtract)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(3);
+    auto result = T(10) - t;
+    EXPECT_EQ(result(0), T(9));
+    EXPECT_EQ(result(1), T(8));
+    EXPECT_EQ(result(2), T(7));
+    EXPECT_EQ(t(0), T(1));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(3));
+  }
+
+  TYPED_TEST(TensorTppTyped, FreeDivide)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> t({ 3 });
+    t(0) = T(1); t(1) = T(2); t(2) = T(4);
+    auto result = T(8) / t;
+    EXPECT_EQ(result(0), T(8));
+    EXPECT_EQ(result(1), T(4));
+    EXPECT_EQ(result(2), T(2));
+    EXPECT_EQ(t(0), T(1));
+    EXPECT_EQ(t(1), T(2));
+    EXPECT_EQ(t(2), T(4));
+  }
+
+// ============================================================================
 // Cross-type tests (not parameterizable on a single T)
 // ============================================================================
 

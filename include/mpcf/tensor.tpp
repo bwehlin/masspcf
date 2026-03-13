@@ -123,7 +123,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanDivideBy<T, U>
+  requires CanDivide<T, U>
   Tensor<T>& Tensor<T>::operator/=(const U& u)
   {
     apply([&u](T& val){
@@ -135,11 +135,121 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanDivideBy<T, U>
+  requires CanDivide<T, U>
   Tensor<T> Tensor<T>::operator/(const U& u) const
   {
-    Tensor<T> ret = *this;
+    Tensor<T> ret = copy();
     ret /= u;
+    return ret;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanMultiply<T, U>
+  Tensor<T>& Tensor<T>::operator*=(const U& u)
+  {
+    apply([&u](T& val){
+      val *= u;
+    });
+
+    return *this;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanMultiply<T, U>
+  Tensor<T> Tensor<T>::operator*(const U& u) const
+  {
+    Tensor<T> ret = copy();
+    ret *= u;
+    return ret;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanAdd<T, U>
+  Tensor<T>& Tensor<T>::operator+=(const U& u)
+  {
+    apply([&u](T& val){
+      val += u;
+    });
+
+    return *this;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanAdd<T, U>
+  Tensor<T> Tensor<T>::operator+(const U& u) const
+  {
+    Tensor<T> ret = copy();
+    ret += u;
+    return ret;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanSubtract<T, U>
+  Tensor<T>& Tensor<T>::operator-=(const U& u)
+  {
+    apply([&u](T& val){
+      val -= u;
+    });
+
+    return *this;
+  }
+
+  template <typename T>
+  template <typename U>
+  requires CanSubtract<T, U>
+  Tensor<T> Tensor<T>::operator-(const U& u) const
+  {
+    Tensor<T> ret = copy();
+    ret -= u;
+    return ret;
+  }
+
+  template <typename U, typename T>
+  requires CanMultiply<U, T>
+  Tensor<T> operator*(const U& u, const Tensor<T>& t)
+  {
+    Tensor<T> ret = t.copy();
+    ret.apply([&u](T& val){
+      val = u * val;
+    });
+    return ret;
+  }
+
+  template <typename U, typename T>
+  requires CanAdd<U, T>
+  Tensor<T> operator+(const U& u, const Tensor<T>& t)
+  {
+    Tensor<T> ret = t.copy();
+    ret.apply([&u](T& val){
+      val = u + val;
+    });
+    return ret;
+  }
+
+  template <typename U, typename T>
+  requires CanSubtract<U, T>
+  Tensor<T> operator-(const U& u, const Tensor<T>& t)
+  {
+    Tensor<T> ret = t.copy();
+    ret.apply([&u](T& val){
+      val = u - val;
+    });
+    return ret;
+  }
+
+  template <typename U, typename T>
+  requires CanDivide<U, T>
+  Tensor<T> operator/(const U& u, const Tensor<T>& t)
+  {
+    Tensor<T> ret = t.copy();
+    ret.apply([&u](T& val){
+      val = u / val;
+    });
     return ret;
   }
 

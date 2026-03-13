@@ -102,12 +102,36 @@ namespace mpcf
     void assign_from(const Tensor<U>& rhs);
 
     template <typename U>
-    requires CanDivideBy<T, U>
+    requires CanDivide<T, U>
     Tensor& operator/=(const U& u);
 
     template <typename U>
-    requires CanDivideBy<T, U>
+    requires CanDivide<T, U>
     [[nodiscard]] Tensor operator/(const U& u) const;
+
+    template <typename U>
+    requires CanMultiply<T, U>
+    Tensor& operator*=(const U& u);
+
+    template <typename U>
+    requires CanMultiply<T, U>
+    [[nodiscard]] Tensor operator*(const U& u) const;
+
+    template <typename U>
+    requires CanAdd<T, U>
+    Tensor& operator+=(const U& u);
+
+    template <typename U>
+    requires CanAdd<T, U>
+    [[nodiscard]] Tensor operator+(const U& u) const;
+
+    template <typename U>
+    requires CanSubtract<T, U>
+    Tensor& operator-=(const U& u);
+
+    template <typename U>
+    requires CanSubtract<T, U>
+    [[nodiscard]] Tensor operator-(const U& u) const;
 
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
@@ -225,6 +249,22 @@ namespace mpcf
     ViewType m_viewType = ViewType::Base;
     bool m_isContiguous = true;
   };
+
+  template <typename U, typename T>
+  requires CanMultiply<U, T>
+  [[nodiscard]] Tensor<T> operator*(const U& u, const Tensor<T>& t);
+
+  template <typename U, typename T>
+  requires CanAdd<U, T>
+  [[nodiscard]] Tensor<T> operator+(const U& u, const Tensor<T>& t);
+
+  template <typename U, typename T>
+  requires CanSubtract<U, T>
+  [[nodiscard]] Tensor<T> operator-(const U& u, const Tensor<T>& t);
+
+  template <typename U, typename T>
+  requires CanDivide<U, T>
+  [[nodiscard]] Tensor<T> operator/(const U& u, const Tensor<T>& t);
 
   template <typename T>
   concept IsTensor = requires(T t, std::vector<size_t> indices, typename T::value_type v) {
