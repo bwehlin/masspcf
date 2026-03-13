@@ -548,6 +548,7 @@ if (BUILD_TESTER)
 
   set(MPCF_TEST_SOURCES_COMMON
       test/test_iterate_rectangles.cpp
+      test/test_iterate_segments.cpp
       test/test_parallel_reduce.cpp
       test/test_tensor.cpp
       test/test_tensor_iteration.cpp

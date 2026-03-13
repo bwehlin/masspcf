@@ -18,6 +18,7 @@
 #define MPCF_ALGORITHM_ITERATE_RECTANGLES_H
 
 #include <algorithm>
+#include <limits>
 #include <vector>
 #include "../rectangle.h"
 
@@ -35,16 +36,20 @@ namespace mpcf
     return infinity<typename PcfT::time_type>();
   }
 
-  template <typename Point>
-  size_t max_time_index_prior_to(const std::vector<Point>& fpts, typename Point::time_type t)
+  template <typename PointBiDirIterator>
+  PointBiDirIterator max_time_iterator_prior_to(PointBiDirIterator begin, PointBiDirIterator end,
+    typename std::iterator_traits<PointBiDirIterator>::value_type::time_type t)
   {
-    size_t i = 1;
-    auto sz = fpts.size();
-    for (; i < sz && fpts[i].t < t; ++i) { }
-    
-    return --i;
+    using TPoint = typename std::iterator_traits<PointBiDirIterator>::value_type;
+    using TTime = typename TPoint::time_type;
+    auto it = std::upper_bound(begin, end, t, [](TTime val, const TPoint& p) { return val < p.t; });
+    if (it == begin)
+    {
+      return begin;
+    }
+    return std::prev(it);
   }
-  
+
   template <typename Point, typename FCb>
   void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, FCb cb,
     typename Point::time_type a = Point::zero_time(), typename Point::time_type b = Point::infinite_time())
@@ -52,62 +57,58 @@ namespace mpcf
     using TTime = typename Point::time_type;
     using TVal = typename Point::value_type;
 
-    TTime t = a;
-    TTime tprev = 0;
+    auto fi = max_time_iterator_prior_to(fpts.begin(), fpts.end(), a);
+    auto gi = max_time_iterator_prior_to(gpts.begin(), gpts.end(), a);
 
+    TTime t = a;
+    TTime tprev = a;
     TVal fv = 0;
     TVal gv = 0;
-
-    size_t fi = max_time_index_prior_to(fpts, a);
-    size_t gi = max_time_index_prior_to(gpts, a);
-
-    size_t fsz = fpts.size();
-    size_t gsz = gpts.size();
 
     Rectangle<TTime, TVal> rect;
 
     while (t < b)
     {
       tprev = t;
-      fv = fpts[fi].v;
-      gv = gpts[gi].v;
+      fv = fi->v;
+      gv = gi->v;
 
-      if (fi + 1 < fsz && gi + 1 < gsz)
+      auto fi_next = std::next(fi);
+      auto gi_next = std::next(gi);
+
+      if (fi_next != fpts.end() && gi_next != gpts.end())
       {
-        auto delta = fpts[fi+1].t - gpts[gi+1].t;
+        auto delta = fi_next->t - gi_next->t;
         if (delta <= 0)
         {
-          ++fi;
+          fi = fi_next;
         }
         if (delta >= 0)
         {
-          ++gi;
+          gi = gi_next;
         }
+      }
+      else if (fi_next != fpts.end())
+      {
+        fi = fi_next;
+      }
+      else if (gi_next != gpts.end())
+      {
+        gi = gi_next;
       }
       else
       {
-        if (fi + 1 < fsz)
-        {
-          ++fi;
-        }
-        else if (gi + 1 < gsz)
-        {
-          ++gi;
-        }
-        else
-        {
-          rect.left = tprev;
-          rect.right = b;
-          rect.top = fv;
-          rect.bottom = gv;
+        rect.left = tprev;
+        rect.right = b;
+        rect.top = fv;
+        rect.bottom = gv;
 
-          cb(rect);
+        cb(rect);
 
-          return;
-        }
+        return;
       }
 
-      t = std::min(std::max(fpts[fi].t, gpts[gi].t), b);
+      t = std::min(std::max(fi->t, gi->t), b);
 
       rect.left = tprev;
       rect.right = t;
@@ -118,13 +119,13 @@ namespace mpcf
     }
   }
 
-  template <typename PointFwdIterator, typename FCb>
-  inline void iterate_segments(PointFwdIterator beginPoints, PointFwdIterator endPoints, 
-    typename std::iterator_traits<PointFwdIterator>::value_type::time_type a, 
-    typename std::iterator_traits<PointFwdIterator>::value_type::time_type b, 
+  template <typename PointBiDirIterator, typename FCb>
+  inline void iterate_segments(PointBiDirIterator beginPoints, PointBiDirIterator endPoints,
+    typename std::iterator_traits<PointBiDirIterator>::value_type::time_type a,
+    typename std::iterator_traits<PointBiDirIterator>::value_type::time_type b,
     FCb cb)
   {
-    using TPoint = typename std::iterator_traits<PointFwdIterator>::value_type;
+    using TPoint = typename std::iterator_traits<PointBiDirIterator>::value_type;
     using TTime = typename TPoint::time_type;
     using TVal = typename TPoint::value_type;
 
@@ -133,30 +134,40 @@ namespace mpcf
       return;
     }
 
-    // TODO: start at 'a', end at 'b'
+    // float32_t (0 * inf) does not produce 0, so cap b at max instead of using infinity
+    b = std::min(b, (std::numeric_limits<TTime>::max)());
 
-    TTime tprev = beginPoints->t;
-    TVal vprev = beginPoints->v;
+    // Find k = max{i : ti <= a}
+    auto prev = max_time_iterator_prior_to(beginPoints, endPoints, a);
+    auto it = std::next(prev);
+
+    TTime tprev = a;
+    TVal vprev = prev->v;
 
     Segment<TTime, TVal> seg;
-    for (auto it = std::next(beginPoints); it != endPoints; ++it)
+    for (; it != endPoints; ++it)
     {
+      TTime tnext = std::min(it->t, b);
       seg.left = tprev;
-      seg.right = it->t;
+      seg.right = tnext;
       seg.value = vprev;
 
       cb(seg);
 
-      tprev = seg.right;
+      if (tnext >= b)
+      {
+        return;
+      }
+
+      tprev = it->t;
       vprev = it->v;
     }
 
     seg.left = tprev;
-    seg.right = (std::numeric_limits<TTime>::max)(); // float32_t (0 * inf) does not produce 0, so use max instead.
+    seg.right = b;
     seg.value = vprev;
 
     cb(seg);
-    
   }
 }
 

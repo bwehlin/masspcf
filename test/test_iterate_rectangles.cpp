@@ -82,10 +82,21 @@ TEST_F(IterateRectanglesFixture, StartLate)
   EXPECT_EQ(rectangles[5], Rectangle().l(8.).r(Point::infinite_time()).fv(0.).gv(3.));
 }
 
+TEST_F(IterateRectanglesFixture, StartLateAndEndEarly)
+{
+  mpcf::iterate_rectangles(pcfs[0].points(), pcfs[1].points(), collectRectangle, 2., 4.5);
+
+  ASSERT_EQ(rectangles.size(), 3);
+
+  EXPECT_EQ(rectangles[0], Rectangle().l(2.).r(3.).fv(2.).gv(2.));
+  EXPECT_EQ(rectangles[1], Rectangle().l(3.).r(4.).fv(2.).gv(4.));
+  EXPECT_EQ(rectangles[2], Rectangle().l(4.).r(4.5).fv(5.).gv(2.));
+}
+
 TEST_F(IterateRectanglesFixture, StartAfterEverything)
 {
   mpcf::iterate_rectangles(pcfs[0].points(), pcfs[1].points(), collectRectangle, 10.);
-  
+
   ASSERT_EQ(rectangles.size(), 1);
 
   EXPECT_EQ(rectangles[0], Rectangle().l(10.).r(Point::infinite_time()).fv(0.).gv(3.));

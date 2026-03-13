@@ -26,14 +26,7 @@ namespace mpcf
   template <typename T>
   constexpr T infinity()
   {
-    if constexpr (std::numeric_limits<T>::has_infinity)
-    {
-      return std::numeric_limits<T>::infinity();
-    }
-    else
-    {
-      return (std::numeric_limits<T>::max)();
-    }
+    return (std::numeric_limits<T>::max)();
   }
   
   template <typename Tt, typename Tv>
