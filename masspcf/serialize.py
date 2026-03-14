@@ -44,7 +44,6 @@ def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = 
         else:
             raise TypeError('content must have dtype either np.float32 or np.float64.')
 
-    print(f'DTYPE {dtype}')
     _check_deprecated_dtype(dtype)
 
     if dtype == pcf32 and content.dtype != np.float32:

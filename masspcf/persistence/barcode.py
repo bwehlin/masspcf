@@ -53,7 +53,7 @@ class Barcode:
     def __str__(self):
         return self._data.__str__()
 
-    def __repr(self):
+    def __repr__(self):
         return self._data.__repr__()
 
     def is_isomorphic_to(self, bc : Barcode):
