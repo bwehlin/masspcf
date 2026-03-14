@@ -114,8 +114,8 @@ class Pcf:
       return Pcf(cpp.Backend_f32_f32.add(*params))
     elif _has_matching_types(self, tPcf_f64_f64):
       return Pcf(cpp.Backend_f64_f64.add(*params))
-    
-    return self
+
+    raise TypeError(f'Unsupported PCF type for addition ({type(self._data).__name__})')
   
   def __truediv__(self, c):
     self._data = self._data.div_scalar(c)

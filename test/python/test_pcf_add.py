@@ -1,0 +1,63 @@
+#  Copyright 2024-2026 Bjorn Wehlin
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+import pytest
+import masspcf as mpcf
+import numpy as np
+import numpy.testing as npt
+
+
+def test_add_f32():
+    a = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float32))
+    b = mpcf.Pcf(np.array([[0., 4.], [2., 5.]], dtype=np.float32))
+
+    c = a + b
+
+    assert isinstance(c, mpcf.Pcf)
+    result = c.to_numpy()
+    assert result[0, 1] == pytest.approx(5., abs=1e-5)
+    assert result[1, 1] == pytest.approx(8., abs=1e-5)
+
+
+def test_add_f64():
+    a = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float64))
+    b = mpcf.Pcf(np.array([[0., 4.], [2., 5.]], dtype=np.float64))
+
+    c = a + b
+
+    assert isinstance(c, mpcf.Pcf)
+    result = c.to_numpy()
+    assert result[0, 1] == pytest.approx(5., abs=1e-10)
+    assert result[1, 1] == pytest.approx(8., abs=1e-10)
+
+
+def test_add_mismatched_types_raises():
+    a = mpcf.Pcf(np.array([[0., 1.]], dtype=np.float32))
+    b = mpcf.Pcf(np.array([[0., 1.]], dtype=np.float64))
+
+    with pytest.raises(TypeError, match='Mismatched PCF types'):
+        a + b
+
+
+def test_add_does_not_modify_operands():
+    a = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float32))
+    b = mpcf.Pcf(np.array([[0., 4.], [2., 5.]], dtype=np.float32))
+
+    a_orig = a.to_numpy().copy()
+    b_orig = b.to_numpy().copy()
+
+    _ = a + b
+
+    npt.assert_array_equal(a.to_numpy(), a_orig)
+    npt.assert_array_equal(b.to_numpy(), b_orig)
