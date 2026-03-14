@@ -29,3 +29,22 @@
    ...
    fun:pybind11_init__mpcf*
 }
+
+# CPython does not free all memory at shutdown by design.
+# Extension module init (NumPy, stdlib C modules, etc.) allocates
+# persistent state that is never freed.
+{
+   cpython_module_exec
+   Memcheck:Leak
+   ...
+   fun:PyModule_ExecDef
+}
+
+# Interned Unicode strings are intentionally kept alive for the
+# lifetime of the interpreter.
+{
+   cpython_unicode_new
+   Memcheck:Leak
+   ...
+   fun:PyUnicode_New
+}
