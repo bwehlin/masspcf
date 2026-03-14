@@ -13,9 +13,7 @@
    pybind11_argument_record_vector
    Memcheck:Leak
    ...
-   fun:*argument_record*
-   ...
-   fun:*cpp_function*initialize*
+   fun:_ZN8pybind116detail26append_self_arg_if_neededE*
 }
 
 {
@@ -23,6 +21,13 @@
    Memcheck:Leak
    ...
    fun:_ZN8pybind1112cpp_function18initialize_genericE*
+}
+
+{
+   pybind11_initialize_template
+   Memcheck:Leak
+   ...
+   fun:_ZN8pybind1112cpp_function10initializeI*
 }
 
 {
