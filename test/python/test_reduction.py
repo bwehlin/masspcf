@@ -49,3 +49,82 @@ def test_mean_of_2x3():
 
     assert False
 """
+
+
+def test_mean_f64():
+    A = mpcf.zeros((2,), dtype=mpcf.pcf64)
+    A[0] = mpcf.Pcf(np.array([[0., 4.], [2., 0.]], dtype=np.float64))
+    A[1] = mpcf.Pcf(np.array([[0., 2.], [2., 0.]], dtype=np.float64))
+
+    avg = mpcf.mean(A)
+    assert isinstance(avg, mpcf.Pcf)
+    avg_data = avg.to_numpy()
+    assert avg_data[0][1] == pytest.approx(3.0, abs=1e-7)
+
+
+def test_mean_2d_dim0():
+    X = mpcf.zeros((2, 3))
+    X[0, 0] = mpcf.Pcf(np.array([[0., 2.], [1., 0.]], dtype=np.float32))
+    X[1, 0] = mpcf.Pcf(np.array([[0., 4.], [1., 0.]], dtype=np.float32))
+
+    avg = mpcf.mean(X, dim=0)
+    assert avg.shape == (3,)
+
+
+def test_mean_2d_dim1():
+    X = mpcf.zeros((2, 3))
+    X[0, 0] = mpcf.Pcf(np.array([[0., 6.], [1., 0.]], dtype=np.float32))
+    X[0, 1] = mpcf.Pcf(np.array([[0., 2.], [1., 0.]], dtype=np.float32))
+    X[0, 2] = mpcf.Pcf(np.array([[0., 4.], [1., 0.]], dtype=np.float32))
+
+    avg = mpcf.mean(X, dim=1)
+    assert avg.shape == (2,)
+
+
+def test_get_tensor_and_backend_invalid():
+    from masspcf.reductions import _get_tensor_and_backend
+    with pytest.raises(ValueError, match='Unsupported input type'):
+        _get_tensor_and_backend("not a tensor")
+
+
+def test_max_time_1d():
+    A = mpcf.zeros((2,))
+    A[0] = mpcf.Pcf(np.array([[0., 1.], [5., 0.]], dtype=np.float32))
+    A[1] = mpcf.Pcf(np.array([[0., 1.], [3., 0.]], dtype=np.float32))
+
+    result = mpcf.max_time(A)
+    assert isinstance(result, float)
+    assert result == pytest.approx(5.0, abs=1e-5)
+
+
+def test_max_time_f64():
+    A = mpcf.zeros((2,), dtype=mpcf.pcf64)
+    A[0] = mpcf.Pcf(np.array([[0., 1.], [7., 0.]], dtype=np.float64))
+    A[1] = mpcf.Pcf(np.array([[0., 1.], [3., 0.]], dtype=np.float64))
+
+    result = mpcf.max_time(A)
+    assert isinstance(result, float)
+    assert result == pytest.approx(7.0, abs=1e-10)
+
+
+def test_max_time_2d():
+    X = mpcf.zeros((2, 3))
+    X[0, 0] = mpcf.Pcf(np.array([[0., 1.], [10., 0.]], dtype=np.float32))
+    X[0, 1] = mpcf.Pcf(np.array([[0., 1.], [6., 0.]], dtype=np.float32))
+    X[0, 2] = mpcf.Pcf(np.array([[0., 1.], [4., 0.]], dtype=np.float32))
+    X[1, 0] = mpcf.Pcf(np.array([[0., 1.], [3., 0.]], dtype=np.float32))
+    X[1, 1] = mpcf.Pcf(np.array([[0., 1.], [8., 0.]], dtype=np.float32))
+    X[1, 2] = mpcf.Pcf(np.array([[0., 1.], [2., 0.]], dtype=np.float32))
+
+    result = mpcf.max_time(X, dim=0)
+    assert result.shape == (3,)
+    result_np = np.asarray(result)
+    assert result_np[0] == pytest.approx(10.0, abs=1e-5)
+    assert result_np[1] == pytest.approx(8.0, abs=1e-5)
+    assert result_np[2] == pytest.approx(4.0, abs=1e-5)
+
+    result1 = mpcf.max_time(X, dim=1)
+    assert result1.shape == (2,)
+    result1_np = np.asarray(result1)
+    assert result1_np[0] == pytest.approx(10.0, abs=1e-5)
+    assert result1_np[1] == pytest.approx(8.0, abs=1e-5)
