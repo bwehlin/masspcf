@@ -844,6 +844,20 @@ elseif (NOT SKBUILD)
 endif ()
 
 # ============================================================
+# clean_masspcf — remove symlinks from source tree and all
+#                 masspcf content from site-packages
+# ============================================================
+if (NOT SKBUILD)
+  add_custom_target(clean_masspcf
+    COMMAND ${CMAKE_COMMAND}
+      -DSRC_DIR=${CMAKE_CURRENT_SOURCE_DIR}/masspcf
+      -DSITE_DIR=${SITE_PKG_MASSPCF}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/clean_masspcf.cmake
+    COMMENT "Cleaning masspcf symlinks and site-packages content"
+  )
+endif ()
+
+# ============================================================
 # Valgrind / debug info configuration (Linux only)
 # ============================================================
 
