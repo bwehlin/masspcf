@@ -58,6 +58,9 @@ def lp_norm(fs : PcfContainerLike, p=1, verbose=False):
         `numpy.ndarray` of the same shape as `fs` with :math:`L_p` norms of the input functions.
       """
 
+    if p < 1:
+        raise ValueError('p must be >= 1.')
+
     X = _to_tensor_pcf(fs)
 
     backend, fs = _get_norms_backend(fs)

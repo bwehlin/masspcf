@@ -16,15 +16,34 @@ from typing import Union
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .typing import float32, float64, pcf32, pcf64, f32, f64, _validate_dtype, _check_deprecated_dtype
+from .typing import float32, float64, pcf32, pcf64, f32, f64, _validate_dtype, _check_deprecated_dtype, _assert_valid_dtype
 
 class Pcf:
-  """
-  Piecewise Constant Function
+  r"""A piecewise constant function (PCF).
+
+  A PCF is defined by a sequence of (time, value) pairs
+  :math:`(t_0, v_0), (t_1, v_1), \ldots, (t_{n-1}, v_{n-1})` with
+  :math:`t_0 = 0` and :math:`t_0 < t_1 < \cdots < t_{n-1}`. The function
+  takes the value :math:`v_i` on the interval :math:`[t_i, t_{i+1})` for
+  :math:`0 \leq i < n-1`, and :math:`v_{n-1}` on :math:`[t_{n-1}, \infty)`.
 
   Parameters
   ----------
-  arr : (n x 2) array of values, first
+  arr : numpy.ndarray or Pcf or list
+      Input data. If an ndarray or list, should have shape (n, 2) where each
+      row is a (time, value) pair. Can also be an existing ``Pcf`` to copy.
+  dtype : type, optional
+      Data type for the PCF (``pcf32`` or ``pcf64``). If ``None``, the dtype
+      is inferred from the input array (e.g. a ``numpy.float32`` array
+      produces a 32-bit PCF).
+
+  Examples
+  --------
+  >>> import numpy as np
+  >>> import masspcf as mpcf
+  >>> f = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.0]], dtype=np.float32))
+  >>> f.size()
+  3
   """
   def __init__(self, arr : np.ndarray, dtype=None):
     if isinstance(arr, Pcf):
@@ -95,13 +114,17 @@ class Pcf:
     return self._get_time_type() + '_' + self._get_value_type()
 
   def to_numpy(self):
+    """Convert the PCF to a numpy array of shape (n, 2) with (time, value) rows."""
     return np.asarray(self._data)
 
   def _debug_print(self):
     self._data.debugPrint()
 
   def astype(self, dtype):
-    return Pcf(self.to_numpy().astype(dtype))
+    """Return a copy of the PCF cast to the given dtype (``pcf32`` or ``pcf64``)."""
+    _assert_valid_dtype(dtype, [pcf32, pcf64, np.float32, np.float64])
+    np_dtype = {pcf32: np.float32, pcf64: np.float64}.get(dtype, dtype)
+    return Pcf(self.to_numpy().astype(np_dtype))
 
   def __add__(self, rhs):
     if not _has_matching_types(self, rhs):

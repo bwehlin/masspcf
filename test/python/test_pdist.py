@@ -3,6 +3,21 @@ import pytest
 
 import numpy as np
 
+def test_pdist_rejects_p_less_than_1():
+    X = mpcf.zeros((2,))
+    with pytest.raises(ValueError, match='p must be >= 1'):
+        mpcf.pdist(X, p=0.5)
+
+def test_pdist_rejects_p_zero():
+    X = mpcf.zeros((2,))
+    with pytest.raises(ValueError, match='p must be >= 1'):
+        mpcf.pdist(X, p=0)
+
+def test_pdist_rejects_p_negative():
+    X = mpcf.zeros((2,))
+    with pytest.raises(ValueError, match='p must be >= 1'):
+        mpcf.pdist(X, p=-1)
+
 def test_pdist_requires_1d_tensor():
     X = mpcf.zeros((10, 20))
 

@@ -27,6 +27,37 @@ def _get_distance_backend(fs) -> cpp.Distance_f32_f32 | cpp.Distance_f64_f64:
     return _get_backend(fs, mapping)
 
 def pdist(fs : PcfContainerLike, p=1, verbose=True):
+    r"""Compute the pairwise :math:`L_p` distance matrix for a 1-D tensor of PCFs.
+
+    For a tensor :math:`(f_0, f_1, \ldots, f_{n-1})`, returns an
+    :math:`n \times n` matrix :math:`D` where
+
+    .. math::
+        D_{ij} = \Vert f_i - f_j \Vert_p.
+
+    Parameters
+    ----------
+    fs : PcfContainerLike
+        A 1-D tensor of PCFs.
+    p : float, optional
+        The :math:`p` parameter in the :math:`L_p` distance (must be
+        :math:`\geq 1`), by default 1.
+    verbose : bool, optional
+        Show progress information during computation, by default True.
+
+    Returns
+    -------
+    numpy.ndarray
+        An :math:`n \times n` distance matrix.
+
+    Raises
+    ------
+    ValueError
+        If ``fs`` is not 1-dimensional.
+    """
+    if p < 1:
+        raise ValueError('p must be >= 1.')
+
     X = _to_tensor_pcf(fs)
 
     if len(X.shape) != 1:

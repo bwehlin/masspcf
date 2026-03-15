@@ -1,6 +1,22 @@
 import masspcf as mpcf
 import numpy as np
 import numpy.testing as npt
+import pytest
+
+def test_lp_norm_rejects_p_less_than_1():
+    X = mpcf.zeros((2,))
+    with pytest.raises(ValueError, match='p must be >= 1'):
+        mpcf.lp_norm(X, p=0.5)
+
+def test_lp_norm_rejects_p_zero():
+    X = mpcf.zeros((2,))
+    with pytest.raises(ValueError, match='p must be >= 1'):
+        mpcf.lp_norm(X, p=0)
+
+def test_lp_norm_rejects_p_negative():
+    X = mpcf.zeros((2,))
+    with pytest.raises(ValueError, match='p must be >= 1'):
+        mpcf.lp_norm(X, p=-1)
 
 def get_test_data():
     X = mpcf.zeros((2,3), dtype=mpcf.pcf64)
