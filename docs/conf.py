@@ -49,7 +49,7 @@ if gen_cpp_docs:
 
     exhale_args = {
         # These arguments are required
-        "containmentFolder":     "./_build_cpp_api",
+        "containmentFolder":     "./cpp_api",
         "rootFileName":          "library_root.rst",
         "doxygenStripFromPath":  "..",
         # Heavily encouraged optional argument (see docs)
