@@ -26,6 +26,32 @@ def _get_backend(dtype):
         return cpp.Random_f64_f64
 
 def noisy_sin(shape, n_points=20, dtype=pcf32):
+    r"""Generate a tensor of noisy :math:`\sin(2\pi t)` PCFs.
+
+    Each generated PCF has the form
+
+    .. math::
+        f(t) = \sin(2\pi t) + \varepsilon(t)
+
+    where :math:`\varepsilon(t) \sim \mathcal{N}(0, 0.1)` is sampled
+    independently at each breakpoint. The breakpoints are drawn uniformly
+    from :math:`[0, 1]` and sorted, with the first breakpoint fixed at
+    :math:`t = 0` and the last value set to :math:`0`.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Shape of the output tensor.
+    n_points : int, optional
+        Number of breakpoints per PCF, by default 20.
+    dtype : type, optional
+        ``pcf32`` or ``pcf64``, by default ``pcf32``.
+
+    Returns
+    -------
+    Pcf32Tensor or Pcf64Tensor
+        Tensor of noisy sine PCFs with the given shape.
+    """
     backend = _get_backend(dtype)
 
     A = zeros(shape, dtype=dtype)
@@ -34,6 +60,32 @@ def noisy_sin(shape, n_points=20, dtype=pcf32):
     return A
 
 def noisy_cos(shape, n_points=20, dtype=pcf32):
+    r"""Generate a tensor of noisy :math:`\cos(2\pi t)` PCFs.
+
+    Each generated PCF has the form
+
+    .. math::
+        f(t) = \cos(2\pi t) + \varepsilon(t)
+
+    where :math:`\varepsilon(t) \sim \mathcal{N}(0, 0.1)` is sampled
+    independently at each breakpoint. The breakpoints are drawn uniformly
+    from :math:`[0, 1]` and sorted, with the first breakpoint fixed at
+    :math:`t = 0` and the last value set to :math:`0`.
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Shape of the output tensor.
+    n_points : int, optional
+        Number of breakpoints per PCF, by default 20.
+    dtype : type, optional
+        ``pcf32`` or ``pcf64``, by default ``pcf32``.
+
+    Returns
+    -------
+    Pcf32Tensor or Pcf64Tensor
+        Tensor of noisy cosine PCFs with the given shape.
+    """
     backend = _get_backend(dtype)
 
     A = zeros(shape, dtype=dtype)

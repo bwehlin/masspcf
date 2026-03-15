@@ -44,9 +44,63 @@ def _to_tensor_or_val(outFs):
         raise ValueError('Invalid output type (this is probably a bug -- please report it!).')
 
 def mean(fs : PcfContainerLike, dim : int=0):
+    r"""Compute the pointwise mean of a PCF tensor along the given dimension.
+
+    The mean is computed pointwise in time: for functions
+    :math:`f_1, f_2, \ldots, f_n` being reduced, the resulting function
+    :math:`\bar{f}` satisfies
+
+    .. math::
+        \bar{f}(t) = \frac{1}{n} \sum_{i=1}^{n} f_i(t)
+
+    for all :math:`t`.
+
+    See :ref:`tensors:How dim works` for a detailed explanation of dimension
+    reduction semantics.
+
+    Parameters
+    ----------
+    fs : PcfContainerLike
+        A ``Pcf32Tensor`` or ``Pcf64Tensor``.
+    dim : int, optional
+        Dimension along which to reduce, by default 0.
+
+    Returns
+    -------
+    Pcf or PcfTensor
+        A single ``Pcf`` if the result is scalar, otherwise a ``PcfTensor``
+        with the reduced dimension removed.
+    """
     tensor, backend = _get_tensor_and_backend(fs)
     return _to_tensor_or_val(backend.mean(tensor._data, dim))
 
 def max_time(fs : PcfContainerLike, dim : int=0):
+    r"""Compute the maximum breakpoint time along the given dimension.
+
+    For each PCF :math:`f_i` with breakpoints
+    :math:`(t_0^{(i)}, t_1^{(i)}, \ldots, t_{n_i-1}^{(i)})`, let
+    :math:`T_i = t_{n_i-1}^{(i)}` be the last breakpoint. For functions
+    :math:`f_1, f_2, \ldots, f_n` being reduced, this returns
+
+    .. math::
+        \max(T_1, T_2, \ldots, T_n).
+
+    The result is numeric, not a PCF.
+
+    See :ref:`tensors:How dim works` for a detailed explanation of dimension
+    reduction semantics.
+
+    Parameters
+    ----------
+    fs : PcfContainerLike
+        A ``Pcf32Tensor`` or ``Pcf64Tensor``.
+    dim : int, optional
+        Dimension along which to reduce, by default 0.
+
+    Returns
+    -------
+    float or Float32Tensor or Float64Tensor
+        A scalar if the result is 0-dimensional, otherwise a numeric tensor.
+    """
     tensor, backend = _get_tensor_and_backend(fs)
     return _to_tensor_or_val(backend.max_time(tensor._data, dim))

@@ -24,6 +24,31 @@ from .barcode import Barcode
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 
 def barcode_to_stable_rank(bc : Barcode | Barcode32Tensor | Barcode64Tensor, verbose=True):
+    r"""Convert a barcode (or tensor of barcodes) to a stable rank function.
+
+    The stable rank of a barcode is the PCF that counts, for each
+    :math:`t \geq 0`, the number of bars with length (death minus birth)
+    strictly greater than :math:`t` [1]_.
+
+    Parameters
+    ----------
+    bc : Barcode, Barcode32Tensor, or Barcode64Tensor
+        A single barcode or a tensor of barcodes.
+    verbose : bool, optional
+        Show progress information, by default True.
+
+    Returns
+    -------
+    Pcf or PcfTensor
+        A single ``Pcf`` if the input is a single ``Barcode``, otherwise a
+        ``PcfTensor`` with the same shape as the input.
+
+    References
+    ----------
+    .. [1] W. Chachólski and H. Riihimäki, "Metrics and stabilization in
+       one parameter persistence", *SIAM Journal on Applied Algebra and
+       Geometry*, vol. 4, no. 1, pp. 69--98, 2020.
+    """
 
     backend, X = _get_backend(bc, {
         barcode32 : cpp_p.PersistenceStableRank32,

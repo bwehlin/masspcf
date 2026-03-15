@@ -37,7 +37,7 @@ namespace mpcf
 
     std::mt19937_64 gen;
     std::uniform_real_distribution<Tt> tDist(static_cast<Tt>(0.), static_cast<Tt>(1.));
-    std::uniform_real_distribution<Tv> vDist(static_cast<Tv>(0.), noise);
+    std::normal_distribution<Tv> vDist(static_cast<Tv>(0.), noise);
 
     std::vector<Tt> randomTs(nPoints, static_cast<Tt>(0.));
     std::vector<Tv> randomNoises(nPoints, static_cast<Tt>(0.));

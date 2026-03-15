@@ -12,12 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .tensor import PcfContainerLike, Float32Tensor, Float64Tensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor
+from .tensor import Tensor, Float32Tensor, Float64Tensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor
 from .persistence import Barcode32Tensor, Barcode64Tensor
 
 import masspcf._mpcf_cpp as cpp
 
-def _save(item: PcfContainerLike, file):
+def _save(item: Tensor, file):
     _SAVE_DISPATCH = {
         Float32Tensor:      cpp.IoOps.save_float32_tensor,
         Float64Tensor:      cpp.IoOps.save_float64_tensor,
@@ -54,14 +54,39 @@ def _load(file):
         raise TypeError(f'File contains unsupported tensor of type {type(cpp_tensor)}')
     return ctor(cpp_tensor)
 
-def save(item: PcfContainerLike, file):
+def save(item: Tensor, file):
+    """Save a tensor to a file in masspcf's binary format.
+
+    All tensor types are supported (PCF, numeric, point cloud, barcode).
+
+    Parameters
+    ----------
+    item : Tensor
+        The tensor to save.
+    file : str or file-like
+        A file path or an open file object in binary write mode.
+    """
     if isinstance(file, str):
         with open(file, 'wb') as f:
             _save(item, f)
     else:
         _save(item, file)
 
-def load(file):
+def load(file) -> Tensor:
+    """Load a tensor from a file in masspcf's binary format.
+
+    The returned tensor will have the same type and dtype as what was saved.
+
+    Parameters
+    ----------
+    file : str or file-like
+        A file path or an open file object in binary read mode.
+
+    Returns
+    -------
+    Tensor
+        The loaded tensor.
+    """
     if isinstance(file, str):
         with open(file, 'rb') as f:
             return _load(f)

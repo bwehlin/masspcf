@@ -1,0 +1,77 @@
+#  Copyright 2024-2026 Bjorn Wehlin
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+import pytest
+import masspcf as mpcf
+import numpy as np
+import numpy.testing as npt
+
+
+def test_astype_pcf32_to_pcf64():
+    f = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float32))
+    g = f.astype(mpcf.pcf64)
+
+    assert g.vtype == np.float64
+    npt.assert_array_almost_equal(f.to_numpy(), g.to_numpy(), decimal=5)
+
+
+def test_astype_pcf64_to_pcf32():
+    f = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float64))
+    g = f.astype(mpcf.pcf32)
+
+    assert g.vtype == np.float32
+    npt.assert_array_almost_equal(f.to_numpy(), g.to_numpy(), decimal=5)
+
+
+def test_astype_np_float32():
+    f = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float64))
+    g = f.astype(np.float32)
+
+    assert g.vtype == np.float32
+
+
+def test_astype_np_float64():
+    f = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float32))
+    g = f.astype(np.float64)
+
+    assert g.vtype == np.float64
+
+
+def test_astype_same_dtype():
+    f = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float32))
+    g = f.astype(mpcf.pcf32)
+
+    assert g.vtype == np.float32
+    npt.assert_array_equal(f.to_numpy(), g.to_numpy())
+
+
+def test_astype_returns_copy():
+    f = mpcf.Pcf(np.array([[0., 1.], [2., 3.]], dtype=np.float32))
+    g = f.astype(mpcf.pcf32)
+
+    assert f is not g
+
+
+def test_astype_rejects_string():
+    f = mpcf.Pcf(np.array([[0., 1.]], dtype=np.float32))
+
+    with pytest.raises(TypeError):
+        f.astype("float32")
+
+
+def test_astype_rejects_int():
+    f = mpcf.Pcf(np.array([[0., 1.]], dtype=np.float32))
+
+    with pytest.raises(TypeError):
+        f.astype(int)

@@ -42,6 +42,42 @@ def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Fl
                                 complex_type: ComplexType = ComplexType.VietorisRips,
                                 verbose : bool = True) \
         -> Barcode32Tensor | Barcode64Tensor :
+    r"""Compute persistent homology of a point cloud.
+
+    Returns barcodes for homology dimensions 0 through ``maxDim``. When
+    ``complex_type`` is ``ComplexType.VietorisRips`` (currently the only
+    available option), the computation uses Ripser [1]_. When the input
+    contains multiple point clouds, the computations are parallelized
+    across them.
+
+    For an input tensor of shape :math:`(d_1, \ldots, d_n)`, the output has
+    shape :math:`(d_1, \ldots, d_n, \texttt{maxDim} + 1)`.
+
+    Parameters
+    ----------
+    X : PointCloud32Tensor, PointCloud64Tensor, Float32Tensor, Float64Tensor, or numpy.ndarray
+        Input point cloud. A ``Float32/64Tensor`` or NumPy array is
+        interpreted as a single point cloud (one row per point).
+    maxDim : int, optional
+        Maximum homology dimension to compute, by default 1.
+    distance_type : DistanceType, optional
+        Distance metric, by default ``DistanceType.Euclidean``.
+    complex_type : ComplexType, optional
+        Simplicial complex type, by default ``ComplexType.VietorisRips``.
+    verbose : bool, optional
+        Show progress information, by default True.
+
+    Returns
+    -------
+    Barcode32Tensor or Barcode64Tensor
+        A tensor of barcodes.
+
+    References
+    ----------
+    .. [1] U. Bauer, "Ripser: efficient computation of Vietoris-Rips
+       persistence barcodes", *Journal of Applied and Computational
+       Topology*, vol. 5, pp. 391--423, 2021.
+    """
 
     from ..tensor_create import zeros
     from .ripser import _compute_barcodes_euclidean_pcloud_ripser

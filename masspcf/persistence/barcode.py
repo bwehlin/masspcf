@@ -22,6 +22,17 @@ cpp_p = cpp.persistence
 import numpy as np
 
 class Barcode:
+    """A persistence barcode, i.e. a collection of bars (birth-death intervals).
+
+    A barcode is represented as an (n, 2) array where each row is a bar
+    given as a ``(birth, death)`` pair from a persistent homology computation.
+
+    Parameters
+    ----------
+    bc : Barcode or numpy.ndarray
+        An existing ``Barcode`` to copy, or an (n, 2) NumPy array of
+        ``(birth, death)`` pairs (``float32`` or ``float64``).
+    """
     def __init__(self, bc):
         fail = False
         if isinstance(bc, Barcode):
@@ -57,4 +68,5 @@ class Barcode:
         return self._data.__repr__()
 
     def is_isomorphic_to(self, bc : Barcode):
+        """Check whether two barcodes are isomorphic (same multiset of bars)."""
         return self._data.is_isomorphic_to(bc._data)

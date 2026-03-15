@@ -133,7 +133,44 @@ To collapse all dimensions into one::
 Reductions
 ==========
 
-Reductions collapse a tensor along a specified dimension.
+Reductions collapse a tensor along a specified dimension. The ``dim`` parameter
+selects which axis to reduce over: every "slice" along that axis is combined
+into a single output value.
+
+How ``dim`` works
+-----------------
+
+Consider a 2-D tensor ``A`` of shape ``(m, n)``:
+
+.. code-block:: text
+
+   A = [ [ A[0,0]  A[0,1]  ...  A[0,n-1] ],       shape (m, n)
+         [ A[1,0]  A[1,1]  ...  A[1,n-1] ],
+           ...
+         [ A[m-1,0] A[m-1,1] ... A[m-1,n-1] ] ]
+
+**Reducing along dim=0** (the row axis) combines elements that share the same
+column index. For each column ``j``, the elements ``A[0,j], A[1,j], ...,
+A[m-1,j]`` are reduced together. The result has shape ``(n,)``::
+
+   # result[j] = reduce(A[0,j], A[1,j], ..., A[m-1,j])
+   result = mpcf.mean(A, dim=0)    # shape (n,)
+
+**Reducing along dim=1** (the column axis) combines elements that share the same
+row index. For each row ``i``, the elements ``A[i,0], A[i,1], ..., A[i,n-1]``
+are reduced together. The result has shape ``(m,)``::
+
+   # result[i] = reduce(A[i,0], A[i,1], ..., A[i,n-1])
+   result = mpcf.mean(A, dim=1)    # shape (m,)
+
+In general, for a tensor of shape ``(d_0, d_1, ..., d_k)``, reducing along
+``dim=j`` produces a result of shape ``(d_0, ..., d_{j-1}, d_{j+1}, ..., d_k)``
+-- the ``j``-th dimension is removed, and each position in the output
+corresponds to the reduction of all elements along that axis.
+
+When the result would be a single element (a tensor of shape ``(1,)``), masspcf
+returns a scalar (a ``Pcf`` or a ``float``) directly rather than a 1-element
+tensor.
 
 mean
 ----
@@ -159,8 +196,6 @@ For a higher-dimensional tensor, the specified dimension is collapsed::
    # Average across dim=0: result has shape (100,)
    col_means = mpcf.mean(A, dim=0)
 
-When the result would be a single element (a tensor of shape ``(1,)``), masspcf returns a ``Pcf`` directly rather than a 1-element tensor.
-
 max_time
 --------
 
@@ -168,7 +203,8 @@ max_time
 
    t_max = mpcf.max_time(X, dim=0)
 
-This is useful for aligning PCFs for plotting or further analysis.
+The result is a numeric value (or numeric tensor), not a PCF. This is useful for
+aligning PCFs for plotting or further analysis.
 
 
 Saving and loading
