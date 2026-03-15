@@ -13,6 +13,7 @@ copypy.bat
 cmake-build-*
 errors.txt
 *.png
+!docs/_static/*.png
 CMakeCache.txt
 CMakeFiles
 minbuild
