@@ -296,3 +296,7 @@ Here is a complete example that creates a tensor of noisy sine and cosine functi
    plt.ylabel('f(t)')
    plt.legend()
    plt.show()
+
+.. image:: _static/combining_example.png
+   :width: 80%
+   :alt: Noisy sine and cosine PCFs with their means
