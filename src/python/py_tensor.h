@@ -23,11 +23,28 @@
 #include <pybind11/stl.h>
 
 #include <mpcf/tensor.h>
+#include <mpcf/concepts.h>
 
 namespace mpcf_py
 {
   void register_tensor_bindings(pybind11::module_& m);
-  
+
+  template <typename T>
+  struct scalar_of
+  {
+    using type = T;
+  };
+
+  template <typename T>
+  requires requires { typename T::value_type; }
+  struct scalar_of<T>
+  {
+    using type = typename T::value_type;
+  };
+
+  template <typename T>
+  using scalar_of_t = typename scalar_of<T>::type;
+
   class Shape
   {
   public:
@@ -198,6 +215,73 @@ namespace mpcf_py
       .def("flatten", &TTensor::flatten)
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
+
+    using Tv = scalar_of_t<T>;
+
+    if constexpr (mpcf::CanAdd<T, T>)
+    {
+      cls
+        .def("__add__", [](const TTensor& self, const T& rhs){ return self + rhs; })
+        .def("__radd__", [](const TTensor& self, const T& lhs){ return lhs + self; })
+        .def("__iadd__", [](TTensor& self, const T& rhs) -> TTensor& { self += rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanAdd<T, Tv>)
+    {
+      cls
+        .def("__add__", [](const TTensor& self, Tv rhs){ return self + rhs; })
+        .def("__iadd__", [](TTensor& self, Tv rhs) -> TTensor& { self += rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanAdd<Tv, T>)
+    {
+      cls.def("__radd__", [](const TTensor& self, Tv lhs){ return lhs + self; });
+    }
+
+    if constexpr (mpcf::CanSubtract<T, T>)
+    {
+      cls
+        .def("__sub__", [](const TTensor& self, const T& rhs){ return self - rhs; })
+        .def("__rsub__", [](const TTensor& self, const T& lhs){ return lhs - self; })
+        .def("__isub__", [](TTensor& self, const T& rhs) -> TTensor& { self -= rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanSubtract<T, Tv>)
+    {
+      cls
+        .def("__sub__", [](const TTensor& self, Tv rhs){ return self - rhs; })
+        .def("__isub__", [](TTensor& self, Tv rhs) -> TTensor& { self -= rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanSubtract<Tv, T>)
+    {
+      cls.def("__rsub__", [](const TTensor& self, Tv lhs){ return lhs - self; });
+    }
+
+    if constexpr (mpcf::CanMultiply<T, Tv>)
+    {
+      cls
+        .def("__mul__", [](const TTensor& self, Tv rhs){ return self * rhs; })
+        .def("__imul__", [](TTensor& self, Tv rhs) -> TTensor& { self *= rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanMultiply<Tv, T>)
+    {
+      cls.def("__rmul__", [](const TTensor& self, Tv lhs){ return lhs * self; });
+    }
+
+    if constexpr (mpcf::CanDivide<T, Tv>)
+    {
+      cls
+        .def("__truediv__", [](const TTensor& self, Tv rhs){ return self / rhs; })
+        .def("__itruediv__", [](TTensor& self, Tv rhs) -> TTensor& { self /= rhs; return self; })
+      ;
+    }
 
   }
 }

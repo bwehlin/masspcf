@@ -102,6 +102,14 @@ namespace mpcf
       return *this;
     }
 
+    Pcf& operator-=(const Pcf& rhs)
+    {
+      *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
+        return rect.top - rect.bottom;
+        });
+      return *this;
+    }
+
     template <typename T>
     Pcf& operator/=(T v)
     {
@@ -174,9 +182,9 @@ namespace mpcf
   template <typename Tt, typename Tv>
   [[nodiscard]] Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
-    return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top - rect.bottom;
-    });
+    Pcf<Tt, Tv> ret = f;
+    ret -= g;
+    return ret;
   }
 
   template <typename Tt, typename Tv, typename Tdiv>

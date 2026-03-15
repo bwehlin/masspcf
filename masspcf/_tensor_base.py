@@ -104,6 +104,46 @@ class Tensor(ABC):
         """
         raise NotImplementedError()
 
+    def _decay_operand(self, val):
+        return val._data if hasattr(val, '_data') else val
+
+    def __add__(self, rhs):
+        return self._to_py_tensor(self._data + self._decay_operand(rhs))
+
+    def __radd__(self, lhs):
+        return self._to_py_tensor(self._decay_operand(lhs) + self._data)
+
+    def __iadd__(self, rhs):
+        self._data += self._decay_operand(rhs)
+        return self
+
+    def __sub__(self, rhs):
+        return self._to_py_tensor(self._data - self._decay_operand(rhs))
+
+    def __rsub__(self, lhs):
+        return self._to_py_tensor(self._decay_operand(lhs) - self._data)
+
+    def __isub__(self, rhs):
+        self._data -= self._decay_operand(rhs)
+        return self
+
+    def __mul__(self, rhs):
+        return self._to_py_tensor(self._data * self._decay_operand(rhs))
+
+    def __rmul__(self, lhs):
+        return self._to_py_tensor(self._decay_operand(lhs) * self._data)
+
+    def __imul__(self, rhs):
+        self._data *= self._decay_operand(rhs)
+        return self
+
+    def __truediv__(self, rhs):
+        return self._to_py_tensor(self._data / self._decay_operand(rhs))
+
+    def __itruediv__(self, rhs):
+        self._data /= self._decay_operand(rhs)
+        return self
+
     def flatten(self):
         return self._to_py_tensor(self._data.flatten())
 
