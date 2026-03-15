@@ -284,9 +284,8 @@ Here is a complete example that creates a tensor of noisy sine and cosine functi
    fig, ax = plt.subplots(figsize=(6, 2))
 
    # Plot individual noisy functions
-   for j in range(M):
-       plotpcf(A[0, j], ax=ax, color='b', linewidth=0.5, alpha=0.4)
-       plotpcf(A[1, j], ax=ax, color='r', linewidth=0.5, alpha=0.4)
+   plotpcf(A[0, :], ax=ax, color='b', linewidth=0.5, alpha=0.4)
+   plotpcf(A[1, :], ax=ax, color='r', linewidth=0.5, alpha=0.4)
 
    # Compute and plot means
    Aavg = mpcf.mean(A, dim=1)
