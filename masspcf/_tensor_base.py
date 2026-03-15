@@ -104,6 +104,28 @@ class Tensor(ABC):
         """
         raise NotImplementedError()
 
+    def flatten(self):
+        return self._to_py_tensor(self._data.flatten())
+
+    @property
+    def shape(self) -> Shape:
+        return self._data.shape
+
+    @property
+    def strides(self):
+        return self._data.strides
+
+    @property
+    def offset(self):
+        return self._data.offset
+
+    @staticmethod
+    def _validate_constructor_arg(tensor, arg, valid_types):
+        if not any(type(arg) == tp for tp in valid_types):
+            raise TypeError(f'Tried to construct tensor of type {type(tensor)} from argument of type {type(arg)}. Only the following type(s) are allowed: {valid_types}.')
+
+
+class ArithmeticTensorMixin:
     def _decay_operand(self, val):
         return val._data if hasattr(val, '_data') else val
 
@@ -143,24 +165,4 @@ class Tensor(ABC):
     def __itruediv__(self, rhs):
         self._data /= self._decay_operand(rhs)
         return self
-
-    def flatten(self):
-        return self._to_py_tensor(self._data.flatten())
-
-    @property
-    def shape(self) -> Shape:
-        return self._data.shape
-
-    @property
-    def strides(self):
-        return self._data.strides
-
-    @property
-    def offset(self):
-        return self._data.offset
-
-    @staticmethod
-    def _validate_constructor_arg(tensor, arg, valid_types):
-        if not any(type(arg) == tp for tp in valid_types):
-            raise TypeError(f'Tried to construct tensor of type {type(tensor)} from argument of type {type(arg)}. Only the following type(s) are allowed: {valid_types}.')
 
