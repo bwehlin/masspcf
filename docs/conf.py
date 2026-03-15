@@ -25,7 +25,7 @@ release = pyproj_toml['project']['version']
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.coverage',
               'sphinx.ext.napoleon',
-              'sphinx.ext.imgmath',
+              'sphinx.ext.mathjax',
               'sphinxcontrib.youtube',
               'nbsphinx',
               'sphinx_design']
