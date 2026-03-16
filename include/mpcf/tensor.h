@@ -133,6 +133,24 @@ namespace mpcf
     requires CanSubtractTo<T, T, U>
     [[nodiscard]] Tensor operator-(const U& u) const;
 
+    /**
+     * Return a broadcast view of this tensor with the given target shape.
+     * Dimensions of size 1 are expanded (stride set to 0); prepended dimensions also get stride 0.
+     * No data is copied — the result shares the underlying storage.
+     */
+    [[nodiscard]] Tensor broadcast_to(const std::vector<size_t>& target_shape) const;
+
+    // Tensor-Tensor arithmetic (broadcasting)
+    [[nodiscard]] Tensor operator+(const Tensor& rhs) const;
+    [[nodiscard]] Tensor operator-(const Tensor& rhs) const;
+    [[nodiscard]] Tensor operator*(const Tensor& rhs) const;
+    [[nodiscard]] Tensor operator/(const Tensor& rhs) const;
+
+    Tensor& operator+=(const Tensor& rhs);
+    Tensor& operator-=(const Tensor& rhs);
+    Tensor& operator*=(const Tensor& rhs);
+    Tensor& operator/=(const Tensor& rhs);
+
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
     [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
@@ -302,6 +320,31 @@ namespace mpcf
     {
       return shape_to_string(idx);
     }
+  }
+
+  inline std::vector<size_t> broadcast_shapes(
+    const std::vector<size_t>& a,
+    const std::vector<size_t>& b)
+  {
+    size_t ndim = std::max(a.size(), b.size());
+    std::vector<size_t> result(ndim);
+
+    for (size_t i = 0; i < ndim; ++i)
+    {
+      size_t da = (i < ndim - a.size()) ? 1 : a[i - (ndim - a.size())];
+      size_t db = (i < ndim - b.size()) ? 1 : b[i - (ndim - b.size())];
+
+      if (da == db)
+        result[i] = da;
+      else if (da == 1)
+        result[i] = db;
+      else if (db == 1)
+        result[i] = da;
+      else
+        throw std::runtime_error("Shapes are not broadcast-compatible: " +
+            shape_to_string(a) + " and " + shape_to_string(b));
+    }
+    return result;
   }
 
   template <ArithmeticType T>

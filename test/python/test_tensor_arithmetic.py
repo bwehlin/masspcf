@@ -197,3 +197,146 @@ class TestPcf64TensorArithmetic:
         X = self._make_tensor()
         Y = X / 4.0
         npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 0.25)
+
+
+# --- Tensor-Tensor broadcasting ---
+
+
+def _check_broadcast_op(np_a, np_b, op, TensorType=mpcf.Float64Tensor):
+    """Apply op to both numpy arrays and mpcf tensors, assert results match."""
+    X = TensorType(np_a)
+    Y = TensorType(np_b)
+    expected = op(np_a, np_b)
+    result = np.asarray(op(X, Y))
+    npt.assert_array_almost_equal(result, expected)
+
+
+class TestFloat64TensorBroadcast:
+    def test_add_same_shape(self):
+        a = np.array([1.0, 2.0, 3.0])
+        b = np.array([10.0, 20.0, 30.0])
+        _check_broadcast_op(a, b, lambda x, y: x + y)
+
+    def test_add_broadcast_row_vector(self):
+        a = np.array([[1.0, 2.0, 3.0, 4.0],
+                       [5.0, 6.0, 7.0, 8.0],
+                       [9.0, 10.0, 11.0, 12.0]])
+        b = np.array([100.0, 200.0, 300.0, 400.0])
+        _check_broadcast_op(a, b, lambda x, y: x + y)
+
+    def test_add_broadcast_both_expand(self):
+        a = np.array([[1.0], [2.0]])
+        b = np.array([[10.0, 20.0, 30.0]])
+        _check_broadcast_op(a, b, lambda x, y: x + y)
+
+    def test_sub_broadcast(self):
+        a = np.array([[10.0, 20.0], [30.0, 40.0]])
+        b = np.array([1.0, 2.0])
+        _check_broadcast_op(a, b, lambda x, y: x - y)
+
+    def test_mul_broadcast(self):
+        a = np.array([[1.0, 2.0], [3.0, 4.0]])
+        b = np.array([10.0, 20.0])
+        _check_broadcast_op(a, b, lambda x, y: x * y)
+
+    def test_truediv_broadcast(self):
+        a = np.array([[10.0, 20.0], [30.0, 40.0]])
+        b = np.array([2.0, 5.0])
+        _check_broadcast_op(a, b, lambda x, y: x / y)
+
+    def test_iadd_broadcast(self):
+        a = np.array([[1.0, 2.0], [3.0, 4.0]])
+        b = np.array([10.0, 20.0])
+        X = mpcf.Float64Tensor(a.copy())
+        Y = mpcf.Float64Tensor(b)
+        X += Y
+        expected = a + b
+        npt.assert_array_equal(np.asarray(X), expected)
+
+    def test_iadd_incompatible_raises(self):
+        X = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+        Y = mpcf.Float64Tensor(np.array([[1.0, 2.0], [3.0, 4.0]]))
+        try:
+            X += Y
+            assert False, "Should have raised"
+        except RuntimeError:
+            pass
+
+    def test_incompatible_shapes_raise(self):
+        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+        Y = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+        try:
+            _ = X + Y
+            assert False, "Should have raised"
+        except RuntimeError:
+            pass
+
+    def test_add_does_not_modify_originals(self):
+        a = np.array([1.0, 2.0, 3.0])
+        b = np.array([10.0, 20.0, 30.0])
+        X = mpcf.Float64Tensor(a)
+        Y = mpcf.Float64Tensor(b)
+        _ = X + Y
+        npt.assert_array_equal(np.asarray(X), a)
+        npt.assert_array_equal(np.asarray(Y), b)
+
+
+class TestFloat32TensorBroadcast:
+    def test_add_broadcast(self):
+        a = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        b = np.array([10.0, 20.0], dtype=np.float32)
+        _check_broadcast_op(a, b, lambda x, y: x + y, mpcf.Float32Tensor)
+
+
+class TestPcf32TensorBroadcast:
+    def test_add_tensor_tensor_same_shape(self):
+        X = mpcf.zeros((2,))
+        X[0] = _make_pcf32([[0, 1], [2, 3]])
+        X[1] = _make_pcf32([[0, 10], [2, 20]])
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 100], [2, 200]])
+        Y[1] = _make_pcf32([[0, 1000], [2, 2000]])
+        Z = X + Y
+        assert isinstance(Z, mpcf.Pcf32Tensor)
+        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 101.0)
+        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 1010.0)
+
+    def test_sub_tensor_tensor(self):
+        X = mpcf.zeros((2,))
+        X[0] = _make_pcf32([[0, 10], [2, 30]])
+        X[1] = _make_pcf32([[0, 100], [2, 200]])
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 1], [2, 1]])
+        Y[1] = _make_pcf32([[0, 2], [2, 2]])
+        Z = X - Y
+        assert isinstance(Z, mpcf.Pcf32Tensor)
+        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 9.0)
+        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 98.0)
+
+    def test_add_broadcast(self):
+        X = mpcf.zeros((2, 3))
+        for i in range(2):
+            for j in range(3):
+                X[i, j] = _make_pcf32([[0, float(i * 3 + j)], [2, 0]])
+        Y = mpcf.zeros((3,))
+        for j in range(3):
+            Y[j] = _make_pcf32([[0, 100.0 * (j + 1)], [2, 0]])
+        Z = X + Y
+        assert Z.shape == (2, 3)
+        npt.assert_almost_equal(Z[0, 0].to_numpy()[0, 1], 100.0)
+        npt.assert_almost_equal(Z[0, 2].to_numpy()[0, 1], 302.0)
+        npt.assert_almost_equal(Z[1, 0].to_numpy()[0, 1], 103.0)
+
+
+class TestPcf64TensorBroadcast:
+    def test_add_tensor_tensor(self):
+        X = mpcf.zeros((2,), dtype=mpcf.pcf64)
+        X[0] = _make_pcf64([[0, 1], [2, 3]])
+        X[1] = _make_pcf64([[0, 10], [2, 20]])
+        Y = mpcf.zeros((2,), dtype=mpcf.pcf64)
+        Y[0] = _make_pcf64([[0, 100], [2, 200]])
+        Y[1] = _make_pcf64([[0, 1000], [2, 2000]])
+        Z = X + Y
+        assert isinstance(Z, mpcf.Pcf64Tensor)
+        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 101.0)
+        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 1010.0)

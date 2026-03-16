@@ -253,6 +253,123 @@ namespace mpcf
     return ret;
   }
 
+  // ============================================================================
+  // Broadcasting
+  // ============================================================================
+
+  template <typename T>
+  Tensor<T> Tensor<T>::broadcast_to(const std::vector<size_t>& target_shape) const
+  {
+    size_t ndim = target_shape.size();
+    size_t src_ndim = m_shape.size();
+
+    if (ndim < src_ndim)
+    {
+      throw std::runtime_error("Cannot broadcast shape " +
+          shape_to_string(m_shape) + " to " + shape_to_string(target_shape) +
+          ": target has fewer dimensions");
+    }
+
+    Tensor ret;
+    ret.m_data = m_data;
+    ret.m_offset = m_offset;
+    ret.m_shape = target_shape;
+    ret.m_strides.resize(ndim);
+    ret.m_isContiguous = false;
+
+    size_t prepended = ndim - src_ndim;
+    for (size_t i = 0; i < ndim; ++i)
+    {
+      if (i < prepended)
+      {
+        ret.m_strides[i] = 0;
+      }
+      else
+      {
+        size_t si = i - prepended;
+        if (m_shape[si] == target_shape[i])
+        {
+          ret.m_strides[i] = m_strides[si];
+        }
+        else if (m_shape[si] == 1)
+        {
+          ret.m_strides[i] = 0;
+        }
+        else
+        {
+          throw std::runtime_error("Cannot broadcast shape " +
+              shape_to_string(m_shape) + " to " + shape_to_string(target_shape));
+        }
+      }
+    }
+
+    return ret;
+  }
+
+  // Tensor-Tensor arithmetic with broadcasting
+
+  namespace detail
+  {
+    template <typename T, typename BinaryOp>
+    Tensor<T> broadcast_binop(const Tensor<T>& lhs, const Tensor<T>& rhs, BinaryOp op)
+    {
+      auto out_shape = broadcast_shapes(lhs.shape(), rhs.shape());
+      auto lhs_view = lhs.broadcast_to(out_shape);
+      auto rhs_view = rhs.broadcast_to(out_shape);
+      Tensor<T> result(out_shape);
+      result.walk([&](const std::vector<size_t>& idx) {
+        result(idx) = op(lhs_view(idx), rhs_view(idx));
+      });
+      return result;
+    }
+
+    template <typename T, typename BinaryOp>
+    Tensor<T>& broadcast_binop_inplace(Tensor<T>& lhs, const Tensor<T>& rhs, BinaryOp op)
+    {
+      auto out_shape = broadcast_shapes(lhs.shape(), rhs.shape());
+      if (out_shape != lhs.shape())
+        throw std::runtime_error("Cannot broadcast in-place: output shape " +
+            shape_to_string(out_shape) + " differs from LHS shape " + shape_to_string(lhs.shape()));
+      auto rhs_view = rhs.broadcast_to(out_shape);
+      lhs.walk([&](const std::vector<size_t>& idx) {
+        lhs(idx) = op(lhs(idx), rhs_view(idx));
+      });
+      return lhs;
+    }
+  }
+
+  template <typename T>
+  Tensor<T> Tensor<T>::operator+(const Tensor& rhs) const
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a + b; }); }
+
+  template <typename T>
+  Tensor<T> Tensor<T>::operator-(const Tensor& rhs) const
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a - b; }); }
+
+  template <typename T>
+  Tensor<T> Tensor<T>::operator*(const Tensor& rhs) const
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a * b; }); }
+
+  template <typename T>
+  Tensor<T> Tensor<T>::operator/(const Tensor& rhs) const
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a / b; }); }
+
+  template <typename T>
+  Tensor<T>& Tensor<T>::operator+=(const Tensor& rhs)
+  { return detail::broadcast_binop_inplace(*this, rhs, [](const T& a, const T& b){ return a + b; }); }
+
+  template <typename T>
+  Tensor<T>& Tensor<T>::operator-=(const Tensor& rhs)
+  { return detail::broadcast_binop_inplace(*this, rhs, [](const T& a, const T& b){ return a - b; }); }
+
+  template <typename T>
+  Tensor<T>& Tensor<T>::operator*=(const Tensor& rhs)
+  { return detail::broadcast_binop_inplace(*this, rhs, [](const T& a, const T& b){ return a * b; }); }
+
+  template <typename T>
+  Tensor<T>& Tensor<T>::operator/=(const Tensor& rhs)
+  { return detail::broadcast_binop_inplace(*this, rhs, [](const T& a, const T& b){ return a / b; }); }
+
   template <typename T>
   [[nodiscard]] size_t Tensor<T>::size() const noexcept
   {

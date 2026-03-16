@@ -216,6 +216,41 @@ namespace mpcf_py
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 
+    // Tensor-Tensor arithmetic (broadcasting)
+    if constexpr (mpcf::CanAddTo<T, T, T>)
+    {
+      cls
+        .def("__add__", [](const TTensor& self, const TTensor& rhs){ return self + rhs; })
+        .def("__iadd__", [](TTensor& self, const TTensor& rhs) -> TTensor& { self += rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanSubtractTo<T, T, T>)
+    {
+      cls
+        .def("__sub__", [](const TTensor& self, const TTensor& rhs){ return self - rhs; })
+        .def("__isub__", [](TTensor& self, const TTensor& rhs) -> TTensor& { self -= rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanMultiplyTo<T, T, T> && std::is_arithmetic_v<T>)
+    {
+      cls
+        .def("__mul__", [](const TTensor& self, const TTensor& rhs){ return self * rhs; })
+        .def("__imul__", [](TTensor& self, const TTensor& rhs) -> TTensor& { self *= rhs; return self; })
+      ;
+    }
+
+    if constexpr (mpcf::CanDivideTo<T, T, T> && std::is_arithmetic_v<T>)
+    {
+      cls
+        .def("__truediv__", [](const TTensor& self, const TTensor& rhs){ return self / rhs; })
+        .def("__itruediv__", [](TTensor& self, const TTensor& rhs) -> TTensor& { self /= rhs; return self; })
+      ;
+    }
+
+    cls.def("broadcast_to", [](const TTensor& self, const std::vector<size_t>& shape){ return self.broadcast_to(shape); });
+
     using Tv = scalar_of_t<T>;
 
     if constexpr (mpcf::CanAddTo<T, T, T>)

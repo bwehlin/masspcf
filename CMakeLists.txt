@@ -583,6 +583,7 @@ if (BUILD_TESTER)
       test/test_iterate_segments.cpp
       test/test_parallel_reduce.cpp
       test/test_tensor.cpp
+      test/test_tensor_broadcast.cpp
       test/test_tensor_iteration.cpp
       test/test_special_tensors.cpp
       test/test_io_stream.cpp
