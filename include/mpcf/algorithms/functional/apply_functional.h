@@ -79,7 +79,7 @@ namespace mpcf
   {
     typename PcfT::value_type out{ 0 };
 
-    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](typename PcfT::segment_type& seg) {
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](const typename PcfT::segment_type& seg) {
       out += (seg.right - seg.left) * std::abs(seg.value);
       });
 
@@ -91,7 +91,7 @@ namespace mpcf
   {
     typename PcfT::value_type out{ 0 };
 
-    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](typename PcfT::segment_type& seg) {
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](const typename PcfT::segment_type& seg) {
       out += (seg.right - seg.left) * seg.value * seg.value;
       });
 
@@ -103,7 +103,7 @@ namespace mpcf
   {
     typename PcfT::value_type out{ 0 };
 
-    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out, p](typename PcfT::segment_type& seg) {
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out, p](const typename PcfT::segment_type& seg) {
       out += (seg.right - seg.left) * std::pow(std::abs(seg.value), p);
       });
 

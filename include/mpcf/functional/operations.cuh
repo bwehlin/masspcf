@@ -49,7 +49,7 @@ namespace mpcf
   {
     Tv p = 2.0;
     OperationLpDist() = default;
-    OperationLpDist(Tv pv)
+    explicit OperationLpDist(Tv pv)
       : p(pv)
     { }
     

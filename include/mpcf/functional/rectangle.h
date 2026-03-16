@@ -33,31 +33,31 @@ namespace mpcf
     Rectangle(Tt l, Tt r, Tv t, Tv b)
       : left(l), right(r), top(t), bottom(b)
     { }
-    
+
     Rectangle& l(Tt t)
     {
       left = t;
       return *this;
     }
-    
+
     Rectangle& r(Tt t)
     {
       right = t;
       return *this;
     }
-    
+
     Rectangle& fv(Tv v)
     {
       top = v;
       return *this;
     }
-    
+
     Rectangle& gv(Tv v)
     {
       bottom = v;
       return *this;
     }
-    
+
     bool operator==(const Rectangle& rhs) const
     {
       return left == rhs.left && right == rhs.right && top == rhs.top && bottom == rhs.bottom;
