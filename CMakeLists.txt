@@ -263,6 +263,8 @@ endif ()
 
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 set(CPP_MODULE_NAME_CPU "_mpcf_cpu")
 set(CPP_MODULE_NAMES ${CPP_MODULE_NAME_CPU})
 
@@ -396,6 +398,23 @@ list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
 
 SET(MPCF_VERSION_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 
+# ============================================================
+# IDE source groups — group by functional area, not language
+# ============================================================
+source_group("Functional"               REGULAR_EXPRESSION "include/mpcf/functional/.*")
+source_group("Functional/Bindings"      REGULAR_EXPRESSION "src/python/functional/.*")
+source_group("Algorithms"               REGULAR_EXPRESSION "include/mpcf/algorithms/.*")
+source_group("IO"                       REGULAR_EXPRESSION "include/mpcf/io/.*")
+source_group("IO/Bindings"             REGULAR_EXPRESSION "src/python/py_io\\.(h|cpp)")
+source_group("Persistence"             REGULAR_EXPRESSION "include/mpcf/persistence/.*")
+source_group("Persistence/Bindings"    REGULAR_EXPRESSION "src/python/persistence/.*")
+source_group("CUDA"                    REGULAR_EXPRESSION "(include/mpcf/cuda/.*|src/cuda/.*)")
+source_group("Tensor"                  REGULAR_EXPRESSION "include/mpcf/tensor[^/]*")
+source_group("Tensor/Bindings"         REGULAR_EXPRESSION "src/python/py_(np_tensor_convert|tensor)\\.(h|cpp)")
+source_group("Core"                    REGULAR_EXPRESSION "include/mpcf/(config|concepts|version|platform|executor|task|point_cloud|special_tensors|random|block_matrix_support|algorithm|tensor_to_string)\\.")
+source_group("Core/Bindings"          REGULAR_EXPRESSION "src/python/(pybind|pymodule|py_np_support|pypcf_support|py_future)\\.(h|cpp)")
+source_group("Core Sources"           REGULAR_EXPRESSION "src/[^/]+\\.cpp")
+
 # Standalone GPU detection module (no CUDA dependency)
 pybind11_add_module(_gpu_detect MODULE src/gpu_detect/gpu_detect.cpp)
 target_link_libraries(_gpu_detect PRIVATE pybind11::headers)
@@ -466,6 +485,16 @@ endforeach()
 
 # Convenience target so CLion (and plain cmake --build) can build all Python modules at once
 add_custom_target(_mpcf DEPENDS ${CPP_MODULE_NAMES})
+
+# IDE target folders
+set_target_properties(_gpu_detect PROPERTIES FOLDER "Python Modules")
+set_target_properties(_mpcf PROPERTIES FOLDER "Python Modules")
+foreach(MOD_NAME IN LISTS CPP_MODULE_NAMES)
+  set_target_properties(${MOD_NAME} PROPERTIES FOLDER "Python Modules")
+endforeach()
+if (BUILD_WITH_CUDA)
+  set_target_properties(mpcf_cuda PROPERTIES FOLDER "CUDA")
+endif ()
 
 if (MSVC)
   # MSVC CUDA has some problems with picking up include directories in IntelliSense. We can solve this
@@ -611,6 +640,9 @@ if (BUILD_TESTER)
         CUDA_RUNTIME_LIBRARY Static
     )
   endif ()
+
+  set_target_properties(mpcf_test PROPERTIES FOLDER "Testing")
+  set_target_properties(mpcf_nopy PROPERTIES FOLDER "Testing")
 
   target_link_libraries(mpcf_test PUBLIC GTest::gtest_main mpcf_nopy)
 
