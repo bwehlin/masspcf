@@ -14,12 +14,12 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from .. import _mpcf_cpp as cpp
 from ..typing import barcode32, barcode64
 
 cpp_p = cpp.persistence
-
-import numpy as np
 
 
 class Barcode:
@@ -39,7 +39,7 @@ class Barcode:
         fail = False
         if isinstance(bc, Barcode):
             self._data = bc._data
-        elif isinstance(bc, cpp_p.Barcode32) or isinstance(bc, cpp_p.Barcode64):
+        elif isinstance(bc, cpp_p.Barcode32 | cpp_p.Barcode64):
             self._data = bc
         elif isinstance(bc, np.ndarray):
             if bc.dtype == np.float32:

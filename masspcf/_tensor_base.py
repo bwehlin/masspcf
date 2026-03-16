@@ -15,13 +15,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Union
 
 from . import _mpcf_cpp as cpp
 
 Shape = cpp.Shape
 
-ShapeLike = Union[Shape, tuple[int, ...]]
+ShapeLike = Shape | tuple[int, ...]
 
 
 def _pyslice_to_slice(s):
@@ -78,7 +77,7 @@ class Tensor(ABC):
     def __eq__(self, rhs):
         return self._data == rhs._data
 
-    def __deepcopy__(self, memodict={}):
+    def __deepcopy__(self, memodict=None):
         return self._to_py_tensor(self._data.copy())
 
     def copy(self):
@@ -129,7 +128,7 @@ class Tensor(ABC):
 
     @staticmethod
     def _validate_constructor_arg(tensor, arg, valid_types):
-        if not any(type(arg) == tp for tp in valid_types):
+        if not any(type(arg) is tp for tp in valid_types):
             raise TypeError(
                 f"Tried to construct tensor of type {type(tensor)} from argument of type {type(arg)}. Only the following type(s) are allowed: {valid_types}."
             )

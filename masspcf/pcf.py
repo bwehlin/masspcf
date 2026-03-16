@@ -185,11 +185,11 @@ class Pcf:
         """
         from .tensor import Float32Tensor, Float64Tensor
 
-        if isinstance(t, (int, float)):
+        if isinstance(t, int | float):
             return self._data(t)
 
         return_tensor = None
-        if isinstance(t, (Float32Tensor, Float64Tensor)):
+        if isinstance(t, Float32Tensor | Float64Tensor):
             return_tensor = type(t)
             t = np.asarray(t)
         elif isinstance(t, list):
@@ -230,12 +230,5 @@ backend_f32_f32 = cpp.Backend_f32_f32
 backend_f64_f64 = cpp.Backend_f64_f64
 
 
-def _pcf_as_data(val):
-    if _is_pcf(val):
-        return val._data
-    else:
-        return val
-
-
 def _has_matching_types(f: Pcf, g: Pcf):
-    return type(f._data) == type(g._data)
+    return type(f._data) is type(g._data)

@@ -4,7 +4,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        files: ^masspcf/
       - id: ruff-format
+        files: ^masspcf/
 
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5
@@ -12,7 +14,15 @@ repos:
       - id: cppcheck
         args:
           - --std=c++20
+          - --language=c++
           - --suppress=missingIncludeSystem
           - --suppress=unmatchedSuppression
         files: ^(src|include)/
+        exclude: persistence/ripser/
+        types_or: [c++, header]
+      - id: clang-tidy
+        args:
+          - -p=cmake-build-debug
+        files: ^(src|include)/
+        exclude: persistence/ripser/
         types_or: [c++]

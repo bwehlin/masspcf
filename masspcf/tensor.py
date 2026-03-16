@@ -14,8 +14,6 @@
 
 from __future__ import annotations
 
-from typing import Union
-
 import numpy as np
 
 from . import _mpcf_cpp as cpp
@@ -38,10 +36,7 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
         return element
 
     def __array__(self, dtype=None, copy=None):
-        if self._data.is_contiguous():
-            data = self._data
-        else:
-            data = self.copy()._data
+        data = self._data if self._data.is_contiguous() else self.copy()._data
 
         arr = np.array(data)
 
@@ -199,7 +194,7 @@ class PointCloud64Tensor(PointCloudTensor):
         return t._data
 
 
-PcfContainerLike = Union[Tensor, list[Pcf], Pcf]
+PcfContainerLike = Tensor | list[Pcf] | Pcf
 
 
 def _to_tensor_pcf(fs: PcfContainerLike):

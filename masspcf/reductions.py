@@ -33,12 +33,15 @@ def _get_tensor_and_backend(fs):
 
 
 def _to_tensor_or_val(outFs):
-    if isinstance(outFs, cpp.Pcf32Tensor) or isinstance(outFs, cpp.Pcf64Tensor):
+    if isinstance(outFs, cpp.Pcf32Tensor | cpp.Pcf64Tensor):
         if len(outFs.shape) == 1 and outFs.shape[0] == 1:
             return Pcf(outFs._get_element(0))
-    elif isinstance(outFs, cpp.Float32Tensor) or isinstance(outFs, cpp.Float64Tensor):
-        if len(outFs.shape) == 1 and outFs.shape[0] == 1:
-            return outFs._get_element(0)
+    elif (
+        isinstance(outFs, cpp.Float32Tensor | cpp.Float64Tensor)
+        and len(outFs.shape) == 1
+        and outFs.shape[0] == 1
+    ):
+        return outFs._get_element(0)
 
     if isinstance(outFs, cpp.Pcf32Tensor):
         return Pcf32Tensor(outFs)

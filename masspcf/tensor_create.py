@@ -83,9 +83,9 @@ def zeros(shape: ShapeLike, dtype=pcf32):
         ],
     )
 
-    if dtype == pcf32 or dtype == float32:
+    if dtype in (pcf32, float32):
         return Pcf32Tensor(cpp.Pcf32Tensor(shape))
-    elif dtype == pcf64 or dtype == float64:
+    elif dtype in (pcf64, float64):
         return Pcf64Tensor(cpp.Pcf64Tensor(shape))
     elif dtype == f32:
         return Float32Tensor(cpp.Float32Tensor(shape, 0.0))

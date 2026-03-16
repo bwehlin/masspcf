@@ -12,14 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .. import _mpcf_cpp as cpp
-
-cpp_p = cpp.persistence
-
 from enum import Enum
 
 import numpy as np
 
+from .. import _mpcf_cpp as cpp
 from ..async_task import _wait_for_task
 from ..tensor import (
     Float32Tensor,
@@ -29,6 +26,8 @@ from ..tensor import (
 )
 from ..typing import barcode32, barcode64, pcloud32, pcloud64
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
+
+cpp_p = cpp.persistence
 
 
 class DistanceType(Enum):
