@@ -265,7 +265,7 @@ namespace mpcf
 
     if (ndim < src_ndim)
     {
-      throw std::runtime_error("Cannot broadcast shape " +
+      throw std::invalid_argument("Cannot broadcast shape " +
           shape_to_string(m_shape) + " to " + shape_to_string(target_shape) +
           ": target has fewer dimensions");
     }
@@ -297,7 +297,7 @@ namespace mpcf
         }
         else
         {
-          throw std::runtime_error("Cannot broadcast shape " +
+          throw std::invalid_argument("Cannot broadcast shape " +
               shape_to_string(m_shape) + " to " + shape_to_string(target_shape));
         }
       }
@@ -328,7 +328,7 @@ namespace mpcf
     {
       auto out_shape = broadcast_shapes(lhs.shape(), rhs.shape());
       if (out_shape != lhs.shape())
-        throw std::runtime_error("Cannot broadcast in-place: output shape " +
+        throw std::invalid_argument("Cannot broadcast in-place: output shape " +
             shape_to_string(out_shape) + " differs from LHS shape " + shape_to_string(lhs.shape()));
       auto rhs_view = rhs.broadcast_to(out_shape);
       lhs.walk([&](const std::vector<size_t>& idx) {

@@ -111,6 +111,31 @@ class Tensor(ABC):
         """
         raise NotImplementedError()
 
+    def broadcast_to(self, shape):
+        """Return a broadcast view of this tensor with the given target shape.
+
+        Dimensions of size 1 are expanded (stride set to 0); prepended
+        dimensions also get stride 0. No data is copied — the result shares
+        the underlying storage.
+
+        Parameters
+        ----------
+        shape : tuple of int
+            The target shape. Must be broadcast-compatible with the current
+            shape.
+
+        Returns
+        -------
+        Tensor
+            A non-contiguous view of this tensor with the target shape.
+
+        Raises
+        ------
+        ValueError
+            If the shapes are not broadcast-compatible.
+        """
+        return self._to_py_tensor(self._data.broadcast_to(list(shape)))
+
     def flatten(self):
         return self._to_py_tensor(self._data.flatten())
 
@@ -135,6 +160,18 @@ class Tensor(ABC):
 
 
 class ArithmeticTensorMixin:
+    """Mixin providing elementwise arithmetic operators for tensors.
+
+    Operators accept either a scalar or another tensor of the same type.
+    When both operands are tensors, NumPy-style broadcasting is applied:
+    shapes are compared right-to-left, dimensions match when equal or one
+    is 1, and missing leading dimensions are treated as size 1.
+
+    In-place operators (``+=``, ``-=``, ``*=``, ``/=``) require that the
+    broadcast output shape equals the shape of the left-hand operand
+    (the left-hand side is never expanded).
+    """
+
     def _decay_operand(self, val):
         return val._data if hasattr(val, "_data") else val
 

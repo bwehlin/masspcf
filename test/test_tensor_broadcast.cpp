@@ -67,12 +67,12 @@ namespace
 
   TEST(BroadcastShapes, IncompatibleThrows)
   {
-    EXPECT_THROW(mpcf::broadcast_shapes({3}, {4}), std::runtime_error);
+    EXPECT_THROW(mpcf::broadcast_shapes({3}, {4}), std::invalid_argument);
   }
 
   TEST(BroadcastShapes, IncompatibleMultiDimThrows)
   {
-    EXPECT_THROW(mpcf::broadcast_shapes({2, 3}, {2, 4}), std::runtime_error);
+    EXPECT_THROW(mpcf::broadcast_shapes({2, 3}, {2, 4}), std::invalid_argument);
   }
 
 // ============================================================================
@@ -127,13 +127,13 @@ namespace
   TEST(BroadcastTo, IncompatibleThrows)
   {
     mpcf::Tensor<double> t({3, 4});
-    EXPECT_THROW(t.broadcast_to({3, 5}), std::runtime_error);
+    EXPECT_THROW(t.broadcast_to({3, 5}), std::invalid_argument);
   }
 
   TEST(BroadcastTo, FewerDimsThrows)
   {
     mpcf::Tensor<double> t({3, 4});
-    EXPECT_THROW(t.broadcast_to({4}), std::runtime_error);
+    EXPECT_THROW(t.broadcast_to({4}), std::invalid_argument);
   }
 
 // ============================================================================
@@ -245,7 +245,7 @@ namespace
     using T = TypeParam;
     mpcf::Tensor<T> a({4});
     mpcf::Tensor<T> b({3, 4});
-    EXPECT_THROW(a += b, std::runtime_error);
+    EXPECT_THROW(a += b, std::invalid_argument);
   }
 
   TYPED_TEST(TensorBroadcastTyped, ScalarTensorBroadcast)

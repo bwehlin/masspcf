@@ -233,7 +233,7 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanMultiplyTo<T, T, T> && std::is_arithmetic_v<T>)
+    if constexpr (mpcf::CanMultiplyTo<T, T, T>)
     {
       cls
         .def("__mul__", [](const TTensor& self, const TTensor& rhs){ return self * rhs; })
@@ -241,7 +241,7 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanDivideTo<T, T, T> && std::is_arithmetic_v<T>)
+    if constexpr (mpcf::CanDivideTo<T, T, T>)
     {
       cls
         .def("__truediv__", [](const TTensor& self, const TTensor& rhs){ return self / rhs; })

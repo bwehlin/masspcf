@@ -130,6 +130,99 @@ To collapse all dimensions into one::
    flat = X.flatten()  # shape (200,)
 
 
+Arithmetic
+==========
+
+Numeric and PCF tensors support the standard arithmetic operators ``+``, ``-``,
+``*``, ``/`` (and their in-place counterparts ``+=``, ``-=``, ``*=``, ``/=``).
+
+Scalar arithmetic
+-----------------
+
+Every operator accepts a scalar on either side::
+
+   X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+
+   Y = X * 2.0      # [2.0, 4.0, 6.0]
+   Z = 10.0 + X     # [11.0, 12.0, 13.0]
+   X /= 5.0         # in-place: [0.2, 0.4, 0.6]
+
+For PCF tensors, all four operators accept a ``Pcf`` operand (pointwise
+operations), while ``*`` and ``/`` also accept numeric scalars::
+
+   X = mpcf.zeros((5,))
+   # ... fill X with PCFs ...
+   X_scaled = X * 3.0
+   X_shifted = X + some_pcf
+
+Tensor-tensor arithmetic (broadcasting)
+----------------------------------------
+
+When both operands are tensors of the same type, elementwise arithmetic is
+performed with `NumPy-style broadcasting
+<https://numpy.org/doc/stable/user/basics.broadcasting.html>`_:
+
+- Shapes are compared dimension-by-dimension from the right.
+- Dimensions match if they are equal, or one of them is 1.
+- A missing leading dimension is treated as size 1.
+
+::
+
+   import numpy as np
+   import masspcf as mpcf
+
+   A = mpcf.Float64Tensor(np.array([[1.0, 2.0, 3.0],
+                                     [4.0, 5.0, 6.0]]))    # shape (2, 3)
+   B = mpcf.Float64Tensor(np.array([10.0, 20.0, 30.0]))    # shape (3,)
+
+   C = A + B   # shape (2, 3) — B is broadcast along dim 0
+   # C == [[11, 22, 33],
+   #       [14, 25, 36]]
+
+Both operands can be expanded at the same time::
+
+   col = mpcf.Float64Tensor(np.array([[1.0], [2.0]]))       # shape (2, 1)
+   row = mpcf.Float64Tensor(np.array([[10.0, 20.0, 30.0]])) # shape (1, 3)
+
+   result = col + row   # shape (2, 3)
+   # result == [[11, 21, 31],
+   #            [12, 22, 32]]
+
+In-place operators (``+=``, ``-=``, ``*=``, ``/=``) broadcast the right-hand
+side but never expand the left-hand side — the output shape must equal the
+shape of the left operand, just like NumPy::
+
+   A += B          # OK:  (2,3) + (3,) -> (2,3) matches A
+   # B += A        # ValueError: (3,) + (2,3) -> (2,3) != (3,)
+
+Incompatible shapes raise ``ValueError``::
+
+   X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+   Y = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+   # X + Y  -> ValueError: shapes (3,) and (2,) are not broadcast-compatible
+
+Broadcasting also works with PCF tensors::
+
+   F = mpcf.zeros((4, 10))
+   # ... fill F with PCFs ...
+
+   bias = mpcf.zeros((10,))
+   # ... fill bias ...
+
+   adjusted = F + bias  # shape (4, 10) — bias broadcast along dim 0
+
+broadcast_to
+------------
+
+For advanced use, :py:meth:`~masspcf._tensor_base.Tensor.broadcast_to` returns
+a view of a tensor as if it had the given shape. Size-1 dimensions are
+virtually repeated without copying data::
+
+   X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))   # shape (3,)
+   view = X.broadcast_to((4, 3))                         # shape (4, 3)
+   # Every row of view is [1, 2, 3]; view shares data with X
+
+
 Reductions
 ==========
 

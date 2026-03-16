@@ -259,7 +259,7 @@ class TestFloat64TensorBroadcast:
         try:
             X += Y
             assert False, "Should have raised"
-        except RuntimeError:
+        except ValueError:
             pass
 
     def test_incompatible_shapes_raise(self):
@@ -268,7 +268,7 @@ class TestFloat64TensorBroadcast:
         try:
             _ = X + Y
             assert False, "Should have raised"
-        except RuntimeError:
+        except ValueError:
             pass
 
     def test_add_does_not_modify_originals(self):
@@ -286,6 +286,59 @@ class TestFloat32TensorBroadcast:
         a = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         b = np.array([10.0, 20.0], dtype=np.float32)
         _check_broadcast_op(a, b, lambda x, y: x + y, mpcf.Float32Tensor)
+
+
+class TestPcf32TensorMulDiv:
+    def _make_tensor(self):
+        X = mpcf.zeros((2,))
+        X[0] = _make_pcf32([[0, 2], [2, 4]])
+        X[1] = _make_pcf32([[0, 10], [2, 20]])
+        return X
+
+    def test_mul_pcf(self):
+        X = self._make_tensor()
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 3], [2, 5]])
+        Y[1] = _make_pcf32([[0, 2], [2, 10]])
+        Z = X * Y
+        assert isinstance(Z, mpcf.Pcf32Tensor)
+        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 6.0)
+        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 20.0)
+
+    def test_imul_pcf(self):
+        X = self._make_tensor()
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 3], [2, 5]])
+        Y[1] = _make_pcf32([[0, 2], [2, 10]])
+        X *= Y
+        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 6.0)
+
+    def test_truediv_pcf(self):
+        X = self._make_tensor()
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 2], [2, 2]])
+        Y[1] = _make_pcf32([[0, 5], [2, 4]])
+        Z = X / Y
+        assert isinstance(Z, mpcf.Pcf32Tensor)
+        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 1.0)
+        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 2.0)
+
+    def test_itruediv_pcf(self):
+        X = self._make_tensor()
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 2], [2, 2]])
+        Y[1] = _make_pcf32([[0, 5], [2, 4]])
+        X /= Y
+        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 1.0)
+
+    def test_mul_does_not_modify_original(self):
+        X = self._make_tensor()
+        Y = mpcf.zeros((2,))
+        Y[0] = _make_pcf32([[0, 3], [2, 5]])
+        Y[1] = _make_pcf32([[0, 2], [2, 10]])
+        _ = X * Y
+        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 2.0)
+
 
 
 class TestPcf32TensorBroadcast:

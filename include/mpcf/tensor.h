@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <concepts>
 #include <optional>
+#include <stdexcept>
 #include <sstream>
 
 #include <iostream>
@@ -140,12 +141,31 @@ namespace mpcf
      */
     [[nodiscard]] Tensor broadcast_to(const std::vector<size_t>& target_shape) const;
 
-    // Tensor-Tensor arithmetic (broadcasting)
+    /**
+     * Elementwise tensor-tensor arithmetic with NumPy-style broadcasting.
+     *
+     * The two operands are broadcast to a common shape before the operation.
+     * A new tensor with the broadcast output shape is returned; neither operand is modified.
+     *
+     * @param rhs right-hand operand (must be broadcast-compatible with `*this`)
+     * @return new tensor containing the elementwise result
+     * @throws std::invalid_argument if shapes are not broadcast-compatible
+     */
     [[nodiscard]] Tensor operator+(const Tensor& rhs) const;
     [[nodiscard]] Tensor operator-(const Tensor& rhs) const;
     [[nodiscard]] Tensor operator*(const Tensor& rhs) const;
     [[nodiscard]] Tensor operator/(const Tensor& rhs) const;
 
+    /**
+     * In-place elementwise tensor-tensor arithmetic with broadcasting.
+     *
+     * The right-hand operand is broadcast to the shape of `*this`. The broadcast output shape
+     * must equal the shape of `*this` (i.e. `*this` is never expanded), matching NumPy semantics.
+     *
+     * @param rhs right-hand operand (must be broadcast-compatible without expanding `*this`)
+     * @return reference to the modified `*this` tensor
+     * @throws std::invalid_argument if the broadcast output shape differs from the LHS shape
+     */
     Tensor& operator+=(const Tensor& rhs);
     Tensor& operator-=(const Tensor& rhs);
     Tensor& operator*=(const Tensor& rhs);
@@ -322,6 +342,17 @@ namespace mpcf
     }
   }
 
+  /**
+   * Compute the broadcast-compatible output shape from two input shapes (NumPy rules).
+   *
+   * Shapes are compared right-to-left. Dimensions match if they are equal or one of them is 1.
+   * Missing leading dimensions are treated as size 1.
+   *
+   * @param a shape of the first operand
+   * @param b shape of the second operand
+   * @return the broadcast output shape
+   * @throws std::invalid_argument if the shapes are not broadcast-compatible
+   */
   inline std::vector<size_t> broadcast_shapes(
     const std::vector<size_t>& a,
     const std::vector<size_t>& b)
@@ -341,7 +372,7 @@ namespace mpcf
       else if (db == 1)
         result[i] = da;
       else
-        throw std::runtime_error("Shapes are not broadcast-compatible: " +
+        throw std::invalid_argument("Shapes are not broadcast-compatible: " +
             shape_to_string(a) + " and " + shape_to_string(b));
     }
     return result;

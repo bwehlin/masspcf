@@ -110,6 +110,22 @@ namespace mpcf
       return *this;
     }
 
+    Pcf& operator*=(const Pcf& rhs)
+    {
+      *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
+        return rect.top * rect.bottom;
+        });
+      return *this;
+    }
+
+    Pcf& operator/=(const Pcf& rhs)
+    {
+      *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
+        return rect.top / rect.bottom;
+        });
+      return *this;
+    }
+
     template <typename T>
     Pcf& operator/=(T v)
     {
@@ -120,7 +136,7 @@ namespace mpcf
       }
       return *this;
     }
-    
+
     template <typename T>
     Pcf& operator*=(T v)
     {
@@ -225,23 +241,42 @@ namespace mpcf
     return ret;
   }
 
+  template <typename Tt, typename Tv>
+  [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
+  {
+    return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
+      return rect.top * rect.bottom;
+    });
+  }
+
+  template <typename Tt, typename Tv>
+  [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
+  {
+    return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
+      return rect.top / rect.bottom;
+    });
+  }
+
   template <typename Tt, typename Tv, typename Tdiv>
+  requires std::is_arithmetic_v<Tdiv>
   [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Tdiv val)
   {
     Pcf<Tt, Tv> ret = f;
     ret /= val;
     return ret;
   }
-  
+
   template <typename Tt, typename Tv, typename Ts>
+  requires std::is_arithmetic_v<Ts>
   [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, Ts val)
   {
     Pcf<Tt, Tv> ret = f;
     ret *= val;
     return ret;
   }
-  
+
   template <typename Tt, typename Tv, typename Ts>
+  requires std::is_arithmetic_v<Ts>
   [[nodiscard]] Pcf<Tt, Tv> operator*(Ts val, const Pcf<Tt, Tv>& f)
   {
     Pcf<Tt, Tv> ret = f;
