@@ -254,5 +254,13 @@
     "cpp": 84.7,
     "py": 73.0,
     "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-16T11:03:44Z",
+    "sha": "bb344cd",
+    "detail_path": "reports/2026-03-16_11-03-44_bb344cd/report.html",
+    "cpp": 85.3,
+    "py": 75.0,
+    "release_tag": null
   }
 ]
