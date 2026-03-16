@@ -39,7 +39,7 @@ namespace mpcf
     constexpr const std::string_view HeaderIdBytes = "\1MPCF"; // This should never change!
 
     // This should change as soon as an older version would not be able to read the data produced by the current version.
-    constexpr const int FormatVersion = 1;
+    constexpr const int FormatVersion = 2;
 
     inline void write_endianness(std::ostream& os)
     {
@@ -142,6 +142,7 @@ namespace mpcf
       write_format_version(os);
       write_string(os, PROJECT_VERSION_FULL);
       write_string(os, PROJECT_BUILD_DATE);
+      write_platform(os); // Added in format version 2
     }
 
     inline void read_header(std::istream& is)
@@ -155,13 +156,18 @@ namespace mpcf
       read_endianness(is);
 
       auto formatVersion = read_format_version(is);
-      if (formatVersion != FormatVersion)
+      if (formatVersion < 1 || formatVersion > FormatVersion)
       {
-        throw std::runtime_error("Input file has format version " + std::to_string(formatVersion) + ". This version of masspcf only reads format version " + std::to_string(FormatVersion) + ".");
+        throw std::runtime_error("Input file has format version " + std::to_string(formatVersion) + ". This version of masspcf reads format versions 1 through " + std::to_string(FormatVersion) + ".");
       }
 
       read_string(is); // PROJECT_VERSION_FULL
       read_string(is); // PROJECT_BUILD_DATE
+
+      if (formatVersion >= 2)
+      {
+        read_string(is); // platform (added in format version 2)
+      }
     }
 
   }

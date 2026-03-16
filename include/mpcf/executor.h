@@ -42,7 +42,7 @@ namespace mpcf
     /// Construct an Executor from an existing tf::Executor. It is the
     /// client's responsibility to ensure that the tf::Executor stays
     /// alive for the entire lifetime of this Executor object.
-    Executor(tf::Executor* tfExec, size_t nCudaDevices = get_num_cuda_devices()) noexcept
+    explicit Executor(tf::Executor* tfExec, size_t nCudaDevices = get_num_cuda_devices()) noexcept
       : m_upCpuExec(nullptr)
       , m_cpuExec(tfExec)
       , m_upCudaExec(nCudaDevices > 0 ? std::make_unique<tf::Executor>(nCudaDevices) : nullptr)

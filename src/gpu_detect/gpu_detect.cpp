@@ -54,7 +54,7 @@ std::vector<GpuInfo> detect_gpus()
   if (!drm)
     return gpus;
 
-  struct dirent* entry;
+  const struct dirent* entry;
   while ((entry = readdir(drm)) != nullptr)
   {
     std::string base = "/sys/class/drm/";

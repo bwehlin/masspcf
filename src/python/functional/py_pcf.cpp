@@ -43,7 +43,7 @@ namespace
   {
   public:
     using reduction_function = Tt(*)(Tt, Tt, Tv, Tv);
-    ReductionWrapper(unsigned long long addr) : m_fn(reinterpret_cast<reduction_function>(addr)) { }
+    explicit ReductionWrapper(unsigned long long addr) : m_fn(reinterpret_cast<reduction_function>(addr)) { }
     Tt operator()(Tt left, Tt right, Tv top, Tv bottom)
     {
       return m_fn(left, right, top, bottom);
@@ -102,24 +102,6 @@ namespace
     static Tv single_linfinity_norm(const mpcf::Pcf<Tt, Tv>& f)
     {
       return mpcf::linfinity_norm(f);
-    }
-
-    static void list_l1_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* outdata = out.mutable_data(0);
-      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::l1_norm<mpcf::Pcf<Tt, Tv>>);
-    }
-
-    static void list_l2_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* outdata = out.mutable_data(0);
-      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::l2_norm<mpcf::Pcf<Tt, Tv>>);
-    }
-
-    static void list_linfinity_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* outdata = out.mutable_data(0);
-      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::linfinity_norm<mpcf::Pcf<Tt, Tv>>);
     }
 
     template <typename TOperation, typename PcfFwdIt>

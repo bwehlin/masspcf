@@ -99,7 +99,7 @@ namespace mpcf::internal
     DeviceKernelParams make_kernel_params(int iGpu) const
     {
       DeviceKernelParams params;
-      auto & storage = deviceStorages[iGpu];
+      const auto & storage = deviceStorages[iGpu];
       
       params.matrix = storage.matrix.get();
       params.points = storage.points.get();

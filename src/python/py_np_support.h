@@ -55,7 +55,7 @@ class NumpyTensor
 public:
   using value_type = T;
 
-  NumpyTensor(pybind11::array_t<T> arr)
+  explicit NumpyTensor(pybind11::array_t<T> arr)
     : m_arr(arr)
   { }
 

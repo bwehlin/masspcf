@@ -53,18 +53,6 @@ namespace mpcf::io::detail
     write_bytes<T>(os, elem);
   }
 
-  template <std::forward_iterator FwdIt>
-  void read_elements(std::istream& is, FwdIt dest)
-  {
-    using value_type = FwdIt::value_type;
-    auto len = read_bytes<uint64_t>(is);
-    uint64_t nRead = 0;
-    for (; nRead < len; ++nRead, ++dest)
-    {
-      *dest = read_element<value_type>(is);
-    }
-  }
-
   template <typename T, typename AT>
   std::vector<T, AT> read_vector(std::istream& is)
   {

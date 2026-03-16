@@ -44,12 +44,12 @@ namespace mpcf
       m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(0));
     }
 
-    Pcf(value_type v)
+    explicit Pcf(value_type v)
     {
       m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(v));
     }
 
-    Pcf(std::vector<Point<Tt, Tv>>&& pts)
+    explicit Pcf(std::vector<Point<Tt, Tv>>&& pts)
       : m_points(std::move(pts))
     {
 
@@ -250,15 +250,6 @@ namespace mpcf
   }
 
   template <typename Tt, typename Tv>
-  [[nodiscard]] Pcf<Tt, Tv> st_average(const std::vector<Pcf<Tt, Tv>>& fs)
-  {
-    auto f = reduce(fs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top + rect.bottom;
-    });
-    return f / static_cast<Tv>(fs.size());
-  }
-
-  template <typename Tt, typename Tv>
   [[nodiscard]] Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
     auto f = parallel_reduce(fs.begin(), fs.end(), [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
@@ -266,7 +257,7 @@ namespace mpcf
     }, chunksz);
     return f / static_cast<Tv>(fs.size());
   }
-  
+
   template <typename Tt, typename Tv>
   void PrintTo(const Pcf<Tt, Tv>& f, std::ostream* os)
   {

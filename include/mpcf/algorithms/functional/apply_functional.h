@@ -61,12 +61,6 @@ namespace mpcf
     F m_functional;
   };
 
-  template <typename PcfT, typename F>
-  void parallel_apply_functional(Tensor<PcfT> tensor, F functional, std::function<void(size_t, size_t)> progressCb = [](size_t n){}, mpcf::Executor& exec = mpcf::default_executor())
-  {
-
-  }
-
   template <typename ForwardPcfIt, typename OutputIt, typename F>
   void apply_functional(ForwardPcfIt begin, ForwardPcfIt end, OutputIt beginOut, F functional, mpcf::Executor& exec = mpcf::default_executor())
   {

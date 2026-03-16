@@ -156,15 +156,6 @@ namespace mpcf::ph
 
   };
 
-  template <typename T>
-  Tensor<Barcode<T>> compute_persistence_euclidean(const Tensor<PointCloud<T>>& pclouds, size_t maxDim = 1, Executor& exec = default_executor())
-  {
-    Tensor<Barcode<T>> ret;
-    RipserTask<T> task(pclouds, ret, maxDim);
-    task.start_async(exec);
-    task.wait();
-    return ret;
-  }
 
 
 }

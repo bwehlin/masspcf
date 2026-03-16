@@ -30,7 +30,7 @@ namespace mpcf_py
   {
   public:
     Future() = default;
-    Future(std::future<RetT>&& future)
+    explicit Future(std::future<RetT>&& future)
       : m_future(std::move(future))
     {
 

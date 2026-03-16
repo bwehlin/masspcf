@@ -73,7 +73,7 @@ namespace mpcf
       Flattened       // Flattened view (1-d indexing)
     };
 
-    Tensor(const std::vector<size_t>& shape, const T& init = {});
+    explicit Tensor(const std::vector<size_t>& shape, const T& init = {});
     Tensor() : Tensor({}, {}) { }
 
     /// Assign val to every element of the Tensor

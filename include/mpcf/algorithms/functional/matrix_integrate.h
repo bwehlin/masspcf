@@ -41,20 +41,6 @@ namespace mpcf
     return val;
   }
   
-  template <typename Tv>
-  void make_lower_triangle(Executor& exec, Tv* out, size_t sz)
-  {
-    tf::Taskflow flow;
-    flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [out, sz](size_t i) {
-      for (size_t j = 0; j < i; ++j)
-      {
-        out[i * sz + j] = out[j * sz + i];
-      }
-    });
-    auto future = exec.cpu()->run(flow);
-    future.wait();
-  }
-  
   template <typename Tt, typename Tv, typename RectangleOp>
   void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {

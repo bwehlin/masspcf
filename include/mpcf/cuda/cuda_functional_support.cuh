@@ -30,7 +30,7 @@ namespace mpcf::detail
   struct CudaCallableFunctionPointer
   {
   public:
-    CudaCallableFunctionPointer(TDeviceFuncPtr* pf)
+    explicit CudaCallableFunctionPointer(TDeviceFuncPtr* pf)
     {
       TDeviceFuncPtr hostPtr = nullptr;
       CHK_CUDA(cudaMalloc((void**)&ptr, sizeof(TDeviceFuncPtr)));

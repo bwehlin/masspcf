@@ -54,12 +54,6 @@ namespace mpcf::io::detail
     return ret;
   }
 
-  inline void write_binary_record(std::ostream& os, const std::string& str)
-  {
-    write_binary_string(os, str);
-    write_binary_string(os, "\36"); // \36 is ASCII record separator (decimal 30)
-  }
-
   template <typename T>
   void write_bytes(std::ostream& os, const T& v)
   {
@@ -158,9 +152,6 @@ namespace mpcf::io::detail
 
   template <ArithmeticType T>
   void write_element(std::ostream& os, T val);
-
-  template <std::forward_iterator FwdIt>
-  void read_elements(std::istream& is, FwdIt dest);
 
   template <typename T, typename AT = std::allocator<T>>
   std::vector<T, AT> read_vector(std::istream& is);

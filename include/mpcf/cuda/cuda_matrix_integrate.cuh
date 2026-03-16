@@ -200,6 +200,7 @@ namespace mpcf
         : m_out(out)
         , m_gpuHostThreads(exec)
         , m_progressCb(progressCb)
+        , m_nPcfs(0)
       {
         m_nGpus = exec.num_workers();
         m_canceled.store(false);
@@ -311,7 +312,7 @@ namespace mpcf
       DeviceKernelParams<time_type, value_type> make_kernel_params(size_t iGpu) const
       {
         DeviceKernelParams<time_type, value_type> params;
-        auto& storage = m_deviceStorages[iGpu];
+        const auto& storage = m_deviceStorages[iGpu];
 
         params.matrix = storage.matrix.get();
         params.points = storage.points.get();
@@ -467,18 +468,6 @@ namespace mpcf
     
     internal::CudaMatrixRectangleIterator<typename std::vector<pcf_type>::const_iterator, ComboOp> m_iterator;
   };
-
-  template <typename PcfFwdIt, typename TOperation>
-  std::unique_ptr<StoppableTask<void>> create_matrix_integrate_cuda_task(
-      typename PcfIteratorTraits<PcfFwdIt>::value_type* out,
-      PcfFwdIt beginPcfs,
-      PcfFwdIt endPcfs,
-      TOperation op,
-      typename PcfIteratorTraits<PcfFwdIt>::time_type a = 0,
-      typename PcfIteratorTraits<PcfFwdIt>::time_type b = std::numeric_limits<typename PcfIteratorTraits<PcfFwdIt>::time_type>::max())
-  {
-    return std::make_unique<MatrixIntegrateCudaTask<PcfFwdIt, TOperation>>(*default_executor().cuda(), out, beginPcfs, endPcfs, op, a, b);
-  }
 
 }
 

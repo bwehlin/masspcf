@@ -32,7 +32,7 @@ namespace
   TYPED_TEST_SUITE(PcfAlgebraAndNormsTest, PcfFloatTypes);
 
   // ============================================================================
-  // Basic algebra: +, -, *, / and st_average/average
+  // Basic algebra: +, -, *, / and average
   // ============================================================================
 
   TYPED_TEST(PcfAlgebraAndNormsTest, PlusMinusScaleOperators)
@@ -77,7 +77,7 @@ namespace
     EXPECT_EQ(scaledDown.points()[2], Pt(static_cast<T>(2), static_cast<T>(0)));
   }
 
-  TYPED_TEST(PcfAlgebraAndNormsTest, AverageAndStAverageAgreeForSmallExample)
+  TYPED_TEST(PcfAlgebraAndNormsTest, AverageForSmallExample)
   {
     using PcfT = TypeParam;
     using T = typename PcfT::value_type;
@@ -89,14 +89,12 @@ namespace
 
     std::vector<PcfT> pcfs{ f1, f2 };
 
-    auto stAvg = mpcf::st_average(pcfs);
-    auto parAvg = mpcf::average(pcfs);
+    auto avg = mpcf::average(pcfs);
 
-    // Both averages should be equal and correspond to (f1+f2)/2
+    // Average should correspond to (f1+f2)/2
     PcfT manual = (f1 + f2) / static_cast<T>(2);
 
-    EXPECT_EQ(stAvg, manual);
-    EXPECT_EQ(parAvg, manual);
+    EXPECT_EQ(avg, manual);
   }
 
   // ============================================================================

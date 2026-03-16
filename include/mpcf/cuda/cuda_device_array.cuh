@@ -33,12 +33,12 @@ namespace mpcf
   public:
     CudaDeviceArray() = default;
     
-    CudaDeviceArray(std::size_t sz)
+    explicit CudaDeviceArray(std::size_t sz)
     {
       allocate(sz);
     }
-    
-    CudaDeviceArray(const std::vector<T>& data)
+
+    explicit CudaDeviceArray(const std::vector<T>& data)
     {
       allocate(data.size());
       toDevice(data);

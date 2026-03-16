@@ -50,15 +50,15 @@ namespace mpcf_py
   public:
     std::vector<size_t> data;
 
-    Shape(std::vector<size_t>&& shape)
+    explicit Shape(std::vector<size_t>&& shape)
       : data(std::move(shape))
     { }
 
-    Shape(const std::vector<size_t>& shape)
+    explicit Shape(const std::vector<size_t>& shape)
       : data(shape)
     { }
 
-    Shape(size_t sz) // 1d shape
+    explicit Shape(size_t sz) // 1d shape
       : data({sz})
     { }
 
@@ -106,7 +106,7 @@ namespace mpcf_py
 
 
   template <typename TTensor>
-  void assert_valid_index(const TTensor& tensor, const std::vector<size_t> index)
+  void assert_valid_index(const TTensor& tensor, const std::vector<size_t>& index)
   {
     if (index.size() != tensor.shape().size()
       || !std::equal(index.begin(), index.end(), tensor.shape().begin(), [](size_t i, size_t s){ return i < s; })) // Check that all indices i are < shape[i]

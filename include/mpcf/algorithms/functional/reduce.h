@@ -94,8 +94,8 @@ namespace mpcf
 
     Accumulator(TOp<TPcf> op, const TPcf& f)
       : m_op(op)
-    { 
-      m_pts = f.points();
+      , m_pts(f.points())
+    {
     }
 
     Accumulator& operator+=(const TPcf& f)
@@ -230,7 +230,6 @@ namespace mpcf
       });
     }
 
-    std::vector<size_t> tags;
     while (taskLevels.back().size() > 1ul)
     {
       auto const & prevLevel = taskLevels.back();

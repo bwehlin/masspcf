@@ -272,4 +272,68 @@ namespace
     EXPECT_EQ(tensor, tensor3);
   }
 
+// ============================================================================
+// Format version backward compatibility
+// ============================================================================
+
+  TYPED_TEST(IoReadWriteTest, ReadsFormatVersion1WithoutPlatformField)
+  {
+    using TensorT = mpcf::Tensor<TypeParam>;
+
+    // Write a v2 tensor, then patch it back to v1 by removing the platform field
+    TensorT tensor({ 3 });
+    tensor(0) = TypeParam(1);
+    tensor(1) = TypeParam(2);
+    tensor(2) = TypeParam(3);
+
+    std::stringstream ss;
+    mpcf::write(tensor, ss);
+
+    // The v2 header is: "\1MPCF" (5) + endianness (1) + version (4) + version_string + date_string + platform_string + ...
+    // We need to patch version to 1 and remove the platform string.
+    std::string data = ss.str();
+    constexpr size_t versionOffset = 6; // after "\1MPCF" + "e"/"E"
+
+    // Read the v2 header to find where the platform string starts and ends
+    std::istringstream probe(data);
+    mpcf::io::detail::read_binary_string(probe, 5); // header id
+    mpcf::io::detail::read_binary_string(probe, 1); // endianness
+    mpcf::io::detail::read_bytes<int>(probe);        // format version
+    mpcf::io::detail::read_string(probe);            // version string
+    mpcf::io::detail::read_string(probe);            // date string
+    auto beforePlatform = probe.tellg();
+    mpcf::io::detail::read_string(probe);            // platform string
+    auto afterPlatform = probe.tellg();
+
+    // Build a v1 stream: everything before platform + everything after platform, with version patched to 1
+    std::string v1data = data.substr(0, beforePlatform) + data.substr(afterPlatform);
+    mpcf::int32_t v1 = 1;
+    std::memcpy(v1data.data() + versionOffset, &v1, sizeof(mpcf::int32_t));
+
+    std::istringstream iss(v1data);
+    auto retTensor = mpcf::read<TensorT>(iss);
+    EXPECT_EQ(tensor, retTensor);
+  }
+
+  TYPED_TEST(IoReadWriteTest, ThrowsOnFutureFormatVersion)
+  {
+    using TensorT = mpcf::Tensor<TypeParam>;
+
+    TensorT tensor({ 2 });
+    tensor(0) = TypeParam(1);
+    tensor(1) = TypeParam(2);
+
+    std::stringstream ss;
+    mpcf::write(tensor, ss);
+
+    // Patch format version to something far in the future
+    std::string data = ss.str();
+    constexpr size_t versionOffset = 6;
+    mpcf::int32_t futureVersion = 9999;
+    std::memcpy(data.data() + versionOffset, &futureVersion, sizeof(mpcf::int32_t));
+
+    std::istringstream iss(data);
+    EXPECT_THROW(mpcf::read<TensorT>(iss), std::runtime_error);
+  }
+
 } // namespace
