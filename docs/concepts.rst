@@ -59,6 +59,37 @@ You can convert a ``Pcf`` back to a NumPy array with :py:meth:`~masspcf.Pcf.to_n
 
    arr = f.to_numpy()  # shape (3, 2), dtype float32
 
+Evaluating a PCF
+~~~~~~~~~~~~~~~~~
+
+Since a ``Pcf`` represents a function, you can call it to evaluate it at any time :math:`t \ge 0`. Pass a single number to get a single value, or an array of times to evaluate at many points at once::
+
+   f = mpcf.Pcf([[0, 1], [2, 3], [5, 0]])
+
+   # Single time -- returns a float
+   f(1.0)    # 1.0  (on the interval [0, 2))
+   f(3.5)    # 3.0  (on the interval [2, 5))
+   f(10.0)   # 0.0  (on the interval [5, inf))
+
+   # NumPy array of times -- returns an ndarray of the same shape
+   import numpy as np
+   times = np.array([0.0, 1.0, 2.0, 5.0, 10.0], dtype=np.float32)
+   values = f(times)  # array([1., 1., 3., 0., 0.], dtype=float32)
+
+   # Works with multi-dimensional arrays too
+   t2d = np.array([[0.5, 2.5],
+                    [6.0, 1.0]], dtype=np.float32)
+   f(t2d)  # array([[1., 3.],
+           #        [0., 1.]], dtype=float32)
+
+You can also pass a ``list`` (converted to an array internally), or a :py:class:`~masspcf.Float32Tensor` / :py:class:`~masspcf.Float64Tensor` (which returns a tensor of the same type).
+
+The input times do not need to be sorted. When evaluating at multiple times, the library automatically sorts them so that the breakpoints can be scanned in a single linear pass, then maps the results back to the original order.
+
+.. note::
+
+   Evaluating at a single time uses binary search and runs in :math:`O(\log n)` where :math:`n` is the number of breakpoints. Evaluating at :math:`m` times costs :math:`O(m \log m + n)`: :math:`O(m \log m)` for sorting the query times, then :math:`O(n)` for the linear scan over the breakpoints.
+
 Tensors
 =======
 

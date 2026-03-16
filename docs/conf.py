@@ -8,7 +8,10 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 from datetime import datetime
-import tomllib;
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 pyproj_toml = tomllib.load(open('../pyproject.toml', 'rb'))
 

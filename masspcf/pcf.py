@@ -144,6 +144,56 @@ class Pcf:
     self._data = self._data.div_scalar(c)
     return self
   
+  def __call__(self, t):
+    """Evaluate the PCF at the given time(s).
+
+    Parameters
+    ----------
+    t : float, int, list, numpy.ndarray, Float32Tensor, or Float64Tensor
+        The time(s) at which to evaluate the PCF. Can be a single scalar
+        or an array-like of times with arbitrary shape.
+
+    Returns
+    -------
+    float, numpy.ndarray, Float32Tensor, or Float64Tensor
+        The PCF value(s) at the given time(s). A scalar input returns a
+        Python float. A list or ndarray input returns an ndarray of the
+        same shape. A ``Float32Tensor`` or ``Float64Tensor`` input returns
+        a tensor of the same type and shape.
+
+    Raises
+    ------
+    ValueError
+        If any time is negative (PCFs are defined on :math:`[0, \\infty)`).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import masspcf as mpcf
+    >>> f = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.5]], dtype=np.float32))
+    >>> f(0.5)
+    1.0
+    >>> f(np.array([0.5, 1.5, 4.0]))
+    array([1. , 2. , 0.5], dtype=float32)
+    """
+    from .tensor import Float32Tensor, Float64Tensor
+
+    if isinstance(t, (int, float)):
+      return self._data(t)
+
+    return_tensor = None
+    if isinstance(t, (Float32Tensor, Float64Tensor)):
+      return_tensor = type(t)
+      t = np.asarray(t)
+    elif isinstance(t, list):
+      t = np.asarray(t, dtype=self.ttype)
+
+    result = self._data(t)
+
+    if return_tensor is not None:
+      return return_tensor(result)
+    return result
+
   def size(self):
     return self._data.size()
   

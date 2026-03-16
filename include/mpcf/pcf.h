@@ -142,6 +142,44 @@ namespace mpcf
       return m_points != rhs.m_points;
     }
 
+    [[nodiscard]] value_type evaluate(time_type t) const
+    {
+      auto it = std::upper_bound(m_points.begin(), m_points.end(), t,
+        [](time_type time, const point_type& pt) { return time < pt.t; });
+
+      if (it == m_points.begin())
+      {
+        throw std::domain_error("Cannot evaluate PCF before time 0.");
+      }
+
+      --it;
+      return it->v;
+    }
+
+    template <typename TIn, typename TOut>
+    void evaluate(const TIn& sorted_times, TOut& out, size_t n) const
+    {
+      auto it = m_points.begin();
+      auto end = m_points.end();
+
+      for (size_t i = 0; i < n; ++i)
+      {
+        auto t = sorted_times(i);
+
+        if (t < m_points.front().t)
+        {
+          throw std::domain_error("Cannot evaluate PCF before time 0.");
+        }
+
+        while (std::next(it) != end && std::next(it)->t <= t)
+        {
+          ++it;
+        }
+
+        out(i) = it->v;
+      }
+    }
+
     [[nodiscard]] const std::vector<point_type>& points() const { return m_points; }
     [[nodiscard]] size_t size() const noexcept { return m_points.size(); }
     

@@ -35,6 +35,7 @@
 #include "py_reductions.h"
 #include "py_distance.h"
 #include "py_np_tensor_convert.h"
+#include "py_np_support.h"
 
 #include "persistence/pymodule_persistence.h"
 
@@ -295,6 +296,43 @@ namespace
         .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
         .def("size", [](const TPcf& self){ return self.points().size(); })
         .def("copy", [](const TPcf& self){ return TPcf(self); })
+        .def("__call__", [](const TPcf& self, Tt t) -> Tv { return self.evaluate(t); })
+        .def("__call__", [](const TPcf& self, py::array_t<Tt> times) -> py::array_t<Tv> {
+          // Flatten to 1D for processing, remember original shape
+          auto original_shape = std::vector<py::ssize_t>(times.shape(), times.shape() + times.ndim());
+          auto flat_times = times.reshape({times.size()});
+          NumpyTensor<Tt> in(flat_times);
+          auto n = static_cast<size_t>(flat_times.size());
+
+          // Argsort
+          std::vector<size_t> order(n);
+          std::iota(order.begin(), order.end(), 0);
+          std::sort(order.begin(), order.end(), [&in](size_t a, size_t b) {
+            return in(a) < in(b);
+          });
+
+          // Build sorted times and evaluate
+          py::array_t<Tt> sorted_times({n});
+          NumpyTensor<Tt> sorted_in(sorted_times);
+          for (size_t i = 0; i < n; ++i)
+          {
+            sorted_in(i) = in(order[i]);
+          }
+
+          py::array_t<Tv> sorted_result({n});
+          NumpyTensor<Tv> sorted_out(sorted_result);
+          self.evaluate(sorted_in, sorted_out, n);
+
+          // Unsort results back to original order
+          py::array_t<Tv> flat_result({n});
+          NumpyTensor<Tv> out(flat_result);
+          for (size_t i = 0; i < n; ++i)
+          {
+            out(order[i]) = sorted_out(i);
+          }
+
+          return flat_result.reshape(original_shape);
+        })
           
         // We (un-)pickle the raw bytes stored in points()
         .def(py::pickle([](TPcf& self) {
