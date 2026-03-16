@@ -37,6 +37,32 @@
    fun:pybind11_init__mpcf*
 }
 
+# CPython path initialisation uses glibc AVX2 wide-string routines that
+# read past allocation boundaries.  These are false positives.
+{
+   cpython_wcscat_avx2_cond
+   Memcheck:Cond
+   fun:__wcscat_avx2
+   ...
+   fun:config_init_pathconfig*
+}
+
+{
+   cpython_wcscat_avx2_addr32
+   Memcheck:Addr32
+   fun:__wcscat_avx2
+   ...
+   fun:config_init_pathconfig*
+}
+
+{
+   cpython_wcscat_avx2_value8
+   Memcheck:Value8
+   fun:__wcscat_avx2
+   ...
+   fun:config_init_pathconfig*
+}
+
 # CPython does not free all memory at shutdown by design.
 # Extension module init (NumPy, stdlib C modules, etc.) allocates
 # persistent state that is never freed.
