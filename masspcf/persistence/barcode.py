@@ -14,12 +14,13 @@
 
 from __future__ import annotations
 
+from .. import _mpcf_cpp as cpp
 from ..typing import barcode32, barcode64
 
-from .. import _mpcf_cpp as cpp
 cpp_p = cpp.persistence
 
 import numpy as np
+
 
 class Barcode:
     """A persistence barcode, i.e. a collection of bars (birth-death intervals).
@@ -33,13 +34,12 @@ class Barcode:
         An existing ``Barcode`` to copy, or an (n, 2) NumPy array of
         ``(birth, death)`` pairs (``float32`` or ``float64``).
     """
+
     def __init__(self, bc):
         fail = False
         if isinstance(bc, Barcode):
             self._data = bc._data
-        elif isinstance(bc, cpp_p.Barcode32):
-            self._data = bc
-        elif isinstance(bc, cpp_p.Barcode64):
+        elif isinstance(bc, cpp_p.Barcode32) or isinstance(bc, cpp_p.Barcode64):
             self._data = bc
         elif isinstance(bc, np.ndarray):
             if bc.dtype == np.float32:
@@ -59,7 +59,9 @@ class Barcode:
             fail = True
 
         if fail:
-            raise TypeError(f'Barcode cannot be constructed with object of type {type(bc)}')
+            raise TypeError(
+                f"Barcode cannot be constructed with object of type {type(bc)}"
+            )
 
     def __str__(self):
         return self._data.__str__()
@@ -67,6 +69,6 @@ class Barcode:
     def __repr__(self):
         return self._data.__repr__()
 
-    def is_isomorphic_to(self, bc : Barcode):
+    def is_isomorphic_to(self, bc: Barcode):
         """Check whether two barcodes are isomorphic (same multiset of bars)."""
         return self._data.is_isomorphic_to(bc._data)

@@ -13,9 +13,11 @@
 #  limitations under the License.
 
 import io
+
 import numpy as np
 
 import masspcf as mpcf
+
 
 def test_float32_tensor_roundtrip():
     original = mpcf.Float32Tensor(np.random.randn(2, 3))

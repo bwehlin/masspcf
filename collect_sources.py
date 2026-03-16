@@ -38,8 +38,12 @@ from pathlib import Path
 DEFAULT_EXTENSIONS = {"cpp", "h", "cu", "tpp", "py", "cmake", "yml", "yaml"}
 
 EXCLUDE_DIRS = {
-    "build", ".git", "3rd", "benchmarking",
-    "examples", "docs",
+    "build",
+    ".git",
+    "3rd",
+    "benchmarking",
+    "examples",
+    "docs",
 }
 EXCLUDE_PREFIXES = {"cmake-build"}
 
@@ -65,7 +69,8 @@ def collect_files(sources: list[Path], extensions: set[str]) -> list[Path]:
 
         elif source.is_dir():
             matches = sorted(
-                p for p in source.rglob("*")
+                p
+                for p in source.rglob("*")
                 if p.is_file()
                 and p.suffix.lstrip(".").lower() in extensions
                 and not is_excluded(p.relative_to(source))
@@ -76,7 +81,10 @@ def collect_files(sources: list[Path], extensions: set[str]) -> list[Path]:
                     collected.append(p)
 
         else:
-            print(f"Warning: '{source}' is not a file or directory, skipping.", file=sys.stderr)
+            print(
+                f"Warning: '{source}' is not a file or directory, skipping.",
+                file=sys.stderr,
+            )
 
     return collected
 
@@ -101,9 +109,19 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("sources", nargs="*", default=["."], help="Files or directories to collect from")
-    parser.add_argument("-o", "--output", default="collected_sources.txt", help="Output file")
-    parser.add_argument("-e", "--ext", action="append", default=[], help="Extra file extension to include")
+    parser.add_argument(
+        "sources", nargs="*", default=["."], help="Files or directories to collect from"
+    )
+    parser.add_argument(
+        "-o", "--output", default="collected_sources.txt", help="Output file"
+    )
+    parser.add_argument(
+        "-e",
+        "--ext",
+        action="append",
+        default=[],
+        help="Extra file extension to include",
+    )
     args = parser.parse_args()
 
     extensions = DEFAULT_EXTENSIONS | {e.lstrip(".").lower() for e in args.ext}
@@ -113,7 +131,9 @@ def main() -> None:
     files = collect_files(sources, extensions)
     write_output(files, output)
 
-    print(f"\nCollected {len(files)} file(s) into {output} ({output.stat().st_size:,} bytes)")
+    print(
+        f"\nCollected {len(files)} file(s) into {output} ({output.stat().st_size:,} bytes)"
+    )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
+import numpy as np
+
 import masspcf as mpcf
 import masspcf._mpcf_cpp as cpp
-import numpy as np
+
 
 def test_np_to_pcf_has_correct_type():
     X32 = np.zeros((2, 2), dtype=np.float32)
@@ -25,7 +27,6 @@ def test_np_to_pcf_has_correct_type():
     assert isinstance(f64_32._data, cpp.Pcf_f32_f32)
     assert f64_32.ttype == mpcf.f32
     assert f64_32.vtype == mpcf.f32
-
 
 
 """

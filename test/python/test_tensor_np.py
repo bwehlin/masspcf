@@ -12,10 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import numpy as np
+
 import masspcf as mpcf
 import masspcf._mpcf_cpp as mcpp
 
-import numpy as np
 
 def test_numpy_tensor_create_gives_correct_cpp_type():
     Xnp = np.zeros((10, 20), dtype=np.float32)

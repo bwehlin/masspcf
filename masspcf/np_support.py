@@ -12,11 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .tensor import PcfTensor, PcfContainerLike
-from .typing import pcf32, pcf64, _validate_dtype
 import numpy as np
 
-def numpy_type(fs : PcfContainerLike):
+from .tensor import PcfContainerLike, PcfTensor
+from .typing import _validate_dtype, pcf32, pcf64
+
+
+def numpy_type(fs: PcfContainerLike):
     if isinstance(fs, PcfTensor):
         _validate_dtype(fs.dtype, [pcf32, pcf64])
         if fs.dtype == pcf32:
@@ -24,4 +26,6 @@ def numpy_type(fs : PcfContainerLike):
         elif fs.dtype == pcf64:
             return np.float64
 
-    raise NotImplementedError('Data type not supported (please file an issue if you think this is in error).')
+    raise NotImplementedError(
+        "Data type not supported (please file an issue if you think this is in error)."
+    )

@@ -12,21 +12,35 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from ._tensor_base import Shape, ShapeLike
-
-from .tensor import (Float32Tensor, Float64Tensor,
-                     Pcf32Tensor, Pcf64Tensor,
-                     PointCloud32Tensor, PointCloud64Tensor)
-
-from .typing import (pcf32, pcf64, f32, f64,
-                     pcloud32, pcloud64, barcode32, barcode64,
-                     float32, float64, # Deprecated types
-                     _check_deprecated_dtype, _assert_valid_dtype)
-
 from . import _mpcf_cpp as cpp
+from ._tensor_base import Shape, ShapeLike
+from .tensor import (
+    Float32Tensor,
+    Float64Tensor,
+    Pcf32Tensor,
+    Pcf64Tensor,
+    PointCloud32Tensor,
+    PointCloud64Tensor,
+)
+from .typing import (
+    _assert_valid_dtype,
+    _check_deprecated_dtype,
+    barcode32,
+    barcode64,
+    f32,
+    f64,
+    float32,  # Deprecated types
+    float64,
+    pcf32,
+    pcf64,
+    pcloud32,
+    pcloud64,
+)
+
 cpp_p = cpp.persistence
 
-def zeros(shape : ShapeLike, dtype=pcf32):
+
+def zeros(shape: ShapeLike, dtype=pcf32):
     """
     Creates a new `Tensor` of the specified `shape` and `dtype` whose entries are "zero." What "zero" means depends on the `dtype`:
 
@@ -50,10 +64,24 @@ def zeros(shape : ShapeLike, dtype=pcf32):
     from .persistence.ph_tensor import Barcode32Tensor, Barcode64Tensor
 
     if not isinstance(shape, Shape):
-        shape = Shape(shape) # If passed as, e.g., tuple of ints
+        shape = Shape(shape)  # If passed as, e.g., tuple of ints
 
     _check_deprecated_dtype(dtype)
-    _assert_valid_dtype(dtype, [pcf32, pcf64, f32, f64, pcloud32, pcloud64, float32, float64, barcode32, barcode64])
+    _assert_valid_dtype(
+        dtype,
+        [
+            pcf32,
+            pcf64,
+            f32,
+            f64,
+            pcloud32,
+            pcloud64,
+            float32,
+            float64,
+            barcode32,
+            barcode64,
+        ],
+    )
 
     if dtype == pcf32 or dtype == float32:
         return Pcf32Tensor(cpp.Pcf32Tensor(shape))
@@ -72,4 +100,4 @@ def zeros(shape : ShapeLike, dtype=pcf32):
     elif dtype == barcode64:
         return Barcode64Tensor(cpp_p.Barcode64Tensor(shape))
     else:
-        raise NotImplementedError('This dtype has not been implemented.')
+        raise NotImplementedError("This dtype has not been implemented.")

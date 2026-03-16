@@ -12,9 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import numpy as np
+
 import masspcf as mpcf
 
-import numpy as np
 
 def test_can_create_point_clouds():
     X = mpcf.zeros((2,), dtype=mpcf.pcloud64)
@@ -27,7 +28,7 @@ def test_can_create_point_clouds():
     assert X[0].shape == (10, 2)
     assert X[1].shape == (20, 2)
 
-    Y = mpcf.zeros((2,3), dtype=mpcf.pcloud32)
+    Y = mpcf.zeros((2, 3), dtype=mpcf.pcloud32)
 
     assert isinstance(Y, mpcf.PointCloud32Tensor)
 
@@ -36,6 +37,7 @@ def test_can_create_point_clouds():
 
     assert Y[0, 0].shape == (30, 2, 20)
     assert Y[1, 1].shape == (40, 15, 10)
+
 
 def test_stored_is_same_as_numpy():
     shape = (10, 20, 30)

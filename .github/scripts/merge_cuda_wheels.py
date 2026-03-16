@@ -54,7 +54,11 @@ def _merge_cuda_modules(base_root, extra_root, cuda_major):
     prefix = f"masspcf/_mpcf_cuda{cuda_major}"
     for path in _iter_files(extra_root):
         rel = os.path.relpath(path, extra_root).replace(os.sep, "/")
-        if rel == prefix or rel.startswith(prefix + ".") or rel.startswith(prefix + "/"):
+        if (
+            rel == prefix
+            or rel.startswith(prefix + ".")
+            or rel.startswith(prefix + "/")
+        ):
             dest = os.path.join(base_root, rel.replace("/", os.sep))
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             shutil.copy2(path, dest)
@@ -64,7 +68,10 @@ def merge_wheels(base_wheel, extra_wheel, output_dir, cuda_major):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as base_dir, tempfile.TemporaryDirectory() as extra_dir:
+    with (
+        tempfile.TemporaryDirectory() as base_dir,
+        tempfile.TemporaryDirectory() as extra_dir,
+    ):
         _extract_wheel(base_wheel, base_dir)
         _extract_wheel(extra_wheel, extra_dir)
 
@@ -83,11 +90,24 @@ def merge_wheels(base_wheel, extra_wheel, output_dir, cuda_major):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Merge CUDA wheel variants into one wheel.")
-    parser.add_argument("--base-wheel", required=True, help="Wheel containing _mpcf_cuda12")
-    parser.add_argument("--extra-wheel", required=True, help="Wheel containing _mpcf_cuda13")
-    parser.add_argument("--output-dir", required=True, help="Directory to write merged wheel")
-    parser.add_argument("--cuda-major", required=True, type=int, help="CUDA major version of extra wheel (e.g. 13)")
+    parser = argparse.ArgumentParser(
+        description="Merge CUDA wheel variants into one wheel."
+    )
+    parser.add_argument(
+        "--base-wheel", required=True, help="Wheel containing _mpcf_cuda12"
+    )
+    parser.add_argument(
+        "--extra-wheel", required=True, help="Wheel containing _mpcf_cuda13"
+    )
+    parser.add_argument(
+        "--output-dir", required=True, help="Directory to write merged wheel"
+    )
+    parser.add_argument(
+        "--cuda-major",
+        required=True,
+        type=int,
+        help="CUDA major version of extra wheel (e.g. 13)",
+    )
     args = parser.parse_args()
 
     merge_wheels(args.base_wheel, args.extra_wheel, args.output_dir, args.cuda_major)

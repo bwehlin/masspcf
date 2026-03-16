@@ -73,7 +73,12 @@ XML="${TMPDIR:-/tmp}/${TOOL}-${SUITE}.xml"
 
 rm -rf "$OUT_DIR" "$XML"
 
-VALGRIND_CMD=(valgrind --tool="$TOOL" --xml=yes --xml-file="$XML" --num-callers=20 --history-level=full)
+if [ "$TOOL" = "valgrind" ]; then
+  VG_TOOL="memcheck"
+else
+  VG_TOOL="$TOOL"
+fi
+VALGRIND_CMD=(valgrind --tool="$VG_TOOL" --xml=yes --xml-file="$XML" --num-callers=20 --history-level=full)
 echo "XML file: ${XML}"
 if [ "$SUITE" = "pytest" ]; then
   PYTHONMALLOC=malloc "${VALGRIND_CMD[@]}" python -m pytest "${ROOT}/test/" -x -q || true

@@ -11,16 +11,18 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import numpy as np
+
+import pytest
 
 import masspcf as mpcf
-import pytest
+
 
 def test_tensor_get_oob_item_raises():
     X = mpcf.zeros((10, 10), dtype=mpcf.f64)
 
     with pytest.raises(IndexError):
         f = X[10, 5]
+
 
 def test_tensor_set_oob_item_raises():
     X = mpcf.zeros((10, 10), dtype=mpcf.f64)

@@ -14,11 +14,13 @@
 
 
 import matplotlib.pyplot as plt
-from .tensor import PcfContainerLike, PcfTensor
-from .reductions import max_time
 import numpy as np
 
-def plot(f : PcfContainerLike, fmt='', ax=None, auto_label=False, **kwargs):
+from .reductions import max_time
+from .tensor import PcfContainerLike, PcfTensor
+
+
+def plot(f: PcfContainerLike, fmt="", ax=None, auto_label=False, **kwargs):
     """Plot one or more PCFs using matplotlib's step function.
 
     Parameters
@@ -45,16 +47,15 @@ def plot(f : PcfContainerLike, fmt='', ax=None, auto_label=False, **kwargs):
 
     def plot_single_(f, maxtime, **kwargs1):
         X = np.array(f)
-        if maxtime is not None and X[-1,0] != maxtime:
-            X = np.vstack((X, [maxtime, X[-1,1]]))
-        ax.step(X[:,0], X[:,1], fmt, where='post', **kwargs, **kwargs1)
+        if maxtime is not None and X[-1, 0] != maxtime:
+            X = np.vstack((X, [maxtime, X[-1, 1]]))
+        ax.step(X[:, 0], X[:, 1], fmt, where="post", **kwargs, **kwargs1)
 
     if isinstance(f, PcfTensor):
         if len(f.shape) != 1:
-            raise ValueError(f'Expected 1-dimensional array (got array with {f.shape})')
+            raise ValueError(f"Expected 1-dimensional array (got array with {f.shape})")
         for i in range(f.shape[0]):
-            kw = {'label': f'f{i}'} if auto_label else {}
+            kw = {"label": f"f{i}"} if auto_label else {}
             plot_single_(f[i], np.array(max_time(f)), **kw)
     else:
         plot_single_(f, None)
-

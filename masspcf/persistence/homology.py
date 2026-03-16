@@ -13,35 +13,43 @@
 #  limitations under the License.
 
 from .. import _mpcf_cpp as cpp
+
 cpp_p = cpp.persistence
 
+from enum import Enum
+
+import numpy as np
+
 from ..async_task import _wait_for_task
-
-from ..tensor import (Float32Tensor, Float64Tensor, PointCloud32Tensor, PointCloud64Tensor,
-                      _get_backend
-                      )
-
-from ..typing import pcloud32, pcloud64, barcode32, barcode64
-
-
-
+from ..tensor import (
+    Float32Tensor,
+    Float64Tensor,
+    PointCloud32Tensor,
+    PointCloud64Tensor,
+)
+from ..typing import barcode32, barcode64, pcloud32, pcloud64
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 
-from enum import Enum
-import numpy as np
 
 class DistanceType(Enum):
     Euclidean = 1
 
+
 class ComplexType(Enum):
     VietorisRips = 1
 
-def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Float32Tensor | Float64Tensor | np.ndarray,
-                                maxDim : int = 1,
-                                distance_type : DistanceType = DistanceType.Euclidean,
-                                complex_type: ComplexType = ComplexType.VietorisRips,
-                                verbose : bool = True) \
-        -> Barcode32Tensor | Barcode64Tensor :
+
+def compute_persistent_homology(
+    X: PointCloud32Tensor
+    | PointCloud64Tensor
+    | Float32Tensor
+    | Float64Tensor
+    | np.ndarray,
+    maxDim: int = 1,
+    distance_type: DistanceType = DistanceType.Euclidean,
+    complex_type: ComplexType = ComplexType.VietorisRips,
+    verbose: bool = True,
+) -> Barcode32Tensor | Barcode64Tensor:
     r"""Compute persistent homology of a point cloud.
 
     Returns barcodes for homology dimensions 0 through ``maxDim``. When
@@ -88,7 +96,9 @@ def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Fl
         elif X.dtype == np.float64:
             X = Float64Tensor(X)
         else:
-            raise TypeError(f'Input has unsupported numpy dtype {X.dtype} (only np.float32/64 are supported).')
+            raise TypeError(
+                f"Input has unsupported numpy dtype {X.dtype} (only np.float32/64 are supported)."
+            )
 
     out = None
     if isinstance(X, Float32Tensor):
@@ -111,9 +121,11 @@ def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Fl
             case DistanceType.Euclidean:
                 task = _compute_barcodes_euclidean_pcloud_ripser(X, out, maxDim)
             case _:
-                raise ValueError(f'Distance type {distance_type} not supported for complex type {complex_type}.')
+                raise ValueError(
+                    f"Distance type {distance_type} not supported for complex type {complex_type}."
+                )
     else:
-        raise ValueError(f'Unsupported complex type {complex_type}')
+        raise ValueError(f"Unsupported complex type {complex_type}")
 
     try:
         _wait_for_task(task, verbose)
@@ -126,7 +138,6 @@ def compute_persistent_homology(X : PointCloud32Tensor | PointCloud64Tensor | Fl
         out = out[0, :]
 
     return out
-
 
 
 """

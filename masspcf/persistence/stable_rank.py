@@ -13,17 +13,20 @@
 #  limitations under the License.
 
 from .. import _mpcf_cpp as cpp
-cpp_p = cpp.persistence
-
-from ..typing import barcode32, barcode64, pcf32, pcf64
-from ..tensor import _get_backend, Tensor
-from ..tensor_create import zeros
 from ..async_task import _wait_for_task
 from ..pcf import Pcf
+from ..tensor import Tensor, _get_backend
+from ..tensor_create import zeros
+from ..typing import barcode32, barcode64, pcf32, pcf64
 from .barcode import Barcode
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 
-def barcode_to_stable_rank(bc : Barcode | Barcode32Tensor | Barcode64Tensor, verbose=True):
+cpp_p = cpp.persistence
+
+
+def barcode_to_stable_rank(
+    bc: Barcode | Barcode32Tensor | Barcode64Tensor, verbose=True
+):
     r"""Convert a barcode (or tensor of barcodes) to a stable rank function.
 
     The stable rank of a barcode is the PCF that counts, for each
@@ -50,15 +53,17 @@ def barcode_to_stable_rank(bc : Barcode | Barcode32Tensor | Barcode64Tensor, ver
        Geometry*, vol. 4, no. 1, pp. 69--98, 2020.
     """
 
-    backend, X = _get_backend(bc, {
-        barcode32 : cpp_p.PersistenceStableRank32,
-        barcode64 : cpp_p.PersistenceStableRank64
-    })
+    backend, X = _get_backend(
+        bc,
+        {
+            barcode32: cpp_p.PersistenceStableRank32,
+            barcode64: cpp_p.PersistenceStableRank64,
+        },
+    )
 
     if isinstance(X, Barcode):
         return Pcf(backend.barcode_to_stable_rank(X._data))
     elif isinstance(X, Tensor):
-
         if isinstance(X, Barcode32Tensor):
             out = zeros((1,), dtype=pcf32)
         elif isinstance(X, Barcode64Tensor):

@@ -12,22 +12,22 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import _mpcf_cpp as cpp
-from .tensor import PcfContainerLike, _to_tensor_pcf, _get_backend
-from .typing import pcf32, pcf64
-from .np_support import numpy_type
-from .async_task import _wait_for_task
-
 import numpy as np
+
+from . import _mpcf_cpp as cpp
+from .async_task import _wait_for_task
+from .np_support import numpy_type
+from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
+from .typing import pcf32, pcf64
 
 
 def _get_norms_backend(fs):
-    mapping = { pcf32: cpp.Norms_f32_f32,
-                pcf64: cpp.Norms_f64_f64 }
+    mapping = {pcf32: cpp.Norms_f32_f32, pcf64: cpp.Norms_f64_f64}
 
     return _get_backend(fs, mapping)
 
-def lp_norm(fs : PcfContainerLike, p=1, verbose=False):
+
+def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
     r"""Computes the :math:`L_p` norm of each PCF in `fs`. For example, if `fs` is an :math:`m \times n` array with elements indexed as :math:`f_{ij}`, :math:`0 \leq i < m, 0 \leq j < n`, we compute
 
       .. math::
@@ -59,7 +59,7 @@ def lp_norm(fs : PcfContainerLike, p=1, verbose=False):
       """
 
     if p < 1:
-        raise ValueError('p must be >= 1.')
+        raise ValueError("p must be >= 1.")
 
     X = _to_tensor_pcf(fs)
 
@@ -75,4 +75,3 @@ def lp_norm(fs : PcfContainerLike, p=1, verbose=False):
         if task is not None:
             task.request_stop()
             _wait_for_task(task, verbose=verbose)
-

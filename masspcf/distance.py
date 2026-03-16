@@ -12,21 +12,22 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import _mpcf_cpp as cpp
-from .tensor import PcfContainerLike, _to_tensor_pcf, _get_backend
-from .typing import pcf32, pcf64
-from .np_support import numpy_type
-from .async_task import _wait_for_task
-
 import numpy as np
 
+from . import _mpcf_cpp as cpp
+from .async_task import _wait_for_task
+from .np_support import numpy_type
+from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
+from .typing import pcf32, pcf64
+
+
 def _get_distance_backend(fs) -> cpp.Distance_f32_f32 | cpp.Distance_f64_f64:
-    mapping = { pcf32: cpp.Distance_f32_f32,
-                pcf64: cpp.Distance_f64_f64 }
+    mapping = {pcf32: cpp.Distance_f32_f32, pcf64: cpp.Distance_f64_f64}
 
     return _get_backend(fs, mapping)
 
-def pdist(fs : PcfContainerLike, p=1, verbose=True):
+
+def pdist(fs: PcfContainerLike, p=1, verbose=True):
     r"""Compute the pairwise :math:`L_p` distance matrix for a 1-D tensor of PCFs.
 
     For a tensor :math:`(f_0, f_1, \ldots, f_{n-1})`, returns an
@@ -56,12 +57,12 @@ def pdist(fs : PcfContainerLike, p=1, verbose=True):
         If ``fs`` is not 1-dimensional.
     """
     if p < 1:
-        raise ValueError('p must be >= 1.')
+        raise ValueError("p must be >= 1.")
 
     X = _to_tensor_pcf(fs)
 
     if len(X.shape) != 1:
-        raise ValueError('1d tensor expected.')
+        raise ValueError("1d tensor expected.")
 
     backend, fs = _get_distance_backend(fs)
     matrix = np.zeros((X.shape[0], X.shape[0]), dtype=numpy_type(X))
@@ -75,4 +76,3 @@ def pdist(fs : PcfContainerLike, p=1, verbose=True):
         if task is not None:
             task.request_stop()
             _wait_for_task(task, verbose=verbose)
-

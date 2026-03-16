@@ -13,22 +13,32 @@
 #    limitations under the License.
 
 
-from .pcf import Pcf
-from .norms import lp_norm
-
-from .typing import (pcf32, pcf64, f32, f64, pcloud32, pcloud64, barcode32, barcode64,
-                     float32, float64 # deprecated
-                     )
-
+from . import random, system
 from ._tensor_base import Shape
-from .tensor import (Float32Tensor, Float64Tensor, Pcf32Tensor, Pcf64Tensor, PointCloud32Tensor, PointCloud64Tensor)
-from .tensor_create import zeros
-
-from .reductions import mean, max_time
-from .serialize import from_serial_content
 from .distance import pdist
-
-from .io import save, load
-
-from . import system
-from . import random
+from .io import load, save
+from .norms import lp_norm
+from .pcf import Pcf
+from .reductions import max_time, mean
+from .serialize import from_serial_content
+from .tensor import (
+    Float32Tensor,
+    Float64Tensor,
+    Pcf32Tensor,
+    Pcf64Tensor,
+    PointCloud32Tensor,
+    PointCloud64Tensor,
+)
+from .tensor_create import zeros
+from .typing import (
+    barcode32,
+    barcode64,
+    f32,
+    f64,
+    float32,  # deprecated
+    float64,
+    pcf32,
+    pcf64,
+    pcloud32,
+    pcloud64,
+)

@@ -17,7 +17,6 @@ import sys
 
 import pytest
 
-
 _SUBPROC = r"""
 import ctypes.util
 import importlib.util

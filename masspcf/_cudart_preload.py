@@ -24,13 +24,13 @@ import sys
 def _preload_cudart():
     """Preload libcudart from a pip-installed cuda-toolkit (nvidia-* packages),
     or fall back to a system-installed libcudart."""
-    _rtld_global = getattr(ctypes, 'RTLD_GLOBAL', 0)
-    _is_windows = sys.platform == 'win32'
-    _glob = 'cudart64_*.dll' if _is_windows else 'libcudart.so*'
-    _skip_suffixes = {'.lib'} if _is_windows else {'.a'}  # skip static libs
+    _rtld_global = getattr(ctypes, "RTLD_GLOBAL", 0)
+    _is_windows = sys.platform == "win32"
+    _glob = "cudart64_*.dll" if _is_windows else "libcudart.so*"
+    _skip_suffixes = {".lib"} if _is_windows else {".a"}  # skip static libs
 
     loaded = False
-    nvidia_spec = importlib.util.find_spec('nvidia')
+    nvidia_spec = importlib.util.find_spec("nvidia")
     if nvidia_spec is not None and nvidia_spec.submodule_search_locations:
         for nvidia_root in nvidia_spec.submodule_search_locations:
             for lib in sorted(pathlib.Path(nvidia_root).rglob(_glob)):
@@ -38,6 +38,6 @@ def _preload_cudart():
                     ctypes.CDLL(str(lib), mode=_rtld_global)
                     loaded = True
     if not loaded:
-        sys_lib = ctypes.util.find_library('cudart')
+        sys_lib = ctypes.util.find_library("cudart")
         if sys_lib:
             ctypes.CDLL(sys_lib, mode=_rtld_global)

@@ -12,15 +12,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import math
+from itertools import product
+
+import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
+
 import masspcf as mpcf
 from masspcf import persistence as mpers
 from masspcf.plotting import plot as plotpcf
-
-import numpy as np
-import math
-from tqdm import tqdm
-from itertools import product
-import matplotlib.pyplot as plt
 
 # The dimension of the tensor holding the point clouds
 shape = (100, 20, 30)
@@ -33,7 +34,7 @@ max_pcloud_points = 100
 # but we'll keep it the same here as that's the most common case)
 pcloud_dim = 4
 
-print(f'Will compute {math.prod(shape)} barcodes...')
+print(f"Will compute {math.prod(shape)} barcodes...")
 
 # Create a tensor to hold our point clouds
 pclouds = mpcf.zeros(shape, dtype=mpcf.pcloud64)
@@ -48,9 +49,15 @@ pclouds = mpcf.zeros(shape, dtype=mpcf.pcloud64)
 #
 # ...but wrapping a product in tqdm gives a nested loop over the same indices with progress reporting.
 
-for i, j, k in tqdm(product(range(shape[0]), range(shape[1]), range(shape[2])),
-                    desc="Initializing data", total=shape[0] * shape[1] * shape[2]): # trange gives a progress bar
-    pcloud_shape = (np.random.randint(min_pcloud_points, max_pcloud_points + 1), pcloud_dim)
+for i, j, k in tqdm(
+    product(range(shape[0]), range(shape[1]), range(shape[2])),
+    desc="Initializing data",
+    total=shape[0] * shape[1] * shape[2],
+):  # trange gives a progress bar
+    pcloud_shape = (
+        np.random.randint(min_pcloud_points, max_pcloud_points + 1),
+        pcloud_dim,
+    )
 
     # Each point cloud (i, j, k) will consist of a random number of points between `min_pcloud_points` and
     # `max_pcloud_points`, each with point dimension `pcloud_dim`

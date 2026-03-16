@@ -60,7 +60,11 @@ def prune_old_reports(reports_root: str, tag_map: dict[str, str] = {}) -> None:
     if not os.path.isdir(reports_root):
         return
     dirs = sorted(
-        [d for d in os.listdir(reports_root) if os.path.isdir(os.path.join(reports_root, d))],
+        [
+            d
+            for d in os.listdir(reports_root)
+            if os.path.isdir(os.path.join(reports_root, d))
+        ],
         reverse=True,
     )
     unpinned = [d for d in dirs if _dir_sha(d) not in tag_map]
@@ -102,13 +106,17 @@ def parse_python_coverage(report_dir: str) -> str | None:
 def parse_valgrind_error_count(report_dir: str, subpath: str) -> int | None:
     """Return integer error count from a ValgrindCI HTML report, or None if unavailable."""
     html = _read(os.path.join(report_dir, subpath, "index.html"))
-    m = re.search(r'<b>(\d+)</b>\s*errors?', html)
+    m = re.search(r"<b>(\d+)</b>\s*errors?", html)
     return int(m.group(1)) if m else None
 
 
 def _has_memory_reports(report_dir: str) -> bool:
-    for subpath in ("valgrind/vg_pytest", "valgrind/vg_gtest",
-                    "helgrind/hg_pytest", "helgrind/hg_gtest"):
+    for subpath in (
+        "valgrind/vg_pytest",
+        "valgrind/vg_gtest",
+        "helgrind/hg_pytest",
+        "helgrind/hg_gtest",
+    ):
         if os.path.isdir(os.path.join(report_dir, subpath)):
             return True
     return False
@@ -138,42 +146,45 @@ def get_entries(reports_root: str, tag_map: dict[str, str] = {}) -> list[dict]:
         branch = _read(os.path.join(report_dir, "branch")).strip() or None
         release_tag = tag_map.get(sha) if sha else None
 
-        vg_pytest_errs  = parse_valgrind_error_count(report_dir, "valgrind/vg_pytest")
-        vg_gtest_errs   = parse_valgrind_error_count(report_dir, "valgrind/vg_gtest")
-        hg_pytest_errs  = parse_valgrind_error_count(report_dir, "helgrind/hg_pytest")
-        hg_gtest_errs   = parse_valgrind_error_count(report_dir, "helgrind/hg_gtest")
+        vg_pytest_errs = parse_valgrind_error_count(report_dir, "valgrind/vg_pytest")
+        vg_gtest_errs = parse_valgrind_error_count(report_dir, "valgrind/vg_gtest")
+        hg_pytest_errs = parse_valgrind_error_count(report_dir, "helgrind/hg_pytest")
+        hg_gtest_errs = parse_valgrind_error_count(report_dir, "helgrind/hg_gtest")
 
-        entries.append({
-            "name": name,
-            "label": label,
-            "utc_iso": utc_iso,
-            "sha": sha,
-            "branch": branch,
-            "release_tag": release_tag,
-            "has_memory": _has_memory_reports(report_dir),
-            "cpp_coverage": parse_cpp_coverage(report_dir),
-            "python_coverage": parse_python_coverage(report_dir),
-            "vg_pytest_errors": vg_pytest_errs,
-            "vg_gtest_errors":  vg_gtest_errs,
-            "hg_pytest_errors": hg_pytest_errs,
-            "hg_gtest_errors":  hg_gtest_errs,
-            # Paths relative to gh-pages root (used in index.html)
-            "detail_path":  f"reports/{name}/report.html",
-            "cpp_path":     f"reports/{name}/cpp/coverage.html",
-            "python_path":  f"reports/{name}/python/index.html",
-            # Paths relative to the run dir (used in report.html iframe srcs)
-            "cpp_rel":             "cpp/coverage.html",
-            "cpp_detailed_rel":    "cpp/detailed/index.html",
-            "python_rel":          "python/index.html",
-            "vg_pytest_rel_base":  "valgrind/vg_pytest",
-            "vg_gtest_rel_base":   "valgrind/vg_gtest",
-            "hg_pytest_rel_base":  "helgrind/hg_pytest",
-            "hg_gtest_rel_base":   "helgrind/hg_gtest",
-        })
+        entries.append(
+            {
+                "name": name,
+                "label": label,
+                "utc_iso": utc_iso,
+                "sha": sha,
+                "branch": branch,
+                "release_tag": release_tag,
+                "has_memory": _has_memory_reports(report_dir),
+                "cpp_coverage": parse_cpp_coverage(report_dir),
+                "python_coverage": parse_python_coverage(report_dir),
+                "vg_pytest_errors": vg_pytest_errs,
+                "vg_gtest_errors": vg_gtest_errs,
+                "hg_pytest_errors": hg_pytest_errs,
+                "hg_gtest_errors": hg_gtest_errs,
+                # Paths relative to gh-pages root (used in index.html)
+                "detail_path": f"reports/{name}/report.html",
+                "cpp_path": f"reports/{name}/cpp/coverage.html",
+                "python_path": f"reports/{name}/python/index.html",
+                # Paths relative to the run dir (used in report.html iframe srcs)
+                "cpp_rel": "cpp/coverage.html",
+                "cpp_detailed_rel": "cpp/detailed/index.html",
+                "python_rel": "python/index.html",
+                "vg_pytest_rel_base": "valgrind/vg_pytest",
+                "vg_gtest_rel_base": "valgrind/vg_gtest",
+                "hg_pytest_rel_base": "helgrind/hg_pytest",
+                "hg_gtest_rel_base": "helgrind/hg_gtest",
+            }
+        )
     return entries
 
 
 # ── Badge helpers ──────────────────────────────────────────────────────────────
+
 
 def _cov_badge_index(value: str | None) -> str:
     """Small coverage % badge for the index page cards."""
@@ -220,6 +231,7 @@ def _mem_section_badge(counts: list[int | None]) -> str:
 
 # ── Index page rendering ───────────────────────────────────────────────────────
 
+
 def render_cards(entries: list[dict]) -> str:
     if not entries:
         return '<div class="empty">No coverage reports found yet.</div>'
@@ -228,7 +240,11 @@ def render_cards(entries: list[dict]) -> str:
     for i, entry in enumerate(entries):
         is_latest = i == 0
         is_release = bool(entry.get("release_tag"))
-        wrapper_class = "report-card-wrapper" + (" latest" if is_latest else "") + (" release" if is_release else "")
+        wrapper_class = (
+            "report-card-wrapper"
+            + (" latest" if is_latest else "")
+            + (" release" if is_release else "")
+        )
         badges = ""
         if is_latest:
             badges += '<span class="badge badge-latest">Latest</span>'
@@ -236,7 +252,8 @@ def render_cards(entries: list[dict]) -> str:
             badges += f'<span class="badge badge-release">&#x1f3f7; {entry["release_tag"]}</span>'
         branch_tag = (
             f'<div class="report-branch">&#x2387; {entry["branch"]}</div>'
-            if entry.get("branch") else ""
+            if entry.get("branch")
+            else ""
         )
 
         # Only valgrind (memcheck) errors on the main page — helgrind counts
@@ -253,17 +270,17 @@ def render_cards(entries: list[dict]) -> str:
 
         cards.append(f"""
 <div class="{wrapper_class}">
-  <a class="report-card-link" href="{entry['detail_path']}">
+  <a class="report-card-link" href="{entry["detail_path"]}">
     <div class="report-card">
       <span class="report-index">#{i + 1}</span>
       <div class="report-info">
-        <div class="report-label" data-utc="{entry['utc_iso']}" data-sha="{entry['sha']}">{entry['label']}</div>
+        <div class="report-label" data-utc="{entry["utc_iso"]}" data-sha="{entry["sha"]}">{entry["label"]}</div>
         {branch_tag}
       </div>
       {badges}
       <div class="report-stats">
-        {_cov_badge_index(entry['cpp_coverage']) and f'<span class="stat-group"><span class="stat-label">C++</span>{_cov_badge_index(entry["cpp_coverage"])}</span>' or ''}
-        {_cov_badge_index(entry['python_coverage']) and f'<span class="stat-group"><span class="stat-label">Py</span>{_cov_badge_index(entry["python_coverage"])}</span>' or ''}
+        {_cov_badge_index(entry["cpp_coverage"]) and f'<span class="stat-group"><span class="stat-label">C++</span>{_cov_badge_index(entry["cpp_coverage"])}</span>' or ""}
+        {_cov_badge_index(entry["python_coverage"]) and f'<span class="stat-group"><span class="stat-label">Py</span>{_cov_badge_index(entry["python_coverage"])}</span>' or ""}
         {mem_stat}
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -274,7 +291,7 @@ def render_cards(entries: list[dict]) -> str:
     return "\n".join(cards)
 
 
-  # (no CHART_CSS constant — chart styles live in style.css)
+# (no CHART_CSS constant — chart styles live in style.css)
 
 
 def load_coverage_history(gh_pages_dir: str) -> list[dict]:
@@ -296,7 +313,9 @@ def save_coverage_history(gh_pages_dir: str, history: list[dict]) -> None:
     print(f"Written coverage history ({len(history_sorted)} entries): {path}")
 
 
-def reconcile_coverage_history(gh_pages_dir: str, entries: list[dict], tag_map: dict[str, str]) -> None:
+def reconcile_coverage_history(
+    gh_pages_dir: str, entries: list[dict], tag_map: dict[str, str]
+) -> None:
     """Upsert all current entries into the persistent history file and refresh
     release_tag for every record against the latest tag_map.  Pruned runs that
     were already written to the file are preserved — only their release_tag is
@@ -307,16 +326,16 @@ def reconcile_coverage_history(gh_pages_dir: str, entries: list[dict], tag_map: 
     # Upsert entries that are still present as report directories
     for entry in entries:
         cpp = entry.get("cpp_coverage")
-        py  = entry.get("python_coverage")
+        py = entry.get("python_coverage")
         if cpp is None and py is None:
             continue
         sha = entry.get("sha", "")
         record = {
-            "utc_iso":     entry["utc_iso"],
-            "sha":         sha,
+            "utc_iso": entry["utc_iso"],
+            "sha": sha,
             "detail_path": entry.get("detail_path"),
-            "cpp":         float(cpp.rstrip("%")) if cpp else None,
-            "py":          float(py.rstrip("%"))  if py  else None,
+            "cpp": float(cpp.rstrip("%")) if cpp else None,
+            "py": float(py.rstrip("%")) if py else None,
             "release_tag": tag_map.get(sha) if sha else None,
         }
         by_sha[sha] = record
@@ -340,17 +359,19 @@ def render_coverage_chart(gh_pages_dir: str, entries: list[dict]) -> str:
         points = []
         for entry in reversed(entries):
             cpp = entry.get("cpp_coverage")
-            py  = entry.get("python_coverage")
+            py = entry.get("python_coverage")
             if cpp is None and py is None:
                 continue
-            points.append({
-                "utc_iso":     entry["utc_iso"],
-                "sha":         entry["sha"],
-                "detail_path": entry.get("detail_path"),
-                "cpp":         float(cpp.rstrip("%")) if cpp else None,
-                "py":          float(py.rstrip("%"))  if py  else None,
-                "release_tag": entry.get("release_tag"),
-            })
+            points.append(
+                {
+                    "utc_iso": entry["utc_iso"],
+                    "sha": entry["sha"],
+                    "detail_path": entry.get("detail_path"),
+                    "cpp": float(cpp.rstrip("%")) if cpp else None,
+                    "py": float(py.rstrip("%")) if py else None,
+                    "release_tag": entry.get("release_tag"),
+                }
+            )
 
     if not points:
         return ""
@@ -363,14 +384,16 @@ def render_index_html(gh_pages_dir: str, entries: list[dict]) -> str:
     css = load_template("style.css")
     cards = render_cards(entries)
     chart = render_coverage_chart(gh_pages_dir, entries)
-    return (template
-            .replace("{{style}}", css)
-            .replace("{{chart}}", chart)
-            .replace("{{cards}}", cards)
-            .replace("{{max_reports}}", str(MAX_REPORTS)))
+    return (
+        template.replace("{{style}}", css)
+        .replace("{{chart}}", chart)
+        .replace("{{cards}}", cards)
+        .replace("{{max_reports}}", str(MAX_REPORTS))
+    )
 
 
 # ── Detail page rendering ──────────────────────────────────────────────────────
+
 
 def _memory_nav_section(entry: dict) -> str:
     """Render the Valgrind + Helgrind sidebar sections for report.html."""
@@ -412,9 +435,9 @@ def _memory_nav_section(entry: dict) -> str:
       </div>
       <div class="sidebar-section-body">
         <div class="sidebar-subsection-label">pytest</div>
-        {_group_items(entry['vg_pytest_rel_base'], entry['vg_pytest_errors'])}
+        {_group_items(entry["vg_pytest_rel_base"], entry["vg_pytest_errors"])}
         <div class="sidebar-subsection-label">gtest</div>
-        {_group_items(entry['vg_gtest_rel_base'], entry['vg_gtest_errors'])}
+        {_group_items(entry["vg_gtest_rel_base"], entry["vg_gtest_errors"])}
       </div>
     </div>
 
@@ -427,9 +450,9 @@ def _memory_nav_section(entry: dict) -> str:
       </div>
       <div class="sidebar-section-body">
         <div class="sidebar-subsection-label">pytest</div>
-        {_group_items(entry['hg_pytest_rel_base'], entry['hg_pytest_errors'])}
+        {_group_items(entry["hg_pytest_rel_base"], entry["hg_pytest_errors"])}
         <div class="sidebar-subsection-label">gtest</div>
-        {_group_items(entry['hg_gtest_rel_base'], entry['hg_gtest_errors'])}
+        {_group_items(entry["hg_gtest_rel_base"], entry["hg_gtest_errors"])}
       </div>
     </div>"""
 
@@ -438,25 +461,32 @@ def render_detail_html(entry: dict) -> str:
     template = load_template("report.template.html")
     branch_display = f"&#x2387; {entry['branch']}" if entry.get("branch") else ""
 
-    return (template
-            .replace("{{page_title}}", f"Report \u2014 {entry['sha'] or entry['name']}")
-            .replace("{{utc_iso}}", entry["utc_iso"])
-            .replace("{{sha}}", entry["sha"])
-            .replace("{{label}}", entry["label"])
-            .replace("{{branch_display}}", branch_display)
-            .replace("{{cpp_path}}", entry["cpp_rel"])
-            .replace("{{cpp_detailed_path}}", entry["cpp_detailed_rel"])
-            .replace("{{python_path}}", entry["python_rel"])
-            .replace("{{cpp_badge}}", _cov_badge_sidebar(entry["cpp_coverage"]))
-            .replace("{{python_badge}}", _cov_badge_sidebar(entry["python_coverage"]))
-            .replace("{{memory_nav}}", _memory_nav_section(entry)))
+    return (
+        template.replace(
+            "{{page_title}}", f"Report \u2014 {entry['sha'] or entry['name']}"
+        )
+        .replace("{{utc_iso}}", entry["utc_iso"])
+        .replace("{{sha}}", entry["sha"])
+        .replace("{{label}}", entry["label"])
+        .replace("{{branch_display}}", branch_display)
+        .replace("{{cpp_path}}", entry["cpp_rel"])
+        .replace("{{cpp_detailed_path}}", entry["cpp_detailed_rel"])
+        .replace("{{python_path}}", entry["python_rel"])
+        .replace("{{cpp_badge}}", _cov_badge_sidebar(entry["cpp_coverage"]))
+        .replace("{{python_badge}}", _cov_badge_sidebar(entry["python_coverage"]))
+        .replace("{{memory_nav}}", _memory_nav_section(entry))
+    )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <gh-pages-dir> [--tag-map sha1=tag1 sha2=tag2 ...]", file=sys.stderr)
+        print(
+            f"Usage: {sys.argv[0]} <gh-pages-dir> [--tag-map sha1=tag1 sha2=tag2 ...]",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     gh_pages_dir = sys.argv[1]
@@ -467,13 +497,13 @@ def main() -> None:
     args = sys.argv[2:]
     if "--tag-map" in args:
         idx = args.index("--tag-map")
-        for item in args[idx + 1:]:
+        for item in args[idx + 1 :]:
             if "=" in item:
                 sha, tag = item.split("=", 1)
                 tag_map[sha] = tag
 
     if tag_map:
-        print(f"Tagged releases (will not be pruned):")
+        print("Tagged releases (will not be pruned):")
         for sha, tag in sorted(tag_map.items()):
             print(f"  {sha} -> {tag}")
 

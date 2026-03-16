@@ -12,28 +12,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from ..tensor import (Float32Tensor, Float64Tensor, PointCloud32Tensor, PointCloud64Tensor,
-                      _get_backend
-                      )
-
-from ..tensor_create import zeros
-
-from ..typing import f32, f64, pcloud32, pcloud64
+from .. import _mpcf_cpp as cpp
+from ..tensor import PointCloud32Tensor, PointCloud64Tensor, _get_backend
+from ..typing import pcloud32, pcloud64
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 
-from .. import _mpcf_cpp as cpp
 cpp_p = cpp.persistence
 
-def _compute_barcodes_euclidean_pcloud_ripser(
-        X : PointCloud32Tensor | PointCloud64Tensor,
-        out : Barcode32Tensor | Barcode64Tensor,
-        maxDim : int = 1):
 
-    backend, X = _get_backend(X, {
-        pcloud32 : cpp_p.PersistenceRipser32,
-        pcloud64 : cpp_p.PersistenceRipser64
-    })
+def _compute_barcodes_euclidean_pcloud_ripser(
+    X: PointCloud32Tensor | PointCloud64Tensor,
+    out: Barcode32Tensor | Barcode64Tensor,
+    maxDim: int = 1,
+):
+    backend, X = _get_backend(
+        X, {pcloud32: cpp_p.PersistenceRipser32, pcloud64: cpp_p.PersistenceRipser64}
+    )
 
     return backend.spawn_ripser_pcloud_euclidean_task(X._data, out._data, maxDim)
-
-

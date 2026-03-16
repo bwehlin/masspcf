@@ -12,13 +12,18 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import _mpcf_cpp as cpp
 
 from tqdm import tqdm
 
+
 def _wait_for_task(task, verbose=True):
     def init_progress(task):
-        progress = tqdm(total=task.work_total(), unit_scale=True, unit=task.work_step_unit(), desc=task.work_step_desc())
+        progress = tqdm(
+            total=task.work_total(),
+            unit_scale=True,
+            unit=task.work_step_unit(),
+            desc=task.work_step_desc(),
+        )
         return progress
 
     if verbose:
@@ -32,7 +37,7 @@ def _wait_for_task(task, verbose=True):
             new_work_step = task.work_step()
             if new_work_step != work_step:
                 work_step = new_work_step
-                print('')
+                print("")
                 progress = init_progress(task)
 
     if verbose:

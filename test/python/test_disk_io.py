@@ -12,8 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import masspcf as mpcf
-from io import BytesIO
 
 """
 def test_save_empty():

@@ -21,17 +21,15 @@ falling back to a pure-Python implementation using subprocess.
 try:
     from _gpu_detect import detect_nvidia_gpus, has_nvidia_gpu, nvidia_gpu_count
 except ImportError:
-    import platform
-    import subprocess
     import os
+    import platform
     import re
+    import subprocess
 
     def _run(cmd):
         """Run a command and return stdout, or None on failure."""
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=10
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 return result.stdout
             return None
@@ -74,12 +72,16 @@ except ImportError:
         """Detect NVIDIA GPUs on Windows via WMIC/PowerShell."""
         gpus = []
 
-        output = _run([
-            "powershell", "-NoProfile", "-Command",
-            "Get-CimInstance Win32_VideoController | "
-            "Where-Object { $_.Name -match 'NVIDIA' } | "
-            "Select-Object -ExpandProperty Name"
-        ])
+        output = _run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_VideoController | "
+                "Where-Object { $_.Name -match 'NVIDIA' } | "
+                "Select-Object -ExpandProperty Name",
+            ]
+        )
         if output:
             for line in output.strip().splitlines():
                 line = line.strip()

@@ -12,15 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import pytest
-import masspcf as mpcf
 import numpy as np
 import numpy.testing as npt
+import pytest
+
+import masspcf as mpcf
 
 
 # PCF: f(t) = 1.0 on [0, 1), 2.0 on [1, 3), 0.5 on [3, inf)
 def make_f32():
     return mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.5]], dtype=np.float32))
+
 
 def make_f64():
     return mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.5]], dtype=np.float64))

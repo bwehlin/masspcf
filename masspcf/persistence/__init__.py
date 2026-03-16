@@ -13,6 +13,6 @@
 #  limitations under the License.
 
 from .barcode import Barcode
-from .ph_tensor import BarcodeTensor, Barcode32Tensor, Barcode64Tensor
-from .homology import compute_persistent_homology, ComplexType, DistanceType
+from .homology import ComplexType, DistanceType, compute_persistent_homology
+from .ph_tensor import Barcode32Tensor, Barcode64Tensor, BarcodeTensor
 from .stable_rank import barcode_to_stable_rank

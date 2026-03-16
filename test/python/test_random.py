@@ -14,6 +14,7 @@
 
 import masspcf as mpcf
 
+
 def test_noisy_trig():
-    X = mpcf.random.noisy_sin((10,20))
+    X = mpcf.random.noisy_sin((10, 20))
     assert X.shape == (10, 20)

@@ -1,9 +1,8 @@
-import pytest
+import numpy as np
+from utils import np_strides_in_items
+
 import masspcf as mpcf
 
-import numpy as np
-
-from utils import np_strides_in_items, print_np_array_details
 
 def test_extract_element():
     X = mpcf.zeros((2, 3), dtype=mpcf.f64)
@@ -16,12 +15,14 @@ def test_extract_element():
 
     assert X[0, 1] == 2.0
 
+
 def test_extract_element1d():
     X = mpcf.zeros((2), dtype=mpcf.f64)
     X[1] = 2.0
 
     assert X[0] == 0.0
     assert X[1] == 2.0
+
 
 def test_extract_subtensor():
     X = mpcf.zeros((3, 4, 5), dtype=mpcf.f64)
@@ -53,22 +54,23 @@ def test_extract_subtensor():
     assert Y[2, 1, 0] == X[2, 2, 2]
     assert Y[2, 1, 1] == X[2, 2, 3]
 
-    
+
 def test_extract1d_with_step():
     X = mpcf.zeros((6), dtype=mpcf.f64)
 
     for i in range(X.shape[0]):
         X[i] = i
-    
-    Y = X[0:5:2] # start:stop:step
-    
-    Xnp = np.zeros((6))
+
+    Y = X[0:5:2]  # start:stop:step
+
+    Xnp = np.zeros(6)
     Ynp = Xnp[0:5:2]
 
     assert Y.shape == Ynp.shape
     assert Y[0] == 0
     assert Y[1] == 2
     assert Y[2] == 4
+
 
 def test_extract_with_step():
     X = mpcf.zeros((3, 9, 2), dtype=mpcf.f64)
@@ -77,17 +79,16 @@ def test_extract_with_step():
         for j in range(X.shape[1]):
             for k in range(X.shape[2]):
                 X[i, j, k] = 100 * i + 10 * j + k
-    
-    Y = X[:, 0:7:2, :] # start:stop:step
+
+    Y = X[:, 0:7:2, :]  # start:stop:step
 
     Xnp = np.zeros((3, 9, 2))
     Ynp = Xnp[:, 0:7:2, :]
 
-    assert Y.shape == Ynp.shape # (3, 4 ,2)
+    assert Y.shape == Ynp.shape  # (3, 4 ,2)
     assert Y.strides == np_strides_in_items(Ynp)
 
     print(Y.shape)
-
 
     assert Y[0, 0, 0] == X[0, 0, 0]
     assert Y[0, 0, 1] == X[0, 0, 1]
@@ -125,6 +126,7 @@ def test_extract_with_step():
     assert Y[2, 3, 0] == X[2, 6, 0]
     assert Y[2, 3, 1] == X[2, 6, 1]
 
+
 def test_extract_with_offsets():
     X = mpcf.zeros((7, 9, 5), dtype=mpcf.f64)
 
@@ -132,14 +134,15 @@ def test_extract_with_offsets():
         for j in range(X.shape[1]):
             for k in range(X.shape[2]):
                 X[i, j, k] = 100 * i + 10 * j + k
-        
-    Y = X[1::3, 3:7:2, 2:5] # start:stop:step
+
+    Y = X[1::3, 3:7:2, 2:5]  # start:stop:step
 
     assert Y.shape == mpcf.Shape((2, 2, 3))
     assert Y.strides == [135, 10, 1]
     assert Y.offset == 62
 
     assert Y[1, 1, 0] == X[4, 5, 2]
+
 
 def test_recursive_extract():
     X = mpcf.zeros((9, 8, 7, 6), dtype=mpcf.f64)
@@ -151,7 +154,7 @@ def test_recursive_extract():
                 for l in range(X.shape[3]):
                     X[i, j, k, l] = 1000 * i + 100 * j + 10 * k + l
                     Xnp[i, j, k, l] = 1000 * i + 100 * j + 10 * k + l
-    
+
     Y0 = X[4:9:2, ::3, 2:5, 1:3:2]
     Y0np = Xnp[4:9:2, ::3, 2:5, 1:3:2]
 
@@ -162,7 +165,7 @@ def test_recursive_extract():
         for j in range(Y0.shape[1]):
             for k in range(Y0.shape[2]):
                 for l in range(Y0.shape[3]):
-                    assert Y0[i,j,k,l] == Y0np[i,j,k,l]
+                    assert Y0[i, j, k, l] == Y0np[i, j, k, l]
 
     Y1 = Y0[1:3, :, :2, 0]
     Y1np = Y0np[1:3, :, :2, 0]
@@ -188,8 +191,3 @@ def test_recursive_extract():
 
     assert Y1[1, 2, 0] == 8621
     assert Y1[1, 2, 1] == 8631
-
-
-
-
-

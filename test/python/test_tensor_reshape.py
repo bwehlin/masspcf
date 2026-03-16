@@ -1,11 +1,9 @@
-import pytest
 import masspcf as mpcf
 
-import numpy as np
 
 def test_tensor2d_flatten():
     X = mpcf.zeros((2, 3), dtype=mpcf.f32)
-    
+
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
             X[i, j] = 10 * i + j

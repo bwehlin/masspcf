@@ -12,13 +12,16 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from . import _mpcf_cpp as cpp
-from .tensor import Pcf32Tensor, Pcf64Tensor
-from .typing import pcf32, pcf64, _check_deprecated_dtype, _assert_valid_dtype
-
 import numpy as np
 
-def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = None) -> Pcf32Tensor | Pcf64Tensor:
+from . import _mpcf_cpp as cpp
+from .tensor import Pcf32Tensor, Pcf64Tensor
+from .typing import _assert_valid_dtype, _check_deprecated_dtype, pcf32, pcf64
+
+
+def from_serial_content(
+    content: np.ndarray, enumeration: np.ndarray, dtype=None
+) -> Pcf32Tensor | Pcf64Tensor:
     """Creates a `Tensor` of PCFs from serial numpy data.
 
     Parameters
@@ -42,7 +45,7 @@ def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = 
         elif content.dtype == np.float64:
             dtype = pcf64
         else:
-            raise TypeError('content must have dtype either np.float32 or np.float64.')
+            raise TypeError("content must have dtype either np.float32 or np.float64.")
 
     _check_deprecated_dtype(dtype)
 
@@ -57,4 +60,3 @@ def from_serial_content(content : np.ndarray, enumeration : np.ndarray, dtype = 
         return Pcf32Tensor(cpp.make_from_serial_content_32(content, enumeration))
     elif dtype == pcf64:
         return Pcf64Tensor(cpp.make_from_serial_content_64(content, enumeration))
-

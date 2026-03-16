@@ -12,15 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-print('!!!!!!!!!! Printing wheel contents !!!!!!!!!!')
+print("!!!!!!!!!! Printing wheel contents !!!!!!!!!!")
 
+import glob
 import os
 import sys
-import glob
+
 
 def list_package(pkgname):
-
-    site_packages_dirs = [p for p in sys.path if os.path.isdir(p) and "site-packages" in p]
+    site_packages_dirs = [
+        p for p in sys.path if os.path.isdir(p) and "site-packages" in p
+    ]
 
     found = False
     for sp in site_packages_dirs:
@@ -39,7 +41,8 @@ def list_package(pkgname):
     if not found:
         print("Cannot find masspcf in site-packages")
 
-list_package('masspcf')
-list_package('masspcf_cpu')
-list_package('_mpcf_cpp')
-list_package('masspcf-cpu')
+
+list_package("masspcf")
+list_package("masspcf_cpu")
+list_package("_mpcf_cpp")
+list_package("masspcf-cpu")

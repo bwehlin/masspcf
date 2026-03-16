@@ -15,9 +15,10 @@
 #  limitations under the License.
 
 import inspect
+
 import masspcf.mpcf_cpp as cpp
 
 classes = inspect.getmembers(cpp, inspect.isclass)
 
 for name, _ in classes:
-    print(f'Class: {name}')
+    print(f"Class: {name}")

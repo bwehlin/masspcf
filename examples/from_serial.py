@@ -1,11 +1,20 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 import masspcf as mpcf
 from masspcf.plotting import plot as plotpcf
-import numpy as np
-import matplotlib.pyplot as plt
 
-content = [[0, 2.5], [1.5, 1.2], [3.14, 0],
-           [0, 7.0], [3.8, 5.5], [4.5, 1.5], [7, 0],
-           [0, 3], [2, 0]]
+content = [
+    [0, 2.5],
+    [1.5, 1.2],
+    [3.14, 0],
+    [0, 7.0],
+    [3.8, 5.5],
+    [4.5, 1.5],
+    [7, 0],
+    [0, 3],
+    [2, 0],
+]
 
 enumeration = [[0, 3], [3, 7], [7, 9]]
 

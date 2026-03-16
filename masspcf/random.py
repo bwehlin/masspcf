@@ -14,8 +14,8 @@
 
 from . import _mpcf_cpp as cpp
 from .tensor_create import zeros
+from .typing import _validate_dtype, pcf32, pcf64
 
-from .typing import pcf32, pcf64, _validate_dtype
 
 def _get_backend(dtype):
     dtype = _validate_dtype(dtype, [pcf32, pcf64])
@@ -24,6 +24,7 @@ def _get_backend(dtype):
         return cpp.Random_f32_f32
     elif dtype == pcf64:
         return cpp.Random_f64_f64
+
 
 def noisy_sin(shape, n_points=20, dtype=pcf32):
     r"""Generate a tensor of noisy :math:`\sin(2\pi t)` PCFs.
@@ -58,6 +59,7 @@ def noisy_sin(shape, n_points=20, dtype=pcf32):
     backend.noisy_sin(A._data, n_points)
 
     return A
+
 
 def noisy_cos(shape, n_points=20, dtype=pcf32):
     r"""Generate a tensor of noisy :math:`\cos(2\pi t)` PCFs.

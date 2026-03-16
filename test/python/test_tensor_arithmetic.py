@@ -1,8 +1,7 @@
-import pytest
-import masspcf as mpcf
-
 import numpy as np
 import numpy.testing as npt
+
+import masspcf as mpcf
 
 
 def _make_pcf32(vals):
@@ -14,6 +13,7 @@ def _make_pcf64(vals):
 
 
 # --- Float tensors ---
+
 
 class TestFloat64TensorArithmetic:
     def test_add(self):
@@ -100,6 +100,7 @@ class TestFloat32TensorArithmetic:
 
 
 # --- PCF tensors ---
+
 
 class TestPcf32TensorArithmetic:
     def _make_tensor(self):

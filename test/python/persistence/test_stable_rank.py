@@ -12,10 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import numpy as np
+
 import masspcf as mpcf
 import masspcf.persistence as mpers
 
-import numpy as np
 
 def test_empty_barcode():
     bc_pts = np.zeros((0, 2))
@@ -27,72 +28,51 @@ def test_empty_barcode():
 
     assert sr == expected_sr
 
+
 def test_simple_barcode():
-    bc_pts = np.array([
-        [0., 1.],
-        [0., 2.],
-        [0., 3.],
-    ])
+    bc_pts = np.array(
+        [
+            [0.0, 1.0],
+            [0.0, 2.0],
+            [0.0, 3.0],
+        ]
+    )
     bc = mpers.Barcode(bc_pts)
     sr = mpers.barcode_to_stable_rank(bc)
 
-    expected_sr_pts = np.array([
-        [0., 3.],
-        [1., 2.],
-        [2., 1.],
-        [3., 0.]
-    ])
+    expected_sr_pts = np.array([[0.0, 3.0], [1.0, 2.0], [2.0, 1.0], [3.0, 0.0]])
     expected_sr = mpcf.Pcf(expected_sr_pts)
 
     print(np.asarray(sr))
 
     assert sr == expected_sr
+
 
 def test_barcode_with_repeats_and_offsets():
-    bc_pts = np.array([
-        [0., 1.],
-        [0., 3.],
-        [0., 2.],
-        [0., 2.],
-        [1., 3.]
-    ])
+    bc_pts = np.array([[0.0, 1.0], [0.0, 3.0], [0.0, 2.0], [0.0, 2.0], [1.0, 3.0]])
     bc = mpers.Barcode(bc_pts)
     sr = mpers.barcode_to_stable_rank(bc)
 
-    expected_sr_pts = np.array([
-        [0., 5.],
-        [1., 4.],
-        [2., 1.],
-        [3., 0.]
-    ])
+    expected_sr_pts = np.array([[0.0, 5.0], [1.0, 4.0], [2.0, 1.0], [3.0, 0.0]])
     expected_sr = mpcf.Pcf(expected_sr_pts)
 
     print(np.asarray(sr))
 
     assert sr == expected_sr
+
 
 def test_barcode_with_infinite_bars():
-    bc_pts = np.array([
-        [0., 1.],
-        [0., 3.],
-        [0., 2.],
-        [0., np.inf],
-        [1., 3.]
-    ])
+    bc_pts = np.array([[0.0, 1.0], [0.0, 3.0], [0.0, 2.0], [0.0, np.inf], [1.0, 3.0]])
     bc = mpers.Barcode(bc_pts)
     sr = mpers.barcode_to_stable_rank(bc)
 
-    expected_sr_pts = np.array([
-        [0., 5.],
-        [1., 4.],
-        [2., 2.],
-        [3., 1.]
-    ])
+    expected_sr_pts = np.array([[0.0, 5.0], [1.0, 4.0], [2.0, 2.0], [3.0, 1.0]])
     expected_sr = mpcf.Pcf(expected_sr_pts)
 
     print(np.asarray(sr))
 
     assert sr == expected_sr
+
 
 def test_tensor_barcode_conversion():
     bcs = mpcf.zeros((5, 6, 7), dtype=mpcf.barcode64)

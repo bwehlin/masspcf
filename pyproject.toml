@@ -68,3 +68,24 @@ archs = ["auto"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"] # Skip "ARM64" for now
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors: style errors (whitespace, indentation, blank lines)
+    "F",    # pyflakes: bug detection (undefined names, unused imports, redefined variables)
+    "W",    # pycodestyle warnings: style warnings (trailing whitespace, blank lines with whitespace)
+    "I",    # isort: consistent import ordering and grouping
+    "UP",   # pyupgrade: modernize syntax for newer Python features (e.g. dict instead of typing.Dict)
+    "B",    # flake8-bugbear: common pitfalls (mutable default args, bare except, unused loop variables)
+    "SIM",  # flake8-simplify: simplifications (merge isinstance calls, collapse nested ifs, use context managers)
+]
+ignore = ["E501"]  # No line length enforcement
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports (re-exports)
+
+[tool.ruff.lint.isort]
+known-first-party = ["masspcf"]

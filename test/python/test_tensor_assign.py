@@ -12,12 +12,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import masspcf as mpcf
 import pytest
 
+import masspcf as mpcf
+
+
 def test_assign_tensor_to_slice_1d():
-    X0 = mpcf.random.noisy_sin((10, ))
-    X1 = mpcf.random.noisy_sin((10, ))
+    X0 = mpcf.random.noisy_sin((10,))
+    X1 = mpcf.random.noisy_sin((10,))
 
     A = mpcf.zeros((2, 10))
 
@@ -26,6 +28,7 @@ def test_assign_tensor_to_slice_1d():
 
     assert A[0, :] == X0
     assert A[1, :] == X1
+
 
 def test_assign_tensor_to_slice_nd():
     X0 = mpcf.random.noisy_sin((10, 10))
@@ -39,6 +42,7 @@ def test_assign_tensor_to_slice_nd():
     assert A[:, 0:10] == X0
     assert A[:, 10:30] == X1
 
+
 def test_assign_tensor_to_slice_incommensurate_dims():
     X0 = mpcf.random.noisy_sin((10, 10))
 
@@ -46,6 +50,7 @@ def test_assign_tensor_to_slice_incommensurate_dims():
 
     with pytest.raises(RuntimeError):
         A[:, 0:5] = X0
+
 
 def test_assign_wrong_dtype_raises_error():
     X = mpcf.random.noisy_sin((10, 10))
