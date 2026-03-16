@@ -312,19 +312,19 @@ namespace
           });
 
           // Build sorted times and evaluate
-          py::array_t<Tt> sorted_times({n});
+          py::array_t<Tt> sorted_times({static_cast<ssize_t>(n)});
           NumpyTensor<Tt> sorted_in(sorted_times);
           for (size_t i = 0; i < n; ++i)
           {
             sorted_in(i) = in(order[i]);
           }
 
-          py::array_t<Tv> sorted_result({n});
+          py::array_t<Tv> sorted_result({static_cast<ssize_t>(n)});
           NumpyTensor<Tv> sorted_out(sorted_result);
           self.evaluate(sorted_in, sorted_out, n);
 
           // Unsort results back to original order
-          py::array_t<Tv> flat_result({n});
+          py::array_t<Tv> flat_result({static_cast<ssize_t>(n)});
           NumpyTensor<Tv> out(flat_result);
           for (size_t i = 0; i < n; ++i)
           {
