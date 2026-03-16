@@ -15,6 +15,8 @@
 #ifndef MASSPCF_CONCEPTS_H
 #define MASSPCF_CONCEPTS_H
 
+#include <concepts>
+
 namespace mpcf
 {
   template <typename T, typename U>
@@ -39,6 +41,34 @@ namespace mpcf
   concept CanSubtract = requires(T t, U u)
   {
     t - u;
+  };
+
+  // "Into" variants: check that the result of A op B is convertible to R.
+  // Use these for operators whose body stores the result back into an element
+  // of type R (e.g. compound assignment, elementwise free operators).
+
+  template <typename R, typename A, typename B>
+  concept CanAddTo = requires(A a, B b)
+  {
+    { a + b } -> std::convertible_to<R>;
+  };
+
+  template <typename R, typename A, typename B>
+  concept CanSubtractTo = requires(A a, B b)
+  {
+    { a - b } -> std::convertible_to<R>;
+  };
+
+  template <typename R, typename A, typename B>
+  concept CanMultiplyTo = requires(A a, B b)
+  {
+    { a * b } -> std::convertible_to<R>;
+  };
+
+  template <typename R, typename A, typename B>
+  concept CanDivideTo = requires(A a, B b)
+  {
+    { a / b } -> std::convertible_to<R>;
   };
 }
 

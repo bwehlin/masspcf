@@ -102,35 +102,35 @@ namespace mpcf
     void assign_from(const Tensor<U>& rhs);
 
     template <typename U>
-    requires CanDivide<T, U>
+    requires CanDivideTo<T, T, U>
     Tensor& operator/=(const U& u);
 
     template <typename U>
-    requires CanDivide<T, U>
+    requires CanDivideTo<T, T, U>
     [[nodiscard]] Tensor operator/(const U& u) const;
 
     template <typename U>
-    requires CanMultiply<T, U>
+    requires CanMultiplyTo<T, T, U>
     Tensor& operator*=(const U& u);
 
     template <typename U>
-    requires CanMultiply<T, U>
+    requires CanMultiplyTo<T, T, U>
     [[nodiscard]] Tensor operator*(const U& u) const;
 
     template <typename U>
-    requires CanAdd<T, U>
+    requires CanAddTo<T, T, U>
     Tensor& operator+=(const U& u);
 
     template <typename U>
-    requires CanAdd<T, U>
+    requires CanAddTo<T, T, U>
     [[nodiscard]] Tensor operator+(const U& u) const;
 
     template <typename U>
-    requires CanSubtract<T, U>
+    requires CanSubtractTo<T, T, U>
     Tensor& operator-=(const U& u);
 
     template <typename U>
-    requires CanSubtract<T, U>
+    requires CanSubtractTo<T, T, U>
     [[nodiscard]] Tensor operator-(const U& u) const;
 
     [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
@@ -251,19 +251,19 @@ namespace mpcf
   };
 
   template <typename U, typename T>
-  requires CanMultiply<U, T>
+  requires CanMultiplyTo<T, U, T>
   [[nodiscard]] Tensor<T> operator*(const U& u, const Tensor<T>& t);
 
   template <typename U, typename T>
-  requires CanAdd<U, T>
+  requires CanAddTo<T, U, T>
   [[nodiscard]] Tensor<T> operator+(const U& u, const Tensor<T>& t);
 
   template <typename U, typename T>
-  requires CanSubtract<U, T>
+  requires CanSubtractTo<T, U, T>
   [[nodiscard]] Tensor<T> operator-(const U& u, const Tensor<T>& t);
 
   template <typename U, typename T>
-  requires CanDivide<U, T>
+  requires CanDivideTo<T, U, T>
   [[nodiscard]] Tensor<T> operator/(const U& u, const Tensor<T>& t);
 
   template <typename T>

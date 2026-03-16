@@ -218,7 +218,7 @@ namespace mpcf_py
 
     using Tv = scalar_of_t<T>;
 
-    if constexpr (mpcf::CanAdd<T, T>)
+    if constexpr (mpcf::CanAddTo<T, T, T>)
     {
       cls
         .def("__add__", [](const TTensor& self, const T& rhs){ return self + rhs; })
@@ -227,7 +227,7 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanAdd<T, Tv>)
+    if constexpr (mpcf::CanAddTo<T, T, Tv>)
     {
       cls
         .def("__add__", [](const TTensor& self, Tv rhs){ return self + rhs; })
@@ -235,12 +235,12 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanAdd<Tv, T>)
+    if constexpr (mpcf::CanAddTo<T, Tv, T>)
     {
       cls.def("__radd__", [](const TTensor& self, Tv lhs){ return lhs + self; });
     }
 
-    if constexpr (mpcf::CanSubtract<T, T>)
+    if constexpr (mpcf::CanSubtractTo<T, T, T>)
     {
       cls
         .def("__sub__", [](const TTensor& self, const T& rhs){ return self - rhs; })
@@ -249,7 +249,7 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanSubtract<T, Tv>)
+    if constexpr (mpcf::CanSubtractTo<T, T, Tv>)
     {
       cls
         .def("__sub__", [](const TTensor& self, Tv rhs){ return self - rhs; })
@@ -257,12 +257,12 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanSubtract<Tv, T>)
+    if constexpr (mpcf::CanSubtractTo<T, Tv, T>)
     {
       cls.def("__rsub__", [](const TTensor& self, Tv lhs){ return lhs - self; });
     }
 
-    if constexpr (mpcf::CanMultiply<T, Tv>)
+    if constexpr (mpcf::CanMultiplyTo<T, T, Tv>)
     {
       cls
         .def("__mul__", [](const TTensor& self, Tv rhs){ return self * rhs; })
@@ -270,12 +270,12 @@ namespace mpcf_py
       ;
     }
 
-    if constexpr (mpcf::CanMultiply<Tv, T>)
+    if constexpr (mpcf::CanMultiplyTo<T, Tv, T>)
     {
       cls.def("__rmul__", [](const TTensor& self, Tv lhs){ return lhs * self; });
     }
 
-    if constexpr (mpcf::CanDivide<T, Tv>)
+    if constexpr (mpcf::CanDivideTo<T, T, Tv>)
     {
       cls
         .def("__truediv__", [](const TTensor& self, Tv rhs){ return self / rhs; })

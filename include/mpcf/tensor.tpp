@@ -123,7 +123,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanDivide<T, U>
+  requires CanDivideTo<T, T, U>
   Tensor<T>& Tensor<T>::operator/=(const U& u)
   {
     apply([&u](T& val){
@@ -135,7 +135,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanDivide<T, U>
+  requires CanDivideTo<T, T, U>
   Tensor<T> Tensor<T>::operator/(const U& u) const
   {
     Tensor<T> ret = copy();
@@ -145,7 +145,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanMultiply<T, U>
+  requires CanMultiplyTo<T, T, U>
   Tensor<T>& Tensor<T>::operator*=(const U& u)
   {
     apply([&u](T& val){
@@ -157,7 +157,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanMultiply<T, U>
+  requires CanMultiplyTo<T, T, U>
   Tensor<T> Tensor<T>::operator*(const U& u) const
   {
     Tensor<T> ret = copy();
@@ -167,7 +167,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanAdd<T, U>
+  requires CanAddTo<T, T, U>
   Tensor<T>& Tensor<T>::operator+=(const U& u)
   {
     apply([&u](T& val){
@@ -179,7 +179,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanAdd<T, U>
+  requires CanAddTo<T, T, U>
   Tensor<T> Tensor<T>::operator+(const U& u) const
   {
     Tensor<T> ret = copy();
@@ -189,7 +189,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanSubtract<T, U>
+  requires CanSubtractTo<T, T, U>
   Tensor<T>& Tensor<T>::operator-=(const U& u)
   {
     apply([&u](T& val){
@@ -201,7 +201,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires CanSubtract<T, U>
+  requires CanSubtractTo<T, T, U>
   Tensor<T> Tensor<T>::operator-(const U& u) const
   {
     Tensor<T> ret = copy();
@@ -210,7 +210,7 @@ namespace mpcf
   }
 
   template <typename U, typename T>
-  requires CanMultiply<U, T>
+  requires CanMultiplyTo<T, U, T>
   Tensor<T> operator*(const U& u, const Tensor<T>& t)
   {
     Tensor<T> ret = t.copy();
@@ -221,7 +221,7 @@ namespace mpcf
   }
 
   template <typename U, typename T>
-  requires CanAdd<U, T>
+  requires CanAddTo<T, U, T>
   Tensor<T> operator+(const U& u, const Tensor<T>& t)
   {
     Tensor<T> ret = t.copy();
@@ -232,7 +232,7 @@ namespace mpcf
   }
 
   template <typename U, typename T>
-  requires CanSubtract<U, T>
+  requires CanSubtractTo<T, U, T>
   Tensor<T> operator-(const U& u, const Tensor<T>& t)
   {
     Tensor<T> ret = t.copy();
@@ -243,7 +243,7 @@ namespace mpcf
   }
 
   template <typename U, typename T>
-  requires CanDivide<U, T>
+  requires CanDivideTo<T, U, T>
   Tensor<T> operator/(const U& u, const Tensor<T>& t)
   {
     Tensor<T> ret = t.copy();
