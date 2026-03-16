@@ -318,10 +318,10 @@ SET(MPCF_HEADER_FILES
     config.h
     concepts.h
     version.h
-    pcf.h
-    point.h
-    rectangle.h
-    operations.cuh
+    functional/pcf.h
+    functional/point.h
+    functional/rectangle.h
+    functional/operations.cuh
     platform.h
     random.h
     task.h
@@ -339,12 +339,12 @@ SET(MPCF_HEADER_FILES
     io/point_cloud_io.h
     io/tensor_io.h
     algorithm.h
-    algorithms/iterate_rectangles.h
-    algorithms/reduce.h
-    algorithms/matrix_integrate.h
-    algorithms/matrix_reduce.h
+    algorithms/functional/iterate_rectangles.h
+    algorithms/functional/reduce.h
+    algorithms/functional/matrix_integrate.h
+    algorithms/functional/matrix_reduce.h
     algorithms/subdivide.h
-    algorithms/apply_functional.h
+    algorithms/functional/apply_functional.h
     block_matrix_support.cuh
     persistence/barcode.h
     persistence/compute_persistence.h
@@ -377,14 +377,16 @@ list(TRANSFORM MPCF_PY_PERSISTENCE_SOURCES PREPEND "persistence/")
 SET(MPCF_PY_SOURCES
     pybind.h
     pymodule.cpp
-    pyrandom.cpp
+    functional/py_random.h functional/py_random.cpp
     pypcf_support.h
     py_np_support.h
+    py_future.h
+    functional/py_pcf.h functional/py_pcf.cpp
     py_np_tensor_convert.h py_np_tensor_convert.cpp
-    py_make_from_serial_content.h py_make_from_serial_content.cpp
-    py_distance.h py_distance.cpp
-    py_norms.h py_norms.cpp
-    py_reductions.h py_reductions.cpp
+    functional/py_make_from_serial_content.h functional/py_make_from_serial_content.cpp
+    functional/py_distance.h functional/py_distance.cpp
+    functional/py_norms.h functional/py_norms.cpp
+    functional/py_reductions.h functional/py_reductions.cpp
     py_tensor.h py_tensor.cpp
     py_io.h py_io.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}

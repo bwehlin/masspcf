@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <limits>
 #include <vector>
-#include "../rectangle.h"
+#include "../../functional/rectangle.h"
 
 namespace mpcf
 {

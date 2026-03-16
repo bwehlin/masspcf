@@ -14,11 +14,14 @@
 * limitations under the License.
 */
 
-#pragma once
+#ifndef MASSPCF_PY_RANDOM_H
+#define MASSPCF_PY_RANDOM_H
 
-#include "pybind.h"
+#include "../pybind.h"
 
 namespace mpcf_py
 {
-  void register_make_from_serial_content(pybind11::module_& m);
+  void register_random(pybind11::module_& m);
 }
+
+#endif //MASSPCF_PY_RANDOM_H

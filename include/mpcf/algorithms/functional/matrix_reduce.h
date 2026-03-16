@@ -17,9 +17,9 @@
 #ifndef MPCF_ALGORITHMS_MATRIX_REDUCE_H
 #define MPCF_ALGORITHMS_MATRIX_REDUCE_H
 
-#include "../pcf.h"
-#include "../tensor.h"
-#include "../executor.h"
+#include "../../functional/pcf.h"
+#include "../../tensor.h"
+#include "../../executor.h"
 #include "reduce.h"
 
 #include <iostream>

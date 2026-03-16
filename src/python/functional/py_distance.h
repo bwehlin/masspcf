@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MASSPCF_PY_NORMS_H
-#define MASSPCF_PY_NORMS_H
+#ifndef MASSPCF_PY_DISTANCE_H
+#define MASSPCF_PY_DISTANCE_H
 
-#include "pybind.h"
+#include "../pybind.h"
 
 namespace mpcf_py
 {
-  void register_norms(pybind11::module_& m);
+  void register_distance(pybind11::module_& m);
 }
 
-#endif //MASSPCF_PY_NORMS_H
+
+#endif //MASSPCF_PY_DISTANCE_H

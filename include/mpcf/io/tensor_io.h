@@ -18,7 +18,7 @@
 #include "io_stream_base.h"
 #include "barcode_io.h"
 #include "../tensor.h"
-#include "../pcf.h"
+#include "../functional/pcf.h"
 #include "../persistence/barcode.h"
 
 namespace mpcf::io::detail

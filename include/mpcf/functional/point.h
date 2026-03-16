@@ -17,7 +17,7 @@
 #ifndef MPCF_POINT_H
 #define MPCF_POINT_H
 
-#include "config.h"
+#include "../config.h"
 
 #include <limits>
 

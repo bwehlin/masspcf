@@ -15,12 +15,12 @@
 #include "py_distance.h"
 
 #include "tensor.h"
-#include "pcf.h"
+#include "functional/pcf.h"
 #include "task.h"
-#include "operations.cuh"
-#include "algorithms/matrix_integrate.h"
-#include "py_async_support.h"
-#include "py_settings.h"
+#include "functional/operations.cuh"
+#include "algorithms/functional/matrix_integrate.h"
+#include "../py_async_support.h"
+#include "../py_settings.h"
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate_api.h>

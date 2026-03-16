@@ -16,9 +16,9 @@
 
 #include "py_reductions.h"
 
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 #include <mpcf/tensor.h>
-#include <mpcf/algorithms/matrix_reduce.h>
+#include <mpcf/algorithms/functional/matrix_reduce.h>
 
 #include <stdexcept>
 #include <algorithm>

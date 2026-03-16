@@ -17,7 +17,7 @@
 #ifndef MPCF_RANDOM_H
 #define MPCF_RANDOM_H
 
-#include "pcf.h"
+#include "functional/pcf.h"
 
 #include <vector>
 #include <random>

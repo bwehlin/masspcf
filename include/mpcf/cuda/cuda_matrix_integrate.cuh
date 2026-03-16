@@ -21,9 +21,9 @@
 #include <cuda_runtime.h>
 
 #include "../task.h"
-#include "../pcf.h"
+#include "../functional/pcf.h"
 #include "../executor.h"
-#include "../operations.cuh"
+#include "../functional/operations.cuh"
 #include "../block_matrix_support.cuh"
 
 #include "cuda_util.cuh"

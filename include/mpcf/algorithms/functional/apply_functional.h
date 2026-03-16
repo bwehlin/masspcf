@@ -17,10 +17,10 @@
 #ifndef MPCF_ALGORITHM_APPLY_FUNCTIONAL_H
 #define MPCF_ALGORITHM_APPLY_FUNCTIONAL_H
 
-#include "../pcf.h"
-#include "../executor.h"
-#include "../tensor.h"
-#include "../task.h"
+#include "../../functional/pcf.h"
+#include "../../executor.h"
+#include "../../tensor.h"
+#include "../../task.h"
 
 #include <vector>
 #include <functional>

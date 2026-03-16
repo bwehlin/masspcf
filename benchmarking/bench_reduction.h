@@ -3,7 +3,7 @@
 
 #include "benchmark.h"
 
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 #include <vector>
 
 class BenchmarkReduction : public Benchmark

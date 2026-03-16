@@ -14,28 +14,21 @@
 * limitations under the License.
 */
 
-#include <future>
-
 #include "pybind.h"
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
 
-#include <mpcf/pcf.h>
-#include "pypcf_support.h"
-#include <mpcf/algorithm.h>
 #include <mpcf/executor.h>
 #include <mpcf/task.h>
 
-#include <mpcf/operations.cuh>
-
+#include "py_future.h"
+#include "functional/py_pcf.h"
 #include "py_io.h"
-#include "py_make_from_serial_content.h"
-#include "py_norms.h"
+#include "functional/py_make_from_serial_content.h"
+#include "functional/py_norms.h"
 #include "py_tensor.h"
-#include "py_reductions.h"
-#include "py_distance.h"
+#include "functional/py_reductions.h"
+#include "functional/py_distance.h"
+#include "functional/py_random.h"
 #include "py_np_tensor_convert.h"
-#include "py_np_support.h"
 
 #include "persistence/pymodule_persistence.h"
 
@@ -43,13 +36,10 @@
 #include <mpcf/cuda/cuda_matrix_integrate_api.h>
 #endif
 
-#include <iostream>
-
 #include "py_settings.h"
 
 namespace py = pybind11;
 
-void register_random_bindings(py::handle m);
 
 mpcf_py::Settings mpcf_py::g_settings;
 
@@ -72,200 +62,10 @@ namespace
   }
 
   template <typename RetT>
-  class Future
-  {
-  public:
-    Future() = default;
-    Future(std::future<RetT>&& future)
-      : m_future(std::move(future))
-    {
-  
-    }
-  
-    Future(const Future&) = delete;
-    Future(Future&& other) noexcept
-      : m_future(std::move(other.m_future))
-    { }
-  
-    Future& operator=(const Future&) = delete;
-    Future& operator=(Future&& rhs) noexcept
-    {
-      m_future = std::move(rhs.m_future);
-      return *this;
-    }
-  
-    std::future_status wait_for(int timeoutMs)
-    {
-      return m_future.wait_for(std::chrono::milliseconds(timeoutMs));
-    }
-  
-    auto get()
-    {
-      if constexpr (!std::is_same_v<RetT, void>)
-      {
-        return m_future.get();
-      }
-      else
-      {
-        m_future.get();
-      }
-    }
-
-
-  
-  private:
-    std::future<RetT> m_future;
-  };
-  
-  template <typename Tt, typename Tv>
-  class ReductionWrapper
-  {
-  public:
-    using reduction_function = Tt(*)(Tt, Tt, Tv, Tv);
-    ReductionWrapper(unsigned long long addr) : m_fn(reinterpret_cast<reduction_function>(addr)) { }
-    Tt operator()(Tt left, Tt right, Tv top, Tv bottom) 
-    {
-      return m_fn(left, right, top, bottom);
-    }
-  private:
-    reduction_function m_fn;
-  };
-  
-  #define STRINGIFY(x) #x
-  #define MACRO_STRINGIFY(x) STRINGIFY(x)
-  
-  template <typename Tt, typename Tv>
-  class Backend
-  {
-  public:
-    static mpcf::Pcf<Tt, Tv> add(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g)
-    {
-      return f + g;
-    }
-
-    static mpcf::Pcf<Tt, Tv> combine(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g, unsigned long long cb)
-    {
-      ReductionWrapper<Tt, Tv> reduction(cb);
-      return mpcf::combine(f, g, 
-        [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt { 
-          return reduction(rect.left, rect.right, rect.top, rect.bottom); 
-        });
-    }
-  
-    static mpcf::Pcf<Tt, Tv> average(const std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    { 
-      return mpcf::average(fs);
-    }
-  
-    static mpcf::Pcf<Tt, Tv> parallel_reduce(const std::vector<mpcf::Pcf<Tt, Tv>>& fs, unsigned long long cb){ \
-      ReductionWrapper<Tt, Tv> reduction(cb);
-      return mpcf::parallel_reduce(fs.begin(), fs.end(),
-        [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt 
-        { 
-          return reduction(rect.left, rect.right, rect.top, rect.bottom); 
-        });
-    }
-
-    static Tv single_l1_norm(const mpcf::Pcf<Tt, Tv>& f)
-    {
-      return mpcf::l1_norm(f);
-    }
-
-    static Tv single_l2_norm(const mpcf::Pcf<Tt, Tv>& f)
-    {
-      return mpcf::l2_norm(f);
-    }
-
-    static Tv single_lp_norm(const mpcf::Pcf<Tt, Tv>& f, /* let's stick with float64_t here to make life a bit easier */ mpcf::float64_t p)
-    {
-      return mpcf::lp_norm(f, Tv(p));
-    }
-
-    static Tv single_linfinity_norm(const mpcf::Pcf<Tt, Tv>& f)
-    {
-      return mpcf::linfinity_norm(f);
-    }
-
-    static void list_l1_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* outdata = out.mutable_data(0);
-      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::l1_norm<mpcf::Pcf<Tt, Tv>>);
-    }
-    
-    static void list_l2_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* outdata = out.mutable_data(0);
-      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::l2_norm<mpcf::Pcf<Tt, Tv>>);
-    }
-
-    static void list_linfinity_norm(py::array_t<Tv>& out, std::vector<mpcf::Pcf<Tt, Tv>>& fs)
-    {
-      auto* outdata = out.mutable_data(0);
-      mpcf::apply_functional(fs.begin(), fs.end(), outdata, mpcf::linfinity_norm<mpcf::Pcf<Tt, Tv>>);
-    }
-
-    template <typename TOperation, typename PcfFwdIt>
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
-    {
-      auto* out = matrix.mutable_data(0);
-
-      if (mpcf_py::g_settings.deviceVerbose)
-      {
-        std::cout << "Integral computation on CPU(s)" << std::endl;
-      }
-
-      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<TOperation, PcfFwdIt>>(out, beginPcfs, endPcfs, op);
-      task->start_async(mpcf::default_executor());
-      return task;
-    }
-
-    /*
-    static std::unique_ptr<mpcf::StoppableTask<void>> pdist_1(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
-    {
-      auto op = mpcf::OperationL1Dist<Tt, Tv>();
-
-      auto begin = fs.begin(0);
-      auto end = fs.end(0);
-
-      return matrix_integrate(matrix, begin, end, op);
-    }
-
-    static std::unique_ptr<mpcf::StoppableTask<void>> pdist_p(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs, Tv p)
-    {
-      auto op = mpcf::OperationLpDist<Tt, Tv>(p);
-
-      auto begin = fs.begin(0);
-      auto end = fs.end(0);
-
-      return matrix_integrate(matrix, begin, end, op);
-    }
-
-    static std::unique_ptr<mpcf::StoppableTask<void>> l2_kernel(py::array_t<Tv>& matrix, mpcf::StridedBuffer<mpcf::Pcf<Tt, Tv>> fs)
-    {
-      auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
-
-      auto begin = fs.begin(0);
-      auto end = fs.end(0);
-
-      return matrix_integrate(matrix, begin, end, op);
-    }
-    */
-  };
-
-  
-  template <typename RetT>
-  static void register_bindings_future(py::handle m, const std::string& suffix)
-  {
-    py::class_<Future<RetT>>(m, ("Future" + suffix).c_str())
-      .def(py::init<>())
-      .def("wait_for", &Future<RetT>::wait_for);
-  }
-  
-  template <typename RetT>
   static void register_bindings_stoppable_task(py::handle m, const std::string& suffix)
   {
     py::class_<mpcf::StoppableTask<RetT>> cls(m, ("StoppableTask" + suffix).c_str());
-    
+
     cls
         .def("request_stop", &mpcf::StoppableTask<RetT>::request_stop)
         .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms) { return self.wait_for(std::chrono::milliseconds(ms)); })
@@ -276,129 +76,24 @@ namespace
         .def("work_step_unit", &mpcf::StoppableTask<RetT>::work_step_unit)
     ;
   }
-  
-  template <typename Tt, typename Tv>
-  class PyBindings
-  {
-  public:
-    static void register_bindings(py::handle m, const std::string& suffix)
-    {
-      using TPcf = mpcf::Pcf<Tt, Tv>;
-      using point_type = typename TPcf::point_type;
-      
-      py::class_<mpcf::Pcf<Tt, Tv>>(m, ("Pcf" + suffix).c_str(), py::buffer_protocol())
-        .def(py::init<>())
-        .def(py::init<>([](py::array_t<Tt> arr){ return mpcf::detail::construct_pcf<Tt, Tv>(arr); }))
-        .def("get_time_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tt); })
-        .def("get_value_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tv); })
-        .def("debug_print", &TPcf::debug_print) \
-        .def_buffer([](TPcf& self) { return mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>(self); })
-        .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
-        .def("size", [](const TPcf& self){ return self.points().size(); })
-        .def("copy", [](const TPcf& self){ return TPcf(self); })
-        .def("__call__", [](const TPcf& self, Tt t) -> Tv { return self.evaluate(t); })
-        .def("__call__", [](const TPcf& self, py::array_t<Tt> times) -> py::array_t<Tv> {
-          // Flatten to 1D for processing, remember original shape
-          auto original_shape = std::vector<py::ssize_t>(times.shape(), times.shape() + times.ndim());
-          auto flat_times = times.reshape({times.size()});
-          NumpyTensor<Tt> in(flat_times);
-          auto n = static_cast<size_t>(flat_times.size());
-
-          // Argsort
-          std::vector<size_t> order(n);
-          std::iota(order.begin(), order.end(), 0);
-          std::sort(order.begin(), order.end(), [&in](size_t a, size_t b) {
-            return in(a) < in(b);
-          });
-
-          // Build sorted times and evaluate
-          py::array_t<Tt> sorted_times({static_cast<py::ssize_t>(n)});
-          NumpyTensor<Tt> sorted_in(sorted_times);
-          for (size_t i = 0; i < n; ++i)
-          {
-            sorted_in(i) = in(order[i]);
-          }
-
-          py::array_t<Tv> sorted_result({static_cast<py::ssize_t>(n)});
-          NumpyTensor<Tv> sorted_out(sorted_result);
-          self.evaluate(sorted_in, sorted_out, n);
-
-          // Unsort results back to original order
-          py::array_t<Tv> flat_result({static_cast<py::ssize_t>(n)});
-          NumpyTensor<Tv> out(flat_result);
-          for (size_t i = 0; i < n; ++i)
-          {
-            out(order[i]) = sorted_out(i);
-          }
-
-          return flat_result.reshape(original_shape);
-        })
-          
-        // We (un-)pickle the raw bytes stored in points()
-        .def(py::pickle([](TPcf& self) {
-            const unsigned char* data = reinterpret_cast<const unsigned char*>(self.points().data());
-            std::vector<unsigned char> buf;
-            buf.resize(sizeof(point_type) * self.points().size());
-            memcpy(buf.data(), data, buf.size());
-            return buf;
-          }, [](const std::vector<unsigned char>& t){
-            std::vector<point_type> pts;
-            pts.resize(t.size() / sizeof(point_type));
-            memcpy(pts.data(), t.data(), t.size());
-            TPcf f(std::move(pts));
-            return f;
-          }))
-        ;
-      
-      py::class_<Backend<Tt, Tv>> backend(m, ("Backend" + suffix).c_str());
-      backend  
-        .def(py::init<>())
-        .def_static("add", &Backend<Tt, Tv>::add)
-        .def_static("combine", &Backend<Tt, Tv>::combine)
-        .def_static("average", &Backend<Tt, Tv>::average)
-        .def_static("parallel_reduce", &Backend<Tt, Tv>::parallel_reduce)
-
-        .def_static("single_l1_norm", &Backend<Tt, Tv>::single_l1_norm)
-        .def_static("single_l2_norm", &Backend<Tt, Tv>::single_l2_norm)
-        .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)
-        .def_static("single_linfinity_norm", &Backend<Tt, Tv>::single_linfinity_norm)
-
-      /*
-        .def_static("list_l1_norm", &Backend<Tt, Tv>::list_l1_norm)
-        .def_static("list_l2_norm", &Backend<Tt, Tv>::list_l2_norm)
-        //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
-        .def_static("list_linfinity_norm", &Backend<Tt, Tv>::list_linfinity_norm)
-
-        .def_static("calc_pdist_1", &Backend<Tt, Tv>::pdist_1)
-        .def_static("calc_pdist_p", &Backend<Tt, Tv>::pdist_p)
-        .def_static("calc_l2_kernel", &Backend<Tt, Tv>::l2_kernel)
-        */
-        ;
-
-      register_bindings_future<TPcf>(m, suffix);
-    }
-  };
-  
-  
 
 }
 
 PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
-  PyBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
-  PyBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
-  
+  mpcf_py::register_pcf(m);
+
   register_bindings_stoppable_task<void>(m, "_void");
-  
+
   py::enum_<std::future_status>(m, "FutureStatus")
     .value("deferred", std::future_status::deferred)
     .value("ready", std::future_status::ready)
     .value("timeout", std::future_status::timeout)
     .export_values();
 
-  py::class_<Future<void>>(m, "Future_void")
+  py::class_<mpcf_py::Future<void>>(m, "Future_void")
     .def(py::init<>())
-    .def("wait_for", &Future<void>::wait_for);
-  
+    .def("wait_for", &mpcf_py::Future<void>::wait_for);
+
   m.def("force_cpu", [](bool on){ mpcf_py::g_settings.forceCpu = on; });
   m.def("set_cuda_threshold", [](size_t n){ mpcf_py::g_settings.cudaThreshold = n; });
   m.def("set_device_verbose", [](bool on){ mpcf_py::g_settings.deviceVerbose = on; });
@@ -418,7 +113,7 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
 #endif
   });
 
-  register_random_bindings(m);
+  mpcf_py::register_random(m);
 
   mpcf_py::register_io(m);
 

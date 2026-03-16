@@ -16,7 +16,7 @@
 
 #include "../py_async_support.h"
 
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 #include <mpcf/tensor.h>
 #include <mpcf/persistence/barcode.h>
 #include <mpcf/persistence/stable_rank.h>

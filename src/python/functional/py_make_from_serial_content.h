@@ -14,15 +14,11 @@
 * limitations under the License.
 */
 
-#ifndef MASSPCF_PY_REDUCTIONS_H
-#define MASSPCF_PY_REDUCTIONS_H
+#pragma once
 
-#include "pybind.h"
+#include "../pybind.h"
 
 namespace mpcf_py
 {
-  void register_reductions(pybind11::module_& m);
+  void register_make_from_serial_content(pybind11::module_& m);
 }
-
-
-#endif //MASSPCF_PY_REDUCTIONS_H

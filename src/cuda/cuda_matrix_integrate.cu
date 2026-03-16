@@ -20,7 +20,7 @@
 
 #include <mpcf/cuda/cuda_matrix_integrate_api.h>
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
-#include <mpcf/operations.cuh>
+#include <mpcf/functional/operations.cuh>
 
 namespace mpcf
 {

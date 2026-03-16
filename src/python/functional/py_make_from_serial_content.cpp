@@ -15,11 +15,11 @@
 */
 
 #include <mpcf/tensor.h>
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 
 #include "py_make_from_serial_content.h"
-#include "py_tensor.h"
-#include "py_np_support.h"
+#include "../py_tensor.h"
+#include "../py_np_support.h"
 
 #include <pybind11/numpy.h>
 

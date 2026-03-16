@@ -16,7 +16,7 @@
 #define MASSPCF_PCF_IO_H
 
 #include "io_stream_base.h"
-#include "../pcf.h"
+#include "../functional/pcf.h"
 
 namespace mpcf::io::detail
 {

@@ -14,12 +14,14 @@
 * limitations under the License.
 */
 
-#ifndef MPCF_ALGORITHM_H
-#define MPCF_ALGORITHM_H
+#ifndef MASSPCF_PY_PCF_H
+#define MASSPCF_PY_PCF_H
 
-#include "algorithms/functional/iterate_rectangles.h"
-#include "algorithms/functional/reduce.h"
-#include "algorithms/functional/matrix_integrate.h"
-#include "algorithms/functional/apply_functional.h"
+#include "../pybind.h"
 
-#endif
+namespace mpcf_py
+{
+  void register_pcf(pybind11::module_& m);
+}
+
+#endif //MASSPCF_PY_PCF_H

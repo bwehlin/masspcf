@@ -17,7 +17,7 @@
 #include "py_tensor.h"
 
 #include <mpcf/tensor.h>
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 
 #include <sstream>
 

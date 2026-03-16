@@ -19,7 +19,7 @@
 
 #include "point.h"
 #include "rectangle.h"
-#include "algorithms/reduce.h"
+#include "../algorithms/functional/reduce.h"
 
 #include <vector>
 #include <iostream>

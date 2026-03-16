@@ -15,11 +15,11 @@
 #include "py_distance.h"
 
 #include "tensor.h"
-#include "pcf.h"
+#include "functional/pcf.h"
 #include "task.h"
-#include "py_async_support.h"
-#include "py_np_support.h"
-#include "algorithms/apply_functional.h"
+#include "../py_async_support.h"
+#include "../py_np_support.h"
+#include "algorithms/functional/apply_functional.h"
 
 #include <memory>
 

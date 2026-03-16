@@ -1,0 +1,93 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+**masspcf** is a Python package with a C++20/CUDA backend for massively parallel computation of similarity matrices from piecewise functions (currently piecewise constant functions, with piecewise linear functions planned). The primary audience is TDA (Topological Data Analysis) practitioners doing statistical analysis on invariants such as stable rank, Euler characteristic curves, and Betti curves. The core objects are numpy-like multidimensional arrays (tensors) supporting reductions, Lp distance matrices, and L2 kernels.
+
+## Build & Development
+
+### Full install (required before minimal builds)
+```bash
+pip install .
+```
+
+### Minimal module build (for iterative C++ development)
+```bash
+cmake -B cmake-build-debug
+cmake --build cmake-build-debug -j$(nproc)
+cmake --install cmake-build-debug
+```
+This works when `SKBUILD` is off (plain CMake). Builds `_mpcf_cpu` (always) and `_mpcf_cudaXX` (when CUDA available). Extensions are symlinked into `masspcf/` for immediate use.
+
+### CUDA control
+- `BUILD_WITH_CUDA=0` env var disables CUDA (auto-detected otherwise, always off on macOS)
+- Supports pip-installed CUDA toolkits (`nvidia.cu12`, `nvidia.cu13`)
+- Produces version-specific modules: `_mpcf_cuda12`, `_mpcf_cuda13`
+
+### Other env vars
+- `SKIP_STUBGEN=1` — skip pybind11_stubgen (useful if it causes issues)
+- `SKIP_BACK_COPY=1` — skip symlinking built extensions back to source tree
+- `ENABLE_COVERAGE=1` — build with coverage instrumentation (GCC or Clang)
+
+## Testing
+
+**Important**: Always `cd test` before running pytest. Running from the repo root causes the local `masspcf/` directory to shadow the installed package. You must also build and install first.
+
+### Python tests
+```bash
+cmake --build cmake-build-debug -j$(nproc) && cmake --install cmake-build-debug
+cd test && python -m pytest python               # all Python tests
+cd test && python -m pytest python/test_pdist.py  # single test file
+```
+
+### C++ tests (GoogleTest)
+```bash
+cmake --build cmake-build-debug --target mpcf_test
+cd test && ../cmake-build-debug/mpcf_test  # run from test/ directory
+```
+
+### Coverage
+```bash
+./run_coverage.sh          # full local coverage report (C++ + Python)
+./run_coverage.sh --open   # open HTML reports in browser
+```
+
+## Architecture
+
+### Python ↔ C++ boundary
+- **`masspcf/_mpcf_cpp.py`** is the runtime backend selector. It detects GPU availability, preloads libcudart if needed, and imports `_mpcf_cuda{12,13}` or falls back to `_mpcf_cpu`. All other Python code imports through this module.
+- **`src/python/`** contains pybind11 bindings. Each `py_*.cpp` wraps a corresponding C++ subsystem.
+- **`src/gpu_detect/`** is a separate pybind11 module (`_gpu_detect`) with no CUDA dependency — used to detect GPUs without requiring the CUDA toolkit.
+- NumPy array ↔ C++ tensor conversion happens in `py_np_tensor_convert.{h,cpp}` (zero-copy where possible).
+
+### C++ core (`include/mpcf/`)
+- **`pcf.h`** — `Pcf<TimeT, ValueT>` template, the fundamental piecewise constant function type
+- **`tensor.h` / `tensor.tpp`** — N-dimensional tensor template (stores PCFs, floats, point clouds, or barcodes)
+- **`algorithms/`** — core algorithms: `matrix_integrate.h` (distance matrices), `reduce.h`, `iterate_rectangles.h`, `subdivide.h`, `apply_functional.h`
+- **`persistence/`** — TDA: ripser algorithm, barcodes, stable rank
+- **`cuda/`** — CUDA kernels for matrix operations
+- **`executor.h`** — taskflow-based parallel task dispatch (CPU)
+
+### Type system
+Two precision levels: `pcf32` (float32 time+value) and `pcf64` (float64). Tensor types: `Pcf{32,64}Tensor`, `Float{32,64}Tensor`, `PointCloud{32,64}Tensor`, `Barcode{32,64}Tensor`. Type aliases live in `masspcf/typing.py`.
+
+### Python module layers
+1. **Low**: `_mpcf_cpp` (backend dispatch) → `_mpcf_cpu` / `_mpcf_cudaXX` (pybind11)
+2. **Mid**: `pcf.py`, `tensor.py`, `_tensor_base.py` (Python wrappers)
+3. **High**: `distance.py` (`pdist`), `reductions.py` (`mean`, `max_time`), `norms.py`, `persistence/`
+
+### GPU/CPU runtime control (`masspcf/system.py`)
+`force_cpu()`, `limit_cpus()`, `limit_gpus()`, `set_cuda_threshold()`, `set_device_verbose()` — all configure the backend at runtime.
+
+## Third-party submodules (`3rd/`)
+- **pybind11** — Python/C++ bindings
+- **taskflow** — CPU task parallelism (header-only, included directly)
+- **googletest** — C++ unit tests
+
+## Key files
+- `pyproject.toml` — single source of truth for version (`[project].version`), dependencies, and wheel build config
+- `version.cpp.in` — CMake template that embeds version + build date into the binary
+- `.clang-format` — C++ formatting (Microsoft style)
+- `.codacy.yaml` — static analysis config (excludes `3rd/`)

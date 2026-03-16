@@ -18,8 +18,8 @@
 #define MPCF_ALGORITHM_REDUCE_H
 
 #include "iterate_rectangles.h"
-#include "subdivide.h"
-#include "../executor.h"
+#include "../subdivide.h"
+#include "../../executor.h"
 
 #include <functional>
 #include <vector>

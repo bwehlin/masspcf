@@ -16,7 +16,7 @@
 
 #include <mpcf/tensor.h>
 #include <mpcf/io/tensor_io.h>
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 #include <mpcf/persistence/barcode.h>
 
 #include <sstream>

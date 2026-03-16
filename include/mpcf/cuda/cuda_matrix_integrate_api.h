@@ -22,7 +22,7 @@
 #define MPCF_CUDA_MATRIX_INTEGRATE_API_H
 
 #include "../task.h"
-#include "../pcf.h"
+#include "../functional/pcf.h"
 
 #include <vector>
 #include <memory>

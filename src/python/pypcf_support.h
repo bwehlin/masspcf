@@ -17,7 +17,7 @@
 #ifndef MPCF_PYPCF_SUPPORT_H
 #define MPCF_PYPCF_SUPPORT_H
 
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 
 #include <sstream>
 

@@ -14,12 +14,13 @@
 * limitations under the License.
 */
 
+#include "py_random.h"
+
 #include <mpcf/random.h>
 
-#include "pybind.h"
 #include <pybind11/numpy.h>
 
-#include "py_np_support.h"
+#include "../py_np_support.h"
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -59,7 +60,7 @@ namespace
 
 }
 
-void register_random_bindings(py::handle m)
+void mpcf_py::register_random(py::module_& m)
 {
   PyRandomBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
   PyRandomBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");

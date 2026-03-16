@@ -18,9 +18,9 @@
 #define MPCF_ALGORITHMS_MATRIX_INTEGRATE_H
 
 #include "iterate_rectangles.h"
-#include "../pcf.h"
-#include "../executor.h"
-#include "../task.h"
+#include "../../functional/pcf.h"
+#include "../../executor.h"
+#include "../../task.h"
 
 #include <vector>
 

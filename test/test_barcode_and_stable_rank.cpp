@@ -15,7 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/tensor.h>
-#include <mpcf/pcf.h>
+#include <mpcf/functional/pcf.h>
 #include <mpcf/persistence/barcode.h>
 #include <mpcf/persistence/persistence_pair.h>
 #include <mpcf/persistence/stable_rank.h>

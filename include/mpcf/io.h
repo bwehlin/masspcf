@@ -19,7 +19,7 @@
 #include "tensor.h"
 #include "version.h"
 
-#include "pcf.h"
+#include "functional/pcf.h"
 #include "point_cloud.h"
 #include "persistence/barcode.h"
 

@@ -16,7 +16,7 @@
 #define MASSPCF_STABLE_RANK_H
 
 #include "../task.h"
-#include "../pcf.h"
+#include "../functional/pcf.h"
 #include "barcode.h"
 
 namespace mpcf::ph
