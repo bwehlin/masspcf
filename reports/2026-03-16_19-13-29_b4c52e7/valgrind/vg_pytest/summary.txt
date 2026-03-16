@@ -1,0 +1,61 @@
+/home/runner/work/_temp/SourceCode/./Include/internal/pycore_call.h:
+5 errors
+	line 168: Leak_PossiblyLost	(5 errors)
+/home/runner/work/_temp/SourceCode/./Include/internal/pycore_object_alloc.h:
+1391 errors
+	line 46: Leak_PossiblyLost	(1359 errors)
+	line 61: Leak_PossiblyLost	(32 errors)
+/home/runner/work/_temp/SourceCode/Objects/bytesobject.c:
+197 errors
+	line 123: Leak_PossiblyLost	(188 errors)
+	line 3207: Leak_PossiblyLost	(9 errors)
+/home/runner/work/_temp/SourceCode/Objects/codeobject.c:
+4 errors
+	line 350: Leak_PossiblyLost	(4 errors)
+/home/runner/work/_temp/SourceCode/Objects/dictobject.c:
+218 errors
+	line 823: Leak_PossiblyLost	(166 errors)
+	line 888: Leak_PossiblyLost	(12 errors)
+	line 977: Leak_PossiblyLost	(40 errors)
+/home/runner/work/_temp/SourceCode/Objects/floatobject.c:
+5 errors
+	line 147: Leak_PossiblyLost	(4 errors)
+	          Leak_DefinitelyLost	(1 errors)
+/home/runner/work/_temp/SourceCode/Objects/listobject.c:
+12 errors
+	line 181: Leak_PossiblyLost	(4 errors)
+	line 220: Leak_PossiblyLost	(3 errors)
+	line 298: Leak_PossiblyLost	(3 errors)
+	line 328: Leak_PossiblyLost	(2 errors)
+/home/runner/work/_temp/SourceCode/Objects/longobject.c:
+37 errors
+	line 157: Leak_PossiblyLost	(5 errors)
+	line 209: Leak_PossiblyLost	(32 errors)
+/home/runner/work/_temp/SourceCode/Objects/methodobject.c:
+1 errors
+	line 550: Leak_PossiblyLost	(1 errors)
+/home/runner/work/_temp/SourceCode/Objects/object.c:
+99 errors
+	line 534: Leak_PossiblyLost	(17 errors)
+	line 547: Leak_PossiblyLost	(82 errors)
+/home/runner/work/_temp/SourceCode/Objects/odictobject.c:
+2 errors
+	line 565: Leak_PossiblyLost	(1 errors)
+	line 694: Leak_PossiblyLost	(1 errors)
+/home/runner/work/_temp/SourceCode/Objects/setobject.c:
+10 errors
+	line 300: Leak_PossiblyLost	(10 errors)
+/home/runner/work/_temp/SourceCode/Objects/typeobject.c:
+28 errors
+	line 3851: Leak_PossiblyLost	(16 errors)
+	line 4540: Leak_PossiblyLost	(6 errors)
+	line 4582: Leak_PossiblyLost	(6 errors)
+/home/runner/work/_temp/SourceCode/Objects/unicodeobject.c:
+14 errors
+	line 1182: Leak_DefinitelyLost	(8 errors)
+	           Leak_PossiblyLost	(3 errors)
+	line 14992: Leak_PossiblyLost	(3 errors)
+/usr/include/c++/13/bits/new_allocator.h:
+1 errors
+	line 151: Leak_PossiblyLost	(1 errors)
+

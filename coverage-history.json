@@ -277,6 +277,14 @@
     "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html",
     "cpp": 85.3,
     "py": 77.0,
+    "release_tag": "v0.4.0b8"
+  },
+  {
+    "utc_iso": "2026-03-16T19:13:29Z",
+    "sha": "b4c52e7",
+    "detail_path": "reports/2026-03-16_19-13-29_b4c52e7/report.html",
+    "cpp": 86.1,
+    "py": 77.0,
     "release_tag": null
   }
 ]
