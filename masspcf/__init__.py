@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 
-from .pcf import Pcf, average
+from .pcf import Pcf
 from .norms import lp_norm
 
 from .typing import (pcf32, pcf64, f32, f64, pcloud32, pcloud64, barcode32, barcode64,
