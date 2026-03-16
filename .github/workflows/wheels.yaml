@@ -41,7 +41,7 @@ jobs:
 
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
@@ -73,7 +73,7 @@ jobs:
         if: runner.os == 'Windows' && matrix.cuda == 1
         uses: conda-incubator/setup-miniconda@v3
         with:
-          auto-activate-base: true
+          auto-activate: true
           activate-environment: ""
 
       # Install CUDA toolkit from the nvidia conda channel (ensures nvcc, ptxas,
@@ -138,14 +138,14 @@ jobs:
             CMAKE_UNITY_BUILD=ON
             CMAKE_UNITY_BUILD_BATCH_SIZE=4
             CMAKE_ARGS=${{ matrix.cuda == 1 && '"-G Ninja -DCUDAToolkit_ROOT=${CUDA_PATH} -DCMAKE_CUDA_COMPILER=${CUDA_PATH}/bin/nvcc.exe"' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: matrix.cuda == 1
         with:
           name: wheels-src-${{ matrix.os }}${{ matrix.artifact_suffix }}
           path: ./wheelhouse/*.whl
           retention-days: 1
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: matrix.cuda == 0
         with:
           name: wheels-final-${{ matrix.os }}
@@ -159,12 +159,12 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-2025]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
           name: wheels-src-${{ matrix.os }}-cuda12
           path: ./wheelhouse-cuda12
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: wheels-src-${{ matrix.os }}-cuda13
           path: ./wheelhouse-cuda13
@@ -185,7 +185,7 @@ jobs:
               --output-dir wheelhouse-merged \
               --cuda-major 13
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheels-final-${{ matrix.os }}
           path: ./wheelhouse-merged/*.whl

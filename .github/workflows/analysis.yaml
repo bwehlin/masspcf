@@ -127,7 +127,7 @@ jobs:
           llvm-cov report $FIRST_OBJ $EXTRA_OBJS $INSTR_PROFILE $IGNORE >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage
           path: covreport/
@@ -233,7 +233,7 @@ jobs:
           cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
 
       - name: Upload valgrind artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: valgrind-output
           path: test/reports/
@@ -247,13 +247,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: coverage
           path: covreport/
 
       - name: Download valgrind artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: valgrind-output
           path: valgrind/

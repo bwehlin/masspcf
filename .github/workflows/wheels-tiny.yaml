@@ -18,7 +18,7 @@ jobs:
 
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
@@ -52,7 +52,7 @@ jobs:
           CIBW_BUILD: "cp313-manylinux_x86_64 cp313-musllinux_x86_64"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cpu-wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
