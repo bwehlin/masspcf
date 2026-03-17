@@ -451,6 +451,12 @@ def _memory_nav_section(entry: dict, report_dir: str) -> str:
           <a class="sidebar-dl-btn" href="{base}/summary.txt" download title="Download">&#x2913;</a>
         </div>
         <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{base}/raw.log" data-mode="text" href="#">
+            <span class="nav-icon">&#x1f4dd;</span> raw.log
+          </a>
+          <a class="sidebar-dl-btn" href="{base}/raw.log" download title="Download">&#x2913;</a>
+        </div>
+        <div class="sidebar-nav-row">
           <a class="sidebar-nav-item" data-src="{base}/raw.xml" data-mode="xml" href="#">
             <span class="nav-icon">&#x1f5c2;</span> raw.xml
           </a>
