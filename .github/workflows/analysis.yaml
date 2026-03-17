@@ -17,6 +17,7 @@ permissions:
 jobs:
   coverage_report:
     name: Coverage report (host C++ & Python)
+    needs: [cuda_test]
     runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
     timeout-minutes: 20
     env:
@@ -83,7 +84,7 @@ jobs:
         run: |
           mkdir -p covreport/profiles
           cd test
-          ../build/mpcf_test || true
+          ../build/mpcf_test
 
       - name: Run Python test suite (coverage + LLVM profiles)
         env:
@@ -150,6 +151,7 @@ jobs:
 
   memory_check:
     name: Memory check (Valgrind + Helgrind)
+    needs: [cuda_test]
     runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
     timeout-minutes: 30
     env:
@@ -201,6 +203,7 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
             --log-file=./reports/vg-pytest.log \
+            --trace-children=no \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
@@ -225,6 +228,7 @@ jobs:
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-pytest.xml \
             --log-file=./reports/hg-pytest.log \
+            --trace-children=no \
             python -m pytest . -vv -s || true
           valgrind-ci ./reports/hg-pytest.xml --summary | tee ./reports/hg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/hg-pytest.xml --output-dir=./reports/hg_pytest
