@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Build runner images for CUDA 12 and CUDA 13.
+# Build runner image for CUDA 12.
 # Usage: ./build.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,13 +12,6 @@ docker build \
     -t masspcf-runner:cuda12 \
     "$SCRIPT_DIR"
 
-echo "=== Building CUDA 13 runner image ==="
-docker build \
-    --build-arg CUDA_VERSION=13.1.1 \
-    -t masspcf-runner:cuda13 \
-    "$SCRIPT_DIR"
-
 echo ""
-echo "Done. Images available:"
+echo "Done. Image available:"
 echo "  masspcf-runner:cuda12"
-echo "  masspcf-runner:cuda13"

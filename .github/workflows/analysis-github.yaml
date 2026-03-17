@@ -1,0 +1,11 @@
+name: Analysis (GitHub runners)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+
+jobs:
+  analysis:
+    uses: ./.github/workflows/analysis.yaml
+    with:
+      use_github_runners: true

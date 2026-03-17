@@ -10,7 +10,7 @@ if pkill -f "run\.sh"; then
 fi
 
 echo "Stopping masspcf-runner containers..."
-CONTAINERS=$(docker ps -q --filter "ancestor=masspcf-runner:cuda12" --filter "ancestor=masspcf-runner:cuda13")
+CONTAINERS=$(docker ps -q --filter "ancestor=masspcf-runner:cuda12")
 
 if [[ -z "$CONTAINERS" ]]; then
     echo "No running masspcf-runner containers found."

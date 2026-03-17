@@ -1,17 +1,24 @@
 name: Analysis
 on:
   workflow_dispatch:
+    inputs:
+      use_github_runners:
+        description: 'Use GitHub-hosted runners instead of self-hosted'
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      use_github_runners:
+        type: boolean
+        default: false
 permissions:
   contents: write
 
 jobs:
   coverage_report:
-    name: Coverage report on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-24.04 ]
+    name: Coverage report (host C++ & Python)
+    runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
+    timeout-minutes: 20
     env:
       BUILD_WITH_CUDA: 0
       SKIP_STUBGEN: 1
@@ -23,16 +30,25 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Set up Python
+      # Python setup: GitHub runners use actions/setup-python, self-hosted uses venv
+      - name: Set up Python (GitHub runner)
+        if: inputs.use_github_runners
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
+      - name: Set up Python (self-hosted)
+        if: ${{ !inputs.use_github_runners }}
+        run: |
+          python3.14 -m venv --system-site-packages ${{github.workspace}}/.venv
+          echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
+
       - name: Install Python dependencies
         run: pip install numpy tqdm pytest pytest-cov
 
-      - name: Install LLVM toolchain (clang/llvm-cov/llvm-profdata)
+      - name: Install LLVM toolchain (GitHub runner)
+        if: inputs.use_github_runners
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -42,19 +58,18 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
 
-          # Verify:
+      - name: Verify LLVM toolchain
+        run: |
           clang --version
           llvm-cov --version
           llvm-profdata --version
-
 
       - name: Configure CMake (Clang + coverage)
         env:
           ENABLE_COVERAGE: 1
           CC: clang-${{ env.LLVM_VERSION }}
           CXX: clang++-${{ env.LLVM_VERSION }}
-        run: |
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build module
         run: cmake --build build -j $(nproc)
@@ -134,11 +149,9 @@ jobs:
           retention-days: 1
 
   memory_check:
-    name: Memory check on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-24.04 ]
+    name: Memory check (Valgrind + Helgrind)
+    runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
+    timeout-minutes: 30
     env:
       BUILD_WITH_CUDA: 0
       SKIP_STUBGEN: 1
@@ -149,16 +162,24 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Set up Python
+      - name: Set up Python (GitHub runner)
+        if: inputs.use_github_runners
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
+      - name: Set up Python (self-hosted)
+        if: ${{ !inputs.use_github_runners }}
+        run: |
+          python3.14 -m venv --system-site-packages ${{github.workspace}}/.venv
+          echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
+
       - name: Install Python dependencies
         run: pip install numpy tqdm pytest ValgrindCI
 
-      - name: Install Valgrind and Debug Symbols
+      - name: Install Valgrind (GitHub runner)
+        if: inputs.use_github_runners
         run: |
           sudo apt-get update
           sudo apt-get install -y valgrind libc6-dbg
@@ -180,6 +201,7 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
             --log-file=./reports/vg-pytest.log \
+            --gen-suppressions=all \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
@@ -192,6 +214,7 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml \
             --log-file=./reports/vg-gtest.log \
+            --gen-suppressions=all \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
@@ -204,6 +227,7 @@ jobs:
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-pytest.xml \
             --log-file=./reports/hg-pytest.log \
+            --gen-suppressions=all \
             python -m pytest . -vv -s || true
           valgrind-ci ./reports/hg-pytest.xml --summary | tee ./reports/hg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/hg-pytest.xml --output-dir=./reports/hg_pytest
@@ -213,9 +237,23 @@ jobs:
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-gtest.xml \
             --log-file=./reports/hg-gtest.log \
+            --gen-suppressions=all \
             ../build/mpcf_test || true
           valgrind-ci ./reports/hg-gtest.xml --summary | tee ./reports/hg-gtest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/hg-gtest.xml --output-dir=./reports/hg_gtest
+
+      - name: Extract generated suppressions
+        run: |
+          # Extract suppression blocks from valgrind/helgrind log files.
+          # Each block starts with '{' on its own line and ends with '}'.
+          for log in test/reports/vg-pytest.log test/reports/vg-gtest.log \
+                     test/reports/hg-pytest.log test/reports/hg-gtest.log; do
+            supp="${log%.log}.supp"
+            if [ -f "$log" ]; then
+              awk '/^{$/,/^}$/' "$log" > "$supp"
+              if [ ! -s "$supp" ]; then rm -f "$supp"; fi
+            fi
+          done
 
       - name: Collect raw reports
         run: |
@@ -231,6 +269,10 @@ jobs:
           cp test/reports/hg-gtest.xml test/reports/hg_gtest/raw.xml || true
           cp test/reports/hg-gtest.log test/reports/hg_gtest/raw.log || true
           cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
+          cp test/reports/vg-pytest.supp test/reports/vg_pytest/generated.supp || true
+          cp test/reports/vg-gtest.supp test/reports/vg_gtest/generated.supp || true
+          cp test/reports/hg-pytest.supp test/reports/hg_pytest/generated.supp || true
+          cp test/reports/hg-gtest.supp test/reports/hg_gtest/generated.supp || true
 
       - name: Upload valgrind artifact
         uses: actions/upload-artifact@v6
@@ -240,10 +282,11 @@ jobs:
           retention-days: 1
 
   cuda_test:
-    name: CUDA build & test
+    name: CUDA build, test & coverage
+    # CUDA job always needs a GPU — skip entirely on GitHub runners
+    if: ${{ !inputs.use_github_runners }}
     runs-on: [self-hosted, gpu, cuda12]
     timeout-minutes: 15
-    continue-on-error: false
     env:
       SKIP_STUBGEN: 1
       SKIP_BACK_COPY: 1
@@ -259,10 +302,8 @@ jobs:
           python3.14 -m venv --system-site-packages ${{github.workspace}}/.venv
           echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
 
-      - name: Install gpucov and lcov
-        run: |
-          pip install ./gpucov
-          sudo apt-get update && sudo apt-get install -y lcov
+      - name: Install gpucov
+        run: pip install ./gpucov
 
       - name: Configure CMake (with CUDA coverage)
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
@@ -303,8 +344,6 @@ jobs:
             --summary covreport/cuda/coverage-summary.json
           genhtml covreport/cuda/cuda.info \
             --output-directory covreport/cuda/html
-          # Preserve downstream expectation of index.html at the cuda/ level
-          cp covreport/cuda/html/index.html covreport/cuda/index.html || true
 
       - name: Upload CUDA coverage artifact
         uses: actions/upload-artifact@v6

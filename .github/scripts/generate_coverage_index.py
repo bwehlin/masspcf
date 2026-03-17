@@ -187,12 +187,12 @@ def get_entries(reports_root: str, tag_map: dict[str, str] = {}) -> list[dict]:
                 "detail_path": f"reports/{name}/report.html",
                 "cpp_path": f"reports/{name}/cpp/coverage.html",
                 "python_path": f"reports/{name}/python/index.html",
-                "cuda_path": f"reports/{name}/cuda/index.html",
+                "cuda_path": f"reports/{name}/cuda/html/index.html",
                 # Paths relative to the run dir (used in report.html iframe srcs)
                 "cpp_rel": "cpp/coverage.html",
                 "cpp_detailed_rel": "cpp/detailed/index.html",
                 "python_rel": "python/index.html",
-                "cuda_rel": "cuda/index.html",
+                "cuda_rel": "cuda/html/index.html",
                 "vg_pytest_rel_base": "valgrind/vg_pytest",
                 "vg_gtest_rel_base": "valgrind/vg_gtest",
                 "hg_pytest_rel_base": "helgrind/hg_pytest",
@@ -419,13 +419,24 @@ def render_index_html(gh_pages_dir: str, entries: list[dict]) -> str:
 # ── Detail page rendering ──────────────────────────────────────────────────────
 
 
-def _memory_nav_section(entry: dict) -> str:
+def _memory_nav_section(entry: dict, report_dir: str) -> str:
     """Render the Valgrind + Helgrind sidebar sections for report.html."""
     if not entry["has_memory"]:
         return ""
 
     def _group_items(base: str, errors: int | None) -> str:
         err_badge = _err_badge_sidebar(errors)
+        supp_path = os.path.join(report_dir, base, "generated.supp")
+        has_supp = os.path.isfile(supp_path) and os.path.getsize(supp_path) > 0
+        supp_row = ""
+        if has_supp:
+            supp_row = f"""
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{base}/generated.supp" data-mode="text" href="#">
+            <span class="nav-icon">&#x1f6e1;</span> generated.supp
+          </a>
+          <a class="sidebar-dl-btn" href="{base}/generated.supp" download title="Download">&#x2913;</a>
+        </div>"""
         return f"""
         <div class="sidebar-nav-row">
           <a class="sidebar-nav-item" data-src="{base}/index.html" href="#">
@@ -444,7 +455,7 @@ def _memory_nav_section(entry: dict) -> str:
             <span class="nav-icon">&#x1f5c2;</span> raw.xml
           </a>
           <a class="sidebar-dl-btn" href="{base}/raw.xml" download title="Download">&#x2913;</a>
-        </div>"""
+        </div>{supp_row}"""
 
     vg_counts = [entry["vg_pytest_errors"], entry["vg_gtest_errors"]]
     hg_counts = [entry["hg_pytest_errors"], entry["hg_gtest_errors"]]
@@ -486,25 +497,26 @@ def _cuda_nav_section(entry: dict) -> str:
     if not entry.get("cuda_coverage"):
         return ""
 
+    cuda_icon = (
+        '<svg width="14" height="14" viewBox="0 0 64 64" style="vertical-align:middle">'
+        '<path d="M32 4 C12 4 2 32 2 32 C2 32 12 60 32 60 C52 60 62 32 62 32 C62 32 52 4 32 4Z" fill="#76b900"/>'
+        '<ellipse cx="32" cy="32" rx="12" ry="16" fill="#fff" opacity="0.9"/>'
+        '<ellipse cx="32" cy="32" rx="6" ry="10" fill="#76b900"/>'
+        '</svg>'
+    )
+
     return f"""
-    <!-- CUDA coverage section -->
-    <div class="sidebar-section open">
-      <div class="sidebar-section-header">
-        <span class="sidebar-section-title">CUDA (device)</span>
-        {_cov_badge_sidebar(entry["cuda_coverage"])}
-        <span class="sidebar-chevron">&#x25b8;</span>
-      </div>
-      <div class="sidebar-section-body">
-        <a class="sidebar-nav-item standalone" data-src="{entry["cuda_rel"]}" href="#">
-          <span class="nav-icon">&#x1f4ca;</span> HTML report
-        </a>
-      </div>
-    </div>"""
+        <div class="sidebar-nav-row">
+          <a class="sidebar-nav-item" data-src="{entry["cuda_rel"]}" href="#">
+            <span class="nav-icon">{cuda_icon}</span> CUDA {_cov_badge_sidebar(entry["cuda_coverage"])}
+          </a>
+        </div>"""
 
 
-def render_detail_html(entry: dict) -> str:
+def render_detail_html(entry: dict, gh_pages_dir: str) -> str:
     template = load_template("report.template.html")
     branch_display = f"&#x2387; {entry['branch']}" if entry.get("branch") else ""
+    report_dir = os.path.join(gh_pages_dir, "reports", entry["name"])
 
     return (
         template.replace(
@@ -520,7 +532,7 @@ def render_detail_html(entry: dict) -> str:
         .replace("{{cpp_badge}}", _cov_badge_sidebar(entry["cpp_coverage"]))
         .replace("{{python_badge}}", _cov_badge_sidebar(entry["python_coverage"]))
         .replace("{{cuda_nav}}", _cuda_nav_section(entry))
-        .replace("{{memory_nav}}", _memory_nav_section(entry))
+        .replace("{{memory_nav}}", _memory_nav_section(entry, report_dir))
     )
 
 
@@ -562,7 +574,7 @@ def main() -> None:
 
     # Write per-run detail pages
     for entry in entries:
-        detail_html = render_detail_html(entry)
+        detail_html = render_detail_html(entry, gh_pages_dir)
         out_path = os.path.join(gh_pages_dir, "reports", entry["name"], "report.html")
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(detail_html)
