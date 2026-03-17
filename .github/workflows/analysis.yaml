@@ -201,7 +201,6 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
             --log-file=./reports/vg-pytest.log \
-            --gen-suppressions=all \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
@@ -214,7 +213,6 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml \
             --log-file=./reports/vg-gtest.log \
-            --gen-suppressions=all \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
@@ -227,7 +225,6 @@ jobs:
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-pytest.xml \
             --log-file=./reports/hg-pytest.log \
-            --gen-suppressions=all \
             python -m pytest . -vv -s || true
           valgrind-ci ./reports/hg-pytest.xml --summary | tee ./reports/hg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/hg-pytest.xml --output-dir=./reports/hg_pytest
@@ -237,18 +234,26 @@ jobs:
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-gtest.xml \
             --log-file=./reports/hg-gtest.log \
-            --gen-suppressions=all \
             ../build/mpcf_test || true
           valgrind-ci ./reports/hg-gtest.xml --summary | tee ./reports/hg-gtest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/hg-gtest.xml --output-dir=./reports/hg_gtest
 
-      - name: Extract generated suppressions
+      - name: Generate suppressions (GTest only, no XML)
         run: |
-          # Extract suppression blocks from valgrind/helgrind log files.
-          # Each block starts with '{' on its own line and ends with '}'.
-          for log in test/reports/vg-pytest.log test/reports/vg-gtest.log \
-                     test/reports/hg-pytest.log test/reports/hg-gtest.log; do
-            supp="${log%.log}.supp"
+          cd test
+          # Separate pass without --xml=yes (--gen-suppressions corrupts XML output)
+          valgrind --gen-suppressions=all \
+            --log-file=./reports/vg-gtest-supp.log \
+            --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
+            ../build/mpcf_test || true
+          valgrind --tool=helgrind --gen-suppressions=all \
+            --log-file=./reports/hg-gtest-supp.log \
+            ../build/mpcf_test || true
+          # Extract suppression blocks from the logs
+          for log in ./reports/vg-gtest-supp.log ./reports/hg-gtest-supp.log; do
+            supp="${log%-supp.log}.supp"
             if [ -f "$log" ]; then
               awk '/^{$/,/^}$/' "$log" > "$supp"
               if [ ! -s "$supp" ]; then rm -f "$supp"; fi
@@ -269,9 +274,7 @@ jobs:
           cp test/reports/hg-gtest.xml test/reports/hg_gtest/raw.xml || true
           cp test/reports/hg-gtest.log test/reports/hg_gtest/raw.log || true
           cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
-          cp test/reports/vg-pytest.supp test/reports/vg_pytest/generated.supp || true
           cp test/reports/vg-gtest.supp test/reports/vg_gtest/generated.supp || true
-          cp test/reports/hg-pytest.supp test/reports/hg_pytest/generated.supp || true
           cp test/reports/hg-gtest.supp test/reports/hg_gtest/generated.supp || true
 
       - name: Upload valgrind artifact
