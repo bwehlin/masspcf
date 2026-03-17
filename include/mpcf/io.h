@@ -243,6 +243,9 @@ namespace mpcf
     else if (format == io::detail::tensorFormat<Pcf<float32_t, float32_t>>()) { return io::detail::read_tensor<Pcf<float32_t, float32_t>>(is); }
     else if (format == io::detail::tensorFormat<Pcf<float64_t, float64_t>>()) { return io::detail::read_tensor<Pcf<float64_t, float64_t>>(is); }
 
+    else if (format == io::detail::tensorFormat<Pcf<int32_t, int32_t>>()) { return io::detail::read_tensor<Pcf<int32_t, int32_t>>(is); }
+    else if (format == io::detail::tensorFormat<Pcf<int64_t, int64_t>>()) { return io::detail::read_tensor<Pcf<int64_t, int64_t>>(is); }
+
     else if (format == io::detail::tensorFormat<PointCloud<float32_t>>()) { return io::detail::read_tensor<PointCloud<float32_t>>(is); }
     else if (format == io::detail::tensorFormat<PointCloud<float64_t>>()) { return io::detail::read_tensor<PointCloud<float64_t>>(is); }
 

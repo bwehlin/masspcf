@@ -12,10 +12,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+from __future__ import annotations
+
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .typing import _assert_valid_dtype, _check_deprecated_dtype, pcf32, pcf64
+from .typing import _assert_valid_dtype, _check_deprecated_dtype, pcf32, pcf32i, pcf64, pcf64i
 
 
 class Pcf:
@@ -46,7 +48,28 @@ class Pcf:
     3
     """
 
-    def __init__(self, arr: np.ndarray, dtype=None):
+    _DTYPE_TO_NP = {
+        pcf32: np.float32,
+        pcf64: np.float64,
+        pcf32i: np.int32,
+        pcf64i: np.int64,
+    }
+
+    _NP_TO_CPP = {
+        np.float32: lambda arr: cpp.Pcf_f32_f32(arr),
+        np.float64: lambda arr: cpp.Pcf_f64_f64(arr),
+        np.int32: lambda arr: cpp.Pcf_i32_i32(arr),
+        np.int64: lambda arr: cpp.Pcf_i64_i64(arr),
+    }
+
+    _CPP_TYPE_INFO = {
+        cpp.Pcf_f32_f32: (np.float32, np.float32),
+        cpp.Pcf_f64_f64: (np.float64, np.float64),
+        cpp.Pcf_i32_i32: (np.int32, np.int32),
+        cpp.Pcf_i64_i64: (np.int64, np.int64),
+    }
+
+    def __init__(self, arr: np.ndarray | Pcf | list[list[float]] | list[list[int]], dtype=None):
         if isinstance(arr, Pcf):
             self._data = arr._data
             self.ttype = arr.ttype
@@ -55,54 +78,34 @@ class Pcf:
         elif isinstance(arr, np.ndarray):
             if dtype is not None:
                 dtype = _check_deprecated_dtype(dtype)
+                np_dtype = self._DTYPE_TO_NP.get(dtype, dtype)
+                if arr.dtype != np_dtype:
+                    arr = arr.astype(np_dtype)
 
-                if dtype == pcf32:
-                    dtype = np.float32
-                elif dtype == pcf64:
-                    dtype = np.float64
-
-                if arr.dtype != dtype:
-                    arr = arr.astype(dtype)
-
-            if arr.dtype == np.float32:
-                self._data = cpp.Pcf_f32_f32(arr)
-            elif arr.dtype == np.float64:
-                self._data = cpp.Pcf_f64_f64(arr)
-            elif arr.dtype == np.int64:
-                arr = arr.astype(np.float64)
-                self._data = cpp.Pcf_f64_f64(arr)
-            elif arr.dtype == np.int32:
-                arr = arr.astype(np.float32)
-                self._data = cpp.Pcf_f32_f32(arr)
-            else:
+            constructor = self._NP_TO_CPP.get(arr.dtype.type)
+            if constructor is None:
                 raise ValueError(
                     "Unsupported array type (must be np.float32/64 or np.int32/64)"
                 )
-
+            self._data = constructor(arr)
             self.ttype = arr.dtype
             self.vtype = arr.dtype
-        elif isinstance(arr, cpp.Pcf_f32_f32):
+
+        elif isinstance(arr, tuple(self._CPP_TYPE_INFO.keys())):
             self._data = arr
-            self.ttype = np.float32
-            self.vtype = np.float32
-        elif isinstance(arr, cpp.Pcf_f64_f64):
-            self._data = arr
-            self.ttype = np.float64
-            self.vtype = np.float64
+            self.ttype, self.vtype = self._CPP_TYPE_INFO[type(arr)]
+
         elif isinstance(arr, list):
             if dtype is None:
-                dtype = np.float32
-            data = np.array(arr, dtype=dtype)
-            if dtype == np.float32:
-                self._data = cpp.Pcf_f32_f32(data)
-                self.ttype = np.float32
-                self.vtype = np.float32
-            elif dtype == np.float64:
-                self._data = cpp.Pcf_f64_f64(data)
-                self.ttype = np.float64
-                self.vtype = np.float64
-            else:
+                dtype = np.float64
+            np_dtype = self._DTYPE_TO_NP.get(dtype, dtype)
+            data = np.array(arr, dtype=np_dtype)
+            constructor = self._NP_TO_CPP.get(np_dtype)
+            if constructor is None:
                 raise ValueError("Unsupported dtype")
+            self._data = constructor(data)
+            self.ttype = np_dtype
+            self.vtype = np_dtype
 
         else:
             raise ValueError(
@@ -123,12 +126,15 @@ class Pcf:
         return np.asarray(self._data)
 
     def _debug_print(self):
-        self._data.debugPrint()
+        self._data.debug_print()
 
     def astype(self, dtype):
-        """Return a copy of the PCF cast to the given dtype (``pcf32`` or ``pcf64``)."""
-        _assert_valid_dtype(dtype, [pcf32, pcf64, np.float32, np.float64])
-        np_dtype = {pcf32: np.float32, pcf64: np.float64}.get(dtype, dtype)
+        """Return a copy of the PCF cast to the given dtype (``pcf32``, ``pcf64``, ``pcf32i``, or ``pcf64i``)."""
+        _assert_valid_dtype(
+            dtype,
+            [pcf32, pcf64, pcf32i, pcf64i, np.float32, np.float64, np.int32, np.int64],
+        )
+        np_dtype = self._DTYPE_TO_NP.get(dtype, dtype)
         return Pcf(self.to_numpy().astype(np_dtype))
 
     def __add__(self, rhs):
@@ -138,10 +144,9 @@ class Pcf:
         temp = self._data.copy()
         params = (temp, rhs._data)
 
-        if _has_matching_types(self, tPcf_f32_f32):
-            return Pcf(cpp.Backend_f32_f32.add(*params))
-        elif _has_matching_types(self, tPcf_f64_f64):
-            return Pcf(cpp.Backend_f64_f64.add(*params))
+        backend = _BACKEND_MAP.get(type(self._data))
+        if backend is not None:
+            return Pcf(backend.add(*params))
 
         raise TypeError(
             f"Unsupported PCF type for addition ({type(self._data).__name__})"
@@ -207,10 +212,15 @@ class Pcf:
     # def save(self):
     #  return self._data.to_numpy().save()
 
+    _VTYPE_NAMES = {
+        np.dtype(np.float32): "float32",
+        np.dtype(np.float64): "float64",
+        np.dtype(np.int32): "int32",
+        np.dtype(np.int64): "int64",
+    }
+
     def __str__(self):
-        dtname = (
-            "float32" if self.vtype is np.float32 else "float64"
-        )  # TODO: mixed vtype/ttype?
+        dtname = self._VTYPE_NAMES.get(np.dtype(self.vtype), str(self.vtype))
         return f"<PCF size={self._data.size()}, dtype={dtname}>"
 
     def __array__(self, dtype=None, copy=None):
@@ -223,6 +233,14 @@ class Pcf:
         return np.array_equal(self.__array__(), np.asarray(other))
 
 
+_BACKEND_MAP = {
+    cpp.Pcf_f32_f32: cpp.Backend_f32_f32,
+    cpp.Pcf_f64_f64: cpp.Backend_f64_f64,
+    cpp.Pcf_i32_i32: cpp.Backend_i32_i32,
+    cpp.Pcf_i64_i64: cpp.Backend_i64_i64,
+}
+
+# Legacy aliases
 tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))
 tPcf_f64_f64 = Pcf(np.array([[0, 0]]).astype(np.float64))
 

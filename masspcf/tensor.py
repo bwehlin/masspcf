@@ -19,7 +19,7 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, Tensor
 from .pcf import Pcf
-from .typing import _validate_dtype, f32, f64, pcf32, pcf64, pcloud32, pcloud64
+from .typing import _validate_dtype, f32, f64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
 
 
 class NumericTensor(Tensor, ArithmeticTensorMixin):
@@ -101,7 +101,7 @@ class PcfTensor(Tensor, ArithmeticTensorMixin):
         super().__init__()
 
     def _get_valid_setitem_dtypes(self):
-        return [PcfTensor, Pcf, Pcf32Tensor, Pcf64Tensor]
+        return [PcfTensor, Pcf, Pcf32Tensor, Pcf64Tensor, Pcf32iTensor, Pcf64iTensor]
 
     def _decay_value(self, val):
         return val._data
@@ -128,6 +128,26 @@ class Pcf64Tensor(PcfTensor):
 
     def _to_py_tensor(self, data):
         return Pcf64Tensor(data)
+
+
+class Pcf32iTensor(PcfTensor):
+    def __init__(self, data: cpp.Pcf32iTensor):
+        super().__init__()
+        self._data = data
+        self.dtype = pcf32i
+
+    def _to_py_tensor(self, data):
+        return Pcf32iTensor(data)
+
+
+class Pcf64iTensor(PcfTensor):
+    def __init__(self, data: cpp.Pcf64iTensor):
+        super().__init__()
+        self._data = data
+        self.dtype = pcf64i
+
+    def _to_py_tensor(self, data):
+        return Pcf64iTensor(data)
 
 
 class PointCloudTensor(Tensor):

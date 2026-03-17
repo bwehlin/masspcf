@@ -79,6 +79,8 @@ namespace mpcf
   
   using Point_f32 = Point<float32_t, float32_t>;
   using Point_f64 = Point<float64_t, float64_t>;
+  using Point_i32 = Point<int32_t, int32_t>;
+  using Point_i64 = Point<int64_t, int64_t>;
 
   template <typename P>
   concept PointLike = requires(P p)

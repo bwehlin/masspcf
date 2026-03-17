@@ -224,6 +224,8 @@ namespace mpcf
   
   using Pcf_f32 = Pcf<float32_t, float32_t>;
   using Pcf_f64 = Pcf<float64_t, float64_t>;
+  using Pcf_i32 = Pcf<int32_t, int32_t>;
+  using Pcf_i64 = Pcf<int64_t, int64_t>;
   
   template <typename Tt, typename Tv>
   [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)

@@ -24,7 +24,9 @@ from .serialize import from_serial_content
 from .tensor import (
     Float32Tensor,
     Float64Tensor,
+    Pcf32iTensor,
     Pcf32Tensor,
+    Pcf64iTensor,
     Pcf64Tensor,
     PointCloud32Tensor,
     PointCloud64Tensor,
@@ -38,7 +40,9 @@ from .typing import (
     float32,  # deprecated
     float64,
     pcf32,
+    pcf32i,
     pcf64,
+    pcf64i,
     pcloud32,
     pcloud64,
 )

@@ -228,4 +228,6 @@ void mpcf_py::register_pcf(pybind11::module_& m)
 {
   PyBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
   PyBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
+  PyBindings<mpcf::int32_t, mpcf::int32_t>::register_bindings(m, "_i32_i32");
+  PyBindings<mpcf::int64_t, mpcf::int64_t>::register_bindings(m, "_i64_i64");
 }

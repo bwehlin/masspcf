@@ -39,6 +39,9 @@ namespace mpcf::io::detail
       Tensor<Pcf<float32_t, float32_t>>,
       Tensor<Pcf<float64_t, float64_t>>,
 
+      Tensor<Pcf<int32_t, int32_t>>,
+      Tensor<Pcf<int64_t, int64_t>>,
+
       Tensor<PointCloud<float32_t>>,
       Tensor<PointCloud<float64_t>>,
 
@@ -71,6 +74,9 @@ namespace mpcf::io::detail
 
     else if constexpr (std::is_same_v<T, Pcf<float32_t, float32_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, Pcf<float64_t, float64_t>>) { return TensorFormat{ .baseFormat = 100, .subFormat = 64 }; }
+
+    else if constexpr (std::is_same_v<T, Pcf<int32_t, int32_t>>) { return TensorFormat{ .baseFormat = 101, .subFormat = 32 }; }
+    else if constexpr (std::is_same_v<T, Pcf<int64_t, int64_t>>) { return TensorFormat{ .baseFormat = 101, .subFormat = 64 }; }
 
     else if constexpr (std::is_same_v<T, PointCloud<float32_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, PointCloud<float64_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }

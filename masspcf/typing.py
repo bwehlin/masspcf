@@ -30,6 +30,14 @@ class pcf64:
     pass
 
 
+class pcf32i:
+    pass
+
+
+class pcf64i:
+    pass
+
+
 class pcloud32:
     pass
 

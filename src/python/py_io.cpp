@@ -58,6 +58,9 @@ namespace mpcf_py
         .def_static("save_pcf32_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>)
         .def_static("save_pcf64_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>)
 
+        .def_static("save_pcf32i_tensor",        &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::int32_t, mpcf::int32_t>>)
+        .def_static("save_pcf64i_tensor",        &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::int64_t, mpcf::int64_t>>)
+
         .def_static("save_point_cloud32_tensor", &IoOps::save_tensor_to_file<mpcf::PointCloud<mpcf::float32_t>>)
         .def_static("save_point_cloud64_tensor", &IoOps::save_tensor_to_file<mpcf::PointCloud<mpcf::float64_t>>)
 
