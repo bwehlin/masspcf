@@ -34,6 +34,7 @@
   /* ── Chart tokens ── */
   --chart-cpp:     #2563eb;   /* accent blue  — C++ line */
   --chart-py:      #16a34a;   /* ok green     — Python line */
+  --chart-cuda:    #76b900;   /* NVIDIA green — CUDA device line */
   --chart-release: #d97706;   /* amber        — release markers */
   --chart-grid:    #e2e7ef;   /* --border */
   --chart-text:    #6b7280;   /* --muted */
@@ -456,12 +457,13 @@ footer {
   <div class="chart-legend">
     <span class="legend-item"><span class="legend-dot" style="background:var(--chart-cpp)"></span>C++ line coverage</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--chart-py)"></span>Python coverage</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--chart-cuda)"></span>CUDA device coverage</span>
     <span class="legend-item"><span class="legend-dot legend-dot-release"></span>Tagged release</span>
   </div>
 </div>
 <script>
 (function() {
-  const DATA = [{"utc_iso": "2026-03-05T19:07:46Z", "sha": "8f59c05", "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:23:07Z", "sha": "ec81680", "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:43:56Z", "sha": "b61083a", "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:59:10Z", "sha": "93fb7ed", "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:28:39Z", "sha": "d9e454d", "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:36:41Z", "sha": "f256e37", "detail_path": "reports/2026-03-06_13-36-41_f256e37/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T14:39:02Z", "sha": "5113316", "detail_path": "reports/2026-03-06_14-39-02_5113316/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:03:02Z", "sha": "31ed062", "detail_path": "reports/2026-03-06_15-03-02_31ed062/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:28:13Z", "sha": "2c087a2", "detail_path": "reports/2026-03-06_15-28-13_2c087a2/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:30:08Z", "sha": "480a106", "detail_path": "reports/2026-03-06_16-30-08_480a106/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:41:47Z", "sha": "673cf17", "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html", "cpp": 70.3, "py": 70.0, "release_tag": "v0.4.0b5"}, {"utc_iso": "2026-03-07T21:28:45Z", "sha": "d757cff", "detail_path": "reports/2026-03-07_21-28-45_d757cff/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:23:00Z", "sha": "11efe1d", "detail_path": "reports/2026-03-08_09-23-00_11efe1d/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:38:13Z", "sha": "d9a513a", "detail_path": "reports/2026-03-08_09-38-13_d9a513a/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:51:02Z", "sha": "3c2a632", "detail_path": "reports/2026-03-08_09-51-02_3c2a632/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T10:13:31Z", "sha": "e6aca89", "detail_path": "reports/2026-03-08_10-13-31_e6aca89/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-09T07:35:44Z", "sha": "57a8860", "detail_path": "reports/2026-03-09_07-35-44_57a8860/report.html", "cpp": 81.2, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T10:34:29Z", "sha": "e73293d", "detail_path": "reports/2026-03-09_10-34-29_e73293d/report.html", "cpp": 81.7, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:12:14Z", "sha": "ff4c90f", "detail_path": "reports/2026-03-09_11-12-14_ff4c90f/report.html", "cpp": 81.3, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:16:56Z", "sha": "9e7fec1", "detail_path": "reports/2026-03-09_11-16-56_9e7fec1/report.html", "cpp": 81.5, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T12:42:47Z", "sha": "8a9e8bb", "detail_path": "reports/2026-03-09_12-42-47_8a9e8bb/report.html", "cpp": 81.0, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T13:53:56Z", "sha": "705b49c", "detail_path": "reports/2026-03-09_13-53-56_705b49c/report.html", "cpp": 81.5, "py": 69.0, "release_tag": null}, {"utc_iso": "2026-03-09T14:09:56Z", "sha": "791ab3f", "detail_path": "reports/2026-03-09_14-09-56_791ab3f/report.html", "cpp": 82.2, "py": 69.0, "release_tag": "v0.4.0b6"}, {"utc_iso": "2026-03-09T16:48:39Z", "sha": "71098b4", "detail_path": "reports/2026-03-09_16-48-39_71098b4/report.html", "cpp": 81.4, "py": 74.0, "release_tag": null}, {"utc_iso": "2026-03-10T18:55:03Z", "sha": "7f23109", "detail_path": "reports/2026-03-10_18-55-03_7f23109/report.html", "cpp": 82.2, "py": 72.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:11:04Z", "sha": "6c187c9", "detail_path": "reports/2026-03-11_17-11-04_6c187c9/report.html", "cpp": 82.3, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:18:26Z", "sha": "fd1f6b5", "detail_path": "reports/2026-03-11_17-18-26_fd1f6b5/report.html", "cpp": 82.3, "py": 71.0, "release_tag": "v0.4.0b7"}, {"utc_iso": "2026-03-13T21:43:55Z", "sha": "1bfc53d", "detail_path": "reports/2026-03-13_21-43-55_1bfc53d/report.html", "cpp": 82.9, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:09:19Z", "sha": "6d3d543", "detail_path": "reports/2026-03-14_21-09-19_6d3d543/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:23:15Z", "sha": "6ed7f92", "detail_path": "reports/2026-03-14_21-23-15_6ed7f92/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:32:54Z", "sha": "be34812", "detail_path": "reports/2026-03-14_21-32-54_be34812/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:44:10Z", "sha": "a9a3c3e", "detail_path": "reports/2026-03-14_21-44-10_a9a3c3e/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:03:44Z", "sha": "bb344cd", "detail_path": "reports/2026-03-16_11-03-44_bb344cd/report.html", "cpp": 85.3, "py": 75.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:09:11Z", "sha": "c406403", "detail_path": "reports/2026-03-16_11-09-11_c406403/report.html", "cpp": 85.1, "py": 75.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:18:20Z", "sha": "78f2e13", "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html", "cpp": 85.3, "py": 77.0, "release_tag": "v0.4.0b8"}, {"utc_iso": "2026-03-16T19:13:29Z", "sha": "b4c52e7", "detail_path": "reports/2026-03-16_19-13-29_b4c52e7/report.html", "cpp": 86.1, "py": 77.0, "release_tag": null}, {"utc_iso": "2026-03-16T21:01:58Z", "sha": "f4f31d7", "detail_path": "reports/2026-03-16_21-01-58_f4f31d7/report.html", "cpp": 86.8, "py": 77.0, "release_tag": null}, {"utc_iso": "2026-03-17T10:00:30Z", "sha": "e5f2740", "detail_path": "reports/2026-03-17_10-00-30_e5f2740/report.html", "cpp": 86.9, "py": 77.0, "release_tag": null}];
+  const DATA = [{"utc_iso": "2026-03-05T19:07:46Z", "sha": "8f59c05", "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:23:07Z", "sha": "ec81680", "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:43:56Z", "sha": "b61083a", "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:59:10Z", "sha": "93fb7ed", "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:28:39Z", "sha": "d9e454d", "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:36:41Z", "sha": "f256e37", "detail_path": "reports/2026-03-06_13-36-41_f256e37/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T14:39:02Z", "sha": "5113316", "detail_path": "reports/2026-03-06_14-39-02_5113316/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:03:02Z", "sha": "31ed062", "detail_path": "reports/2026-03-06_15-03-02_31ed062/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:28:13Z", "sha": "2c087a2", "detail_path": "reports/2026-03-06_15-28-13_2c087a2/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:30:08Z", "sha": "480a106", "detail_path": "reports/2026-03-06_16-30-08_480a106/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:41:47Z", "sha": "673cf17", "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html", "cpp": 70.3, "py": 70.0, "cuda": null, "release_tag": "v0.4.0b5"}, {"utc_iso": "2026-03-07T21:28:45Z", "sha": "d757cff", "detail_path": "reports/2026-03-07_21-28-45_d757cff/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:23:00Z", "sha": "11efe1d", "detail_path": "reports/2026-03-08_09-23-00_11efe1d/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:38:13Z", "sha": "d9a513a", "detail_path": "reports/2026-03-08_09-38-13_d9a513a/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:51:02Z", "sha": "3c2a632", "detail_path": "reports/2026-03-08_09-51-02_3c2a632/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T10:13:31Z", "sha": "e6aca89", "detail_path": "reports/2026-03-08_10-13-31_e6aca89/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-09T07:35:44Z", "sha": "57a8860", "detail_path": "reports/2026-03-09_07-35-44_57a8860/report.html", "cpp": 81.2, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T10:34:29Z", "sha": "e73293d", "detail_path": "reports/2026-03-09_10-34-29_e73293d/report.html", "cpp": 81.7, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:12:14Z", "sha": "ff4c90f", "detail_path": "reports/2026-03-09_11-12-14_ff4c90f/report.html", "cpp": 81.3, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:16:56Z", "sha": "9e7fec1", "detail_path": "reports/2026-03-09_11-16-56_9e7fec1/report.html", "cpp": 81.5, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T12:42:47Z", "sha": "8a9e8bb", "detail_path": "reports/2026-03-09_12-42-47_8a9e8bb/report.html", "cpp": 81.0, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T13:53:56Z", "sha": "705b49c", "detail_path": "reports/2026-03-09_13-53-56_705b49c/report.html", "cpp": 81.5, "py": 69.0, "release_tag": null}, {"utc_iso": "2026-03-09T14:09:56Z", "sha": "791ab3f", "detail_path": "reports/2026-03-09_14-09-56_791ab3f/report.html", "cpp": 82.2, "py": 69.0, "cuda": null, "release_tag": "v0.4.0b6"}, {"utc_iso": "2026-03-09T16:48:39Z", "sha": "71098b4", "detail_path": "reports/2026-03-09_16-48-39_71098b4/report.html", "cpp": 81.4, "py": 74.0, "release_tag": null}, {"utc_iso": "2026-03-10T18:55:03Z", "sha": "7f23109", "detail_path": "reports/2026-03-10_18-55-03_7f23109/report.html", "cpp": 82.2, "py": 72.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:11:04Z", "sha": "6c187c9", "detail_path": "reports/2026-03-11_17-11-04_6c187c9/report.html", "cpp": 82.3, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:18:26Z", "sha": "fd1f6b5", "detail_path": "reports/2026-03-11_17-18-26_fd1f6b5/report.html", "cpp": 82.3, "py": 71.0, "cuda": null, "release_tag": "v0.4.0b7"}, {"utc_iso": "2026-03-13T21:43:55Z", "sha": "1bfc53d", "detail_path": "reports/2026-03-13_21-43-55_1bfc53d/report.html", "cpp": 82.9, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:09:19Z", "sha": "6d3d543", "detail_path": "reports/2026-03-14_21-09-19_6d3d543/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:23:15Z", "sha": "6ed7f92", "detail_path": "reports/2026-03-14_21-23-15_6ed7f92/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:32:54Z", "sha": "be34812", "detail_path": "reports/2026-03-14_21-32-54_be34812/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:44:10Z", "sha": "a9a3c3e", "detail_path": "reports/2026-03-14_21-44-10_a9a3c3e/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:03:44Z", "sha": "bb344cd", "detail_path": "reports/2026-03-16_11-03-44_bb344cd/report.html", "cpp": 85.3, "py": 75.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:09:11Z", "sha": "c406403", "detail_path": "reports/2026-03-16_11-09-11_c406403/report.html", "cpp": 85.1, "py": 75.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-16T11:18:20Z", "sha": "78f2e13", "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html", "cpp": 85.3, "py": 77.0, "cuda": null, "release_tag": "v0.4.0b8"}, {"utc_iso": "2026-03-16T19:13:29Z", "sha": "b4c52e7", "detail_path": "reports/2026-03-16_19-13-29_b4c52e7/report.html", "cpp": 86.1, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-16T21:01:58Z", "sha": "f4f31d7", "detail_path": "reports/2026-03-16_21-01-58_f4f31d7/report.html", "cpp": 86.8, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-17T10:00:30Z", "sha": "e5f2740", "detail_path": "reports/2026-03-17_10-00-30_e5f2740/report.html", "cpp": 86.9, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-17T13:59:32Z", "sha": "85bc2eb", "detail_path": "reports/2026-03-17_13-59-32_85bc2eb/report.html", "cpp": 86.9, "py": 77.0, "cuda": 89.1, "release_tag": null}];
   if (!DATA.length) return;
 
   const canvas = document.getElementById('covChart');
@@ -483,6 +485,7 @@ footer {
   const style   = getComputedStyle(document.documentElement);
   const cppCol  = style.getPropertyValue('--chart-cpp').trim()     || '#2563eb';
   const pyCol   = style.getPropertyValue('--chart-py').trim()      || '#16a34a';
+  const cudaCol = style.getPropertyValue('--chart-cuda').trim()    || '#76b900';
   const gridCol = style.getPropertyValue('--chart-grid').trim()    || '#e2e7ef';
   const textCol = style.getPropertyValue('--chart-text').trim()    || '#6b7280';
   const relCol  = style.getPropertyValue('--chart-release').trim() || '#d97706';
@@ -560,8 +563,9 @@ footer {
     });
   }
 
-  drawSeries('cpp', cppCol);
-  drawSeries('py',  pyCol);
+  drawSeries('cpp',  cppCol);
+  drawSeries('py',   pyCol);
+  drawSeries('cuda', cudaCol);
 
   // X axis labels (dates) — show up to 6, prefer releases
   ctx.fillStyle = textCol;
@@ -602,6 +606,7 @@ footer {
     if (d.release_tag) html += `<div class="tt-release">&#x1f3f7; ${d.release_tag}</div>`;
     if (d.cpp  != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cppCol}"></span>C++ ${d.cpp.toFixed(1)}%</div>`;
     if (d.py   != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${pyCol}"></span>Py ${d.py.toFixed(1)}%</div>`;
+    if (d.cuda != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cudaCol}"></span>CUDA ${d.cuda.toFixed(1)}%</div>`;
     html += `<div class="tt-sha">${d.sha}</div>`;
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
@@ -630,17 +635,38 @@ footer {
   <div class="reports-list">
     
 <div class="report-card-wrapper latest">
-  <a class="report-card-link" href="reports/2026-03-17_10-00-30_e5f2740/report.html">
+  <a class="report-card-link" href="reports/2026-03-17_13-59-32_85bc2eb/report.html">
     <div class="report-card">
       <span class="report-index">#1</span>
       <div class="report-info">
-        <div class="report-label" data-utc="2026-03-17T10:00:30Z" data-sha="e5f2740">2026-03-17 10:00:30 UTC — e5f2740</div>
+        <div class="report-label" data-utc="2026-03-17T13:59:32Z" data-sha="85bc2eb">2026-03-17 13:59:32 UTC — 85bc2eb</div>
         <div class="report-branch">&#x2387; main</div>
       </div>
       <span class="badge badge-latest">Latest</span>
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">86.9%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">77%</span></span>
+        <span class="stat-group"><span class="stat-label">CUDA</span><span class="stat stat-ok">89.1%</span></span>
+        <span class="stat stat-error">1 mem err</span>
+      </div>
+      <div class="card-arrow">&#x2192;</div>
+    </div>
+  </a>
+</div>
+
+<div class="report-card-wrapper">
+  <a class="report-card-link" href="reports/2026-03-17_10-00-30_e5f2740/report.html">
+    <div class="report-card">
+      <span class="report-index">#2</span>
+      <div class="report-info">
+        <div class="report-label" data-utc="2026-03-17T10:00:30Z" data-sha="e5f2740">2026-03-17 10:00:30 UTC — e5f2740</div>
+        <div class="report-branch">&#x2387; main</div>
+      </div>
+      
+      <div class="report-stats">
+        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">86.9%</span></span>
+        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">77%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -651,7 +677,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-16_21-01-58_f4f31d7/report.html">
     <div class="report-card">
-      <span class="report-index">#2</span>
+      <span class="report-index">#3</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-16T21:01:58Z" data-sha="f4f31d7">2026-03-16 21:01:58 UTC — f4f31d7</div>
         <div class="report-branch">&#x2387; main</div>
@@ -660,6 +686,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">86.8%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">77%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -670,7 +697,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-16_19-13-29_b4c52e7/report.html">
     <div class="report-card">
-      <span class="report-index">#3</span>
+      <span class="report-index">#4</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-16T19:13:29Z" data-sha="b4c52e7">2026-03-16 19:13:29 UTC — b4c52e7</div>
         <div class="report-branch">&#x2387; main</div>
@@ -679,6 +706,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">86.1%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">77%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -689,7 +717,7 @@ footer {
 <div class="report-card-wrapper release">
   <a class="report-card-link" href="reports/2026-03-16_11-18-20_78f2e13/report.html">
     <div class="report-card">
-      <span class="report-index">#4</span>
+      <span class="report-index">#5</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-16T11:18:20Z" data-sha="78f2e13">2026-03-16 11:18:20 UTC — 78f2e13</div>
         <div class="report-branch">&#x2387; main</div>
@@ -698,6 +726,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">85.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">77%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -708,7 +737,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-16_11-09-11_c406403/report.html">
     <div class="report-card">
-      <span class="report-index">#5</span>
+      <span class="report-index">#6</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-16T11:09:11Z" data-sha="c406403">2026-03-16 11:09:11 UTC — c406403</div>
         <div class="report-branch">&#x2387; main</div>
@@ -717,25 +746,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">85.1%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">75%</span></span>
-        <span class="stat stat-error">1 mem err</span>
-      </div>
-      <div class="card-arrow">&#x2192;</div>
-    </div>
-  </a>
-</div>
-
-<div class="report-card-wrapper">
-  <a class="report-card-link" href="reports/2026-03-16_11-03-44_bb344cd/report.html">
-    <div class="report-card">
-      <span class="report-index">#6</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-16T11:03:44Z" data-sha="bb344cd">2026-03-16 11:03:44 UTC — bb344cd</div>
-        <div class="report-branch">&#x2387; main</div>
-      </div>
-      
-      <div class="report-stats">
-        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">85.3%</span></span>
-        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">75%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -755,6 +766,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">82.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">71%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -774,6 +786,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">82.2%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">69%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -793,6 +806,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">70.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -812,6 +826,7 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">70.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">70%</span></span>
+        
         <span class="stat stat-error">1 mem err</span>
       </div>
       <div class="card-arrow">&#x2192;</div>

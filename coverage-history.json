@@ -85,6 +85,7 @@
     "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html",
     "cpp": 70.3,
     "py": 70.0,
+    "cuda": null,
     "release_tag": "v0.4.0b5"
   },
   {
@@ -181,6 +182,7 @@
     "detail_path": "reports/2026-03-09_14-09-56_791ab3f/report.html",
     "cpp": 82.2,
     "py": 69.0,
+    "cuda": null,
     "release_tag": "v0.4.0b6"
   },
   {
@@ -213,6 +215,7 @@
     "detail_path": "reports/2026-03-11_17-18-26_fd1f6b5/report.html",
     "cpp": 82.3,
     "py": 71.0,
+    "cuda": null,
     "release_tag": "v0.4.0b7"
   },
   {
@@ -269,6 +272,7 @@
     "detail_path": "reports/2026-03-16_11-09-11_c406403/report.html",
     "cpp": 85.1,
     "py": 75.0,
+    "cuda": null,
     "release_tag": null
   },
   {
@@ -277,6 +281,7 @@
     "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html",
     "cpp": 85.3,
     "py": 77.0,
+    "cuda": null,
     "release_tag": "v0.4.0b8"
   },
   {
@@ -285,6 +290,7 @@
     "detail_path": "reports/2026-03-16_19-13-29_b4c52e7/report.html",
     "cpp": 86.1,
     "py": 77.0,
+    "cuda": null,
     "release_tag": null
   },
   {
@@ -293,6 +299,7 @@
     "detail_path": "reports/2026-03-16_21-01-58_f4f31d7/report.html",
     "cpp": 86.8,
     "py": 77.0,
+    "cuda": null,
     "release_tag": null
   },
   {
@@ -301,6 +308,16 @@
     "detail_path": "reports/2026-03-17_10-00-30_e5f2740/report.html",
     "cpp": 86.9,
     "py": 77.0,
+    "cuda": null,
+    "release_tag": null
+  },
+  {
+    "utc_iso": "2026-03-17T13:59:32Z",
+    "sha": "85bc2eb",
+    "detail_path": "reports/2026-03-17_13-59-32_85bc2eb/report.html",
+    "cpp": 86.9,
+    "py": 77.0,
+    "cuda": 89.1,
     "release_tag": null
   }
 ]
