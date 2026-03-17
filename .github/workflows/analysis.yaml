@@ -208,6 +208,11 @@ jobs:
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             python -m pytest . -vv -s || true
+          echo "=== vg-pytest.xml: $(wc -l < ./reports/vg-pytest.xml) lines ==="
+          echo "=== Last 30 lines ==="
+          tail -30 ./reports/vg-pytest.xml
+          echo "=== Lines around </valgrindoutput> ==="
+          grep -n '</valgrindoutput>' ./reports/vg-pytest.xml || echo "No closing tag found"
           valgrind-ci ./reports/vg-pytest.xml --summary | tee ./reports/vg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
 
