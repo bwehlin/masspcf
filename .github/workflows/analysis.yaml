@@ -208,39 +208,35 @@ jobs:
         run: |
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
-            --log-file=./reports/vg-pytest.log \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
-            python -m pytest . -vv -s || true
+            python -m pytest . -vv -s 2>&1 | tee ./reports/vg-pytest.log || true
 
       - name: Run valgrind on GTest
         run: |
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml \
-            --log-file=./reports/vg-gtest.log \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
-            ../build/mpcf_test || true
+            ../build/mpcf_test 2>&1 | tee ./reports/vg-gtest.log || true
 
       - name: Run helgrind on Pytest
         run: |
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-pytest.xml \
-            --log-file=./reports/hg-pytest.log \
             --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
-            python -m pytest . -vv -s || true
+            python -m pytest . -vv -s 2>&1 | tee ./reports/hg-pytest.log || true
 
       - name: Run helgrind on GTest
         run: |
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-gtest.xml \
-            --log-file=./reports/hg-gtest.log \
             --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
-            ../build/mpcf_test || true
+            ../build/mpcf_test 2>&1 | tee ./reports/hg-gtest.log || true
 
       - name: Generate suppressions (text mode, no XML)
         run: |
@@ -279,14 +275,16 @@ jobs:
 
       - name: Sanitize valgrind XML
         run: |
-          # Valgrind may emit duplicate </valgrindoutput> closing tags (e.g. in Docker).
-          # Keep only the last one so all content stays inside a single valid document.
+          # Valgrind in Docker may emit errors after closing </valgrindoutput>
+          # during Python shutdown. Truncate at the first closing tag to discard
+          # post-shutdown noise that can't be suppressed.
           for xml in test/reports/*.xml; do
             count=$(grep -c '</valgrindoutput>' "$xml" 2>/dev/null || true)
             if [ "$count" -gt 1 ]; then
-              tac "$xml" | awk '/<\/valgrindoutput>/ { if (++n > 1) next } 1' | tac > "${xml}.tmp"
+              line=$(grep -n '</valgrindoutput>' "$xml" | head -1 | cut -d: -f1)
+              head -n "$line" "$xml" > "${xml}.tmp"
               mv "${xml}.tmp" "$xml"
-              echo "Fixed $xml (had $count closing tags)"
+              echo "Truncated $xml at line $line (discarded post-shutdown content)"
             fi
           done
 
@@ -303,16 +301,16 @@ jobs:
       - name: Collect raw reports
         run: |
           cp test/reports/vg-pytest.xml test/reports/vg_pytest/raw.xml || true
-          cp test/reports/vg-pytest.log test/reports/vg_pytest/raw.log || true
+          cp test/reports/vg-pytest-supp.log test/reports/vg_pytest/raw.log || true
           cp test/reports/vg-pytest-summary.txt test/reports/vg_pytest/summary.txt || true
           cp test/reports/vg-gtest.xml test/reports/vg_gtest/raw.xml || true
-          cp test/reports/vg-gtest.log test/reports/vg_gtest/raw.log || true
+          cp test/reports/vg-gtest-supp.log test/reports/vg_gtest/raw.log || true
           cp test/reports/vg-gtest-summary.txt test/reports/vg_gtest/summary.txt || true
           cp test/reports/hg-pytest.xml test/reports/hg_pytest/raw.xml || true
-          cp test/reports/hg-pytest.log test/reports/hg_pytest/raw.log || true
+          cp test/reports/hg-pytest-supp.log test/reports/hg_pytest/raw.log || true
           cp test/reports/hg-pytest-summary.txt test/reports/hg_pytest/summary.txt || true
           cp test/reports/hg-gtest.xml test/reports/hg_gtest/raw.xml || true
-          cp test/reports/hg-gtest.log test/reports/hg_gtest/raw.log || true
+          cp test/reports/hg-gtest-supp.log test/reports/hg_gtest/raw.log || true
           cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
           cp test/reports/vg-pytest.supp test/reports/vg_pytest/generated.supp || true
           cp test/reports/vg-gtest.supp test/reports/vg_gtest/generated.supp || true
