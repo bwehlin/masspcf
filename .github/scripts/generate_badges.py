@@ -43,6 +43,15 @@ def read_python_coverage(covreport_dir: Path) -> float:
         return json.load(f)["totals"]["percent_covered"]
 
 
+def read_cuda_coverage(covreport_dir: Path) -> float | None:
+    summary = covreport_dir / "cuda" / "coverage-summary.json"
+    try:
+        with summary.open() as f:
+            return json.load(f)["line_percent"]
+    except (OSError, json.JSONDecodeError, KeyError):
+        return None
+
+
 def main() -> None:
     if len(sys.argv) != 3:
         print(f"Usage: {sys.argv[0]} <gh-pages-dir> <covreport-dir>", file=sys.stderr)
@@ -56,6 +65,10 @@ def main() -> None:
 
     write_badge(gh_pages_dir / "cpp-coverage-badge.json", "C++ coverage", cpp_pct)
     write_badge(gh_pages_dir / "py-coverage-badge.json", "Python coverage", py_pct)
+
+    cuda_pct = read_cuda_coverage(covreport_dir)
+    if cuda_pct is not None:
+        write_badge(gh_pages_dir / "cuda-coverage-badge.json", "CUDA coverage", cuda_pct)
 
 
 if __name__ == "__main__":

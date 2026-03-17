@@ -24,6 +24,7 @@
   /* ── Chart tokens ── */
   --chart-cpp:     #2563eb;   /* accent blue  — C++ line */
   --chart-py:      #16a34a;   /* ok green     — Python line */
+  --chart-cuda:    #76b900;   /* NVIDIA green — CUDA device line */
   --chart-release: #d97706;   /* amber        — release markers */
   --chart-grid:    #e2e7ef;   /* --border */
   --chart-text:    #6b7280;   /* --muted */

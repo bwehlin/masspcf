@@ -19,6 +19,8 @@ Each report directory is expected to contain:
     cpp/coverage.html                  — gcovr HTML report
     cpp/coverage-summary.json          — gcovr JSON summary
     python/index.html                  — pytest-cov HTML report
+    cuda/index.html                    — genhtml CUDA coverage report (optional)
+    cuda/coverage-summary.json         — gpucov JSON summary (optional)
     valgrind/vg_pytest/index.html      — ValgrindCI memcheck report (pytest)
     valgrind/vg_pytest/summary.txt     — valgrind-ci summary text
     valgrind/vg_pytest/raw.log         — raw valgrind text output
@@ -96,6 +98,20 @@ def parse_cpp_coverage(report_dir: str) -> str | None:
     return None
 
 
+def parse_cuda_coverage(report_dir: str) -> str | None:
+    """Return line coverage % string from CUDA coverage-summary.json, e.g. '89.1%'."""
+    path = os.path.join(report_dir, "cuda", "coverage-summary.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        pct = data.get("line_percent")
+        if pct is not None:
+            return f"{pct:.1f}%"
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        pass
+    return None
+
+
 def parse_python_coverage(report_dir: str) -> str | None:
     """Return total coverage % string from coverage.py HTML, e.g. '69%'."""
     html = _read(os.path.join(report_dir, "python", "index.html"))
@@ -162,6 +178,7 @@ def get_entries(reports_root: str, tag_map: dict[str, str] = {}) -> list[dict]:
                 "has_memory": _has_memory_reports(report_dir),
                 "cpp_coverage": parse_cpp_coverage(report_dir),
                 "python_coverage": parse_python_coverage(report_dir),
+                "cuda_coverage": parse_cuda_coverage(report_dir),
                 "vg_pytest_errors": vg_pytest_errs,
                 "vg_gtest_errors": vg_gtest_errs,
                 "hg_pytest_errors": hg_pytest_errs,
@@ -170,10 +187,12 @@ def get_entries(reports_root: str, tag_map: dict[str, str] = {}) -> list[dict]:
                 "detail_path": f"reports/{name}/report.html",
                 "cpp_path": f"reports/{name}/cpp/coverage.html",
                 "python_path": f"reports/{name}/python/index.html",
+                "cuda_path": f"reports/{name}/cuda/index.html",
                 # Paths relative to the run dir (used in report.html iframe srcs)
                 "cpp_rel": "cpp/coverage.html",
                 "cpp_detailed_rel": "cpp/detailed/index.html",
                 "python_rel": "python/index.html",
+                "cuda_rel": "cuda/index.html",
                 "vg_pytest_rel_base": "valgrind/vg_pytest",
                 "vg_gtest_rel_base": "valgrind/vg_gtest",
                 "hg_pytest_rel_base": "helgrind/hg_pytest",
@@ -281,6 +300,7 @@ def render_cards(entries: list[dict]) -> str:
       <div class="report-stats">
         {_cov_badge_index(entry["cpp_coverage"]) and f'<span class="stat-group"><span class="stat-label">C++</span>{_cov_badge_index(entry["cpp_coverage"])}</span>' or ""}
         {_cov_badge_index(entry["python_coverage"]) and f'<span class="stat-group"><span class="stat-label">Py</span>{_cov_badge_index(entry["python_coverage"])}</span>' or ""}
+        {_cov_badge_index(entry["cuda_coverage"]) and f'<span class="stat-group"><span class="stat-label">CUDA</span>{_cov_badge_index(entry["cuda_coverage"])}</span>' or ""}
         {mem_stat}
       </div>
       <div class="card-arrow">&#x2192;</div>
@@ -327,7 +347,8 @@ def reconcile_coverage_history(
     for entry in entries:
         cpp = entry.get("cpp_coverage")
         py = entry.get("python_coverage")
-        if cpp is None and py is None:
+        cuda = entry.get("cuda_coverage")
+        if cpp is None and py is None and cuda is None:
             continue
         sha = entry.get("sha", "")
         record = {
@@ -336,6 +357,7 @@ def reconcile_coverage_history(
             "detail_path": entry.get("detail_path"),
             "cpp": float(cpp.rstrip("%")) if cpp else None,
             "py": float(py.rstrip("%")) if py else None,
+            "cuda": float(cuda.rstrip("%")) if cuda else None,
             "release_tag": tag_map.get(sha) if sha else None,
         }
         by_sha[sha] = record
@@ -360,7 +382,8 @@ def render_coverage_chart(gh_pages_dir: str, entries: list[dict]) -> str:
         for entry in reversed(entries):
             cpp = entry.get("cpp_coverage")
             py = entry.get("python_coverage")
-            if cpp is None and py is None:
+            cuda = entry.get("cuda_coverage")
+            if cpp is None and py is None and cuda is None:
                 continue
             points.append(
                 {
@@ -369,6 +392,7 @@ def render_coverage_chart(gh_pages_dir: str, entries: list[dict]) -> str:
                     "detail_path": entry.get("detail_path"),
                     "cpp": float(cpp.rstrip("%")) if cpp else None,
                     "py": float(py.rstrip("%")) if py else None,
+                    "cuda": float(cuda.rstrip("%")) if cuda else None,
                     "release_tag": entry.get("release_tag"),
                 }
             )
@@ -457,6 +481,27 @@ def _memory_nav_section(entry: dict) -> str:
     </div>"""
 
 
+def _cuda_nav_section(entry: dict) -> str:
+    """Render the CUDA coverage sidebar section for report.html."""
+    if not entry.get("cuda_coverage"):
+        return ""
+
+    return f"""
+    <!-- CUDA coverage section -->
+    <div class="sidebar-section open">
+      <div class="sidebar-section-header">
+        <span class="sidebar-section-title">CUDA (device)</span>
+        {_cov_badge_sidebar(entry["cuda_coverage"])}
+        <span class="sidebar-chevron">&#x25b8;</span>
+      </div>
+      <div class="sidebar-section-body">
+        <a class="sidebar-nav-item standalone" data-src="{entry["cuda_rel"]}" href="#">
+          <span class="nav-icon">&#x1f4ca;</span> HTML report
+        </a>
+      </div>
+    </div>"""
+
+
 def render_detail_html(entry: dict) -> str:
     template = load_template("report.template.html")
     branch_display = f"&#x2387; {entry['branch']}" if entry.get("branch") else ""
@@ -474,6 +519,7 @@ def render_detail_html(entry: dict) -> str:
         .replace("{{python_path}}", entry["python_rel"])
         .replace("{{cpp_badge}}", _cov_badge_sidebar(entry["cpp_coverage"]))
         .replace("{{python_badge}}", _cov_badge_sidebar(entry["python_coverage"]))
+        .replace("{{cuda_nav}}", _cuda_nav_section(entry))
         .replace("{{memory_nav}}", _memory_nav_section(entry))
     )
 

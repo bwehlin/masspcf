@@ -6,6 +6,7 @@
   <div class="chart-legend">
     <span class="legend-item"><span class="legend-dot" style="background:var(--chart-cpp)"></span>C++ line coverage</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--chart-py)"></span>Python coverage</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--chart-cuda)"></span>CUDA device coverage</span>
     <span class="legend-item"><span class="legend-dot legend-dot-release"></span>Tagged release</span>
   </div>
 </div>
@@ -33,6 +34,7 @@
   const style   = getComputedStyle(document.documentElement);
   const cppCol  = style.getPropertyValue('--chart-cpp').trim()     || '#2563eb';
   const pyCol   = style.getPropertyValue('--chart-py').trim()      || '#16a34a';
+  const cudaCol = style.getPropertyValue('--chart-cuda').trim()    || '#76b900';
   const gridCol = style.getPropertyValue('--chart-grid').trim()    || '#e2e7ef';
   const textCol = style.getPropertyValue('--chart-text').trim()    || '#6b7280';
   const relCol  = style.getPropertyValue('--chart-release').trim() || '#d97706';
@@ -110,8 +112,9 @@
     });
   }
 
-  drawSeries('cpp', cppCol);
-  drawSeries('py',  pyCol);
+  drawSeries('cpp',  cppCol);
+  drawSeries('py',   pyCol);
+  drawSeries('cuda', cudaCol);
 
   // X axis labels (dates) — show up to 6, prefer releases
   ctx.fillStyle = textCol;
@@ -152,6 +155,7 @@
     if (d.release_tag) html += `<div class="tt-release">&#x1f3f7; ${d.release_tag}</div>`;
     if (d.cpp  != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cppCol}"></span>C++ ${d.cpp.toFixed(1)}%</div>`;
     if (d.py   != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${pyCol}"></span>Py ${d.py.toFixed(1)}%</div>`;
+    if (d.cuda != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cudaCol}"></span>CUDA ${d.cuda.toFixed(1)}%</div>`;
     html += `<div class="tt-sha">${d.sha}</div>`;
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
