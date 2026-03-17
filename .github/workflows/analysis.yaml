@@ -202,18 +202,20 @@ jobs:
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
             --log-file=./reports/vg-pytest.log \
-            --trace-children=no \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             python -m pytest . -vv -s || true
-          echo "=== vg-pytest.xml: $(wc -l < ./reports/vg-pytest.xml) lines ==="
-          echo "=== Last 30 lines ==="
-          tail -30 ./reports/vg-pytest.xml
-          echo "=== Lines around </valgrindoutput> ==="
-          grep -n '</valgrindoutput>' ./reports/vg-pytest.xml || echo "No closing tag found"
           valgrind-ci ./reports/vg-pytest.xml --summary | tee ./reports/vg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
+
+      - name: Upload raw valgrind XML for debugging
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: vg-pytest-raw-xml
+          path: test/reports/vg-pytest.xml
+          retention-days: 1
 
       - name: Run valgrind on GTest
         run: |
