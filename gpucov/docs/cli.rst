@@ -10,7 +10,7 @@ Global options
 
 .. code-block:: text
 
-   gpucov [-h] [--cmake-dir] {instrument,collect} ...
+   gpucov [-h] [--cmake-dir] {instrument,zerocounters,collect} ...
 
 ``--cmake-dir``
    Print the path to the directory containing ``GPUCovConfig.cmake`` and exit.
@@ -31,7 +31,6 @@ Parse CUDA source files and produce instrumented copies with coverage counters.
 
    gpucov instrument --source-root DIR --output-dir DIR --files FILE [FILE ...]
                      [-I PATH [PATH ...]]
-                     [--dual-compilation PATTERN [PATTERN ...]]
                      [--extra-args ARG [ARG ...]]
 
 ``--source-root DIR``
@@ -49,11 +48,6 @@ Parse CUDA source files and produce instrumented copies with coverage counters.
    Additional include paths for the libclang parser. Pass the same ``-I``
    paths your build system uses.
 
-``--dual-compilation PATTERN [PATTERN ...]``
-   Glob patterns for files compiled by both the host compiler and NVCC.
-   Instrumented code in matching files is wrapped in ``#ifdef GPUCOV_ENABLED``
-   guards.
-
 ``--extra-args ARG [ARG ...]``
    Extra arguments passed directly to the libclang parser.
 
@@ -65,7 +59,6 @@ Parse CUDA source files and produce instrumented copies with coverage counters.
        --source-root . \
        --output-dir build/_gpucov \
        -I include -I 3rd/cub \
-       --dual-compilation "shared_ops.cuh" \
        --files \
            src/cuda/kernels.cu \
            include/cuda/kernels.cuh \
@@ -87,28 +80,54 @@ Parse CUDA source files and produce instrumented copies with coverage counters.
       }
 
 ``gpucov_runtime.cuh``
-   Device-side counter infrastructure, automatically ``#include``-d by
-   instrumented files.
+   Device-side counter infrastructure and the ``GPUCOV_HIT`` macro,
+   automatically ``#include``-d by instrumented files.
 
 ``<relative/path/to/file>``
    Instrumented copies, mirroring the source tree relative to
    ``--source-root``.
 
 
-``gpucov collect``
-------------------
+``gpucov zerocounters``
+-----------------------
 
-Read a binary counter dump and produce coverage reports.
+Remove dump files from a previous run, ensuring a clean slate before
+re-running tests. Analogous to ``lcov --zerocounters``.
 
 .. code-block:: text
 
-   gpucov collect --dump FILE --mapping FILE
+   gpucov zerocounters --dump PATTERN [PATTERN ...]
+
+``--dump PATTERN [PATTERN ...]``
+   *Required.* Glob pattern(s) matching dump files to delete. Use the same
+   pattern you pass to ``gpucov collect --dump``.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Clear all per-process dumps before re-running tests
+   gpucov zerocounters --dump "coverage/cuda_*.bin"
+
+Returns exit code 0 regardless of whether any files were found (idempotent).
+
+
+``gpucov collect``
+------------------
+
+Read binary counter dump(s) and produce coverage reports.
+
+.. code-block:: text
+
+   gpucov collect --dump FILE [FILE ...] --mapping FILE
                   [--lcov FILE] [--summary FILE]
 
-``--dump FILE``
-   *Required.* Path to the binary counter dump written by the runtime
+``--dump FILE [FILE ...]``
+   *Required.* Path(s) to binary counter dump files written by the runtime
    ``atexit`` handler (controlled by the ``GPUCOV_OUTPUT`` environment
-   variable).
+   variable). Supports glob patterns. When multiple files are given, counters
+   are summed element-wise --- use this with ``%p`` in ``GPUCOV_OUTPUT`` to
+   merge results from multiple test processes.
 
 ``--mapping FILE``
    *Required.* Path to ``mapping.json`` from the instrument step.
@@ -143,11 +162,18 @@ At least one of ``--lcov`` or ``--summary`` must be provided.
 
 .. code-block:: bash
 
+   # Single dump file
    gpucov collect \
        --dump coverage/cuda_cov.bin \
        --mapping build/_gpucov/mapping.json \
        --lcov coverage/cuda.info \
        --summary coverage/summary.json
+
+   # Merge multiple per-process dumps
+   gpucov collect \
+       --dump "coverage/cuda_*.bin" \
+       --mapping build/_gpucov/mapping.json \
+       --lcov coverage/cuda.info
 
 
 Environment variables
@@ -157,6 +183,13 @@ Environment variables
    Set at **runtime** (when running the instrumented binary). The ``atexit``
    handler dumps the counter array to this path. If unset or empty, no dump
    is written.
+
+   Supports ``%p`` which is replaced with the process PID, allowing
+   multiple test processes to write separate dump files:
+
+   .. code-block:: bash
+
+      GPUCOV_OUTPUT=coverage/cuda_%p.bin ./my_test
 
 ``ENABLE_CUDA_COVERAGE``
    Set at **configure time** (when running CMake). When set to ``1``, the

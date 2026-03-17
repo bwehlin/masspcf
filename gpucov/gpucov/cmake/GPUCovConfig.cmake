@@ -5,7 +5,6 @@
 #       FILES <file1> [<file2> ...]
 #       [SOURCE_ROOT <dir>]
 #       [INCLUDE_PATHS <path1> [<path2> ...]]
-#       [DUAL_COMPILATION <pattern1> [<pattern2> ...]]
 #       [EXTRA_ARGS <arg1> [<arg2> ...]]
 #   )
 #
@@ -16,6 +15,10 @@
 #   4. Replaces .cu sources in the target with instrumented copies
 #   5. Prepends shadow include paths so instrumented headers take precedence
 #   6. Defines GPUCOV_ENABLED=1 and GPUCOV_MAX_COUNTERS=N on the target
+#
+# Injected code is guarded with #ifdef __CUDACC__ so files compiled by both
+# the host compiler and NVCC work automatically — no special configuration
+# is needed for dual-compilation headers.
 #
 # The target is only modified if the GPUCOV_ENABLE cache variable is ON.
 # Set it via: cmake -DGPUCOV_ENABLE=ON  or  environment ENABLE_CUDA_COVERAGE=1
@@ -31,7 +34,6 @@
 #           FILES
 #               src/cuda/kernels.cu
 #               include/cuda/kernels.cuh
-#           DUAL_COMPILATION "shared_ops.cuh"
 #       )
 #   endif()
 
@@ -101,7 +103,7 @@ function(gpucov_instrument_target TARGET)
         _GC                                        # prefix
         ""                                         # options (flags)
         "SOURCE_ROOT"                              # single-value keywords
-        "FILES;INCLUDE_PATHS;DUAL_COMPILATION;EXTRA_ARGS"  # multi-value keywords
+        "FILES;INCLUDE_PATHS;EXTRA_ARGS"  # multi-value keywords
         ${ARGN}
     )
 
@@ -125,13 +127,6 @@ function(gpucov_instrument_target TARGET)
     if (_GC_INCLUDE_PATHS)
         foreach(_inc ${_GC_INCLUDE_PATHS})
             list(APPEND _CMD -I "${_inc}")
-        endforeach()
-    endif()
-
-    if (_GC_DUAL_COMPILATION)
-        list(APPEND _CMD --dual-compilation)
-        foreach(_pat ${_GC_DUAL_COMPILATION})
-            list(APPEND _CMD "${_pat}")
         endforeach()
     endif()
 

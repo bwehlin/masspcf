@@ -2,10 +2,12 @@
 
 Usage:
     gpucov instrument --source-root . --output-dir build/_gpucov --files FILE...
-    gpucov collect --dump FILE --mapping FILE [--lcov FILE] [--summary FILE]
+    gpucov zerocounters --dump "coverage/cuda_*.bin"
+    gpucov collect --dump "coverage/cuda_*.bin" --mapping FILE [--lcov FILE] [--summary FILE]
 
 Or as a module:
     python -m gpucov instrument ...
+    python -m gpucov zerocounters ...
     python -m gpucov collect ...
 """
 
@@ -18,7 +20,6 @@ def cmd_instrument(args):
 
     include_paths = args.include_paths or []
     extra_args = args.extra_args or []
-    dual_patterns = args.dual_compilation or []
 
     result = instrument_files(
         source_files=args.files,
@@ -26,7 +27,6 @@ def cmd_instrument(args):
         source_root=args.source_root,
         include_paths=include_paths,
         extra_args=extra_args,
-        dual_compilation_patterns=dual_patterns or None,
     )
 
     if result.next_counter_id == 0:
@@ -38,14 +38,30 @@ def cmd_instrument(args):
 
 
 def cmd_collect(args):
+    import glob
     from .collector import collect_and_report
 
     if not args.lcov and not args.summary:
         print("Error: specify at least one of --lcov or --summary", file=sys.stderr)
         return 1
 
+    # Expand glob patterns in dump paths
+    dump_paths = []
+    for pattern in args.dump:
+        expanded = sorted(glob.glob(pattern))
+        if not expanded:
+            print(f"Warning: no files matched '{pattern}'", file=sys.stderr)
+        dump_paths.extend(expanded)
+
+    if not dump_paths:
+        print("Error: no dump files found", file=sys.stderr)
+        return 1
+
+    if len(dump_paths) > 1:
+        print(f"Merging {len(dump_paths)} dump files", file=sys.stderr)
+
     coverage = collect_and_report(
-        dump_path=args.dump,
+        dump_path=dump_paths,
         mapping_path=args.mapping,
         lcov_path=args.lcov,
         summary_path=args.summary,
@@ -54,6 +70,25 @@ def cmd_collect(args):
     if not coverage:
         print("Warning: no coverage data collected", file=sys.stderr)
         return 1
+
+    return 0
+
+
+def cmd_zerocounters(args):
+    import glob
+    import os
+
+    patterns = args.dump
+    removed = 0
+    for pattern in patterns:
+        for path in sorted(glob.glob(pattern)):
+            os.remove(path)
+            removed += 1
+
+    if removed:
+        print(f"Removed {removed} dump file{'s' if removed != 1 else ''}")
+    else:
+        print("No dump files found")
 
     return 0
 
@@ -101,11 +136,6 @@ def main():
         '--extra-args', nargs='*', default=[],
         help='Extra arguments passed to clang parser',
     )
-    p_inst.add_argument(
-        '--dual-compilation', nargs='*', default=[],
-        help='Glob patterns for files compiled by both host and NVCC '
-             '(these get #ifdef GPUCOV_ENABLED guards)',
-    )
     p_inst.set_defaults(func=cmd_instrument)
 
     # collect subcommand
@@ -114,8 +144,9 @@ def main():
         help='Collect coverage data and produce reports',
     )
     p_coll.add_argument(
-        '--dump', required=True,
-        help='Path to binary counter dump file',
+        '--dump', nargs='+', required=True,
+        help='Path(s) to binary counter dump file(s). Supports globs. '
+             'Multiple dumps are merged by summing counters.',
     )
     p_coll.add_argument(
         '--mapping', required=True,
@@ -130,6 +161,18 @@ def main():
         help='Output path for coverage-summary.json',
     )
     p_coll.set_defaults(func=cmd_collect)
+
+    # zerocounters subcommand
+    p_zero = subparsers.add_parser(
+        'zerocounters',
+        help='Remove dump files from a previous run',
+    )
+    p_zero.add_argument(
+        '--dump', nargs='+', required=True,
+        help='Glob pattern(s) matching dump files to remove. '
+             'Use the same pattern as GPUCOV_OUTPUT.',
+    )
+    p_zero.set_defaults(func=cmd_zerocounters)
 
     args = parser.parse_args()
 

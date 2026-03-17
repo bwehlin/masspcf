@@ -45,12 +45,6 @@ _CUDA_ATTR_PATTERN = re.compile(r'__(?:global|device)__')
 # Runtime include file name
 RUNTIME_HEADER = "gpucov_runtime.cuh"
 
-# Namespace for injected counter calls
-COUNTER_NAMESPACE = "gpucov"
-
-# Compile definition used to guard instrumented code
-COVERAGE_DEFINE = "GPUCOV_ENABLED"
-
 
 @dataclass
 class CounterMapping:
@@ -259,17 +253,14 @@ def instrument_file(
     counter_start: int = 0,
     include_paths: list[str] | None = None,
     extra_args: list[str] | None = None,
-    dual_compilation_patterns: list[str] | None = None,
 ) -> InstrumentationResult:
     """Instrument a single CUDA source file.
 
     Writes the instrumented version to output_dir, preserving the relative
     path from source_root. Returns the counter mappings.
 
-    Args:
-        dual_compilation_patterns: List of glob patterns for files compiled by
-            both the host compiler and NVCC. These files get ``#ifdef`` guards
-            around instrumented code. Example: ``["operations.cuh"]``
+    All injected code is guarded with ``#ifdef __CUDACC__`` so that files
+    compiled by both the host compiler and NVCC work without issues.
     """
     source_file = os.path.realpath(source_file)
     source_root = os.path.realpath(source_root)
@@ -316,20 +307,10 @@ def instrument_file(
 
     result.next_counter_id = counter_id
 
-    # Determine if this file needs the #ifdef guard (compiled by both host and NVCC)
-    needs_ifdef = _file_needs_ifdef_guard(source_file, dual_compilation_patterns)
-
     # Rewrite the source
     instrumented = []
 
-    # Add the runtime include at the top, after any existing header guard
     include_line = f'#include "{RUNTIME_HEADER}"\n'
-    if needs_ifdef:
-        include_line = (
-            f'#ifdef {COVERAGE_DEFINE}\n'
-            f'#include "{RUNTIME_HEADER}"\n'
-            '#endif\n'
-        )
 
     # Find the right place to insert the include (after header guard or first #include)
     insert_pos = 0
@@ -368,16 +349,8 @@ def instrument_file(
 
         if line_no in line_to_counter:
             cid = line_to_counter[line_no]
-            # Detect the indentation of the current line
             indent = _get_indentation(line)
-            hit_call = f'{indent}{COUNTER_NAMESPACE}::hit({cid});\n'
-            if needs_ifdef:
-                hit_call = (
-                    f'{indent}#ifdef {COVERAGE_DEFINE}\n'
-                    f'{indent}{COUNTER_NAMESPACE}::hit({cid});\n'
-                    f'{indent}#endif\n'
-                )
-            instrumented.append(hit_call)
+            instrumented.append(f'{indent}GPUCOV_HIT({cid});\n')
 
         instrumented.append(line)
 
@@ -393,53 +366,6 @@ def instrument_file(
     return result
 
 
-def _file_needs_ifdef_guard(
-    source_file: str,
-    dual_compilation_patterns: list[str] | None = None,
-) -> bool:
-    """Check if a file is compiled by both host compiler and NVCC.
-
-    A file needs #ifdef guards around instrumented code if it is included
-    in both host-compiled and NVCC-compiled translation units.
-
-    Detection methods (in order):
-    1. Explicit match against dual_compilation_patterns
-    2. .cu files and files under a cuda/ directory are assumed NVCC-only
-    3. Files containing common dual-compilation guards (#ifdef BUILD_WITH_CUDA,
-       #ifdef __CUDACC__, etc.) are assumed dual
-    """
-    # .cu files are NVCC-only translation units
-    if source_file.endswith('.cu'):
-        return False
-
-    # Check explicit patterns
-    if dual_compilation_patterns:
-        from fnmatch import fnmatch
-        for pattern in dual_compilation_patterns:
-            if fnmatch(source_file, pattern) or fnmatch(os.path.basename(source_file), pattern):
-                return True
-
-    # Files under a cuda/ directory are typically NVCC-only
-    if '/cuda/' in source_file or '\\cuda\\' in source_file:
-        return False
-
-    # Heuristic: check for common dual-compilation guards
-    try:
-        with open(source_file, 'r') as f:
-            content = f.read(4096)
-        dual_guards = [
-            '#ifdef BUILD_WITH_CUDA',
-            '#ifndef BUILD_WITH_CUDA',
-            '#ifdef __CUDACC__',
-            '#ifndef __CUDACC__',
-            '#if defined(__CUDACC__)',
-            '#if defined(BUILD_WITH_CUDA)',
-        ]
-        return any(guard in content for guard in dual_guards)
-    except OSError:
-        return False
-
-
 def _get_indentation(line: str) -> str:
     """Extract the leading whitespace from a line."""
     return line[:len(line) - len(line.lstrip())]
@@ -451,15 +377,10 @@ def instrument_files(
     source_root: str,
     include_paths: list[str] | None = None,
     extra_args: list[str] | None = None,
-    dual_compilation_patterns: list[str] | None = None,
 ) -> InstrumentationResult:
     """Instrument multiple CUDA source files.
 
     Writes instrumented files to output_dir and a mapping.json file.
-
-    Args:
-        dual_compilation_patterns: Glob patterns for files compiled by both
-            host and NVCC. Passed through to instrument_file().
     """
     output_dir = os.path.realpath(output_dir)
     source_root = os.path.realpath(source_root)
@@ -475,7 +396,6 @@ def instrument_files(
             counter_start=counter_id,
             include_paths=include_paths,
             extra_args=extra_args,
-            dual_compilation_patterns=dual_compilation_patterns,
         )
         combined.mappings.extend(result.mappings)
         combined.instrumented_files.extend(result.instrumented_files)

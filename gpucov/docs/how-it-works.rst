@@ -12,7 +12,7 @@ GPUCov operates in three phases: **instrument**, **execute**, and **collect**.
    build/_gpucov/
        ├── include/.../*.cuh    (instrumented copies)
        ├── src/.../*.cu         (instrumented copies)
-       ├── gpucov_runtime.cuh   (counter infrastructure)
+       ├── gpucov_runtime.cuh   (counter infrastructure + GPUCOV_HIT macro)
        └── mapping.json         (counter ID -> file:line)
            |
            v   [NVCC via CMake]
@@ -62,18 +62,51 @@ Lines where insertion would break syntax (``else``, ``}``, ``case``,
 
 **Source rewriting:**
 
-For each executable line, a ``gpucov::hit(N);`` call is inserted immediately
-before the line, preserving indentation. The ``#include "gpucov_runtime.cuh"``
-directive is added after the existing include block.
+For each executable line, a ``GPUCOV_HIT(N);`` macro call is inserted
+immediately before the line, preserving indentation. An
+``#include "gpucov_runtime.cuh"`` directive is added after the existing
+include block.
 
-For dual-compilation files (compiled by both host and NVCC), injected code is
-wrapped in ``#ifdef GPUCOV_ENABLED`` guards.
+The instrumented source looks like:
+
+.. code-block:: cpp
+
+   #include "gpucov_runtime.cuh"
+
+   __device__ void my_kernel(float* data, int n)
+   {
+       GPUCOV_HIT(0);
+       int idx = blockDim.x * blockIdx.x + threadIdx.x;
+       GPUCOV_HIT(1);
+       if (idx < n)
+       {
+           GPUCOV_HIT(2);
+           data[idx] = data[idx] + 1;
+       }
+   }
 
 
 Phase 2: Runtime counters
 --------------------------
 
-``gpucov_runtime.cuh`` defines:
+``gpucov_runtime.cuh`` provides the counter array, the ``GPUCOV_HIT`` macro,
+and an automatic dump handler.
+
+**The macro:**
+
+.. code-block:: cpp
+
+   // Under NVCC:
+   #define GPUCOV_HIT(id) gpucov::hit(id)
+
+   // Under any other compiler:
+   #define GPUCOV_HIT(id) ((void)0)
+
+This means files compiled by both the host compiler and NVCC (e.g. headers
+with ``__host__ __device__`` functions) work automatically --- no special
+flags or configuration needed.
+
+**The counter array and hit function:**
 
 .. code-block:: cpp
 
@@ -90,24 +123,27 @@ Phase 2: Runtime counters
 
 Key design choices:
 
-- **Static device array** --- 8 KB at the default 2048 counters. Trivial
-  for any GPU.
+- **Static device array** --- at 46 counters that's 184 bytes, trivial for
+  any GPU. ``GPUCOV_MAX_COUNTERS`` is set to the exact count by the CMake
+  module (no wasteful default).
 - **One** ``atomicAdd`` **per instrumented line** --- the overhead is
   acceptable for debug/coverage builds (not meant for production).
-- **Host+device** ``hit()`` --- the function compiles for both host and
-  device. On the host side (no ``__CUDA_ARCH__``), it's a no-op. This allows
-  dual-compilation files to call ``hit()`` without errors.
+- **Host+device** ``hit()`` --- compiles for both. On the host side
+  (no ``__CUDA_ARCH__``), it's a no-op.
 - **atexit auto-dump** --- a static ``AutoDump`` object registers an
   ``atexit`` handler that copies the device counter array to host memory and
   writes it to the path in ``$GPUCOV_OUTPUT``. No explicit API call needed.
+- **Per-process dumps** --- ``GPUCOV_OUTPUT`` supports ``%p`` which is
+  replaced with the process PID, so multiple test processes can dump
+  independently and results are merged at collection time.
 
 
 Phase 3: Collection
 -------------------
 
-The collector reads the binary dump (header: ``uint32 num_counters``, then
-``num_counters * uint32`` values) and combines it with ``mapping.json`` to
-produce per-line hit counts.
+The collector reads one or more binary dumps (header: ``uint32 num_counters``,
+then ``num_counters * uint32`` values), sums them element-wise, and combines
+the result with ``mapping.json`` to produce per-line hit counts.
 
 **Output formats:**
 
@@ -157,6 +193,7 @@ Limitations
   template function bodies. All instantiations share the same counter IDs.
 - **No branch coverage** --- only line-level hit counts. A line with an ``if``
   shows whether it was reached, not which branch was taken.
-- **Single counter dump** --- if multiple processes or multiple GPUs write
-  to the same ``GPUCOV_OUTPUT`` path, the last writer wins. Run tests
-  sequentially or use per-process output paths and merge the results.
+- **Single counter array per process** --- if multiple GPUs are used, all
+  threads write to the same device-side array via ``atomicAdd``, which is
+  correct. Multiple processes should use ``%p`` in ``GPUCOV_OUTPUT`` and
+  merge at collection time.

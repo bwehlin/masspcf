@@ -15,7 +15,7 @@ A typical workflow adds coverage to an existing CUDA test job:
      runs-on: [self-hosted, gpu, cuda12]
      env:
        ENABLE_CUDA_COVERAGE: 1
-       GPUCOV_OUTPUT: ${{ github.workspace }}/covreport/cuda/cuda_cov.bin
+       GPUCOV_OUTPUT: ${{ github.workspace }}/covreport/cuda/cuda_%p.bin
      steps:
        - uses: actions/checkout@v4
          with:
@@ -30,15 +30,22 @@ A typical workflow adds coverage to an existing CUDA test job:
        - name: Build
          run: cmake --build build -j $(nproc)
 
-       - name: Run tests
+       - name: Clear previous coverage data
+         run: gpucov zerocounters --dump "covreport/cuda/cuda_*.bin"
+
+       - name: Run C++ tests
          run: |
            mkdir -p covreport/cuda
            cd test && ../build/my_test
 
+       - name: Run Python tests
+         run: |
+           cd test && python -m pytest . -vv
+
        - name: Collect CUDA coverage
          run: |
            gpucov collect \
-             --dump covreport/cuda/cuda_cov.bin \
+             --dump "covreport/cuda/cuda_*.bin" \
              --mapping build/_gpucov_my_cuda/mapping.json \
              --lcov covreport/cuda/cuda.info \
              --summary covreport/cuda/summary.json
@@ -55,7 +62,11 @@ A typical workflow adds coverage to an existing CUDA test job:
 Key points:
 
 - ``ENABLE_CUDA_COVERAGE=1`` activates the CMake module at configure time.
-- ``GPUCOV_OUTPUT`` tells the runtime where to write the counter dump.
+- ``GPUCOV_OUTPUT`` with ``%p`` produces one dump per process (PID). This
+  allows running multiple test suites (C++ and Python) and merging their
+  results.
+- ``--dump`` accepts glob patterns, so ``"covreport/cuda/cuda_*.bin"``
+  collects all per-process dumps.
 - The mapping file path depends on the target name:
   ``build/_gpucov_<target>/mapping.json``.
 - ``genhtml`` (from the ``lcov`` package) produces the HTML report. Install

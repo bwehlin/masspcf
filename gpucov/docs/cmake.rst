@@ -69,8 +69,6 @@ Instrumenting a target
          INCLUDE_PATHS
              "${CMAKE_SOURCE_DIR}/include"
              "${CMAKE_SOURCE_DIR}/3rd/some_lib"
-         DUAL_COMPILATION
-             "ops.cuh"
      )
    endif ()
 
@@ -86,6 +84,10 @@ When ``GPUCOV_ENABLE`` is ``ON``, this:
 6. Defines ``GPUCOV_ENABLED=1`` and ``GPUCOV_MAX_COUNTERS=<N>`` on the
    target.
 
+Files compiled by both the host compiler and NVCC work automatically ---
+the ``GPUCOV_HIT`` macro expands to a counter increment under NVCC and
+to nothing under a host compiler.
+
 When ``GPUCOV_ENABLE`` is ``OFF``, the function returns immediately and the
 target is untouched.
 
@@ -99,7 +101,6 @@ Function signature
        FILES <file1> [<file2> ...]
        [SOURCE_ROOT <dir>]
        [INCLUDE_PATHS <path1> [<path2> ...]]
-       [DUAL_COMPILATION <pattern1> [<pattern2> ...]]
        [EXTRA_ARGS <arg1> [<arg2> ...]]
    )
 
@@ -117,10 +118,6 @@ Function signature
 
 ``INCLUDE_PATHS``
    Additional ``-I`` paths passed to the libclang parser.
-
-``DUAL_COMPILATION``
-   Glob patterns for files compiled by both the host compiler and NVCC.
-   Matched files get ``#ifdef GPUCOV_ENABLED`` guards around injected code.
 
 ``EXTRA_ARGS``
    Extra arguments passed directly to the libclang parser (e.g. ``-DFOO=1``).

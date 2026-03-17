@@ -49,12 +49,44 @@ def read_mapping(mapping_path: str) -> dict:
         return json.load(f)
 
 
+def merge_counter_dumps(dump_paths: list[str]) -> list[int]:
+    """Read multiple binary counter dumps and sum them element-wise.
+
+    All dumps must have the same number of counters.
+    """
+    if not dump_paths:
+        return []
+
+    merged = read_counter_dump(dump_paths[0])
+
+    for path in dump_paths[1:]:
+        counters = read_counter_dump(path)
+        if len(counters) != len(merged):
+            raise ValueError(
+                f"Counter count mismatch: {dump_paths[0]} has {len(merged)}, "
+                f"{path} has {len(counters)}"
+            )
+        for i in range(len(merged)):
+            merged[i] += counters[i]
+
+    return merged
+
+
 def collect_coverage(
-    dump_path: str,
+    dump_paths: str | list[str],
     mapping_path: str,
 ) -> list[LineCoverage]:
-    """Combine counter dump with mapping to produce per-line coverage data."""
-    counters = read_counter_dump(dump_path)
+    """Combine counter dump(s) with mapping to produce per-line coverage data.
+
+    Args:
+        dump_paths: Path to a single binary counter dump, or a list of paths.
+            When multiple paths are given, counters are summed element-wise.
+        mapping_path: Path to mapping.json from the instrument step.
+    """
+    if isinstance(dump_paths, str):
+        dump_paths = [dump_paths]
+
+    counters = merge_counter_dumps(dump_paths)
     mapping = read_mapping(mapping_path)
 
     results = []
@@ -138,12 +170,16 @@ def generate_summary(coverage: list[LineCoverage], output_path: str) -> None:
 
 
 def collect_and_report(
-    dump_path: str,
+    dump_path: str | list[str],
     mapping_path: str,
     lcov_path: str | None = None,
     summary_path: str | None = None,
 ) -> list[LineCoverage]:
-    """Full pipeline: read dump + mapping, produce all requested reports."""
+    """Full pipeline: read dump(s) + mapping, produce all requested reports.
+
+    Args:
+        dump_path: Path to a single dump file, or a list of paths to merge.
+    """
     coverage = collect_coverage(dump_path, mapping_path)
 
     if lcov_path:

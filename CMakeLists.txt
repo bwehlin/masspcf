@@ -477,7 +477,6 @@ if (BUILD_WITH_CUDA)
         INCLUDE_PATHS
             "${CMAKE_SOURCE_DIR}/include"
             "${CMAKE_SOURCE_DIR}/3rd/taskflow"
-        DUAL_COMPILATION "operations.cuh"
     )
   endif ()
 endif ()
