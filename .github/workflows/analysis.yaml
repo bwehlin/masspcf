@@ -197,17 +197,23 @@ jobs:
       - name: Create reports directory
         run: mkdir test/reports
 
+      - name: Download CPython valgrind suppressions
+        run: |
+          PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          curl -sL "https://raw.githubusercontent.com/python/cpython/${PYVER}/Misc/valgrind-python.supp" \
+            -o test/reports/vg_cpython.supp
+          echo "Downloaded CPython ${PYVER} suppressions"
+
       - name: Run valgrind on Pytest
         run: |
           cd test
           valgrind --xml=yes --xml-file=./reports/vg-pytest.xml \
             --log-file=./reports/vg-pytest.log \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             python -m pytest . -vv -s || true
-          valgrind-ci ./reports/vg-pytest.xml --summary | tee ./reports/vg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
-          valgrind-ci ./reports/vg-pytest.xml --output-dir=./reports/vg_pytest
 
       - name: Run valgrind on GTest
         run: |
@@ -215,29 +221,49 @@ jobs:
           valgrind --xml=yes --xml-file=./reports/vg-gtest.xml \
             --log-file=./reports/vg-gtest.log \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             ../build/mpcf_test || true
-          valgrind-ci ./reports/vg-gtest.xml --summary | tee ./reports/vg-gtest-summary.txt >> $GITHUB_STEP_SUMMARY
-          valgrind-ci ./reports/vg-gtest.xml --output-dir=./reports/vg_gtest
 
       - name: Run helgrind on Pytest
         run: |
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-pytest.xml \
             --log-file=./reports/hg-pytest.log \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             python -m pytest . -vv -s || true
-          valgrind-ci ./reports/hg-pytest.xml --summary | tee ./reports/hg-pytest-summary.txt >> $GITHUB_STEP_SUMMARY
-          valgrind-ci ./reports/hg-pytest.xml --output-dir=./reports/hg_pytest
 
       - name: Run helgrind on GTest
         run: |
           cd test
           valgrind --tool=helgrind --xml=yes --xml-file=./reports/hg-gtest.xml \
             --log-file=./reports/hg-gtest.log \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             ../build/mpcf_test || true
-          valgrind-ci ./reports/hg-gtest.xml --summary | tee ./reports/hg-gtest-summary.txt >> $GITHUB_STEP_SUMMARY
-          valgrind-ci ./reports/hg-gtest.xml --output-dir=./reports/hg_gtest
+
+      - name: Sanitize valgrind XML
+        run: |
+          # Valgrind may emit duplicate </valgrindoutput> closing tags (e.g. in Docker).
+          # Keep only the last one so all content stays inside a single valid document.
+          for xml in test/reports/*.xml; do
+            count=$(grep -c '</valgrindoutput>' "$xml" 2>/dev/null || true)
+            if [ "$count" -gt 1 ]; then
+              tac "$xml" | awk '/<\/valgrindoutput>/ { if (++n > 1) next } 1' | tac > "${xml}.tmp"
+              mv "${xml}.tmp" "$xml"
+              echo "Fixed $xml (had $count closing tags)"
+            fi
+          done
+
+      - name: Generate valgrind reports
+        run: |
+          cd test
+          for report in vg-pytest vg-gtest hg-pytest hg-gtest; do
+            if [ -f "./reports/${report}.xml" ]; then
+              valgrind-ci ./reports/${report}.xml --summary | tee ./reports/${report}-summary.txt >> $GITHUB_STEP_SUMMARY
+              valgrind-ci ./reports/${report}.xml --output-dir=./reports/${report//-/_}
+            fi
+          done
 
       - name: Collect raw reports
         run: |
