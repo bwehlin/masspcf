@@ -318,6 +318,11 @@ namespace mpcf_py
       ;
     }
 
+    if constexpr (mpcf::CanDivideTo<T, Tv, T>)
+    {
+      cls.def("__rtruediv__", [](const TTensor& self, Tv lhs){ return lhs / self; });
+    }
+
   }
 }
 

@@ -153,11 +153,23 @@ class Pcf:
     def __mul__(self, rhs):
         return self._binop(rhs, type(self._data).__mul__)
 
+    def __radd__(self, lhs):
+        return Pcf(self._data.__radd__(lhs))
+
+    def __rsub__(self, lhs):
+        return Pcf(self._data.__rsub__(lhs))
+
     def __rmul__(self, lhs):
         return Pcf(self._data.__rmul__(lhs))
 
     def __truediv__(self, rhs):
         return self._binop(rhs, type(self._data).__truediv__)
+
+    def __rtruediv__(self, lhs):
+        return Pcf(self._data.__rtruediv__(lhs))
+
+    def __neg__(self):
+        return Pcf(-self._data)
 
     def __call__(self, t):
         """Evaluate the PCF at the given time(s).

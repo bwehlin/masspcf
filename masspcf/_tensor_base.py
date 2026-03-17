@@ -208,6 +208,9 @@ class ArithmeticTensorMixin:
     def __truediv__(self, rhs):
         return self._to_py_tensor(self._data / self._decay_operand(rhs))
 
+    def __rtruediv__(self, lhs):
+        return self._to_py_tensor(self._decay_operand(lhs) / self._data)
+
     def __itruediv__(self, rhs):
         self._data /= self._decay_operand(rhs)
         return self

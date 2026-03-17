@@ -126,10 +126,29 @@ namespace mpcf
       return *this;
     }
 
-    template <typename T>
+    template <Arithmetic T>
+    Pcf& operator+=(T v)
+    {
+      for (auto & pt : m_points)
+      {
+        pt.v += v;
+      }
+      return *this;
+    }
+
+    template <Arithmetic T>
+    Pcf& operator-=(T v)
+    {
+      for (auto & pt : m_points)
+      {
+        pt.v -= v;
+      }
+      return *this;
+    }
+
+    template <Arithmetic T>
     Pcf& operator/=(T v)
     {
-      static_assert(std::is_arithmetic<T>::value, "Division by non-arithmetic type");
       for (auto & pt : m_points)
       {
         pt.v /= v;
@@ -137,10 +156,9 @@ namespace mpcf
       return *this;
     }
 
-    template <typename T>
+    template <Arithmetic T>
     Pcf& operator*=(T v)
     {
-      static_assert(std::is_arithmetic<T>::value, "Multiplication by non-arithmetic type");
       for (auto & pt : m_points)
       {
         pt.v *= v;
@@ -148,6 +166,16 @@ namespace mpcf
       return *this;
     }
     
+    [[nodiscard]] Pcf operator-() const
+    {
+      Pcf ret = *this;
+      for (auto& pt : ret.m_points)
+      {
+        pt.v = -pt.v;
+      }
+      return ret;
+    }
+
     bool operator==(const Pcf& rhs) const
     {
       return m_points == rhs.m_points;
@@ -206,7 +234,12 @@ namespace mpcf
     
     template <typename Ut, typename Uv>
     friend void PrintTo(const Pcf& f, std::ostream* os);
-    
+
+    template <typename Ut, typename Uv, Arithmetic Us>
+    friend Pcf<Ut, Uv> operator-(Us val, const Pcf<Ut, Uv>& f);
+
+    template <typename Ut, typename Uv, Arithmetic Us>
+    friend Pcf<Ut, Uv> operator/(Us val, const Pcf<Ut, Uv>& f);
 
   private:
     template <typename T1, typename T2>
@@ -259,17 +292,61 @@ namespace mpcf
     });
   }
 
-  template <typename Tt, typename Tv, typename Tdiv>
-  requires std::is_arithmetic_v<Tdiv>
-  [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Tdiv val)
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, Ts val)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret += val;
+    return ret;
+  }
+
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator+(Ts val, const Pcf<Tt, Tv>& f)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret += val;
+    return ret;
+  }
+
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, Ts val)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret -= val;
+    return ret;
+  }
+
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator-(Ts val, const Pcf<Tt, Tv>& f)
+  {
+    Pcf<Tt, Tv> ret = f;
+    for (auto& pt : ret.m_points)
+    {
+      pt.v = static_cast<Tv>(val) - pt.v;
+    }
+    return ret;
+  }
+
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Ts val)
   {
     Pcf<Tt, Tv> ret = f;
     ret /= val;
     return ret;
   }
 
-  template <typename Tt, typename Tv, typename Ts>
-  requires std::is_arithmetic_v<Ts>
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> operator/(Ts val, const Pcf<Tt, Tv>& f)
+  {
+    Pcf<Tt, Tv> ret = f;
+    for (auto& pt : ret.m_points)
+    {
+      pt.v = static_cast<Tv>(val) / pt.v;
+    }
+    return ret;
+  }
+
+  template <typename Tt, typename Tv, Arithmetic Ts>
   [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, Ts val)
   {
     Pcf<Tt, Tv> ret = f;
@@ -277,8 +354,7 @@ namespace mpcf
     return ret;
   }
 
-  template <typename Tt, typename Tv, typename Ts>
-  requires std::is_arithmetic_v<Ts>
+  template <typename Tt, typename Tv, Arithmetic Ts>
   [[nodiscard]] Pcf<Tt, Tv> operator*(Ts val, const Pcf<Tt, Tv>& f)
   {
     Pcf<Tt, Tv> ret = f;

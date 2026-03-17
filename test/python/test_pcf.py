@@ -147,6 +147,26 @@ class TestArithmetic:
         c = a * b
         npt.assert_array_almost_equal(c.to_numpy()[:, 1], [10.0, 12.0])
 
+    def test_add_scalar(self):
+        f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        g = f + 10.0
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [11.0, 13.0])
+
+    def test_radd_scalar(self):
+        f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        g = 10.0 + f
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [11.0, 13.0])
+
+    def test_sub_scalar(self):
+        f = Pcf(np.array([[0.0, 10.0], [2.0, 20.0]], dtype=np.float32))
+        g = f - 1.0
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [9.0, 19.0])
+
+    def test_rsub_scalar(self):
+        f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        g = 10.0 - f
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [9.0, 7.0])
+
     def test_mul_scalar(self):
         f = Pcf(np.array([[0.0, 2.0], [2.0, 3.0]], dtype=np.float32))
         g = f * 3.0
@@ -168,6 +188,16 @@ class TestArithmetic:
         g = f / 2.0
         npt.assert_array_almost_equal(g.to_numpy()[:, 1], [2.0, 4.0])
 
+    def test_neg(self):
+        f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        g = -f
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [-1.0, -3.0])
+
+    def test_rdiv_scalar(self):
+        f = Pcf(np.array([[0.0, 2.0], [2.0, 4.0]], dtype=np.float32))
+        g = 8.0 / f
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [4.0, 2.0])
+
     def test_div_scalar_f64(self):
         f = Pcf(np.array([[0.0, 4.0], [2.0, 8.0]], dtype=np.float64))
         g = f / 2.0
@@ -178,8 +208,14 @@ class TestArithmetic:
         lambda a, b: a - b,
         lambda a, b: a * b,
         lambda a, b: a / b,
+        lambda a, _: a + 10.0,
+        lambda a, _: 10.0 + a,
+        lambda a, _: a - 1.0,
+        lambda a, _: 10.0 - a,
         lambda a, _: a * 2.0,
+        lambda a, _: 2.0 * a,
         lambda a, _: a / 2.0,
+        lambda a, _: 10.0 / a,
     ])
     def test_does_not_mutate(self, op):
         a = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))

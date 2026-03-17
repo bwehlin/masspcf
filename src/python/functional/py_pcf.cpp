@@ -139,12 +139,18 @@ namespace
         .def("size", [](const TPcf& self){ return self.points().size(); })
         .def("copy", [](const TPcf& self){ return TPcf(self); })
         .def("__add__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self + rhs; })
+        .def("__add__", [](const TPcf& self, Tv c) -> TPcf { return self + c; })
+        .def("__radd__", [](const TPcf& self, Tv c) -> TPcf { return c + self; })
         .def("__sub__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self - rhs; })
+        .def("__sub__", [](const TPcf& self, Tv c) -> TPcf { return self - c; })
+        .def("__rsub__", [](const TPcf& self, Tv c) -> TPcf { return c - self; })
         .def("__mul__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self * rhs; })
         .def("__mul__", [](const TPcf& self, Tv c) -> TPcf { return self * c; })
         .def("__rmul__", [](const TPcf& self, Tv c) -> TPcf { return c * self; })
         .def("__truediv__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self / rhs; })
         .def("__truediv__", [](const TPcf& self, Tv c) -> TPcf { return self / c; })
+        .def("__rtruediv__", [](const TPcf& self, Tv c) -> TPcf { return c / self; })
+        .def("__neg__", [](const TPcf& self) -> TPcf { return -self; })
         .def("__call__", [](const TPcf& self, Tt t) -> Tv { return self.evaluate(t); })
         .def("__call__", [](const TPcf& self, py::array_t<Tt> times) -> py::array_t<Tv> {
           // Flatten to 1D for processing, remember original shape

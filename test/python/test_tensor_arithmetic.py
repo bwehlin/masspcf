@@ -151,6 +151,43 @@ class TestPcfTensorArithmetic:
         X -= pcf
         assert X[0].to_numpy()[0, 1] == np_dtype(0)
 
+    def test_add_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        Y = X + np_dtype(5)
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(6)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(15)
+
+    def test_iadd_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        X += np_dtype(5)
+        assert X[0].to_numpy()[0, 1] == np_dtype(6)
+
+    def test_radd_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        Y = np_dtype(5) + X
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(6)
+
+    def test_sub_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        Y = X - np_dtype(1)
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(0)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(9)
+
+    def test_rsub_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        Y = np_dtype(100) - X
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(99)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(90)
+
+    def test_isub_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        X -= np_dtype(1)
+        assert X[0].to_numpy()[0, 1] == np_dtype(0)
+
     def test_mul_scalar(self, pcf_dtype, np_dtype, tensor_cls):
         X = self._make_tensor(pcf_dtype, np_dtype)
         Y = X * np_dtype(2)
@@ -171,6 +208,15 @@ class TestPcfTensorArithmetic:
         assert isinstance(Y, tensor_cls)
         assert Y[0].to_numpy()[0, 1] == np_dtype(2)
         assert Y[1].to_numpy()[0, 1] == np_dtype(5)
+
+    def test_rtruediv_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 2], [2, 4]])
+        X[1] = _make_pcf(np_dtype, [[0, 5], [2, 10]])
+        Y = np_dtype(20) / X
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(10)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(4)
 
     def test_itruediv_scalar(self, pcf_dtype, np_dtype, tensor_cls):
         X = mpcf.zeros((2,), dtype=pcf_dtype)
