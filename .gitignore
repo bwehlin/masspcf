@@ -200,3 +200,5 @@ collected_sources.txt
 dump*.txt
 covreport
 sources.txt
+
+gpucov/docs/_build

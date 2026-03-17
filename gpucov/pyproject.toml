@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpucov"
+version = "0.1.0"
+description = "Line-level coverage for GPU device code via source instrumentation"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = [
+    "libclang>=16.0",
+]
+
+[project.scripts]
+gpucov = "gpucov.__main__:main"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.package-data]
+gpucov = ["runtime.cuh", "stubs/*.h", "cmake/*.cmake"]

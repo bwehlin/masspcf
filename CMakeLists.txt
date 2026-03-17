@@ -261,6 +261,17 @@ else ()
   set(ENABLE_COVERAGE OFF)
 endif ()
 
+# GPUCov: CUDA device code coverage (reads ENABLE_CUDA_COVERAGE env var automatically)
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -m gpucov --cmake-dir
+    OUTPUT_VARIABLE _GPUCOV_CMAKE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE _GPUCOV_CMAKE_ERR
+    RESULT_VARIABLE _GPUCOV_CMAKE_RESULT
+)
+if (_GPUCOV_CMAKE_RESULT EQUAL 0)
+  include("${_GPUCOV_CMAKE_DIR}/GPUCovConfig.cmake")
+endif ()
+
 message(STATUS "!!! PROJECT_NAME: ${PROJECT_NAME}, PROJECT_VERSION: ${PROJECT_VERSION} !!!")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -456,6 +467,19 @@ if (BUILD_WITH_CUDA)
       -Xcudafe=--diag_suppress=virtual_function_decl_hidden
       -Xcudafe=--diag_suppress=initialization_not_reachable
   )
+
+  if (GPUCOV_FOUND)
+    gpucov_instrument_target(mpcf_cuda
+        FILES
+            include/mpcf/cuda/cuda_matrix_integrate.cuh
+            include/mpcf/functional/operations.cuh
+            src/cuda/cuda_matrix_integrate.cu
+        INCLUDE_PATHS
+            "${CMAKE_SOURCE_DIR}/include"
+            "${CMAKE_SOURCE_DIR}/3rd/taskflow"
+        DUAL_COMPILATION "operations.cuh"
+    )
+  endif ()
 endif ()
 
 # Create both CPU and (optionally) CUDA Python modules

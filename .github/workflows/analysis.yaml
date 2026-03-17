@@ -247,6 +247,8 @@ jobs:
     env:
       SKIP_STUBGEN: 1
       SKIP_BACK_COPY: 1
+      ENABLE_CUDA_COVERAGE: 1
+      GPUCOV_OUTPUT: ${{ github.workspace }}/covreport/cuda/cuda_cov.bin
     steps:
       - uses: actions/checkout@v6
         with:
@@ -257,7 +259,10 @@ jobs:
           python3.14 -m venv --system-site-packages ${{github.workspace}}/.venv
           echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
 
-      - name: Configure CMake
+      - name: Install gpucov
+        run: pip install ./gpucov
+
+      - name: Configure CMake (with CUDA coverage)
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build module
@@ -273,6 +278,7 @@ jobs:
 
       - name: Run C++ tests
         run: |
+          mkdir -p covreport/cuda
           cd test
           ../build/mpcf_test
 
@@ -281,10 +287,25 @@ jobs:
           cd test
           python -m pytest . -vv
 
+      - name: Collect CUDA coverage
+        run: |
+          python -m gpucov collect \
+            --dump covreport/cuda/cuda_cov.bin \
+            --mapping build/_gpucov/mapping.json \
+            --lcov covreport/cuda/cuda.info \
+            --summary covreport/cuda/coverage-summary.json
+
+      - name: Upload CUDA coverage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: cuda-coverage
+          path: covreport/cuda/
+          retention-days: 1
+
   publish:
     name: Publish reports to GitHub Pages
     runs-on: ubuntu-24.04
-    needs: [coverage_report, memory_check]
+    needs: [coverage_report, memory_check, cuda_test]
     steps:
       - uses: actions/checkout@v6
 
@@ -299,6 +320,13 @@ jobs:
         with:
           name: valgrind-output
           path: valgrind/
+
+      - name: Download CUDA coverage artifact
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: cuda-coverage
+          path: covreport/cuda/
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v6
@@ -328,6 +356,10 @@ jobs:
 
           [ -d covreport/cpp ] && cp -r covreport/cpp/. "gh-pages-branch/${REPORT_DIR}/cpp/" || true
           [ -d covreport/python ] && { rm -f covreport/python/.gitignore; cp -r covreport/python/. "gh-pages-branch/${REPORT_DIR}/python/"; } || true
+          if [ -d covreport/cuda ]; then
+            mkdir -p "gh-pages-branch/${REPORT_DIR}/cuda"
+            cp -r covreport/cuda/. "gh-pages-branch/${REPORT_DIR}/cuda/"
+          fi
           [ -d valgrind/vg_pytest ] && cp -r valgrind/vg_pytest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_pytest/" || true
           [ -d valgrind/vg_gtest ] && cp -r valgrind/vg_gtest/. "gh-pages-branch/${REPORT_DIR}/valgrind/vg_gtest/" || true
           [ -d valgrind/hg_pytest ] && cp -r valgrind/hg_pytest/. "gh-pages-branch/${REPORT_DIR}/helgrind/hg_pytest/" || true
