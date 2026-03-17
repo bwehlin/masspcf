@@ -205,6 +205,9 @@ class ArithmeticTensorMixin:
         self._data *= self._decay_operand(rhs)
         return self
 
+    def __neg__(self):
+        return self._to_py_tensor(-self._data)
+
     def __truediv__(self, rhs):
         return self._to_py_tensor(self._data / self._decay_operand(rhs))
 

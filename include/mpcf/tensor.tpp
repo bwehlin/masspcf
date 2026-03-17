@@ -209,6 +209,16 @@ namespace mpcf
     return ret;
   }
 
+  template <typename T>
+  Tensor<T> Tensor<T>::operator-() const requires CanNegate<T>
+  {
+    Tensor<T> ret = copy();
+    ret.apply([](T& val){
+      val = -val;
+    });
+    return ret;
+  }
+
   template <typename U, typename T>
   requires CanMultiplyTo<T, U, T>
   Tensor<T> operator*(const U& u, const Tensor<T>& t)

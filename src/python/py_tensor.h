@@ -216,6 +216,12 @@ namespace mpcf_py
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 
+    // Unary negation
+    if constexpr (mpcf::CanNegate<T>)
+    {
+      cls.def("__neg__", [](const TTensor& self){ return -self; });
+    }
+
     // Tensor-Tensor arithmetic (broadcasting)
     if constexpr (mpcf::CanAddTo<T, T, T>)
     {

@@ -237,6 +237,19 @@ class TestPcfTensorArithmetic:
         _ = X * np_dtype(10)
         npt.assert_array_equal(X[0].to_numpy(), orig)
 
+    def test_neg(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        Y = -X
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(-1)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(-10)
+
+    def test_neg_does_not_modify_original(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        orig = X[0].to_numpy().copy()
+        _ = -X
+        npt.assert_array_equal(X[0].to_numpy(), orig)
+
 
 @pytest.mark.parametrize("pcf_dtype, np_dtype, tensor_cls", _PCF_DTYPES)
 class TestPcfTensorMulDiv:

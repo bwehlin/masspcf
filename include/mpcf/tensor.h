@@ -134,6 +134,8 @@ namespace mpcf
     requires CanSubtractTo<T, T, U>
     [[nodiscard]] Tensor operator-(const U& u) const;
 
+    [[nodiscard]] Tensor operator-() const requires CanNegate<T>;
+
     /**
      * Return a broadcast view of this tensor with the given target shape.
      * Dimensions of size 1 are expanded (stride set to 0); prepended dimensions also get stride 0.

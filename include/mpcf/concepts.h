@@ -70,6 +70,12 @@ namespace mpcf
   {
     { a / b } -> std::convertible_to<R>;
   };
+
+  template <typename T>
+  concept CanNegate = requires(T t)
+  {
+    { -t } -> std::convertible_to<T>;
+  };
 }
 
 #endif //MASSPCF_CONCEPTS_H
