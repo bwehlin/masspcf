@@ -248,10 +248,16 @@ jobs:
           valgrind-ci ./reports/hg-gtest.xml --summary | tee ./reports/hg-gtest-summary.txt >> $GITHUB_STEP_SUMMARY
           valgrind-ci ./reports/hg-gtest.xml --output-dir=./reports/hg_gtest
 
-      - name: Generate suppressions (GTest only, no XML)
+      - name: Generate suppressions (text mode, no XML)
         run: |
           cd test
           # Separate pass without --xml=yes (--gen-suppressions corrupts XML output)
+          valgrind --gen-suppressions=all \
+            --log-file=./reports/vg-pytest-supp.log \
+            --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
+            python -m pytest . -vv -s || true
           valgrind --gen-suppressions=all \
             --log-file=./reports/vg-gtest-supp.log \
             --suppressions=${{github.workspace}}/test/vg_py.supp \
@@ -259,10 +265,14 @@ jobs:
             --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
             ../build/mpcf_test || true
           valgrind --tool=helgrind --gen-suppressions=all \
+            --log-file=./reports/hg-pytest-supp.log \
+            python -m pytest . -vv -s || true
+          valgrind --tool=helgrind --gen-suppressions=all \
             --log-file=./reports/hg-gtest-supp.log \
             ../build/mpcf_test || true
           # Extract suppression blocks from the logs
-          for log in ./reports/vg-gtest-supp.log ./reports/hg-gtest-supp.log; do
+          for log in ./reports/vg-pytest-supp.log ./reports/vg-gtest-supp.log \
+                     ./reports/hg-pytest-supp.log ./reports/hg-gtest-supp.log; do
             supp="${log%-supp.log}.supp"
             if [ -f "$log" ]; then
               awk '/^{$/,/^}$/' "$log" > "$supp"
@@ -284,7 +294,9 @@ jobs:
           cp test/reports/hg-gtest.xml test/reports/hg_gtest/raw.xml || true
           cp test/reports/hg-gtest.log test/reports/hg_gtest/raw.log || true
           cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
+          cp test/reports/vg-pytest.supp test/reports/vg_pytest/generated.supp || true
           cp test/reports/vg-gtest.supp test/reports/vg_gtest/generated.supp || true
+          cp test/reports/hg-pytest.supp test/reports/hg_pytest/generated.supp || true
           cp test/reports/hg-gtest.supp test/reports/hg_gtest/generated.supp || true
 
       - name: Upload valgrind artifact
