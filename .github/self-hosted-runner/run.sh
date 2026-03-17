@@ -8,10 +8,14 @@ set -euo pipefail
 #   - Run build.sh first
 #   - gh CLI authenticated (used to fetch registration tokens)
 #
-# Usage: REPO=owner/repo ./run.sh
-#    or: REPO=owner/repo ./run.sh cuda12   (single version only)
+# Usage: ./run.sh              (auto-detects repo from git remote)
+#    or: ./run.sh cuda12       (single version only)
+#    or: REPO=owner/repo ./run.sh
 
-REPO="${REPO:?Set REPO=owner/repo}"
+if [[ -z "${REPO:-}" ]]; then
+    REPO="$(git remote get-url origin 2>/dev/null | sed -E 's#(https://github\.com/|git@github\.com:)##; s#\.git$##')"
+fi
+: "${REPO:?Could not detect repo. Set REPO=owner/repo}"
 
 VERSIONS=("cuda12" "cuda13")
 if [[ $# -ge 1 ]]; then

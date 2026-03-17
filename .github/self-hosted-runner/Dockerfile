@@ -1,9 +1,19 @@
 ARG CUDA_VERSION=12.8.0
+ARG PYTHON_VERSION=3.14
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04
+ARG PYTHON_VERSION
 
 RUN apt-get update && apt-get install -y \
-    curl git python3 python3-pip python3-venv jq libicu-dev sudo \
+    cmake build-essential curl git python3 python3-pip python3-venv jq libicu-dev sudo \
+    software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
     && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install --break-system-packages -r /tmp/requirements.txt \
+    && python${PYTHON_VERSION} -m pip install --break-system-packages -r /tmp/requirements.txt
 
 RUN useradd -m -s /bin/bash runner \
     && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/runner
