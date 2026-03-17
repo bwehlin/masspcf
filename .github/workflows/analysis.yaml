@@ -1,17 +1,25 @@
 name: Analysis
 on:
   workflow_dispatch:
+    inputs:
+      use_github_runners:
+        description: 'Use GitHub-hosted runners instead of self-hosted'
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      use_github_runners:
+        type: boolean
+        default: false
 permissions:
   contents: write
 
 jobs:
   coverage_report:
-    name: Coverage report on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-24.04 ]
+    name: Coverage report (host C++ & Python)
+    needs: [memory_check]
+    runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
+    timeout-minutes: 20
     env:
       BUILD_WITH_CUDA: 0
       SKIP_STUBGEN: 1
@@ -23,16 +31,24 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Set up Python
+      - name: Set up Python (GitHub runner)
+        if: inputs.use_github_runners
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
+      - name: Set up Python (self-hosted)
+        if: ${{ !inputs.use_github_runners }}
+        run: |
+          python3.14 -m venv --system-site-packages ${{github.workspace}}/.venv
+          echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
+
       - name: Install Python dependencies
         run: pip install numpy tqdm pytest pytest-cov
 
-      - name: Install LLVM toolchain (clang/llvm-cov/llvm-profdata)
+      - name: Install LLVM toolchain (GitHub runner)
+        if: inputs.use_github_runners
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
@@ -42,11 +58,11 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-$LLVM_VERSION 100
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-$LLVM_VERSION 100
 
-          # Verify:
+      - name: Verify LLVM toolchain
+        run: |
           clang --version
           llvm-cov --version
           llvm-profdata --version
-
 
       - name: Configure CMake (Clang + coverage)
         env:
@@ -134,11 +150,9 @@ jobs:
           retention-days: 1
 
   memory_check:
-    name: Memory check on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-24.04 ]
+    name: Memory check (Valgrind + Helgrind)
+    runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
+    timeout-minutes: 30
     env:
       BUILD_WITH_CUDA: 0
       SKIP_STUBGEN: 1
@@ -149,16 +163,24 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Set up Python
+      - name: Set up Python (GitHub runner)
+        if: inputs.use_github_runners
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
+      - name: Set up Python (self-hosted)
+        if: ${{ !inputs.use_github_runners }}
+        run: |
+          python3.14 -m venv --system-site-packages ${{github.workspace}}/.venv
+          echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
+
       - name: Install Python dependencies
         run: pip install numpy tqdm pytest ValgrindCI
 
-      - name: Install Valgrind and Debug Symbols
+      - name: Install Valgrind (GitHub runner)
+        if: inputs.use_github_runners
         run: |
           sudo apt-get update
           sudo apt-get install -y valgrind libc6-dbg
@@ -240,10 +262,11 @@ jobs:
           retention-days: 1
 
   cuda_test:
-    name: CUDA build & test
+    name: CUDA build, test & coverage
+    needs: [memory_check]
+    if: ${{ !inputs.use_github_runners }}
     runs-on: [self-hosted, gpu, cuda12]
     timeout-minutes: 15
-    continue-on-error: false
     env:
       SKIP_STUBGEN: 1
       SKIP_BACK_COPY: 1
