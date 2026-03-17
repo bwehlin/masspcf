@@ -242,6 +242,41 @@ jobs:
             --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
             ../build/mpcf_test || true
 
+      - name: Generate suppressions (text mode, no XML)
+        run: |
+          cd test
+          valgrind --gen-suppressions=all \
+            --log-file=./reports/vg-pytest-supp.log \
+            --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
+            python -m pytest . -vv -s || true
+          valgrind --gen-suppressions=all \
+            --log-file=./reports/vg-gtest-supp.log \
+            --suppressions=${{github.workspace}}/test/vg_py.supp \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-python.supp \
+            --suppressions=${{github.workspace}}/3rd/pybind11/tests/valgrind-numpy-scipy.supp \
+            ../build/mpcf_test || true
+          valgrind --tool=helgrind --gen-suppressions=all \
+            --log-file=./reports/hg-pytest-supp.log \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
+            python -m pytest . -vv -s || true
+          valgrind --tool=helgrind --gen-suppressions=all \
+            --log-file=./reports/hg-gtest-supp.log \
+            --suppressions=${{github.workspace}}/test/reports/vg_cpython.supp \
+            ../build/mpcf_test || true
+          # Extract suppression blocks from logs
+          for log in ./reports/vg-pytest-supp.log ./reports/vg-gtest-supp.log \
+                     ./reports/hg-pytest-supp.log ./reports/hg-gtest-supp.log; do
+            supp="${log%-supp.log}.supp"
+            if [ -f "$log" ]; then
+              awk '/^{$/,/^}$/' "$log" > "$supp"
+              if [ ! -s "$supp" ]; then rm -f "$supp"; fi
+            fi
+          done
+
       - name: Sanitize valgrind XML
         run: |
           # Valgrind may emit duplicate </valgrindoutput> closing tags (e.g. in Docker).
@@ -279,6 +314,10 @@ jobs:
           cp test/reports/hg-gtest.xml test/reports/hg_gtest/raw.xml || true
           cp test/reports/hg-gtest.log test/reports/hg_gtest/raw.log || true
           cp test/reports/hg-gtest-summary.txt test/reports/hg_gtest/summary.txt || true
+          cp test/reports/vg-pytest.supp test/reports/vg_pytest/generated.supp || true
+          cp test/reports/vg-gtest.supp test/reports/vg_gtest/generated.supp || true
+          cp test/reports/hg-pytest.supp test/reports/hg_pytest/generated.supp || true
+          cp test/reports/hg-gtest.supp test/reports/hg_gtest/generated.supp || true
 
       - name: Upload valgrind artifact
         uses: actions/upload-artifact@v6
