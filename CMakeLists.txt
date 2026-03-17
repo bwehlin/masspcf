@@ -583,9 +583,10 @@ else ()
 endif ()
 
 if (BUILD_TESTER)
-  # On GitHub Actions there is no GPU, so build the tester CPU-only even when
-  # the Python modules are built with CUDA. CUDA tests are excluded in this case.
-  if (BUILD_WITH_CUDA AND NOT DEFINED ENV{GITHUB_ACTIONS})
+  # Build the tester with CUDA when a GPU is available. Standard GitHub Actions
+  # runners have no GPU, so default to CPU-only there. Self-hosted GPU runners
+  # set ENABLE_CUDA_COVERAGE=1 (or can set BUILD_CUDA_TESTER=ON explicitly).
+  if (BUILD_WITH_CUDA AND (NOT DEFINED ENV{GITHUB_ACTIONS} OR GPUCOV_ENABLE))
     set(BUILD_CUDA_TESTER ON)
   else ()
     set(BUILD_CUDA_TESTER OFF)

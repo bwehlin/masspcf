@@ -273,6 +273,9 @@ jobs:
       - name: Install module
         run: cmake --install build
 
+      - name: Prepare coverage output directory
+        run: mkdir -p covreport/cuda
+
       - name: Verify CUDA backend loaded
         run: |
           cd test
@@ -283,7 +286,6 @@ jobs:
 
       - name: Run C++ tests
         run: |
-          mkdir -p covreport/cuda
           cd test
           ../build/mpcf_test
 
