@@ -239,6 +239,50 @@ jobs:
           path: test/reports/
           retention-days: 1
 
+  cuda_test:
+    name: CUDA build & test
+    runs-on: [self-hosted, gpu, cuda12]
+    timeout-minutes: 15
+    continue-on-error: true
+    env:
+      SKIP_STUBGEN: 1
+      SKIP_BACK_COPY: 1
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install numpy tqdm pytest
+
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build module
+        run: cmake --build build -j $(nproc)
+
+      - name: Install module
+        run: cmake --install build
+
+      - name: Verify CUDA backend loaded
+        run: python3 -c "import masspcf._mpcf_cpp as m; print('Backend:', m.__name__)"
+
+      - name: Run C++ tests
+        run: |
+          cd test
+          ../build/mpcf_test
+
+      - name: Run Python tests
+        run: |
+          cd test
+          python -m pytest . -vv
+
   publish:
     name: Publish reports to GitHub Pages
     runs-on: ubuntu-24.04
