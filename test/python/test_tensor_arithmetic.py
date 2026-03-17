@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import masspcf as mpcf
 
@@ -99,107 +100,146 @@ class TestFloat32TensorArithmetic:
         npt.assert_array_almost_equal(np.asarray(Y), [5.0, 10.0, 15.0])
 
 
-# --- PCF tensors ---
+# --- PCF tensors (parametrized across all PCF dtypes) ---
 
 
-class TestPcf32TensorArithmetic:
-    def _make_tensor(self):
-        X = mpcf.zeros((2,))
-        X[0] = _make_pcf32([[0, 1], [2, 3]])
-        X[1] = _make_pcf32([[0, 10], [2, 20]])
+_PCF_DTYPES = [
+    pytest.param(mpcf.pcf32, np.float32, mpcf.Pcf32Tensor, id="pcf32"),
+    pytest.param(mpcf.pcf64, np.float64, mpcf.Pcf64Tensor, id="pcf64"),
+    pytest.param(mpcf.pcf32i, np.int32, mpcf.Pcf32iTensor, id="pcf32i"),
+    pytest.param(mpcf.pcf64i, np.int64, mpcf.Pcf64iTensor, id="pcf64i"),
+]
+
+
+def _make_pcf(np_dtype, vals):
+    return mpcf.Pcf(np.array(vals, dtype=np_dtype))
+
+
+@pytest.mark.parametrize("pcf_dtype, np_dtype, tensor_cls", _PCF_DTYPES)
+class TestPcfTensorArithmetic:
+    def _make_tensor(self, pcf_dtype, np_dtype):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 1], [2, 3]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
         return X
 
-    def test_add_pcf(self):
-        X = self._make_tensor()
-        pcf = _make_pcf32([[0, 100], [2, 200]])
+    def test_add_pcf(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        pcf = _make_pcf(np_dtype, [[0, 100], [2, 200]])
         Y = X + pcf
-        assert isinstance(Y, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 101.0)
-        npt.assert_almost_equal(Y[1].to_numpy()[0, 1], 110.0)
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(101)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(110)
 
-    def test_iadd_pcf(self):
-        X = self._make_tensor()
-        pcf = _make_pcf32([[0, 100], [2, 200]])
+    def test_iadd_pcf(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        pcf = _make_pcf(np_dtype, [[0, 100], [2, 200]])
         X += pcf
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 101.0)
+        assert X[0].to_numpy()[0, 1] == np_dtype(101)
 
-    def test_sub_pcf(self):
-        X = self._make_tensor()
-        pcf = _make_pcf32([[0, 1], [2, 1]])
+    def test_sub_pcf(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        pcf = _make_pcf(np_dtype, [[0, 1], [2, 1]])
         Y = X - pcf
-        assert isinstance(Y, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 0.0)
-        npt.assert_almost_equal(Y[1].to_numpy()[0, 1], 9.0)
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(0)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(9)
 
-    def test_isub_pcf(self):
-        X = self._make_tensor()
-        pcf = _make_pcf32([[0, 1], [2, 1]])
+    def test_isub_pcf(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        pcf = _make_pcf(np_dtype, [[0, 1], [2, 1]])
         X -= pcf
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 0.0)
+        assert X[0].to_numpy()[0, 1] == np_dtype(0)
 
-    def test_mul_scalar(self):
-        X = self._make_tensor()
-        Y = X * 2.0
-        assert isinstance(Y, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 2.0)
-        npt.assert_almost_equal(Y[1].to_numpy()[0, 1], 20.0)
+    def test_mul_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        Y = X * np_dtype(2)
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(2)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(20)
 
-    def test_imul_scalar(self):
-        X = self._make_tensor()
-        X *= 2.0
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 2.0)
+    def test_imul_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        X *= np_dtype(2)
+        assert X[0].to_numpy()[0, 1] == np_dtype(2)
 
-    def test_truediv_scalar(self):
-        X = self._make_tensor()
-        Y = X / 2.0
-        assert isinstance(Y, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 0.5)
-        npt.assert_almost_equal(Y[1].to_numpy()[0, 1], 5.0)
+    def test_truediv_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 4], [2, 8]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
+        Y = X / np_dtype(2)
+        assert isinstance(Y, tensor_cls)
+        assert Y[0].to_numpy()[0, 1] == np_dtype(2)
+        assert Y[1].to_numpy()[0, 1] == np_dtype(5)
 
-    def test_itruediv_scalar(self):
-        X = self._make_tensor()
-        X /= 2.0
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 0.5)
+    def test_itruediv_scalar(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 4], [2, 8]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
+        X /= np_dtype(2)
+        assert X[0].to_numpy()[0, 1] == np_dtype(2)
 
-    def test_add_does_not_modify_original(self):
-        X = self._make_tensor()
-        pcf = _make_pcf32([[0, 100], [2, 200]])
-        _ = X + pcf
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 1.0)
+    def test_add_does_not_modify_original(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        orig = X[0].to_numpy().copy()
+        _ = X + _make_pcf(np_dtype, [[0, 100], [2, 200]])
+        npt.assert_array_equal(X[0].to_numpy(), orig)
 
-    def test_mul_does_not_modify_original(self):
-        X = self._make_tensor()
-        _ = X * 10.0
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 1.0)
-
-
-class TestPcf64TensorArithmetic:
-    def _make_tensor(self):
-        X = mpcf.zeros((2,), dtype=mpcf.pcf64)
-        X[0] = _make_pcf64([[0, 1], [2, 3]])
-        X[1] = _make_pcf64([[0, 10], [2, 20]])
-        return X
-
-    def test_add_pcf(self):
-        X = self._make_tensor()
-        pcf = _make_pcf64([[0, 100], [2, 200]])
-        Y = X + pcf
-        assert isinstance(Y, mpcf.Pcf64Tensor)
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 101.0)
-
-    def test_mul_scalar(self):
-        X = self._make_tensor()
-        Y = X * 3.0
-        assert isinstance(Y, mpcf.Pcf64Tensor)
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 3.0)
-
-    def test_truediv_scalar(self):
-        X = self._make_tensor()
-        Y = X / 4.0
-        npt.assert_almost_equal(Y[0].to_numpy()[0, 1], 0.25)
+    def test_mul_does_not_modify_original(self, pcf_dtype, np_dtype, tensor_cls):
+        X = self._make_tensor(pcf_dtype, np_dtype)
+        orig = X[0].to_numpy().copy()
+        _ = X * np_dtype(10)
+        npt.assert_array_equal(X[0].to_numpy(), orig)
 
 
-# --- Tensor-Tensor broadcasting ---
+@pytest.mark.parametrize("pcf_dtype, np_dtype, tensor_cls", _PCF_DTYPES)
+class TestPcfTensorMulDiv:
+    def test_mul_tensor_tensor(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 2], [2, 4]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
+        Y = mpcf.zeros((2,), dtype=pcf_dtype)
+        Y[0] = _make_pcf(np_dtype, [[0, 3], [2, 5]])
+        Y[1] = _make_pcf(np_dtype, [[0, 2], [2, 10]])
+        Z = X * Y
+        assert isinstance(Z, tensor_cls)
+        assert Z[0].to_numpy()[0, 1] == np_dtype(6)
+        assert Z[1].to_numpy()[0, 1] == np_dtype(20)
+
+    def test_imul_tensor_tensor(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 2], [2, 4]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
+        Y = mpcf.zeros((2,), dtype=pcf_dtype)
+        Y[0] = _make_pcf(np_dtype, [[0, 3], [2, 5]])
+        Y[1] = _make_pcf(np_dtype, [[0, 2], [2, 10]])
+        X *= Y
+        assert X[0].to_numpy()[0, 1] == np_dtype(6)
+
+    def test_truediv_tensor_tensor(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 6], [2, 8]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
+        Y = mpcf.zeros((2,), dtype=pcf_dtype)
+        Y[0] = _make_pcf(np_dtype, [[0, 2], [2, 2]])
+        Y[1] = _make_pcf(np_dtype, [[0, 5], [2, 4]])
+        Z = X / Y
+        assert isinstance(Z, tensor_cls)
+        assert Z[0].to_numpy()[0, 1] == np_dtype(3)
+        assert Z[1].to_numpy()[0, 1] == np_dtype(2)
+
+    def test_itruediv_tensor_tensor(self, pcf_dtype, np_dtype, tensor_cls):
+        X = mpcf.zeros((2,), dtype=pcf_dtype)
+        X[0] = _make_pcf(np_dtype, [[0, 6], [2, 8]])
+        X[1] = _make_pcf(np_dtype, [[0, 10], [2, 20]])
+        Y = mpcf.zeros((2,), dtype=pcf_dtype)
+        Y[0] = _make_pcf(np_dtype, [[0, 2], [2, 2]])
+        Y[1] = _make_pcf(np_dtype, [[0, 5], [2, 4]])
+        X /= Y
+        assert X[0].to_numpy()[0, 1] == np_dtype(3)
+
+
+# --- Float tensor broadcasting ---
 
 
 def _check_broadcast_op(np_a, np_b, op, TensorType=mpcf.Float64Tensor):
@@ -286,110 +326,3 @@ class TestFloat32TensorBroadcast:
         a = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         b = np.array([10.0, 20.0], dtype=np.float32)
         _check_broadcast_op(a, b, lambda x, y: x + y, mpcf.Float32Tensor)
-
-
-class TestPcf32TensorMulDiv:
-    def _make_tensor(self):
-        X = mpcf.zeros((2,))
-        X[0] = _make_pcf32([[0, 2], [2, 4]])
-        X[1] = _make_pcf32([[0, 10], [2, 20]])
-        return X
-
-    def test_mul_pcf(self):
-        X = self._make_tensor()
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 3], [2, 5]])
-        Y[1] = _make_pcf32([[0, 2], [2, 10]])
-        Z = X * Y
-        assert isinstance(Z, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 6.0)
-        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 20.0)
-
-    def test_imul_pcf(self):
-        X = self._make_tensor()
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 3], [2, 5]])
-        Y[1] = _make_pcf32([[0, 2], [2, 10]])
-        X *= Y
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 6.0)
-
-    def test_truediv_pcf(self):
-        X = self._make_tensor()
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 2], [2, 2]])
-        Y[1] = _make_pcf32([[0, 5], [2, 4]])
-        Z = X / Y
-        assert isinstance(Z, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 1.0)
-        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 2.0)
-
-    def test_itruediv_pcf(self):
-        X = self._make_tensor()
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 2], [2, 2]])
-        Y[1] = _make_pcf32([[0, 5], [2, 4]])
-        X /= Y
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 1.0)
-
-    def test_mul_does_not_modify_original(self):
-        X = self._make_tensor()
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 3], [2, 5]])
-        Y[1] = _make_pcf32([[0, 2], [2, 10]])
-        _ = X * Y
-        npt.assert_almost_equal(X[0].to_numpy()[0, 1], 2.0)
-
-
-
-class TestPcf32TensorBroadcast:
-    def test_add_tensor_tensor_same_shape(self):
-        X = mpcf.zeros((2,))
-        X[0] = _make_pcf32([[0, 1], [2, 3]])
-        X[1] = _make_pcf32([[0, 10], [2, 20]])
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 100], [2, 200]])
-        Y[1] = _make_pcf32([[0, 1000], [2, 2000]])
-        Z = X + Y
-        assert isinstance(Z, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 101.0)
-        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 1010.0)
-
-    def test_sub_tensor_tensor(self):
-        X = mpcf.zeros((2,))
-        X[0] = _make_pcf32([[0, 10], [2, 30]])
-        X[1] = _make_pcf32([[0, 100], [2, 200]])
-        Y = mpcf.zeros((2,))
-        Y[0] = _make_pcf32([[0, 1], [2, 1]])
-        Y[1] = _make_pcf32([[0, 2], [2, 2]])
-        Z = X - Y
-        assert isinstance(Z, mpcf.Pcf32Tensor)
-        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 9.0)
-        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 98.0)
-
-    def test_add_broadcast(self):
-        X = mpcf.zeros((2, 3))
-        for i in range(2):
-            for j in range(3):
-                X[i, j] = _make_pcf32([[0, float(i * 3 + j)], [2, 0]])
-        Y = mpcf.zeros((3,))
-        for j in range(3):
-            Y[j] = _make_pcf32([[0, 100.0 * (j + 1)], [2, 0]])
-        Z = X + Y
-        assert Z.shape == (2, 3)
-        npt.assert_almost_equal(Z[0, 0].to_numpy()[0, 1], 100.0)
-        npt.assert_almost_equal(Z[0, 2].to_numpy()[0, 1], 302.0)
-        npt.assert_almost_equal(Z[1, 0].to_numpy()[0, 1], 103.0)
-
-
-class TestPcf64TensorBroadcast:
-    def test_add_tensor_tensor(self):
-        X = mpcf.zeros((2,), dtype=mpcf.pcf64)
-        X[0] = _make_pcf64([[0, 1], [2, 3]])
-        X[1] = _make_pcf64([[0, 10], [2, 20]])
-        Y = mpcf.zeros((2,), dtype=mpcf.pcf64)
-        Y[0] = _make_pcf64([[0, 100], [2, 200]])
-        Y[1] = _make_pcf64([[0, 1000], [2, 2000]])
-        Z = X + Y
-        assert isinstance(Z, mpcf.Pcf64Tensor)
-        npt.assert_almost_equal(Z[0].to_numpy()[0, 1], 101.0)
-        npt.assert_almost_equal(Z[1].to_numpy()[0, 1], 1010.0)

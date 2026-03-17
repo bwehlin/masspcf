@@ -136,9 +136,15 @@ namespace
         .def("get_value_type", [](TPcf& /* self */) -> std::string { return STRINGIFY(Tv); })
         .def("debug_print", &TPcf::debug_print) \
         .def_buffer([](TPcf& self) { return mpcf::detail::to_numpy<mpcf::Pcf<Tt, Tv>>(self); })
-        .def("div_scalar", [](TPcf& self, Tv c){ return self /= c; })
         .def("size", [](const TPcf& self){ return self.points().size(); })
         .def("copy", [](const TPcf& self){ return TPcf(self); })
+        .def("__add__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self + rhs; })
+        .def("__sub__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self - rhs; })
+        .def("__mul__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self * rhs; })
+        .def("__mul__", [](const TPcf& self, Tv c) -> TPcf { return self * c; })
+        .def("__rmul__", [](const TPcf& self, Tv c) -> TPcf { return c * self; })
+        .def("__truediv__", [](const TPcf& self, const TPcf& rhs) -> TPcf { return self / rhs; })
+        .def("__truediv__", [](const TPcf& self, Tv c) -> TPcf { return self / c; })
         .def("__call__", [](const TPcf& self, Tt t) -> Tv { return self.evaluate(t); })
         .def("__call__", [](const TPcf& self, py::array_t<Tt> times) -> py::array_t<Tv> {
           // Flatten to 1D for processing, remember original shape

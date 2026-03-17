@@ -137,24 +137,27 @@ class Pcf:
         np_dtype = self._DTYPE_TO_NP.get(dtype, dtype)
         return Pcf(self.to_numpy().astype(np_dtype))
 
+    def _binop(self, rhs, op):
+        if isinstance(rhs, Pcf):
+            if not _has_matching_types(self, rhs):
+                raise TypeError("Mismatched PCF types")
+            return Pcf(op(self._data, rhs._data))
+        return Pcf(op(self._data, rhs))
+
     def __add__(self, rhs):
-        if not _has_matching_types(self, rhs):
-            raise TypeError("Mismatched PCF types")
+        return self._binop(rhs, type(self._data).__add__)
 
-        temp = self._data.copy()
-        params = (temp, rhs._data)
+    def __sub__(self, rhs):
+        return self._binop(rhs, type(self._data).__sub__)
 
-        backend = _BACKEND_MAP.get(type(self._data))
-        if backend is not None:
-            return Pcf(backend.add(*params))
+    def __mul__(self, rhs):
+        return self._binop(rhs, type(self._data).__mul__)
 
-        raise TypeError(
-            f"Unsupported PCF type for addition ({type(self._data).__name__})"
-        )
+    def __rmul__(self, lhs):
+        return Pcf(self._data.__rmul__(lhs))
 
-    def __truediv__(self, c):
-        self._data = self._data.div_scalar(c)
-        return self
+    def __truediv__(self, rhs):
+        return self._binop(rhs, type(self._data).__truediv__)
 
     def __call__(self, t):
         """Evaluate the PCF at the given time(s).

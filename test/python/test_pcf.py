@@ -128,18 +128,79 @@ class TestInternalMethods:
         assert "_" in result
 
 
-class TestTruediv:
-    def test_div_scalar_f32(self):
+class TestArithmetic:
+    def test_add(self):
+        a = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        b = Pcf(np.array([[0.0, 10.0], [2.0, 20.0]], dtype=np.float32))
+        c = a + b
+        npt.assert_array_almost_equal(c.to_numpy()[:, 1], [11.0, 23.0])
+
+    def test_sub(self):
+        a = Pcf(np.array([[0.0, 10.0], [2.0, 20.0]], dtype=np.float32))
+        b = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        c = a - b
+        npt.assert_array_almost_equal(c.to_numpy()[:, 1], [9.0, 17.0])
+
+    def test_mul_pcf(self):
+        a = Pcf(np.array([[0.0, 2.0], [2.0, 3.0]], dtype=np.float32))
+        b = Pcf(np.array([[0.0, 5.0], [2.0, 4.0]], dtype=np.float32))
+        c = a * b
+        npt.assert_array_almost_equal(c.to_numpy()[:, 1], [10.0, 12.0])
+
+    def test_mul_scalar(self):
+        f = Pcf(np.array([[0.0, 2.0], [2.0, 3.0]], dtype=np.float32))
+        g = f * 3.0
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [6.0, 9.0])
+
+    def test_rmul_scalar(self):
+        f = Pcf(np.array([[0.0, 2.0], [2.0, 3.0]], dtype=np.float32))
+        g = 3.0 * f
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [6.0, 9.0])
+
+    def test_div_pcf(self):
+        a = Pcf(np.array([[0.0, 10.0], [2.0, 12.0]], dtype=np.float32))
+        b = Pcf(np.array([[0.0, 2.0], [2.0, 3.0]], dtype=np.float32))
+        c = a / b
+        npt.assert_array_almost_equal(c.to_numpy()[:, 1], [5.0, 4.0])
+
+    def test_div_scalar(self):
         f = Pcf(np.array([[0.0, 4.0], [2.0, 8.0]], dtype=np.float32))
-        f = f / 2.0
-        result = f.to_numpy()
-        npt.assert_array_almost_equal(result[:, 1], [2.0, 4.0])
+        g = f / 2.0
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [2.0, 4.0])
 
     def test_div_scalar_f64(self):
         f = Pcf(np.array([[0.0, 4.0], [2.0, 8.0]], dtype=np.float64))
-        f = f / 2.0
-        result = f.to_numpy()
-        npt.assert_array_almost_equal(result[:, 1], [2.0, 4.0])
+        g = f / 2.0
+        npt.assert_array_almost_equal(g.to_numpy()[:, 1], [2.0, 4.0])
+
+    @pytest.mark.parametrize("op", [
+        lambda a, b: a + b,
+        lambda a, b: a - b,
+        lambda a, b: a * b,
+        lambda a, b: a / b,
+        lambda a, _: a * 2.0,
+        lambda a, _: a / 2.0,
+    ])
+    def test_does_not_mutate(self, op):
+        a = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
+        b = Pcf(np.array([[0.0, 10.0], [2.0, 20.0]], dtype=np.float32))
+        a_orig = a.to_numpy().copy()
+        b_orig = b.to_numpy().copy()
+        _ = op(a, b)
+        npt.assert_array_equal(a.to_numpy(), a_orig)
+        npt.assert_array_equal(b.to_numpy(), b_orig)
+
+    def test_mismatched_types_raises(self):
+        a = Pcf(np.array([[0.0, 1.0]], dtype=np.float32))
+        b = Pcf(np.array([[0.0, 1.0]], dtype=np.float64))
+        with pytest.raises(TypeError):
+            a + b
+        with pytest.raises(TypeError):
+            a - b
+        with pytest.raises(TypeError):
+            a * b
+        with pytest.raises(TypeError):
+            a / b
 
 
 class TestStr:
