@@ -17,7 +17,7 @@ permissions:
 jobs:
   coverage_report:
     name: Coverage report (host C++ & Python)
-    needs: [cuda_test]
+    needs: [memory_check]
     runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
     timeout-minutes: 20
     env:
@@ -151,7 +151,6 @@ jobs:
 
   memory_check:
     name: Memory check (Valgrind + Helgrind)
-    needs: [cuda_test]
     runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
     timeout-minutes: 30
     env:
@@ -295,6 +294,7 @@ jobs:
 
   cuda_test:
     name: CUDA build, test & coverage
+    needs: [memory_check]
     # CUDA job always needs a GPU — skip entirely on GitHub runners
     if: ${{ !inputs.use_github_runners }}
     runs-on: [self-hosted, gpu, cuda12]
