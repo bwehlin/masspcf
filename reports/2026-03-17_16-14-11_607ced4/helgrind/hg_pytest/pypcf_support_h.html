@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>/home/runner/actions-runner/_work/masspcf/masspcf/src/python/functional/../pypcf_support.h</title>
+    <link href='valgrind.css' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+    <script src="valgrind.js"></script>
+</head>
+
+<body>
+    <div class="global">
+        <div class="header">
+            <h1>/home/runner/actions-runner/_work/masspcf/masspcf/src/python/functional/../pypcf_support.h</h1>
+            <p><b>2</b> errors</p>
+            <button class="next_error">Goto First Error</button>
+        </div>
+        <div class="listing">
+            <pre class="code">
+<code class="c++"><span class="line_number">1</span>/*
+<span class="line_number">2</span>* Copyright 2024-2026 Bjorn Wehlin
+<span class="line_number">3</span>*
+<span class="line_number">4</span>* Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);
+<span class="line_number">5</span>* you may not use this file except in compliance with the License.
+<span class="line_number">6</span>* You may obtain a copy of the License at
+<span class="line_number">7</span>*
+<span class="line_number">8</span>*    http://www.apache.org/licenses/LICENSE-2.0
+<span class="line_number">9</span>*
+<span class="line_number">10</span>* Unless required by applicable law or agreed to in writing, software
+<span class="line_number">11</span>* distributed under the License is distributed on an &#34;AS IS&#34; BASIS,
+<span class="line_number">12</span>* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<span class="line_number">13</span>* See the License for the specific language governing permissions and
+<span class="line_number">14</span>* limitations under the License.
+<span class="line_number">15</span>*/
+<span class="line_number">16</span>
+<span class="line_number">17</span>#ifndef MPCF_PYPCF_SUPPORT_H
+<span class="line_number">18</span>#define MPCF_PYPCF_SUPPORT_H
+<span class="line_number">19</span>
+<span class="line_number">20</span>#include &lt;mpcf/functional/pcf.h&gt;
+<span class="line_number">21</span>
+<span class="line_number">22</span>#include &lt;sstream&gt;
+<span class="line_number">23</span>
+<span class="line_number">24</span>#include &#34;pybind.h&#34;
+<span class="line_number">25</span>
+<span class="line_number">26</span>
+<span class="line_number">27</span>namespace py = pybind11;
+<span class="line_number">28</span>
+<span class="line_number">29</span>namespace mpcf
+<span class="line_number">30</span>{
+<span class="line_number">31</span>  namespace detail
+<span class="line_number">32</span>  {
+<span class="line_number">33</span>    template &lt;typename T&gt;
+<span class="line_number">34</span>    std::string shape_to_string(T shape)
+<span class="line_number">35</span>    {
+<span class="line_number">36</span>      std::stringstream ss;
+<span class="line_number">37</span>      ss &lt;&lt; &#34;(&#34;;
+<span class="line_number">38</span>      for (auto it = std::begin(shape); it != std::end(shape); ++it)
+<span class="line_number">39</span>      {
+<span class="line_number">40</span>        if (it != std::begin(shape))
+<span class="line_number">41</span>        {
+<span class="line_number">42</span>          ss &lt;&lt; &#34;, &#34;;
+<span class="line_number">43</span>        }
+<span class="line_number">44</span>        ss &lt;&lt; *it;
+<span class="line_number">45</span>      }
+<span class="line_number">46</span>      ss &lt;&lt; &#34;)&#34;;
+<span class="line_number">47</span>      return ss.str();
+<span class="line_number">48</span>    }
+<span class="line_number">49</span>
+<span class="line_number">50</span>    template &lt;typename Tt, typename Tv&gt;
+<span class="line_number">51</span>    mpcf::Pcf&lt;Tt, Tv&gt; construct_pcf(py::array_t&lt;Tt&gt; arr)
+<span class="line_number">52</span>    {
+<span class="line_number">53</span>      using point_type = typename mpcf::Pcf&lt;Tt, Tv&gt;::point_type;
+<span class="line_number">54</span>
+<span class="line_number">55</span>      std::vector&lt;mpcf::Point&lt;Tt, Tv&gt;&gt; points;
+<span class="line_number">56</span>
+<span class="line_number">57</span>      py::buffer_info buf = arr.request();
+<span class="line_number">58</span>      if (buf.size == 0)
+<span class="line_number">59</span>      {
+<span class="line_number">60</span>        points.emplace_back(static_cast&lt;Tt&gt;(0), static_cast&lt;Tv&gt;(0));
+<span class="line_number">61</span>        return mpcf::Pcf&lt;Tt, Tv&gt;(std::move(points));
+<span class="line_number">62</span>      }
+<span class="line_number">63</span>
+<span class="line_number">64</span>      if (buf.ndim != 2)
+<span class="line_number">65</span>      {
+<span class="line_number">66</span>        throw std::runtime_error(&#34;Input array should have two dimensions (time + value).&#34;);
+<span class="line_number">67</span>      }
+<span class="line_number">68</span>
+<span class="line_number">69</span>      auto data = arr.template unchecked&lt;2&gt;();
+<span class="line_number">70</span>      auto start = 0ul;
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x46E7A4B0 by thread #1</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/src/python/functional/py_pcf.cpp:134<br>
+                                    <code class="cpp">(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}::operator()(pybind11::array_t&lt;double, 16&gt;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">131</span>
+<span class="line_number">132</span>      py::class_&lt;mpcf::Pcf&lt;Tt, Tv&gt;&gt;(m, (&#34;Pcf&#34; + suffix).c_str(), py::buffer_protocol())
+<span class="line_number">133</span>        .def(py::init&lt;&gt;())
+<span class="line_number">134</span><span class="error">        .def(py::init&lt;&gt;([](py::array_t&lt;Tt&gt; arr){ return mpcf::detail::construct_pcf&lt;Tt, Tv&gt;(arr); }))
+</span><span class="line_number">135</span>        .def(&#34;get_time_type&#34;, [](TPcf&amp; /* self */) -&gt; std::string { return STRINGIFY(Tt); })
+<span class="line_number">136</span>        .def(&#34;get_value_type&#34;, [](TPcf&amp; /* self */) -&gt; std::string { return STRINGIFY(Tv); })
+<span class="line_number">137</span>        .def(&#34;debug_print&#34;, &amp;TPcf::debug_print) \
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/detail/init.h:398<br>
+                                    <code class="cpp">pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}::operator()(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">395</span>            [func]
+<span class="line_number">396</span>#endif
+<span class="line_number">397</span>            (value_and_holder &amp;v_h, Args... args) {
+<span class="line_number">398</span><span class="error">                construct&lt;Class&gt;(
+</span><span class="line_number">399</span>                    v_h, func(std::forward&lt;Args&gt;(args)...), Py_TYPE(v_h.inst) != v_h.type-&gt;type);
+<span class="line_number">400</span>            },
+<span class="line_number">401</span>            is_new_style_constructor(),
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/cast.h:2187<br>
+                                    <code class="cpp">void pybind11::detail::argument_loader&lt;pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt; &gt;::call_impl&lt;void, pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;, 0ul, 1ul, pybind11::detail::void_type&gt;(pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;, std::integer_sequence&lt;unsigned long, 0ul, 1ul&gt;, pybind11::detail::void_type&amp;&amp;) &amp;&amp;</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2184</span>
+<span class="line_number">2185</span>    template &lt;typename Return, typename Func, size_t... Is, typename Guard&gt;
+<span class="line_number">2186</span>    Return call_impl(Func &amp;&amp;f, index_sequence&lt;Is...&gt;, Guard &amp;&amp;) &amp;&amp; {
+<span class="line_number">2187</span><span class="error">        return std::forward&lt;Func&gt;(f)(cast_op&lt;Args&gt;(std::move(std::get&lt;Is&gt;(argcasters)))...);
+</span><span class="line_number">2188</span>    }
+<span class="line_number">2189</span>
+<span class="line_number">2190</span>    std::tuple&lt;make_caster&lt;Args&gt;...&gt; argcasters;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/cast.h:2155<br>
+                                    <code class="cpp">std::enable_if&lt;std::is_void&lt;void&gt;::value, pybind11::detail::void_type&gt;::type pybind11::detail::argument_loader&lt;pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt; &gt;::call&lt;void, pybind11::detail::void_type, pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;&gt;(pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;) &amp;&amp;</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2152</span>
+<span class="line_number">2153</span>    template &lt;typename Return, typename Guard, typename Func&gt;
+<span class="line_number">2154</span>    enable_if_t&lt;std::is_void&lt;Return&gt;::value, void_type&gt; call(Func &amp;&amp;f) &amp;&amp; {
+<span class="line_number">2155</span><span class="error">        std::move(*this).template call_impl&lt;remove_cv_t&lt;Return&gt;&gt;(
+</span><span class="line_number">2156</span>            std::forward&lt;Func&gt;(f), indices{}, Guard{});
+<span class="line_number">2157</span>        return void_type();
+<span class="line_number">2158</span>    }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:480<br>
+                                    <code class="cpp">pybind11::cpp_function::initialize&lt;pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}, void, pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;, pybind11::name, pybind11::is_method, pybind11::sibling, pybind11::detail::is_new_style_constructor&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;&amp;, void (*)(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;), pybind11::name const&amp;, pybind11::is_method const&amp;, pybind11::sibling const&amp;, pybind11::detail::is_new_style_constructor const&amp;)::{lambda(pybind11::detail::function_call&amp;)#1}::operator()(pybind11::detail::function_call&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">477</span>                result = none().release();
+<span class="line_number">478</span>            } else {
+<span class="line_number">479</span>                result = cast_out::cast(
+<span class="line_number">480</span><span class="error">                    std::move(args_converter).template call&lt;Return, Guard&gt;(cap-&gt;f),
+</span><span class="line_number">481</span>                    policy,
+<span class="line_number">482</span>                    call.parent);
+<span class="line_number">483</span>            }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:450<br>
+                                    <code class="cpp">pybind11::cpp_function::initialize&lt;pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}, void, pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;, pybind11::name, pybind11::is_method, pybind11::sibling, pybind11::detail::is_new_style_constructor&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;&amp;, void (*)(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;), pybind11::name const&amp;, pybind11::is_method const&amp;, pybind11::sibling const&amp;, pybind11::detail::is_new_style_constructor const&amp;)::{lambda(pybind11::detail::function_call&amp;)#1}::_FUN(pybind11::detail::function_call&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">447</span>            &#34;The number of argument annotations does not match the number of function arguments&#34;);
+<span class="line_number">448</span>
+<span class="line_number">449</span>        /* Dispatch code which converts function arguments and performs the actual function call */
+<span class="line_number">450</span><span class="error">        rec-&gt;impl = [](function_call &amp;call) -&gt; handle {
+</span><span class="line_number">451</span>            cast_in args_converter;
+<span class="line_number">452</span>
+<span class="line_number">453</span>            /* Try to cast the function arguments into the C++ domain */
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:1119<br>
+                                    <code class="cpp">pybind11::cpp_function::dispatcher(_object*, _object* const*, unsigned long, _object*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1116</span>                // 6. Call the function.
+<span class="line_number">1117</span>                try {
+<span class="line_number">1118</span>                    loader_life_support guard{};
+<span class="line_number">1119</span><span class="error">                    result = func.impl(call);
+</span><span class="line_number">1120</span>                } catch (reference_cast_error &amp;) {
+<span class="line_number">1121</span>                    result = PYBIND11_TRY_NEXT_OVERLOAD;
+<span class="line_number">1122</span>                }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">71</span><span class="error">      if (data(0, 0) != 0)</span>
+<span class="line_number">72</span>      {
+<span class="line_number">73</span>        ++start;
+<span class="line_number">74</span>      }
+<span class="line_number">75</span>
+<span class="line_number">76</span>      if (buf.shape.size() == 2 &amp;&amp; buf.shape[1] == 2)
+<span class="line_number">77</span>      {
+<span class="line_number">78</span>        points.resize(buf.shape[0] + start);
+<span class="line_number">79</span>        points[0].t = 0;
+<span class="line_number">80</span>        points[0].v = 0;
+<span class="line_number">81</span>        for (auto i = 0; i &lt; buf.shape[0]; ++i)
+<span class="line_number">82</span>        {
+<span class="line_number">83</span>          points[i + start].t = data(i, 0);
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x46E7A4B8 by thread #1</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/src/python/functional/py_pcf.cpp:134<br>
+                                    <code class="cpp">(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}::operator()(pybind11::array_t&lt;double, 16&gt;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">131</span>
+<span class="line_number">132</span>      py::class_&lt;mpcf::Pcf&lt;Tt, Tv&gt;&gt;(m, (&#34;Pcf&#34; + suffix).c_str(), py::buffer_protocol())
+<span class="line_number">133</span>        .def(py::init&lt;&gt;())
+<span class="line_number">134</span><span class="error">        .def(py::init&lt;&gt;([](py::array_t&lt;Tt&gt; arr){ return mpcf::detail::construct_pcf&lt;Tt, Tv&gt;(arr); }))
+</span><span class="line_number">135</span>        .def(&#34;get_time_type&#34;, [](TPcf&amp; /* self */) -&gt; std::string { return STRINGIFY(Tt); })
+<span class="line_number">136</span>        .def(&#34;get_value_type&#34;, [](TPcf&amp; /* self */) -&gt; std::string { return STRINGIFY(Tv); })
+<span class="line_number">137</span>        .def(&#34;debug_print&#34;, &amp;TPcf::debug_print) \
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/detail/init.h:398<br>
+                                    <code class="cpp">pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}::operator()(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">395</span>            [func]
+<span class="line_number">396</span>#endif
+<span class="line_number">397</span>            (value_and_holder &amp;v_h, Args... args) {
+<span class="line_number">398</span><span class="error">                construct&lt;Class&gt;(
+</span><span class="line_number">399</span>                    v_h, func(std::forward&lt;Args&gt;(args)...), Py_TYPE(v_h.inst) != v_h.type-&gt;type);
+<span class="line_number">400</span>            },
+<span class="line_number">401</span>            is_new_style_constructor(),
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/cast.h:2187<br>
+                                    <code class="cpp">void pybind11::detail::argument_loader&lt;pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt; &gt;::call_impl&lt;void, pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;, 0ul, 1ul, pybind11::detail::void_type&gt;(pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;, std::integer_sequence&lt;unsigned long, 0ul, 1ul&gt;, pybind11::detail::void_type&amp;&amp;) &amp;&amp;</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2184</span>
+<span class="line_number">2185</span>    template &lt;typename Return, typename Func, size_t... Is, typename Guard&gt;
+<span class="line_number">2186</span>    Return call_impl(Func &amp;&amp;f, index_sequence&lt;Is...&gt;, Guard &amp;&amp;) &amp;&amp; {
+<span class="line_number">2187</span><span class="error">        return std::forward&lt;Func&gt;(f)(cast_op&lt;Args&gt;(std::move(std::get&lt;Is&gt;(argcasters)))...);
+</span><span class="line_number">2188</span>    }
+<span class="line_number">2189</span>
+<span class="line_number">2190</span>    std::tuple&lt;make_caster&lt;Args&gt;...&gt; argcasters;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/cast.h:2155<br>
+                                    <code class="cpp">std::enable_if&lt;std::is_void&lt;void&gt;::value, pybind11::detail::void_type&gt;::type pybind11::detail::argument_loader&lt;pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt; &gt;::call&lt;void, pybind11::detail::void_type, pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;&gt;(pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}&amp;) &amp;&amp;</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2152</span>
+<span class="line_number">2153</span>    template &lt;typename Return, typename Guard, typename Func&gt;
+<span class="line_number">2154</span>    enable_if_t&lt;std::is_void&lt;Return&gt;::value, void_type&gt; call(Func &amp;&amp;f) &amp;&amp; {
+<span class="line_number">2155</span><span class="error">        std::move(*this).template call_impl&lt;remove_cv_t&lt;Return&gt;&gt;(
+</span><span class="line_number">2156</span>            std::forward&lt;Func&gt;(f), indices{}, Guard{});
+<span class="line_number">2157</span>        return void_type();
+<span class="line_number">2158</span>    }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:480<br>
+                                    <code class="cpp">pybind11::cpp_function::initialize&lt;pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}, void, pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;, pybind11::name, pybind11::is_method, pybind11::sibling, pybind11::detail::is_new_style_constructor&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;&amp;, void (*)(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;), pybind11::name const&amp;, pybind11::is_method const&amp;, pybind11::sibling const&amp;, pybind11::detail::is_new_style_constructor const&amp;)::{lambda(pybind11::detail::function_call&amp;)#1}::operator()(pybind11::detail::function_call&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">477</span>                result = none().release();
+<span class="line_number">478</span>            } else {
+<span class="line_number">479</span>                result = cast_out::cast(
+<span class="line_number">480</span><span class="error">                    std::move(args_converter).template call&lt;Return, Guard&gt;(cap-&gt;f),
+</span><span class="line_number">481</span>                    policy,
+<span class="line_number">482</span>                    call.parent);
+<span class="line_number">483</span>            }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:450<br>
+                                    <code class="cpp">pybind11::cpp_function::initialize&lt;pybind11::detail::initimpl::factory&lt;(anonymous namespace)::PyBindings&lt;double, double&gt;::register_bindings(pybind11::handle, std::__cxx11::basic_string&lt;char, std::char_traits&lt;char&gt;, std::allocator&lt;char&gt; &gt; const&amp;)::{lambda(pybind11::array_t&lt;double, 16&gt;)#1}, pybind11::detail::void_type (*)(), mpcf::Pcf&lt;double, double&gt; (pybind11::array_t&lt;double, 16&gt;), pybind11::detail::void_type ()&gt;::execute&lt;pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;) &amp;&amp;::{lambda(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;)#1}, void, pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;, pybind11::name, pybind11::is_method, pybind11::sibling, pybind11::detail::is_new_style_constructor&gt;(pybind11::class_&lt;mpcf::Pcf&lt;double, double&gt;&gt;&amp;&amp;, void (*)(pybind11::detail::value_and_holder&amp;, pybind11::array_t&lt;double, 16&gt;), pybind11::name const&amp;, pybind11::is_method const&amp;, pybind11::sibling const&amp;, pybind11::detail::is_new_style_constructor const&amp;)::{lambda(pybind11::detail::function_call&amp;)#1}::_FUN(pybind11::detail::function_call&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">447</span>            &#34;The number of argument annotations does not match the number of function arguments&#34;);
+<span class="line_number">448</span>
+<span class="line_number">449</span>        /* Dispatch code which converts function arguments and performs the actual function call */
+<span class="line_number">450</span><span class="error">        rec-&gt;impl = [](function_call &amp;call) -&gt; handle {
+</span><span class="line_number">451</span>            cast_in args_converter;
+<span class="line_number">452</span>
+<span class="line_number">453</span>            /* Try to cast the function arguments into the C++ domain */
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:1119<br>
+                                    <code class="cpp">pybind11::cpp_function::dispatcher(_object*, _object* const*, unsigned long, _object*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1116</span>                // 6. Call the function.
+<span class="line_number">1117</span>                try {
+<span class="line_number">1118</span>                    loader_life_support guard{};
+<span class="line_number">1119</span><span class="error">                    result = func.impl(call);
+</span><span class="line_number">1120</span>                } catch (reference_cast_error &amp;) {
+<span class="line_number">1121</span>                    result = PYBIND11_TRY_NEXT_OVERLOAD;
+<span class="line_number">1122</span>                }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">84</span><span class="error">          points[i + start].v = data(i, 1);</span>
+<span class="line_number">85</span>        }
+<span class="line_number">86</span>      }
+<span class="line_number">87</span>      else
+<span class="line_number">88</span>      {
+<span class="line_number">89</span>        throw std::runtime_error(&#34;Input array should be Nx2 (supplied shape is &#34; + shape_to_string(buf.shape) + &#34;).&#34;);
+<span class="line_number">90</span>      }
+<span class="line_number">91</span>
+<span class="line_number">92</span>      auto sortByTime = [](const point_type&amp; a, const point_type &amp; b){
+<span class="line_number">93</span>        return a.t &lt; b.t;
+<span class="line_number">94</span>      };
+<span class="line_number">95</span>
+<span class="line_number">96</span>      if (!std::is_sorted(points.begin(), points.end(), sortByTime))
+<span class="line_number">97</span>      {
+<span class="line_number">98</span>        std::sort(points.begin(), points.end(), sortByTime);
+<span class="line_number">99</span>      }
+<span class="line_number">100</span>
+<span class="line_number">101</span>      return mpcf::Pcf&lt;Tt, Tv&gt;(std::move(points));
+<span class="line_number">102</span>    }
+<span class="line_number">103</span>
+<span class="line_number">104</span>#if 0
+<span class="line_number">105</span>    template &lt;typename TPcf&gt;
+<span class="line_number">106</span>    py::memoryview to_numpy(const TPcf&amp; pcf)
+<span class="line_number">107</span>    {
+<span class="line_number">108</span>      using TTime = typename TPcf::time_type;
+<span class="line_number">109</span>      using TVal = typename TPcf::value_type;
+<span class="line_number">110</span>      static_assert(std::is_same&lt;TTime, TVal&gt;::value, &#34;time and value type must be the same&#34;);
+<span class="line_number">111</span>
+<span class="line_number">112</span>      return py::memoryview::from_buffer(
+<span class="line_number">113</span>        reinterpret_cast&lt;const TTime*&gt;(pcf.points().data()), 
+<span class="line_number">114</span>        { Py_ssize_t(2), Py_ssize_t(pcf.points().size())},
+<span class="line_number">115</span>        { Py_ssize_t(sizeof(TTime)), Py_ssize_t(sizeof(TTime) * 2)});
+<span class="line_number">116</span>    }
+<span class="line_number">117</span>#endif
+<span class="line_number">118</span>
+<span class="line_number">119</span>    template &lt;typename TPcf&gt;
+<span class="line_number">120</span>    py::buffer_info to_numpy(const TPcf&amp; pcf)
+<span class="line_number">121</span>    {
+<span class="line_number">122</span>      using TTime = typename TPcf::time_type;
+<span class="line_number">123</span>      using TVal = typename TPcf::value_type;
+<span class="line_number">124</span>      static_assert(std::is_same&lt;TTime, TVal&gt;::value, &#34;time and value type must be the same&#34;);
+<span class="line_number">125</span>
+<span class="line_number">126</span>      return py::buffer_info(
+<span class="line_number">127</span>        const_cast&lt;void*&gt;(reinterpret_cast&lt;const void*&gt;(pcf.points().data())),
+<span class="line_number">128</span>        sizeof(TVal),
+<span class="line_number">129</span>        py::format_descriptor&lt;TVal&gt;::format(),
+<span class="line_number">130</span>        py::ssize_t(2),
+<span class="line_number">131</span>        { py::ssize_t(pcf.points().size()), py::ssize_t(2) },
+<span class="line_number">132</span>        { py::ssize_t(2 * sizeof(TVal)), py::ssize_t(sizeof(TVal)) },
+<span class="line_number">133</span>        true
+<span class="line_number">134</span>      );
+<span class="line_number">135</span>    }
+<span class="line_number">136</span>
+<span class="line_number">137</span>
+<span class="line_number">138</span>  }
+<span class="line_number">139</span>}
+<span class="line_number">140</span>
+<span class="line_number">141</span>#endif
+</code>
+            </pre>
+        </div>
+    </div>
+</body>
+
+</html>

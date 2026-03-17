@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>/home/runner/actions-runner/_work/masspcf/masspcf/src/python/py_np_tensor_convert.cpp</title>
+    <link href='valgrind.css' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+    <script src="valgrind.js"></script>
+</head>
+
+<body>
+    <div class="global">
+        <div class="header">
+            <h1>/home/runner/actions-runner/_work/masspcf/masspcf/src/python/py_np_tensor_convert.cpp</h1>
+            <p><b>1</b> errors</p>
+            <button class="next_error">Goto First Error</button>
+        </div>
+        <div class="listing">
+            <pre class="code">
+<code class="c++"><span class="line_number">1</span>// Copyright 2024-2026 Bjorn Wehlin
+<span class="line_number">2</span>//
+<span class="line_number">3</span>// Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);
+<span class="line_number">4</span>// you may not use this file except in compliance with the License.
+<span class="line_number">5</span>// You may obtain a copy of the License at
+<span class="line_number">6</span>//
+<span class="line_number">7</span>//    http://www.apache.org/licenses/LICENSE-2.0
+<span class="line_number">8</span>//
+<span class="line_number">9</span>// Unless required by applicable law or agreed to in writing, software
+<span class="line_number">10</span>// distributed under the License is distributed on an &#34;AS IS&#34; BASIS,
+<span class="line_number">11</span>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<span class="line_number">12</span>// See the License for the specific language governing permissions and
+<span class="line_number">13</span>// limitations under the License.
+<span class="line_number">14</span>
+<span class="line_number">15</span>//
+<span class="line_number">16</span>// Created by bjorn on 2/25/2026.
+<span class="line_number">17</span>//
+<span class="line_number">18</span>
+<span class="line_number">19</span>#include &#34;py_np_tensor_convert.h&#34;
+<span class="line_number">20</span>
+<span class="line_number">21</span>#include &lt;mpcf/tensor.h&gt;
+<span class="line_number">22</span>
+<span class="line_number">23</span>#include &lt;pybind11/numpy.h&gt;
+<span class="line_number">24</span>
+<span class="line_number">25</span>namespace py = pybind11;
+<span class="line_number">26</span>
+<span class="line_number">27</span>namespace
+<span class="line_number">28</span>{
+<span class="line_number">29</span>  template &lt;typename NumpyValueT, typename TensorValueT&gt;
+<span class="line_number">30</span>  mpcf::Tensor&lt;TensorValueT&gt; convert_numpy_to_tensor(py::array_t&lt;NumpyValueT&gt; arr)
+<span class="line_number">31</span>  {
+<span class="line_number">32</span>    auto const * arr_data = arr.template unchecked&lt;&gt;().data();
+<span class="line_number">33</span>    auto const * arr_strides = arr.strides();
+<span class="line_number">34</span>    auto arr_itemsize = arr.itemsize();
+<span class="line_number">35</span>
+<span class="line_number">36</span>    mpcf::Tensor&lt;TensorValueT&gt; t(std::vector&lt;size_t&gt;(arr.shape(), arr.shape() + arr.ndim()));
+<span class="line_number">37</span>    t.walk([&amp;t, arr_data, arr_strides, arr_itemsize](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">38</span>
+<span class="line_number">39</span>      auto arr_idx = std::inner_product(idx.begin(), idx.end(), arr_strides, 0_z);
+<span class="line_number">40</span>      arr_idx /= arr_itemsize;
+<span class="line_number">41</span>
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x46E7A4B0 by thread #1</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/include/mpcf/tensor.tpp:441<br>
+                                    <code class="cpp">void mpcf::Tensor&lt;double&gt;::walk&lt;(anonymous namespace)::convert_numpy_to_tensor&lt;double, double&gt;(pybind11::array_t&lt;double, 16&gt;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;((anonymous namespace)::convert_numpy_to_tensor&lt;double, double&gt;(pybind11::array_t&lt;double, 16&gt;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">438</span>      }
+<span class="line_number">439</span>      else
+<span class="line_number">440</span>      {
+<span class="line_number">441</span><span class="error">        f(cur);
+</span><span class="line_number">442</span>      }
+<span class="line_number">443</span>
+<span class="line_number">444</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/src/python/py_np_tensor_convert.cpp:37<br>
+                                    <code class="cpp">mpcf::Tensor&lt;double&gt; (anonymous namespace)::convert_numpy_to_tensor&lt;double, double&gt;(pybind11::array_t&lt;double, 16&gt;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">34</span>    auto arr_itemsize = arr.itemsize();
+<span class="line_number">35</span>
+<span class="line_number">36</span>    mpcf::Tensor&lt;TensorValueT&gt; t(std::vector&lt;size_t&gt;(arr.shape(), arr.shape() + arr.ndim()));
+<span class="line_number">37</span><span class="error">    t.walk([&amp;t, arr_data, arr_strides, arr_itemsize](const std::vector&lt;size_t&gt;&amp; idx) {
+</span><span class="line_number">38</span>
+<span class="line_number">39</span>      auto arr_idx = std::inner_product(idx.begin(), idx.end(), arr_strides, 0_z);
+<span class="line_number">40</span>      arr_idx /= arr_itemsize;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/cast.h:2187<br>
+                                    <code class="cpp">mpcf::Tensor&lt;double&gt; pybind11::detail::argument_loader&lt;pybind11::array_t&lt;double, 16&gt; &gt;::call_impl&lt;mpcf::Tensor&lt;double&gt;, mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;), 0ul, pybind11::detail::void_type&gt;(mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;), std::integer_sequence&lt;unsigned long, 0ul&gt;, pybind11::detail::void_type&amp;&amp;) &amp;&amp;</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2184</span>
+<span class="line_number">2185</span>    template &lt;typename Return, typename Func, size_t... Is, typename Guard&gt;
+<span class="line_number">2186</span>    Return call_impl(Func &amp;&amp;f, index_sequence&lt;Is...&gt;, Guard &amp;&amp;) &amp;&amp; {
+<span class="line_number">2187</span><span class="error">        return std::forward&lt;Func&gt;(f)(cast_op&lt;Args&gt;(std::move(std::get&lt;Is&gt;(argcasters)))...);
+</span><span class="line_number">2188</span>    }
+<span class="line_number">2189</span>
+<span class="line_number">2190</span>    std::tuple&lt;make_caster&lt;Args&gt;...&gt; argcasters;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/cast.h:2150<br>
+                                    <code class="cpp">std::enable_if&lt;!std::is_void&lt;mpcf::Tensor&lt;double&gt; &gt;::value, mpcf::Tensor&lt;double&gt; &gt;::type pybind11::detail::argument_loader&lt;pybind11::array_t&lt;double, 16&gt; &gt;::call&lt;mpcf::Tensor&lt;double&gt;, pybind11::detail::void_type, mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;)&gt;(mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;)) &amp;&amp;</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2147</span>    // NOLINTNEXTLINE(readability-const-return-type)
+<span class="line_number">2148</span>    enable_if_t&lt;!std::is_void&lt;Return&gt;::value, Return&gt; call(Func &amp;&amp;f) &amp;&amp; {
+<span class="line_number">2149</span>        return std::move(*this).template call_impl&lt;remove_cv_t&lt;Return&gt;&gt;(
+<span class="line_number">2150</span><span class="error">            std::forward&lt;Func&gt;(f), indices{}, Guard{});
+</span><span class="line_number">2151</span>    }
+<span class="line_number">2152</span>
+<span class="line_number">2153</span>    template &lt;typename Return, typename Guard, typename Func&gt;
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:479<br>
+                                    <code class="cpp">pybind11::cpp_function::initialize&lt;mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;), mpcf::Tensor&lt;double&gt;, pybind11::array_t&lt;double, 16&gt;, pybind11::name, pybind11::scope, pybind11::sibling&gt;(mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;), mpcf::Tensor&lt;double&gt; (*)(pybind11::array_t&lt;double, 16&gt;), pybind11::name const&amp;, pybind11::scope const&amp;, pybind11::sibling const&amp;)::{lambda(pybind11::detail::function_call&amp;)#1}::operator()(pybind11::detail::function_call&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">476</span>                (void) std::move(args_converter).template call&lt;Return, Guard&gt;(cap-&gt;f);
+<span class="line_number">477</span>                result = none().release();
+<span class="line_number">478</span>            } else {
+<span class="line_number">479</span><span class="error">                result = cast_out::cast(
+</span><span class="line_number">480</span>                    std::move(args_converter).template call&lt;Return, Guard&gt;(cap-&gt;f),
+<span class="line_number">481</span>                    policy,
+<span class="line_number">482</span>                    call.parent);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:450<br>
+                                    <code class="cpp">pybind11::cpp_function::initialize&lt;mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;), mpcf::Tensor&lt;double&gt;, pybind11::array_t&lt;double, 16&gt;, pybind11::name, pybind11::scope, pybind11::sibling&gt;(mpcf::Tensor&lt;double&gt; (*&amp;)(pybind11::array_t&lt;double, 16&gt;), mpcf::Tensor&lt;double&gt; (*)(pybind11::array_t&lt;double, 16&gt;), pybind11::name const&amp;, pybind11::scope const&amp;, pybind11::sibling const&amp;)::{lambda(pybind11::detail::function_call&amp;)#1}::_FUN(pybind11::detail::function_call&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">447</span>            &#34;The number of argument annotations does not match the number of function arguments&#34;);
+<span class="line_number">448</span>
+<span class="line_number">449</span>        /* Dispatch code which converts function arguments and performs the actual function call */
+<span class="line_number">450</span><span class="error">        rec-&gt;impl = [](function_call &amp;call) -&gt; handle {
+</span><span class="line_number">451</span>            cast_in args_converter;
+<span class="line_number">452</span>
+<span class="line_number">453</span>            /* Try to cast the function arguments into the C++ domain */
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/actions-runner/_work/masspcf/masspcf/3rd/pybind11/include/pybind11/pybind11.h:1119<br>
+                                    <code class="cpp">pybind11::cpp_function::dispatcher(_object*, _object* const*, unsigned long, _object*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">1116</span>                // 6. Call the function.
+<span class="line_number">1117</span>                try {
+<span class="line_number">1118</span>                    loader_life_support guard{};
+<span class="line_number">1119</span><span class="error">                    result = func.impl(call);
+</span><span class="line_number">1120</span>                } catch (reference_cast_error &amp;) {
+<span class="line_number">1121</span>                    result = PYBIND11_TRY_NEXT_OVERLOAD;
+<span class="line_number">1122</span>                }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    _PyObject_MakeTpCall<br>
+                                    <code class="cpp">_PyObject_MakeTpCall</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    None<br>
+                                    <code class="cpp">None</code>
+                                </div>
+                                <pre><code class="c++"></code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">42</span><span class="error">      t(idx) = *(arr_data + arr_idx);</span>
+<span class="line_number">43</span>    });
+<span class="line_number">44</span>
+<span class="line_number">45</span>    return t;
+<span class="line_number">46</span>  }
+<span class="line_number">47</span>
+<span class="line_number">48</span>  template &lt;typename NumpyValueT, typename TensorValueT&gt;
+<span class="line_number">49</span>  void register_np_conversion_function(py::module_&amp; m, const std::string&amp; suffix)
+<span class="line_number">50</span>  {
+<span class="line_number">51</span>    m.def((&#34;ndarray_to_tensor_&#34; + suffix).c_str(), &amp;convert_numpy_to_tensor&lt;NumpyValueT, TensorValueT&gt;);
+<span class="line_number">52</span>  }
+<span class="line_number">53</span>}
+<span class="line_number">54</span>
+<span class="line_number">55</span>namespace mpcf_py
+<span class="line_number">56</span>{
+<span class="line_number">57</span>
+<span class="line_number">58</span>  void register_np_conversions(py::module_&amp; m)
+<span class="line_number">59</span>  {
+<span class="line_number">60</span>    register_np_conversion_function&lt;mpcf::float32_t, mpcf::float32_t&gt;(m, &#34;32&#34;);
+<span class="line_number">61</span>    register_np_conversion_function&lt;mpcf::float64_t, mpcf::float64_t&gt;(m, &#34;64&#34;);
+<span class="line_number">62</span>
+<span class="line_number">63</span>  }
+<span class="line_number">64</span>
+<span class="line_number">65</span>}
+</code>
+            </pre>
+        </div>
+    </div>
+</body>
+
+</html>
