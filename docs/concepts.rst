@@ -168,6 +168,12 @@ There are several concrete tensor types, each corresponding to a dtype:
    * - ``Pcf64Tensor``
      - ``pcf64``
      - 64-bit piecewise constant functions
+   * - ``Pcf32iTensor``
+     - ``pcf32i``
+     - 32-bit integer piecewise constant functions
+   * - ``Pcf64iTensor``
+     - ``pcf64i``
+     - 64-bit integer piecewise constant functions
    * - ``Float32Tensor``
      - ``f32``
      - 32-bit floating-point scalars
@@ -198,10 +204,14 @@ The ``dtype`` parameter controls the element type of a tensor, analogous to NumP
 PCF types
 ---------
 
-- :py:class:`~masspcf.pcf32` -- 32-bit piecewise constant functions (the default dtype)
-- :py:class:`~masspcf.pcf64` -- 64-bit piecewise constant functions
+- :py:class:`~masspcf.pcf32` -- 32-bit floating-point piecewise constant functions (the default dtype)
+- :py:class:`~masspcf.pcf64` -- 64-bit floating-point piecewise constant functions
+- :py:class:`~masspcf.pcf32i` -- 32-bit integer piecewise constant functions
+- :py:class:`~masspcf.pcf64i` -- 64-bit integer piecewise constant functions
 
 Use ``pcf32`` for most work. Use ``pcf64`` when you need higher numerical precision.
+``pcf32i`` and ``pcf64i`` provide integer-valued PCFs. They support construction,
+evaluation, arithmetic, and serialization, but not norms or distances.
 
 Numeric types
 -------------

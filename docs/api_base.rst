@@ -114,6 +114,14 @@ typing
 
    64-bit PCF dtype. Use as the ``dtype`` argument when creating tensors of 64-bit piecewise constant functions.
 
+.. py:class:: pcf32i
+
+   32-bit integer PCF dtype. Use as the ``dtype`` argument when creating tensors of 32-bit integer piecewise constant functions.
+
+.. py:class:: pcf64i
+
+   64-bit integer PCF dtype. Use as the ``dtype`` argument when creating tensors of 64-bit integer piecewise constant functions.
+
 .. py:data:: f32
 
    32-bit floating-point scalar dtype (alias for ``numpy.float32``). Use as the ``dtype`` argument when creating tensors of scalar float values.

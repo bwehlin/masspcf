@@ -35,9 +35,10 @@ class Pcf:
         Input data. If an ndarray or list, should have shape (n, 2) where each
         row is a (time, value) pair. Can also be an existing ``Pcf`` to copy.
     dtype : type, optional
-        Data type for the PCF (``pcf32`` or ``pcf64``). If ``None``, the dtype
-        is inferred from the input array (e.g. a ``numpy.float32`` array
-        produces a 32-bit PCF).
+        Data type for the PCF (``pcf32``, ``pcf64``, ``pcf32i``, or ``pcf64i``).
+        If ``None``, the dtype is inferred from the input array (e.g. a
+        ``numpy.float32`` array produces a 32-bit PCF, a ``numpy.int32`` array
+        produces a 32-bit integer PCF).
 
     Examples
     --------

@@ -134,7 +134,8 @@ Arithmetic
 ==========
 
 Numeric and PCF tensors support the standard arithmetic operators ``+``, ``-``,
-``*``, ``/`` (and their in-place counterparts ``+=``, ``-=``, ``*=``, ``/=``).
+``*``, ``/``, unary ``-``, and their in-place counterparts ``+=``, ``-=``,
+``*=``, ``/=``.
 
 Scalar arithmetic
 -----------------
@@ -145,15 +146,20 @@ Every operator accepts a scalar on either side::
 
    Y = X * 2.0      # [2.0, 4.0, 6.0]
    Z = 10.0 + X     # [11.0, 12.0, 13.0]
+   W = 10.0 / X     # [10.0, 5.0, 3.33...]
    X /= 5.0         # in-place: [0.2, 0.4, 0.6]
 
-For PCF tensors, all four operators accept a ``Pcf`` operand (pointwise
-operations), while ``*`` and ``/`` also accept numeric scalars::
+PCF tensors support all four operators with both ``Pcf`` operands (pointwise)
+and numeric scalars. Scalar ``+`` and ``-`` shift the values, while ``*`` and
+``/`` scale them::
 
    X = mpcf.zeros((5,))
    # ... fill X with PCFs ...
-   X_scaled = X * 3.0
-   X_shifted = X + some_pcf
+   X * 3.0           # scale values
+   X + 10.0          # shift values up
+   1.0 / X           # elementwise reciprocal
+   -X                # negate
+   X + some_pcf      # pointwise PCF addition
 
 Tensor-tensor arithmetic (broadcasting)
 ----------------------------------------
