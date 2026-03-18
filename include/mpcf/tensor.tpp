@@ -428,47 +428,7 @@ namespace mpcf
 #endif
   void Tensor<T>::walk(UnaryFunc&& f) const
   {
-    if (m_shape.empty() || std::any_of(m_shape.begin(), m_shape.end(), [](size_t n){ return n == 0; }))
-    {
-      return;
-    }
-    auto ndim = m_shape.size();
-
-    std::vector<size_t> cur(ndim, 0_uz);
-
-    while (true)
-    {
-      if constexpr (std::is_same_v<decltype(f(cur)), bool>)
-      {
-        // If f returns bool, stop walking on false being returned.
-        if (!f(cur))
-        {
-          return;
-        }
-      }
-      else
-      {
-        f(cur);
-      }
-
-
-      for (ptrdiff_t i = ndim - 1; i >= 0 ; --i)
-      {
-        ++cur[i];
-
-        if (cur[i] < m_shape[i])
-        {
-          break;
-        }
-
-        if (i == 0)
-        {
-          return;
-        }
-
-        cur[i] = 0;
-      }
-    }
+    mpcf::walk(*this, std::forward<UnaryFunc>(f));
   }
 
   template <typename T>
@@ -658,5 +618,55 @@ namespace mpcf
   T& Tensor<T>::index_to_ref(const std::vector<size_t>& index)
   {
     return m_data[index_to_data_index(index)];
+  }
+
+  template <IsTensor TTensor, typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  void walk(const TTensor& tensor, UnaryFunc&& f)
+  {
+    auto shape_range = tensor.shape();
+    std::vector<size_t> shape(std::begin(shape_range), std::end(shape_range));
+
+    if (shape.empty() || std::any_of(shape.begin(), shape.end(), [](size_t n){ return n == 0; }))
+    {
+      return;
+    }
+
+    auto ndim = shape.size();
+    std::vector<size_t> cur(ndim, 0_uz);
+
+    while (true)
+    {
+      if constexpr (std::is_same_v<decltype(f(cur)), bool>)
+      {
+        if (!f(cur))
+        {
+          return;
+        }
+      }
+      else
+      {
+        f(cur);
+      }
+
+      for (ptrdiff_t i = ndim - 1; i >= 0; --i)
+      {
+        ++cur[i];
+
+        if (cur[i] < shape[i])
+        {
+          break;
+        }
+
+        if (i == 0)
+        {
+          return;
+        }
+
+        cur[i] = 0;
+      }
+    }
   }
 }

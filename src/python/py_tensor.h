@@ -20,10 +20,18 @@
 #define MASSPCF_PY_TENSOR_H
 
 #include "pybind.h"
+#include "py_np_support.h"
 #include <pybind11/stl.h>
+#include <pybind11/numpy.h>
 
 #include <mpcf/tensor.h>
 #include <mpcf/concepts.h>
+#include <mpcf/functional/pcf.h>
+
+#include "functional/py_pcf_tensor_eval.h"
+
+#include <algorithm>
+#include <numeric>
 
 namespace mpcf_py
 {
@@ -44,6 +52,22 @@ namespace mpcf_py
 
   template <typename T>
   using scalar_of_t = typename scalar_of<T>::type;
+
+  template <typename T>
+  struct time_of
+  {
+    using type = T;
+  };
+
+  template <typename T>
+  requires requires { typename T::time_type; }
+  struct time_of<T>
+  {
+    using type = typename T::time_type;
+  };
+
+  template <typename T>
+  using time_of_t = typename time_of<T>::type;
 
   class Shape
   {
@@ -258,6 +282,7 @@ namespace mpcf_py
     cls.def("broadcast_to", [](const TTensor& self, const std::vector<size_t>& shape){ return self.broadcast_to(shape); });
 
     using Tv = scalar_of_t<T>;
+    using Tt = time_of_t<T>;
 
     if constexpr (mpcf::CanAddTo<T, T, T>)
     {
@@ -327,6 +352,29 @@ namespace mpcf_py
     if constexpr (mpcf::CanDivideTo<T, Tv, T>)
     {
       cls.def("__rtruediv__", [](const TTensor& self, Tv lhs){ return lhs / self; });
+    }
+
+    if constexpr (mpcf::PcfLike<T>)
+    {
+      cls.def("__call__", [](const TTensor& self, Tt t) {
+        return mpcf_py::pcf_tensor_eval_scalar<Tt, Tv>(self, t);
+      });
+
+      cls.def("__call__", [](const TTensor& self, py::array_t<Tt> times) {
+        NumpyTensor<Tt> t_in(times);
+        auto sh = mpcf_py::eval_out_shape(self, t_in);
+        std::vector<py::ssize_t> out_shape(sh.begin(), sh.end());
+        py::array_t<Tv> result(out_shape);
+        NumpyTensor<Tv> out(result);
+        mpcf::tensor_eval<Tt, Tv>(self, t_in, out);
+        return result;
+      });
+
+      cls.def("__call__", [](const TTensor& self, const mpcf::Tensor<Tt>& times) {
+        mpcf::Tensor<Tv> out(mpcf_py::eval_out_shape(self, times));
+        mpcf::tensor_eval<Tt, Tv>(self, times, out);
+        return out;
+      });
     }
 
   }

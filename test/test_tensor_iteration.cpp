@@ -50,3 +50,133 @@ TEST(TensorIteration, AxisIteration)
   x({0, 0}) = 10;
 
 }
+
+// --- walk tests ---
+
+TEST(TensorWalk, Walk1dOdometerOrder)
+{
+  mpcf::Tensor<int> x({4});
+  std::vector<std::vector<size_t>> visited;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
+    visited.push_back(idx);
+  });
+
+  std::vector<std::vector<size_t>> expected = {{0}, {1}, {2}, {3}};
+  EXPECT_EQ(visited, expected);
+}
+
+TEST(TensorWalk, Walk2dOdometerOrder)
+{
+  mpcf::Tensor<int> x({2, 3});
+  std::vector<std::vector<size_t>> visited;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
+    visited.push_back(idx);
+  });
+
+  std::vector<std::vector<size_t>> expected = {
+    {0, 0}, {0, 1}, {0, 2},
+    {1, 0}, {1, 1}, {1, 2}
+  };
+  EXPECT_EQ(visited, expected);
+}
+
+TEST(TensorWalk, Walk3dOdometerOrder)
+{
+  mpcf::Tensor<int> x({2, 2, 2});
+  std::vector<std::vector<size_t>> visited;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
+    visited.push_back(idx);
+  });
+
+  std::vector<std::vector<size_t>> expected = {
+    {0, 0, 0}, {0, 0, 1}, {0, 1, 0}, {0, 1, 1},
+    {1, 0, 0}, {1, 0, 1}, {1, 1, 0}, {1, 1, 1}
+  };
+  EXPECT_EQ(visited, expected);
+}
+
+TEST(TensorWalk, WalkEmptyTensor)
+{
+  mpcf::Tensor<int> x({0});
+  size_t count = 0;
+  mpcf::walk(x, [&](const std::vector<size_t>&) { ++count; });
+  EXPECT_EQ(count, 0);
+}
+
+TEST(TensorWalk, WalkEmptyShape)
+{
+  mpcf::Tensor<int> x(std::vector<size_t>{});
+  size_t count = 0;
+  mpcf::walk(x, [&](const std::vector<size_t>&) { ++count; });
+  EXPECT_EQ(count, 0);
+}
+
+TEST(TensorWalk, WalkBoolEarlyTermination)
+{
+  mpcf::Tensor<int> x({10});
+  std::vector<std::vector<size_t>> visited;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) -> bool {
+    visited.push_back(idx);
+    return idx[0] < 3;
+  });
+
+  std::vector<std::vector<size_t>> expected = {{0}, {1}, {2}, {3}};
+  EXPECT_EQ(visited, expected);
+}
+
+TEST(TensorWalk, WalkReadsCorrectValues)
+{
+  mpcf::Tensor<int> x({2, 3});
+  int val = 0;
+  x({0, 0}) = val++;
+  x({0, 1}) = val++;
+  x({0, 2}) = val++;
+  x({1, 0}) = val++;
+  x({1, 1}) = val++;
+  x({1, 2}) = val++;
+
+  std::vector<int> values;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
+    values.push_back(x(idx));
+  });
+
+  std::vector<int> expected = {0, 1, 2, 3, 4, 5};
+  EXPECT_EQ(values, expected);
+}
+
+TEST(TensorWalk, WalkSingleElement)
+{
+  mpcf::Tensor<int> x({1});
+  std::vector<std::vector<size_t>> visited;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
+    visited.push_back(idx);
+  });
+
+  std::vector<std::vector<size_t>> expected = {{0}};
+  EXPECT_EQ(visited, expected);
+}
+
+TEST(TensorWalk, WalkZeroDimInMiddle)
+{
+  mpcf::Tensor<int> x({3, 0, 2});
+  size_t count = 0;
+  mpcf::walk(x, [&](const std::vector<size_t>&) { ++count; });
+  EXPECT_EQ(count, 0);
+}
+
+TEST(TensorWalk, MemberWalkMatchesFreeWalk)
+{
+  mpcf::Tensor<int> x({2, 3});
+
+  std::vector<std::vector<size_t>> from_member;
+  x.walk([&](const std::vector<size_t>& idx) {
+    from_member.push_back(idx);
+  });
+
+  std::vector<std::vector<size_t>> from_free;
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
+    from_free.push_back(idx);
+  });
+
+  EXPECT_EQ(from_member, from_free);
+}

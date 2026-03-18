@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from ._tensor_base import ArithmeticTensorMixin, Tensor
+from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor
 from .pcf import Pcf
 from .typing import _validate_dtype, f32, f64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
 
@@ -96,7 +96,7 @@ class Float64Tensor(NumericTensor):
         return np.asarray(self).__str__()
 
 
-class PcfTensor(Tensor, ArithmeticTensorMixin):
+class PcfTensor(Tensor, ArithmeticTensorMixin, FunctionTensorMixin):
     def __init__(self):
         super().__init__()
 

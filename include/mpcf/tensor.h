@@ -306,16 +306,6 @@ namespace mpcf
   requires CanDivideTo<T, U, T>
   [[nodiscard]] Tensor<T> operator/(const U& u, const Tensor<T>& t);
 
-  template <typename T>
-  concept IsTensor = requires(T t, std::vector<size_t> indices, typename T::value_type v) {
-    { t.shape() } -> Iterable;
-    { t.strides() } -> Iterable;
-    { t.rank() } -> std::convertible_to<size_t>;
-    { t(indices) } -> std::common_with<typename T::value_type>;
-
-    typename T::value_type;
-  };
-
   inline std::string shape_to_string(const std::vector<size_t>& shape)
   {
     std::stringstream ss;
@@ -383,6 +373,15 @@ namespace mpcf
   template <ArithmeticType T>
   using PointCloud = Tensor<T>;
 
+  /**
+   * Visit every index of any IsTensor in row-major order, invoking f(idx) at each.
+   * If f returns bool, walking stops when f returns false.
+   */
+  template <IsTensor TTensor, typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  void walk(const TTensor& tensor, UnaryFunc&& f);
 
 }
 

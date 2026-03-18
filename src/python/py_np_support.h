@@ -19,6 +19,8 @@
 
 #include <pybind11/numpy.h>
 
+#include <mpcf/concepts.h>
+
 #include <string>
 #include <sstream>
 #include <algorithm>

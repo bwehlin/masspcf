@@ -229,6 +229,109 @@ virtually repeated without copying data::
    # Every row of view is [1, 2, 3]; view shares data with X
 
 
+Evaluation
+==========
+
+PCF tensors are callable: you can evaluate every element at one or more times
+in a single call.
+
+Consider a small example with two PCFs::
+
+   import numpy as np
+   import masspcf as mpcf
+
+   # f(t) = 1 on [0,1), 4 on [1,3), 2 on [3,inf)
+   f = mpcf.Pcf(np.array([[0, 1], [1, 4], [3, 2]], dtype=np.float32))
+
+   # g(t) = 3 on [0,2), 1 on [2,inf)
+   g = mpcf.Pcf(np.array([[0, 3], [2, 1]], dtype=np.float32))
+
+.. image:: _static/pcf_definitions_light.png
+   :width: 80%
+   :class: only-light
+   :alt: The two PCFs f and g
+
+.. image:: _static/pcf_definitions_dark.png
+   :width: 80%
+   :class: only-dark
+   :alt: The two PCFs f and g
+
+.. dropdown:: Show plotting code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_tensor_eval_fig.py
+      :pyobject: plot_pcf_definitions
+      :language: python
+
+Arrange them in a 2x2 tensor::
+
+   X = mpcf.zeros((2, 2))
+   X[0, 0] = f
+   X[0, 1] = g
+   X[1, 0] = g
+   X[1, 1] = f
+
+Scalar evaluation
+-----------------
+
+Pass a single number to get one value per PCF. The result is a NumPy array
+with the same shape as the tensor::
+
+   X(2)
+   # array([[4., 1.],
+   #        [1., 4.]], dtype=float32)
+
+.. image:: _static/tensor_eval_example_light.png
+   :width: 80%
+   :class: only-light
+   :alt: Each PCF in the 2x2 tensor evaluated at t=2
+
+.. image:: _static/tensor_eval_example_dark.png
+   :width: 80%
+   :class: only-dark
+   :alt: Each PCF in the 2x2 tensor evaluated at t=2
+
+.. dropdown:: Show plotting code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_tensor_eval_fig.py
+      :pyobject: plot_tensor_eval_example
+      :language: python
+
+Array evaluation
+----------------
+
+Pass an array of times to evaluate every PCF at every time. The time
+dimensions are appended to the tensor shape::
+
+   times = np.array([1, 2, 4], dtype=np.float32)
+   X(times)
+   # shape (2, 2, 3) -- tensor shape (2,2) + times shape (3,)
+   # array([[[1., 4., 2.],
+   #         [3., 1., 1.]],
+   #        [[3., 1., 1.],
+   #         [1., 4., 2.]]], dtype=float32)
+
+Multi-dimensional time arrays work too::
+
+   t2d = np.array([[1, 2],
+                    [3, 4]], dtype=np.float32)
+   X(t2d).shape  # (2, 2, 2, 2) -- tensor shape + times shape
+
+Lists are converted to NumPy arrays internally::
+
+   X([1, 2, 4])  # same as X(np.array([1, 2, 4]))
+
+Float tensor evaluation
+-----------------------
+
+Passing a :py:class:`~masspcf.Float32Tensor` or :py:class:`~masspcf.Float64Tensor`
+returns a tensor of the same type::
+
+   t = mpcf.Float32Tensor(np.array([1, 2, 4], dtype=np.float32))
+   result = X(t)  # returns a Float32Tensor of shape (2, 2, 3)
+
+
 Reductions
 ==========
 

@@ -16,6 +16,8 @@
 #define MASSPCF_CONCEPTS_H
 
 #include <concepts>
+#include <iterator>
+#include <vector>
 
 namespace mpcf
 {
@@ -75,6 +77,31 @@ namespace mpcf
   concept CanNegate = requires(T t)
   {
     { -t } -> std::convertible_to<T>;
+  };
+
+  // Any type that can be evaluated at a point in DomainT, yielding a value convertible to CodomainT.
+  template <typename T, typename DomainT, typename CodomainT>
+  concept Evaluable = requires(T t, DomainT x)
+  {
+    { t.evaluate(x) } -> std::convertible_to<CodomainT>;
+  };
+
+  template <typename T>
+  concept Iterable = requires(T t)
+  {
+    std::begin(t);
+    std::end(t);
+  };
+
+  template <typename T>
+  concept IsTensor = requires(T t, std::vector<size_t> indices)
+  {
+    { t.shape() } -> Iterable;
+    { t.strides() } -> Iterable;
+    { t.rank() } -> std::convertible_to<size_t>;
+    { t(indices) } -> std::common_with<typename T::value_type>;
+
+    typename T::value_type;
   };
 }
 

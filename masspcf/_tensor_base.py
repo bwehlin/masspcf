@@ -159,6 +159,43 @@ class Tensor(ABC):
             )
 
 
+class FunctionTensorMixin:
+    """Mixin for tensors whose elements can be evaluated at domain points.
+
+    Delegates to C++ ``__call__`` overloads which handle scalar, numpy array,
+    and Tensor inputs. Tensor inputs are unwrapped, evaluated in C++,
+    and the result is re-wrapped via the input's ``_to_py_tensor``.
+    For scalars, lists, and numpy arrays the result is returned as an ndarray.
+    """
+
+    def __call__(self, t):
+        """Evaluate every element of the tensor at the given domain point(s).
+
+        Parameters
+        ----------
+        t : scalar, list, numpy.ndarray, or NumericTensor
+            A single domain value or a collection of values.
+
+        Returns
+        -------
+        numpy.ndarray or NumericTensor
+            For scalar *t*, the result has shape ``self.shape``.
+            For array-like *t* of shape ``t_shape``, the result has shape
+            ``self.shape + t_shape``.
+            A ``NumericTensor`` input produces a ``NumericTensor`` output;
+            all other inputs produce a ``numpy.ndarray``.
+        """
+        import numpy as np
+
+        if isinstance(t, Tensor):
+            return t._to_py_tensor(self._data(t._data))
+        if isinstance(t, list):
+            t = np.asarray(t)
+        if isinstance(t, (int, float, np.generic, np.ndarray)):
+            return np.asarray(self._data(t))
+        raise TypeError(f"Cannot evaluate tensor at argument of type {type(t)}")
+
+
 class ArithmeticTensorMixin:
     """Mixin providing elementwise arithmetic operators for tensors.
 

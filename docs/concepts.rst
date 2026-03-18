@@ -86,9 +86,38 @@ You can also pass a ``list`` (converted to an array internally), or a :py:class:
 
 The input times do not need to be sorted. When evaluating at multiple times, the library automatically sorts them so that the breakpoints can be scanned in a single linear pass, then maps the results back to the original order.
 
+Evaluating a PCF tensor
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+PCF tensors can also be called directly. This evaluates every element of the tensor at the given time(s), returning a NumPy array (or a float tensor for float tensor input).
+
+For a **scalar** time, the result has the same shape as the tensor::
+
+   X = mpcf.zeros((3, 4), dtype=mpcf.pcf32)
+   # ... fill X with PCFs ...
+
+   result = X(1.5)  # shape (3, 4) -- one value per PCF
+
+For an **array** of times, the time dimensions are appended to the tensor shape::
+
+   import numpy as np
+
+   times = np.array([0.0, 1.0, 5.0], dtype=np.float32)
+   result = X(times)  # shape (3, 4, 3) -- each PCF evaluated at 3 times
+
+This also works with multi-dimensional time arrays: if times has shape ``(k1, k2)``, the result has shape ``tensor.shape + (k1, k2)``.
+
+You can pass a ``list`` (converted to a NumPy array internally), or a :py:class:`~masspcf.Float32Tensor` / :py:class:`~masspcf.Float64Tensor` (which returns a tensor of the same type).
+
 .. note::
 
-   Evaluating at a single time uses binary search and runs in :math:`O(\log n)` where :math:`n` is the number of breakpoints. Evaluating at :math:`m` times costs :math:`O(m \log m + n)`: :math:`O(m \log m)` for sorting the query times, then :math:`O(n)` for the linear scan over the breakpoints.
+   **Time complexity.** Let :math:`n` denote the number of breakpoints in a PCF and :math:`m` the number of query times.
+
+   - **Single PCF, single time:** :math:`O(\log n)` (binary search).
+   - **Single PCF, m times:** :math:`O(m \log m + m + n)`. The query times are sorted in :math:`O(m \log m)`, then a single linear scan advances two pointers -- one through the :math:`m` sorted times, one through the :math:`n` breakpoints -- giving :math:`O(m + n)`.
+   - **Tensor of N PCFs, m times:** :math:`O(m \log m + N(m + n))`. The sort happens once; each PCF is scanned in :math:`O(m + n)`.
+
+   Here :math:`n` denotes the average number of breakpoints when PCFs have different sizes.
 
 Tensors
 =======

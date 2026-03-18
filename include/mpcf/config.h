@@ -89,12 +89,6 @@ namespace mpcf
   template<typename T>
   concept Arithmetic = std::is_arithmetic_v<T>;
 
-  template <typename T>
-  concept Iterable = requires(T t) {
-    std::begin(t);
-    std::end(t);
-  };
-
   namespace detail
   {
     template <typename T>
