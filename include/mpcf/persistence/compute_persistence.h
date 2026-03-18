@@ -31,7 +31,7 @@ namespace mpcf::ph
   namespace detail
   {
     template <typename T>
-    void compute_persistence_euclidean_single_impl(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index)
+    void compute_persistence_euclidean_single_impl(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index, bool reducedHomology = false)
     {
       if (index.back() != 0)
       {
@@ -94,21 +94,22 @@ namespace mpcf::ph
         auto retIdx = index;
         retIdx.back() = i;
 
-        if constexpr (std::is_same_v<T, rips::value_t>)
+        std::vector<PersistencePair<T>> bars;
+        bars.reserve(intervals.size() + 1);
+
+        // Ripser computes reduced homology. When unreduced homology is
+        // requested, insert the essential H0 class (born at 0, never dies).
+        if (i == 0 && !reducedHomology)
         {
-          ret(retIdx) = intervals;
+          bars.emplace_back(T{0}, std::numeric_limits<T>::infinity());
         }
-        else
+
+        for (auto const& rpair : intervals)
         {
-          // TODO: template on bar type in Ripser so that we don't have to do this conversion
-          std::vector<PersistencePair<T>> conv;
-          conv.resize(intervals.size());
-          std::transform(intervals.begin(), intervals.end(), conv.begin(),
-            [](const PersistencePair<rips::value_t>& rpair) {
-              return PersistencePair<T>(static_cast<T>(rpair.birth), static_cast<T>(rpair.death));
-            });
-          ret(retIdx) = conv;
+          bars.emplace_back(static_cast<T>(rpair.birth), static_cast<T>(rpair.death));
         }
+
+        ret(retIdx) = std::move(bars);
       }
     }
   }
@@ -117,8 +118,8 @@ namespace mpcf::ph
   class RipserTask : public StoppableTask<void>
   {
   public:
-    RipserTask(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim = 1)
-      : m_pclouds(pclouds), m_ret(ret), m_maxDim(maxDim)
+    RipserTask(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim = 1, bool reducedHomology = false)
+      : m_pclouds(pclouds), m_ret(ret), m_maxDim(maxDim), m_reducedHomology(reducedHomology)
     { }
 
   private:
@@ -142,7 +143,7 @@ namespace mpcf::ph
         flow.emplace([this, index] {
           if (stop_requested())
             return;
-          detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index);
+          detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index, m_reducedHomology);
           add_progress(1);
         });
       });
@@ -153,6 +154,7 @@ namespace mpcf::ph
     const Tensor<PointCloud<T>>& m_pclouds;
     Tensor<Barcode<T>>& m_ret;
     size_t m_maxDim;
+    bool m_reducedHomology;
 
   };
 

@@ -24,9 +24,10 @@ def _compute_barcodes_euclidean_pcloud_ripser(
     X: PointCloud32Tensor | PointCloud64Tensor,
     out: Barcode32Tensor | Barcode64Tensor,
     maxDim: int = 1,
+    reducedHomology: bool = False,
 ):
     backend, X = _get_backend(
         X, {pcloud32: cpp_p.PersistenceRipser32, pcloud64: cpp_p.PersistenceRipser64}
     )
 
-    return backend.spawn_ripser_pcloud_euclidean_task(X._data, out._data, maxDim)
+    return backend.spawn_ripser_pcloud_euclidean_task(X._data, out._data, maxDim, reducedHomology)

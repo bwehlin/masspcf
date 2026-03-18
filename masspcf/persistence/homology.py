@@ -47,6 +47,7 @@ def compute_persistent_homology(
     maxDim: int = 1,
     distance_type: DistanceType = DistanceType.Euclidean,
     complex_type: ComplexType = ComplexType.VietorisRips,
+    reduced: bool = False,
     verbose: bool = True,
 ) -> Barcode32Tensor | Barcode64Tensor:
     r"""Compute persistent homology of a point cloud.
@@ -71,6 +72,10 @@ def compute_persistent_homology(
         Distance metric, by default ``DistanceType.Euclidean``.
     complex_type : ComplexType, optional
         Simplicial complex type, by default ``ComplexType.VietorisRips``.
+    reduced : bool, optional
+        If ``True``, compute reduced homology (no essential H0 class).
+        If ``False`` (default), an infinite bar ``[0, inf)`` is added to
+        H0 representing the single connected component.
     verbose : bool, optional
         Show progress information, by default True.
 
@@ -118,7 +123,7 @@ def compute_persistent_homology(
         # Use Ripser
         match distance_type:
             case DistanceType.Euclidean:
-                task = _compute_barcodes_euclidean_pcloud_ripser(X, out, maxDim)
+                task = _compute_barcodes_euclidean_pcloud_ripser(X, out, maxDim, reduced)
             case _:
                 raise ValueError(
                     f"Distance type {distance_type} not supported for complex type {complex_type}."

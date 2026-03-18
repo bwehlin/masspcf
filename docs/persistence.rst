@@ -62,7 +62,7 @@ Higher-dimensional tensors work as well::
 Step 2: Computing persistent homology
 =======================================
 
-:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser [B21]_ under the hood.
+:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser [B21]_ under the hood::
 
    from masspcf import persistence as mpers
 
@@ -103,6 +103,7 @@ The function supports the following options:
 
 - ``distance_type`` -- The distance metric used between points. Currently only ``DistanceType.Euclidean`` (the default).
 - ``complex_type`` -- The simplicial complex construction. Currently only ``ComplexType.VietorisRips`` (the default).
+- ``reduced`` -- If ``True``, compute reduced homology. If ``False`` (the default), an essential ``[0, inf)`` bar is added to :math:`H_0` representing the single connected component that never dies. This matches the convention used by most TDA textbooks.
 - ``verbose`` -- Print progress information (default ``True``).
 
 

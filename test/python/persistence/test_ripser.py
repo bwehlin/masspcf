@@ -72,15 +72,18 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns
     assert bcs.shape == (3, 2, 7, 4)
 
 
-def test_persistence_ripser_compute_euclidean_barcode_gets_correct_barcode():
-    X = np.zeros((4, 2))
-
+def _make_rectangle_point_cloud():
     # Distance space is "two 3-4-5 triangles". This gives nontrivial H0 and H1 with bars at integers.
-
+    X = np.zeros((4, 2))
     X[0, :] = [0.0, 0.0]
     X[1, :] = [0.0, 4.0]
     X[2, :] = [3.0, 0.0]
     X[3, :] = [3.0, 4.0]
+    return X
+
+
+def test_persistence_ripser_unreduced_homology():
+    X = _make_rectangle_point_cloud()
 
     bcs = mpers.compute_persistent_homology(
         X,
@@ -93,14 +96,35 @@ def test_persistence_ripser_compute_euclidean_barcode_gets_correct_barcode():
     h1 = bcs[1]
     h2 = bcs[2]
 
-    expected_h0_bars = np.array([[0.0, 3.0], [0.0, 3.0], [0.0, 4]])
-    expected_h0 = mpers.Barcode(expected_h0_bars)
+    expected_h0 = mpers.Barcode(np.array([
+        [0.0, np.inf], [0.0, 3.0], [0.0, 3.0], [0.0, 4.0],
+    ]))
+    expected_h1 = mpers.Barcode(np.array([[4.0, 5.0]]))
+    expected_h2 = mpers.Barcode(np.zeros((0, 2)))
 
-    expected_h1_bars = np.array([[4.0, 5.0]])
-    expected_h1 = mpers.Barcode(expected_h1_bars)
+    assert expected_h0.is_isomorphic_to(h0)
+    assert expected_h1.is_isomorphic_to(h1)
+    assert expected_h2.is_isomorphic_to(h2)
 
-    expected_h2_bars = np.zeros((0, 2))
-    expected_h2 = mpers.Barcode(expected_h2_bars)
+
+def test_persistence_ripser_reduced_homology():
+    X = _make_rectangle_point_cloud()
+
+    bcs = mpers.compute_persistent_homology(
+        X,
+        maxDim=2,
+        reduced=True,
+        complex_type=mpers.ComplexType.VietorisRips,
+        distance_type=mpers.DistanceType.Euclidean,
+    )
+
+    h0 = bcs[0]
+    h1 = bcs[1]
+    h2 = bcs[2]
+
+    expected_h0 = mpers.Barcode(np.array([[0.0, 3.0], [0.0, 3.0], [0.0, 4.0]]))
+    expected_h1 = mpers.Barcode(np.array([[4.0, 5.0]]))
+    expected_h2 = mpers.Barcode(np.zeros((0, 2)))
 
     assert expected_h0.is_isomorphic_to(h0)
     assert expected_h1.is_isomorphic_to(h1)

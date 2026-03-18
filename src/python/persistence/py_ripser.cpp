@@ -28,9 +28,9 @@ namespace
   class PyRipserBindings
   {
   public:
-    static std::unique_ptr<mpcf::StoppableTask<void>> spawn_ripser_pcloud_euclidean_task(const mpcf::Tensor<mpcf::PointCloud<T>>& pclouds, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim)
+    static std::unique_ptr<mpcf::StoppableTask<void>> spawn_ripser_pcloud_euclidean_task(const mpcf::Tensor<mpcf::PointCloud<T>>& pclouds, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim, bool reducedHomology)
     {
-      return mpcf_py::execute_stoppable_task<mpcf::ph::RipserTask<T>>(pclouds, out, maxDim);
+      return mpcf_py::execute_stoppable_task<mpcf::ph::RipserTask<T>>(pclouds, out, maxDim, reducedHomology);
     }
 
     static void register_bindings(py::module_& m, const std::string& suffix)
