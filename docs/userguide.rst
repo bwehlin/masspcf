@@ -6,6 +6,8 @@ User guide
 
    concepts
    tensors
+   plotting
+   saving
    distances
    persistence
    gpu

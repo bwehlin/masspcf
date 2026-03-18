@@ -59,66 +59,6 @@ You can convert a ``Pcf`` back to a NumPy array with :py:meth:`~masspcf.Pcf.to_n
 
    arr = f.to_numpy()  # shape (3, 2), dtype float32
 
-Evaluating a PCF
-~~~~~~~~~~~~~~~~~
-
-Since a ``Pcf`` represents a function, you can call it to evaluate it at any time :math:`t \ge 0`. Pass a single number to get a single value, or an array of times to evaluate at many points at once::
-
-   f = mpcf.Pcf([[0, 1], [2, 3], [5, 0]])
-
-   # Single time -- returns a float
-   f(1.0)    # 1.0  (on the interval [0, 2))
-   f(3.5)    # 3.0  (on the interval [2, 5))
-   f(10.0)   # 0.0  (on the interval [5, inf))
-
-   # NumPy array of times -- returns an ndarray of the same shape
-   import numpy as np
-   times = np.array([0.0, 1.0, 2.0, 5.0, 10.0], dtype=np.float32)
-   values = f(times)  # array([1., 1., 3., 0., 0.], dtype=float32)
-
-   # Works with multi-dimensional arrays too
-   t2d = np.array([[0.5, 2.5],
-                    [6.0, 1.0]], dtype=np.float32)
-   f(t2d)  # array([[1., 3.],
-           #        [0., 1.]], dtype=float32)
-
-You can also pass a ``list`` (converted to an array internally), or a :py:class:`~masspcf.Float32Tensor` / :py:class:`~masspcf.Float64Tensor` (which returns a tensor of the same type).
-
-The input times do not need to be sorted. When evaluating at multiple times, the library automatically sorts them so that the breakpoints can be scanned in a single linear pass, then maps the results back to the original order.
-
-Evaluating a PCF tensor
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-PCF tensors can also be called directly. This evaluates every element of the tensor at the given time(s), returning a NumPy array (or a float tensor for float tensor input).
-
-For a **scalar** time, the result has the same shape as the tensor::
-
-   X = mpcf.zeros((3, 4), dtype=mpcf.pcf32)
-   # ... fill X with PCFs ...
-
-   result = X(1.5)  # shape (3, 4) -- one value per PCF
-
-For an **array** of times, the time dimensions are appended to the tensor shape::
-
-   import numpy as np
-
-   times = np.array([0.0, 1.0, 5.0], dtype=np.float32)
-   result = X(times)  # shape (3, 4, 3) -- each PCF evaluated at 3 times
-
-This also works with multi-dimensional time arrays: if times has shape ``(k1, k2)``, the result has shape ``tensor.shape + (k1, k2)``.
-
-You can pass a ``list`` (converted to a NumPy array internally), or a :py:class:`~masspcf.Float32Tensor` / :py:class:`~masspcf.Float64Tensor` (which returns a tensor of the same type).
-
-.. note::
-
-   **Time complexity.** Let :math:`n` denote the number of breakpoints in a PCF and :math:`m` the number of query times.
-
-   - **Single PCF, single time:** :math:`O(\log n)` (binary search).
-   - **Single PCF, m times:** :math:`O(m \log m + m + n)`. The query times are sorted in :math:`O(m \log m)`, then a single linear scan advances two pointers -- one through the :math:`m` sorted times, one through the :math:`n` breakpoints -- giving :math:`O(m + n)`.
-   - **Tensor of N PCFs, m times:** :math:`O(m \log m + N(m + n))`. The sort happens once; each PCF is scanned in :math:`O(m + n)`.
-
-   Here :math:`n` denotes the average number of breakpoints when PCFs have different sizes.
-
 Tensors
 =======
 
@@ -223,6 +163,27 @@ There are several concrete tensor types, each corresponding to a dtype:
      - 64-bit persistence barcodes
 
 In most cases, you do not need to construct these classes directly -- use :py:func:`~masspcf.zeros` or functions like :py:func:`~masspcf.random.noisy_sin` that return the appropriate tensor type automatically.
+
+
+Evaluation
+==========
+
+Since PCFs represent functions, they can be evaluated by calling them as such. Pass a single time to get a single value, or an array of times to evaluate at many points at once::
+
+   f = mpcf.Pcf([[0, 1], [2, 3], [5, 0]])
+
+   f(1.0)    # 1.0  (on the interval [0, 2))
+   f(3.5)    # 3.0  (on the interval [2, 5))
+
+PCF tensors are also callable -- evaluating every element at the given time(s)::
+
+   X = mpcf.zeros((3, 4), dtype=mpcf.pcf32)
+   # ... fill X with PCFs ...
+
+   X(1.5)        # shape (3, 4) -- one value per PCF
+   X([0, 1, 5])  # shape (3, 4, 3) -- each PCF evaluated at 3 times
+
+See :doc:`tensors` for full details on scalar, array, and tensor evaluation, including accepted input types and output shapes.
 
 
 The dtype system

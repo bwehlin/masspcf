@@ -348,6 +348,21 @@ returns a tensor of the same type::
    t = mpcf.Float32Tensor(np.array([1, 2, 4], dtype=np.float32))
    result = X(t)  # returns a Float32Tensor of shape (2, 2, 3)
 
+Time complexity
+---------------
+
+The input times do not need to be sorted. When evaluating at multiple times, the library automatically sorts them so that the breakpoints can be scanned in a single linear pass, then maps the results back to the original order.
+
+.. note::
+
+   Let :math:`n` denote the number of breakpoints in a PCF and :math:`m` the number of query times.
+
+   - **Single PCF, single time:** :math:`O(\log n)` (binary search).
+   - **Single PCF, m times:** :math:`O(m \log m + m + n)`. The query times are sorted in :math:`O(m \log m)`, then a single linear scan advances two pointers -- one through the :math:`m` sorted times, one through the :math:`n` breakpoints -- giving :math:`O(m + n)`.
+   - **Tensor of N PCFs, m times:** :math:`O(m \log m + N(m + n))`. The sort happens once; each PCF is scanned in :math:`O(m + n)`.
+
+   Here :math:`n` denotes the average number of breakpoints when PCFs have different sizes.
+
 
 Reductions
 ==========
@@ -425,64 +440,6 @@ max_time
 The result is a numeric value (or numeric tensor), not a PCF. This is useful for
 aligning PCFs for plotting or further analysis.
 
-
-Saving and loading
-==================
-
-masspcf provides a binary format for efficiently saving and loading tensors. All tensor types are supported, including PCF, numeric, point cloud, and barcode tensors.
-
-Saving
-------
-
-Use :py:func:`~masspcf.save` to write a tensor to a file::
-
-   import masspcf as mpcf
-   from masspcf.random import noisy_sin
-
-   X = noisy_sin((100,), n_points=50)
-   mpcf.save(X, 'my_pcfs.mpcf')
-
-You can also pass an open file object in binary write mode::
-
-   with open('my_pcfs.mpcf', 'wb') as f:
-       mpcf.save(X, f)
-
-Loading
--------
-
-Use :py:func:`~masspcf.load` to read a tensor back::
-
-   X = mpcf.load('my_pcfs.mpcf')
-
-The returned tensor will be of the same type and dtype as what was saved. As with ``save``, you can also pass an open file object::
-
-   with open('my_pcfs.mpcf', 'rb') as f:
-       X = mpcf.load(f)
-
-
-Plotting
-========
-
-The :py:func:`~masspcf.plotting.plot` function provides a quick way to visualize PCFs using matplotlib::
-
-   from masspcf.plotting import plot as plotpcf
-   from masspcf.random import noisy_sin
-   import matplotlib.pyplot as plt
-
-   X = noisy_sin((5,), n_points=50)
-
-   fig, ax = plt.subplots()
-
-   # Plot individual PCFs
-   for i in range(X.shape[0]):
-       plotpcf(X[i], ax=ax, alpha=0.5)
-
-   # Plot a 1-D tensor directly (plots all elements)
-   plotpcf(X, ax=ax, auto_label=True)
-
-   plt.show()
-
-The ``plot`` function accepts any keyword arguments that matplotlib's ``step`` function does (``color``, ``linewidth``, ``alpha``, ``label``, etc.). When plotting a 1-D tensor with ``auto_label=True``, each PCF is automatically labeled as ``f0``, ``f1``, etc.
 
 Combining it all
 ================
