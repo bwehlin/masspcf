@@ -16,6 +16,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .persistence.barcode import Barcode
+from .persistence.ph_tensor import BarcodeTensor
 from .reductions import max_time as max_time_reduction
 from .tensor import PcfContainerLike, PcfTensor
 
@@ -64,3 +66,62 @@ def plot(f: PcfContainerLike, fmt="", ax=None, auto_label=False, max_time=None, 
             plot_single_(f[i], mt, **kw)
     else:
         plot_single_(f, max_time)
+
+
+def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
+    """Plot a persistence barcode as horizontal line segments.
+
+    Parameters
+    ----------
+    bc : Barcode or BarcodeTensor
+        A single ``Barcode`` or a 1-D ``BarcodeTensor``. For a tensor,
+        the barcodes are stacked vertically in order.
+    ax : matplotlib axes, optional
+        Axes to plot on. If ``None``, uses ``matplotlib.pyplot`` directly.
+    y_offset : int, optional
+        Starting y position for the first bar. Useful when stacking
+        multiple barcodes on the same axes.
+    **kwargs
+        Additional keyword arguments passed to
+        ``matplotlib.collections.LineCollection``
+        (e.g. ``color``, ``linewidth``, ``alpha``, ``label``).
+
+    Returns
+    -------
+    int
+        The next available y position (for stacking).
+    """
+    from matplotlib.collections import LineCollection
+
+    ax = plt.gca() if ax is None else ax
+
+    def _collect_bars(bc_single):
+        bars = np.asarray(bc_single)
+        # Replace infinite deaths with a finite cap for display
+        finite = bars[np.isfinite(bars[:, 1])]
+        cap = finite[:, 1].max() * 1.1 if len(finite) > 0 else 1.0
+        bars = bars.copy()
+        bars[~np.isfinite(bars[:, 1]), 1] = cap
+        return bars
+
+    if isinstance(bc, BarcodeTensor):
+        if len(bc.shape) != 1:
+            raise ValueError(f"Expected 1-dimensional tensor (got shape {bc.shape})")
+        y = y_offset
+        for i in range(bc.shape[0]):
+            y = plot_barcode(bc[i], ax=ax, y_offset=y, **kwargs)
+        return y
+
+    bars = _collect_bars(bc)
+    if len(bars) == 0:
+        return y_offset
+
+    segments = [[(b, y_offset + i), (d, y_offset + i)] for i, (b, d) in enumerate(bars)]
+
+    defaults = {"linewidth": 1.5}
+    defaults.update(kwargs)
+    lc = LineCollection(segments, **defaults)
+    ax.add_collection(lc)
+    ax.autoscale_view()
+
+    return y_offset + len(bars)

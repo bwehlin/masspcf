@@ -69,6 +69,19 @@ class Barcode:
     def __repr__(self):
         return self._data.__repr__()
 
+    def to_numpy(self):
+        """Return the bars as an (n, 2) NumPy array of ``(birth, death)`` pairs."""
+        return np.asarray(self._data).copy()
+
+    def __len__(self):
+        return len(self._data)
+
+    def __array__(self, dtype=None, copy=None):
+        arr = np.asarray(self._data)
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        return arr
+
     def is_isomorphic_to(self, bc: Barcode):
         """Check whether two barcodes are isomorphic (same multiset of bars)."""
         return self._data.is_isomorphic_to(bc._data)

@@ -61,12 +61,12 @@ namespace mpcf
       return domain_values[a] < domain_values[b];
     });
 
-    Tensor<DomainT> sorted_domain({n});
+    Tensor<DomainT> sorted_domain(std::vector<size_t>{n});
     for (size_t i = 0; i < n; ++i)
-      sorted_domain({i}) = domain_values[order[i]];
+      sorted_domain(std::vector<size_t>{i}) = domain_values[order[i]];
 
     // Walk element tensor; evaluate each with the linear-scan overload, then unsort
-    Tensor<CodomainT> sorted_result({n});
+    Tensor<CodomainT> sorted_result(std::vector<size_t>{n});
     std::vector<size_t> combined_idx;
     walk(elems, [&](const std::vector<size_t>& elem_idx) {
       elems(elem_idx).evaluate(sorted_domain, sorted_result, n);
@@ -77,7 +77,7 @@ namespace mpcf
       for (size_t i = 0; i < n; ++i) {
         const auto& d_idx = domain_indices[order[i]];
         std::copy(d_idx.begin(), d_idx.end(), combined_idx.begin() + elem_idx.size());
-        out(combined_idx) = sorted_result({i});
+        out(combined_idx) = sorted_result(std::vector<size_t>{i});
       }
     });
   }

@@ -86,6 +86,11 @@ public:
     return m_arr.ndim();
   }
 
+  [[nodiscard]] size_t size() const
+  {
+    return static_cast<size_t>(m_arr.size());
+  }
+
   [[nodiscard]] T& operator()(const std::vector<std::size_t>& idx)
   {
     auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), 0);

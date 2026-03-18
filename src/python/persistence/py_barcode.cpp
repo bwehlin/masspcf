@@ -68,8 +68,23 @@ namespace
 
     static void register_bindings(py::module_& m, const std::string& suffix)
     {
-      py::class_<mpcf::ph::Barcode<T>>(m, ("Barcode" + suffix).c_str())
+      py::class_<mpcf::ph::Barcode<T>>(m, ("Barcode" + suffix).c_str(), py::buffer_protocol())
         .def(py::init([](py::array_t<T> arr) { return construct(arr); }))
+
+        .def_buffer([](const BcT& self) -> py::buffer_info {
+          auto& bars = self.bars();
+          return py::buffer_info(
+              const_cast<mpcf::ph::PersistencePair<T>*>(bars.data()),
+              sizeof(T),
+              py::format_descriptor<T>::format(),
+              2,
+              { static_cast<py::ssize_t>(bars.size()), py::ssize_t{2} },
+              { static_cast<py::ssize_t>(sizeof(mpcf::ph::PersistencePair<T>)),
+                static_cast<py::ssize_t>(sizeof(T)) }
+          );
+        })
+
+        .def("__len__", [](const BcT& self) { return self.bars().size(); })
 
         .def("__str__", [](const BcT& self) -> std::string{
           return "Barcode(" + PyPersistenceBarcodeBindings<T>::dunder_repr(self) + ")";

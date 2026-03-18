@@ -89,6 +89,54 @@ their mean highlighted in the foreground:
       :start-after: docs snippet start mean_highlight --
       :end-before: docs snippet end mean_highlight --
 
+Persistence barcodes
+====================
+
+Use :py:func:`~masspcf.plotting.plot_barcode` to visualize persistence barcodes
+as horizontal line segments. Each bar runs from its birth to its death value.
+Bars with infinite death are capped automatically.
+
+Stack multiple homology dimensions by passing ``y_offset``:
+
+.. image:: _static/gallery_barcode_light.png
+   :width: 60%
+   :class: only-light
+
+.. image:: _static/gallery_barcode_dark.png
+   :width: 60%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start barcode --
+      :end-before: docs snippet end barcode --
+
+TDA pipeline
+=============
+
+A complete example: generate a random point cloud, compute its persistent
+homology, and plot the persistence diagram (via `persim <https://persim.scikit-tda.org/>`_)
+alongside the stable rank:
+
+.. image:: _static/gallery_tda_pipeline_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_tda_pipeline_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start tda_pipeline --
+      :end-before: docs snippet end tda_pipeline --
+
 max_time
 ========
 
