@@ -42,3 +42,14 @@ def _wait_for_task(task, verbose=True):
 
     if verbose:
         progress.update(task.work_completed() - progress.n)
+
+
+def _run_task(task_fn, verbose=True):
+    task = None
+    try:
+        task = task_fn()
+        _wait_for_task(task, verbose=verbose)
+    finally:
+        if task is not None:
+            task.request_stop()
+            _wait_for_task(task, verbose=verbose)

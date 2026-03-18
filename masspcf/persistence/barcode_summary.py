@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 from .. import _mpcf_cpp as cpp
-from ..async_task import _wait_for_task
+from ..async_task import _run_task
 from ..pcf import Pcf
 from ..tensor import Tensor, _get_backend
 from ..tensor_create import zeros
@@ -42,14 +42,10 @@ def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
         elif isinstance(X, Barcode64Tensor):
             out = zeros((1,), dtype=pcf64)
 
-        task = None
-        try:
-            task = getattr(backend, task_method)(X._data, out._data, **kwargs)
-            _wait_for_task(task, verbose)
-        finally:
-            if task is not None:
-                task.request_stop()
-                _wait_for_task(task, verbose=verbose)
+        _run_task(
+            lambda: getattr(backend, task_method)(X._data, out._data, **kwargs),
+            verbose=verbose,
+        )
 
         if len(out.shape) == 2 and out.shape[0] == 1:
             out = out[0, :]

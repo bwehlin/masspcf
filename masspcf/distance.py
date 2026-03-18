@@ -15,7 +15,7 @@
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .async_task import _wait_for_task
+from .async_task import _run_task
 from .np_support import numpy_type
 from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
 from .typing import pcf32, pcf64
@@ -67,12 +67,5 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True):
     backend, fs = _get_distance_backend(fs)
     matrix = np.zeros((X.shape[0], X.shape[0]), dtype=numpy_type(X))
 
-    task = None
-    try:
-        task = backend.pdist_l1(matrix, X._data)
-        _wait_for_task(task, verbose=verbose)
-        return matrix
-    finally:
-        if task is not None:
-            task.request_stop()
-            _wait_for_task(task, verbose=verbose)
+    _run_task(lambda: backend.pdist_l1(matrix, X._data), verbose=verbose)
+    return matrix

@@ -17,7 +17,7 @@ from enum import Enum
 import numpy as np
 
 from .. import _mpcf_cpp as cpp
-from ..async_task import _wait_for_task
+from ..async_task import _run_task
 from ..tensor import (
     Float32Tensor,
     Float64Tensor,
@@ -131,12 +131,7 @@ def compute_persistent_homology(
     else:
         raise ValueError(f"Unsupported complex type {complex_type}")
 
-    try:
-        _wait_for_task(task, verbose)
-    finally:
-        if task is not None:
-            task.request_stop()
-            _wait_for_task(task, verbose=verbose)
+    _run_task(lambda: task, verbose=verbose)
 
     if len(out.shape) == 2 and out.shape[0] == 1:
         out = out[0, :]

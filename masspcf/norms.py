@@ -15,7 +15,7 @@
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .async_task import _wait_for_task
+from .async_task import _run_task
 from .np_support import numpy_type
 from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
 from .typing import pcf32, pcf64
@@ -66,12 +66,5 @@ def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
     backend, fs = _get_norms_backend(fs)
     out = np.zeros(X.shape, dtype=numpy_type(X))
 
-    task = None
-    try:
-        task = backend.lpnorm_l1(out, X._data)
-        _wait_for_task(task, verbose=verbose)
-        return out
-    finally:
-        if task is not None:
-            task.request_stop()
-            _wait_for_task(task, verbose=verbose)
+    _run_task(lambda: backend.lpnorm_l1(out, X._data), verbose=verbose)
+    return out
