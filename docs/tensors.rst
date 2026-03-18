@@ -243,8 +243,8 @@ Consider a small example with two PCFs::
    # f(t) = 1 on [0,1), 4 on [1,3), 2 on [3,inf)
    f = mpcf.Pcf(np.array([[0, 1], [1, 4], [3, 2]], dtype=np.float32))
 
-   # g(t) = 3 on [0,2), 1 on [2,inf)
-   g = mpcf.Pcf(np.array([[0, 3], [2, 1]], dtype=np.float32))
+   # g(t) = 1 on [0,2), 2 on [2,inf)
+   g = mpcf.Pcf(np.array([[0, 1], [2, 2]], dtype=np.float32))
 
 .. image:: _static/pcf_definitions_light.png
    :width: 80%
@@ -268,7 +268,7 @@ Arrange them in a 2x2 tensor::
    X = mpcf.zeros((2, 2))
    X[0, 0] = f
    X[0, 1] = g
-   X[1, 0] = g
+   X[1, 0] = 0.5 * g
    X[1, 1] = f
 
 Scalar evaluation
@@ -278,7 +278,7 @@ Pass a single number to get one value per PCF. The result is a NumPy array
 with the same shape as the tensor::
 
    X(2)
-   # array([[4., 1.],
+   # array([[4., 2.],
    #        [1., 4.]], dtype=float32)
 
 .. image:: _static/tensor_eval_example_light.png
@@ -307,10 +307,27 @@ dimensions are appended to the tensor shape::
    times = np.array([1, 2, 4], dtype=np.float32)
    X(times)
    # shape (2, 2, 3) -- tensor shape (2,2) + times shape (3,)
-   # array([[[1., 4., 2.],
-   #         [3., 1., 1.]],
-   #        [[3., 1., 1.],
-   #         [1., 4., 2.]]], dtype=float32)
+   # array([[[4. , 4. , 2. ],
+   #         [1. , 2. , 2. ]],
+   #        [[0.5, 1. , 1. ],
+   #         [4. , 4. , 2. ]]], dtype=float32)
+
+.. image:: _static/tensor_eval_array_light.png
+   :width: 80%
+   :class: only-light
+   :alt: Each PCF in the 2x2 tensor evaluated at t=1, 2, 4
+
+.. image:: _static/tensor_eval_array_dark.png
+   :width: 80%
+   :class: only-dark
+   :alt: Each PCF in the 2x2 tensor evaluated at t=1, 2, 4
+
+.. dropdown:: Show plotting code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_tensor_eval_fig.py
+      :pyobject: plot_tensor_eval_array
+      :language: python
 
 Multi-dimensional time arrays work too::
 
@@ -470,35 +487,19 @@ The ``plot`` function accepts any keyword arguments that matplotlib's ``step`` f
 Combining it all
 ================
 
-Here is a complete example that creates a tensor of noisy sine and cosine functions, computes their means, and plots the result::
+Here is a complete example that creates a tensor of noisy sine and cosine functions, computes their means, and plots the result:
 
-   import masspcf as mpcf
-   from masspcf.random import noisy_sin, noisy_cos
-   from masspcf.plotting import plot as plotpcf
-   import matplotlib.pyplot as plt
+.. literalinclude:: _static/gen_combining_fig.py
+   :language: python
+   :start-after: docs snippet start --
+   :end-before: docs snippet end --
 
-   M = 10
-   A = mpcf.zeros((2, M))
-
-   A[0, :] = noisy_sin((M,), n_points=100)
-   A[1, :] = noisy_cos((M,), n_points=15)
-
-   fig, ax = plt.subplots(figsize=(6, 2))
-
-   # Plot individual noisy functions
-   plotpcf(A[0, :], ax=ax, color='b', linewidth=0.5, alpha=0.4)
-   plotpcf(A[1, :], ax=ax, color='r', linewidth=0.5, alpha=0.4)
-
-   # Compute and plot means
-   Aavg = mpcf.mean(A, dim=1)
-   plotpcf(Aavg[0], ax=ax, color='b', linewidth=2, label='sin')
-   plotpcf(Aavg[1], ax=ax, color='r', linewidth=2, label='cos')
-
-   plt.xlabel('t')
-   plt.ylabel('f(t)')
-   plt.legend()
-   plt.show()
-
-.. image:: _static/combining_example.png
+.. image:: _static/combining_example_light.png
    :width: 80%
+   :class: only-light
+   :alt: Noisy sine and cosine PCFs with their means
+
+.. image:: _static/combining_example_dark.png
+   :width: 80%
+   :class: only-dark
    :alt: Noisy sine and cosine PCFs with their means
