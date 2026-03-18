@@ -43,6 +43,14 @@ distance
    :undoc-members:
    :show-inheritance:
 
+symmetric_matrix
+----------------
+
+.. automodule:: masspcf.symmetric_matrix
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 norms
 -----
 

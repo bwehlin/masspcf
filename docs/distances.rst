@@ -71,6 +71,25 @@ GPU acceleration
 For large collections of PCFs, ``pdist`` automatically offloads the computation to the GPU when one is available. The number of pairwise integrals grows as :math:`n(n-1)/2`, so GPU acceleration can provide dramatic speedups for large :math:`n`.
 
 
+Symmetric matrices
+===================
+
+:py:class:`~masspcf.SymmetricMatrix` provides a compressed storage format for symmetric matrices. Internally it stores only the lower triangle — :math:`n(n+1)/2` elements instead of :math:`n^2` — while supporting transparent ``[i, j]`` access.
+
+::
+
+   from masspcf import SymmetricMatrix
+   from masspcf.typing import f32
+
+   m = SymmetricMatrix(100, dtype=f32)
+   m[3, 7] = 2.5
+   assert m[7, 3] == 2.5   # symmetric access
+
+To convert to a full NumPy array::
+
+   dense = m.to_dense()   # shape (100, 100), dtype float32
+
+
 Norms
 =====
 
