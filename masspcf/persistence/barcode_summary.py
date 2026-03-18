@@ -29,13 +29,13 @@ _BACKEND_MAP = {
 }
 
 
-def _barcode_to_pcf(bc, single_method, task_method, verbose=True):
+def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
     """Shared implementation for barcode-to-PCF conversions."""
 
     backend, X = _get_backend(bc, _BACKEND_MAP)
 
     if isinstance(X, Barcode):
-        return Pcf(getattr(backend, single_method)(X._data))
+        return Pcf(getattr(backend, single_method)(X._data, **kwargs))
     elif isinstance(X, Tensor):
         if isinstance(X, Barcode32Tensor):
             out = zeros((1,), dtype=pcf32)
@@ -44,7 +44,7 @@ def _barcode_to_pcf(bc, single_method, task_method, verbose=True):
 
         task = None
         try:
-            task = getattr(backend, task_method)(X._data, out._data)
+            task = getattr(backend, task_method)(X._data, out._data, **kwargs)
             _wait_for_task(task, verbose)
         finally:
             if task is not None:
@@ -123,4 +123,55 @@ def barcode_to_betti_curve(
     """
     return _barcode_to_pcf(
         bc, "barcode_to_betti_curve", "spawn_barcode_to_betti_curve_task", verbose
+    )
+
+
+def barcode_to_accumulated_persistence(
+    bc: Barcode | Barcode32Tensor | Barcode64Tensor,
+    max_death: float = float("inf"),
+    verbose: bool = True,
+):
+    r"""Convert barcodes to accumulated persistence functions.
+
+    The accumulated persistence function (APF) is defined as
+
+    .. math::
+
+       \mathrm{APF}(t) = \sum_{i=1}^{N} \ell_i \, \mathbf{1}_{m_i \leq t}
+
+    where :math:`N` is the number of bars, :math:`\ell_i = d_i - b_i` is the
+    lifetime of bar :math:`i`, and :math:`m_i = (b_i + d_i) / 2` is its
+    midpoint [1]_.
+
+    When ``max_death`` is finite, only bars with :math:`d_i \leq`
+    ``max_death`` are included (Equation 2 in the paper).
+
+    Parameters
+    ----------
+    bc : Barcode, Barcode32Tensor, or Barcode64Tensor
+        A single barcode or a tensor of barcodes.
+    max_death : float, optional
+        If finite, exclude bars whose death time exceeds this value.
+        By default ``inf`` (all finite bars included).
+    verbose : bool, optional
+        Show progress information, by default True.
+
+    Returns
+    -------
+    Pcf or PcfTensor
+        A single ``Pcf`` if the input is a single ``Barcode``, otherwise a
+        ``PcfTensor`` with the same shape as the input.
+
+    References
+    ----------
+    .. [1] C. A. N. Biscio and J. Moller, "The accumulated persistence
+       function, a new useful functional summary statistic for topological
+       data analysis, with a view to brain artery trees and spatial point
+       process applications", *Journal of Computational and Graphical
+       Statistics*, vol. 28, no. 3, pp. 671--681, 2019.
+    """
+    return _barcode_to_pcf(
+        bc, "barcode_to_accumulated_persistence",
+        "spawn_barcode_to_accumulated_persistence_task", verbose,
+        max_death=max_death
     )

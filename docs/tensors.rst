@@ -452,11 +452,11 @@ Here is a complete example that creates a tensor of noisy sine and cosine functi
    :end-before: docs snippet end --
 
 .. image:: _static/combining_example_light.png
-   :width: 80%
+   :width: 100%
    :class: only-light
    :alt: Noisy sine and cosine PCFs with their means
 
 .. image:: _static/combining_example_dark.png
-   :width: 80%
+   :width: 100%
    :class: only-dark
    :alt: Noisy sine and cosine PCFs with their means

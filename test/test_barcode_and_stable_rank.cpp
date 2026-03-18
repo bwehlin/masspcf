@@ -148,8 +148,8 @@ namespace
 
     mpcf::Tensor<PcfT> out;
 
-    mpcf::ph::BarcodeToStableRankTask<T> task(barcodes, out);
-    task.start_async(mpcf::default_executor()).future().wait();
+    auto task = mpcf::ph::make_stable_rank_task(barcodes, out);
+    task->start_async(mpcf::default_executor()).future().wait();
 
     ASSERT_EQ(out.shape().size(), 1u);
     ASSERT_EQ(out.shape(0), 2u);

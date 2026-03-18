@@ -214,6 +214,83 @@ def plot_betti_pipeline(h0_color="steelblue", h1_color="orangered"):
 # -- docs snippet end betti_pipeline --
 
 
+# -- docs snippet start apf --
+def plot_apf_example(h0_color="steelblue", h1_color="orangered"):
+    from masspcf import persistence as mpers
+    from masspcf.plotting import plot_barcode
+
+    # Noisy circle
+    rng = np.random.RandomState(10)
+    theta = rng.uniform(0, 2 * np.pi, 30)
+    r = 1.0 + rng.normal(0, 0.15, 30)
+    points = np.column_stack([r * np.cos(theta), r * np.sin(theta)]).astype(np.float64)
+
+    bcs = mpers.compute_persistent_homology(points, maxDim=1, verbose=False)
+    bc_h0, bc_h1 = bcs[0], bcs[1]
+    apfs = mpers.barcode_to_accumulated_persistence(bcs, verbose=False)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
+
+    # Left: barcode
+    y = plot_barcode(bc_h0, ax=ax1, color=h0_color, linewidth=2, label="H0")
+    plot_barcode(bc_h1, ax=ax1, y_offset=y + 1, color=h1_color, linewidth=2,
+                 label="H1")
+    ax1.set_yticks([])
+    ax1.set_xlabel("t")
+    ax1.set_title("Persistence barcode")
+    ax1.legend(fontsize=8)
+
+    # Right: APF
+    plotpcf(apfs[0], ax=ax2, max_time=2, color=h0_color, linewidth=2, label="H0")
+    plotpcf(apfs[1], ax=ax2, max_time=2, color=h1_color, linewidth=2, label="H1")
+    ax2.set_xlabel("m")
+    ax2.set_ylabel("APF(m)")
+    ax2.set_title("Accumulated persistence function")
+    ax2.legend(fontsize=8)
+
+    fig.tight_layout(w_pad=1.5)
+    return fig
+# -- docs snippet end apf --
+
+
+# -- docs snippet start apf_max_death --
+def plot_apf_max_death(color1="steelblue", color2="orangered"):
+    from masspcf.persistence import Barcode, barcode_to_accumulated_persistence
+    from masspcf.plotting import plot_barcode
+
+    bc = Barcode(np.array([
+        [0.0, 0.5], [0.0, 0.5], [0.0, 0.5],
+        [0.62, 0.75], [0.1, 1.8],
+    ], dtype=np.float64))
+
+    apf_all = barcode_to_accumulated_persistence(bc)
+    apf_cut = barcode_to_accumulated_persistence(bc, max_death=1.0)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 2.5))
+
+    # Left: barcode with cutoff line
+    plot_barcode(bc, ax=ax1, color=color1, linewidth=2)
+    ax1.axvline(1.0, color=color2, linestyle="--", linewidth=1.5, label="max_death=1.0")
+    ax1.set_yticks([])
+    ax1.set_xlabel("t")
+    ax1.set_title("Barcode")
+    ax1.legend(fontsize=8, loc="lower right")
+
+    # Right: APF with and without cutoff
+    plotpcf(apf_all, ax=ax2, max_time=1.5, color=color1, linewidth=2,
+            label="no cutoff")
+    plotpcf(apf_cut, ax=ax2, max_time=1.5, color=color2, linewidth=2,
+            linestyle="--", label="max_death=1.0")
+    ax2.set_xlabel("m")
+    ax2.set_ylabel("APF(m)")
+    ax2.set_title("Accumulated persistence function")
+    ax2.legend(fontsize=8)
+
+    fig.tight_layout(w_pad=1.5)
+    return fig
+# -- docs snippet end apf_max_death --
+
+
 # -- Generate light and dark variants --
 def _save_themed(plot_func, style, bg_color, fg_color, line_color, outfile):
     with plt.style.context(style), \
@@ -247,6 +324,8 @@ if __name__ == "__main__":
         ("gallery_barcode", lambda: plot_barcode_example("steelblue", "orangered")),
         ("gallery_tda_pipeline", lambda: plot_tda_pipeline("steelblue", "orangered")),
         ("gallery_betti_pipeline", lambda: plot_betti_pipeline("steelblue", "orangered")),
+        ("gallery_apf", lambda: plot_apf_example("steelblue", "orangered")),
+        ("gallery_apf_max_death", lambda: plot_apf_max_death("steelblue", "orangered")),
     ]
     gallery_dark = [
         ("gallery_single_pcf", lambda: plot_single_pcf()),
@@ -256,6 +335,8 @@ if __name__ == "__main__":
         ("gallery_barcode", lambda: plot_barcode_example("#5dade2", "#ff6b6b")),
         ("gallery_tda_pipeline", lambda: plot_tda_pipeline("#5dade2", "#ff6b6b")),
         ("gallery_betti_pipeline", lambda: plot_betti_pipeline("#5dade2", "#ff6b6b")),
+        ("gallery_apf", lambda: plot_apf_example("#5dade2", "#ff6b6b")),
+        ("gallery_apf_max_death", lambda: plot_apf_max_death("#5dade2", "#ff6b6b")),
     ]
     for (name, func), (_, func_dark) in zip(gallery, gallery_dark):
         _save_themed(func, *LIGHT, HERE / f"{name}_light.png")

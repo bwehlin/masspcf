@@ -16,6 +16,7 @@ masspcf provides two functional summaries of persistence barcodes, both of which
 
 - The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` [CR20]_ [GC17]_ [SCL17]_.
 - The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., [U17]_ [CM21]_).
+- The **accumulated persistence function** (APF) sums, for each mean age :math:`m`, the lifetimes of all bars whose midpoint is at most :math:`m` [BM19]_.
 
 Because these summaries are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
 
@@ -27,11 +28,11 @@ A typical TDA workflow in masspcf follows three steps:
 
 1. **Point clouds** -- Organize your data into a tensor of point clouds
 2. **Barcodes** -- Compute persistent homology to get persistence barcodes
-3. **Functional summaries** -- Convert barcodes to stable rank or Betti curve PCFs for further analysis
+3. **Functional summaries** -- Convert barcodes to PCFs (stable ranks, Betti curves, APFs, etc.) for further analysis
 
 .. code-block:: text
 
-   Point clouds  ──>  Barcodes  ──>  Stable ranks / Betti curves (PCFs)
+   Point clouds  ──>  Barcodes  ──>  Functional summaries (PCFs)
                                           │
                                           ├──  distances (pdist)
                                           ├──  means (mean)
@@ -143,6 +144,67 @@ death)::
 
 The output tensor has the same shape as the input.
 
+Accumulated persistence functions
+----------------------------------
+
+:py:func:`~masspcf.persistence.barcode_to_accumulated_persistence` converts
+barcodes into accumulated persistence functions (APFs) [BM19]_. For each mean
+age :math:`m`, the APF sums the lifetimes of all bars whose midpoint is at
+most :math:`m`:
+
+.. math::
+
+   \mathrm{APF}(m) = \sum_{i=1}^{N} \ell_i \, \mathbf{1}(m_i \leq m)
+
+where :math:`N` is the number of bars, :math:`\ell_i = d_i - b_i` is the
+lifetime, :math:`m_i = (b_i + d_i)/2` is the midpoint of bar :math:`i`, and
+:math:`\mathbf{1}(\cdot)` is the indicator function.
+
+::
+
+   from masspcf import persistence as mpers
+
+   apfs = mpers.barcode_to_accumulated_persistence(bcs)
+
+.. image:: _static/gallery_apf_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_apf_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show plotting code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start apf --
+      :end-before: docs snippet end apf --
+
+An optional ``max_death`` parameter excludes bars whose death time exceeds
+a given threshold. This corresponds to Equation (2) in [BM19]_, where a
+filtration cutoff :math:`T` limits the computation to bars with
+:math:`d_i \leq T`::
+
+   apfs = mpers.barcode_to_accumulated_persistence(bcs, max_death=25.0)
+
+.. image:: _static/gallery_apf_max_death_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_apf_max_death_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show plotting code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start apf_max_death --
+      :end-before: docs snippet end apf_max_death --
+
 Using functional summaries
 ---------------------------
 
@@ -226,6 +288,8 @@ References
 ==========
 
 .. [B21] Bauer, U. (2021). Ripser: efficient computation of Vietoris–Rips persistence barcodes. *Journal of Applied and Computational Topology*, 5(3), 391–423.
+
+.. [BM19] Biscio, C. A. N., & Møller, J. (2019). The accumulated persistence function, a new useful functional summary statistic for topological data analysis, with a view to brain artery trees and spatial point process applications. *Journal of Computational and Graphical Statistics*, 28(3), 671–681.
 
 .. [CR20] Chachólski, W., & Riihimäki, H. (2020). Metrics and stabilization in one parameter persistence. *SIAM Journal on Applied Algebra and Geometry*, 4(1), 69–98.
 

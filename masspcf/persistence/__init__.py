@@ -13,6 +13,10 @@
 #  limitations under the License.
 
 from .barcode import Barcode
-from .barcode_summary import barcode_to_betti_curve, barcode_to_stable_rank
+from .barcode_summary import (
+    barcode_to_accumulated_persistence,
+    barcode_to_betti_curve,
+    barcode_to_stable_rank,
+)
 from .homology import ComplexType, DistanceType, compute_persistent_homology
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor, BarcodeTensor

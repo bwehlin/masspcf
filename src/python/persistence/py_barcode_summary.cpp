@@ -19,6 +19,7 @@
 #include <mpcf/functional/pcf.h>
 #include <mpcf/tensor.h>
 #include <mpcf/persistence/barcode.h>
+#include <mpcf/persistence/accumulated_persistence.h>
 #include <mpcf/persistence/stable_rank.h>
 #include <mpcf/persistence/betti_curve.h>
 
@@ -40,7 +41,8 @@ namespace
           .def_static("barcode_to_stable_rank", [](const BarcodeT& bc) {
             return mpcf::ph::barcode_to_stable_rank(bc);
           })
-          .def_static("spawn_barcode_to_stable_rank_task", [](const mpcf::Tensor<BarcodeT>& bcs, mpcf::Tensor<PcfT>& out) {
+          .def_static("spawn_barcode_to_stable_rank_task", [](const mpcf::Tensor<BarcodeT>& bcs, mpcf::Tensor<PcfT>& out)
+              -> std::unique_ptr<mpcf::StoppableTask<void>> {
             auto task = mpcf::ph::make_stable_rank_task(bcs, out);
             task->start_async(mpcf::default_executor());
             return task;
@@ -48,11 +50,21 @@ namespace
           .def_static("barcode_to_betti_curve", [](const BarcodeT& bc) {
             return mpcf::ph::barcode_to_betti_curve(bc);
           })
-          .def_static("spawn_barcode_to_betti_curve_task", [](const mpcf::Tensor<BarcodeT>& bcs, mpcf::Tensor<PcfT>& out) {
+          .def_static("spawn_barcode_to_betti_curve_task", [](const mpcf::Tensor<BarcodeT>& bcs, mpcf::Tensor<PcfT>& out)
+              -> std::unique_ptr<mpcf::StoppableTask<void>> {
             auto task = mpcf::ph::make_betti_curve_task(bcs, out);
             task->start_async(mpcf::default_executor());
             return task;
           })
+          .def_static("barcode_to_accumulated_persistence", [](const BarcodeT& bc, T max_death) {
+            return mpcf::ph::barcode_to_accumulated_persistence(bc, max_death);
+          }, py::arg("barcode"), py::arg("max_death") = std::numeric_limits<T>::infinity())
+          .def_static("spawn_barcode_to_accumulated_persistence_task", [](const mpcf::Tensor<BarcodeT>& bcs, mpcf::Tensor<PcfT>& out, T max_death)
+              -> std::unique_ptr<mpcf::StoppableTask<void>> {
+            auto task = mpcf::ph::make_accumulated_persistence_task(bcs, out, max_death);
+            task->start_async(mpcf::default_executor());
+            return task;
+          }, py::arg("barcodes"), py::arg("out"), py::arg("max_death") = std::numeric_limits<T>::infinity())
           ;
     }
   };
