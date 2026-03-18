@@ -15,10 +15,9 @@
 #include "pymodule_persistence.h"
 
 #include "py_barcode.h"
-#include "py_betti_curve.h"
+#include "py_barcode_summary.h"
 #include "py_persistence_pair.h"
 #include "py_ripser.h"
-#include "py_stable_rank.h"
 
 namespace py = pybind11;
 
@@ -29,9 +28,8 @@ namespace mpcf_py
     auto sm = m.def_submodule("persistence");
 
     register_persistence_barcode_tensor(sm);
-    register_persistence_betti_curve(sm);
+    register_persistence_barcode_summary(sm);
     register_persistence_persistence_pair(sm);
     register_persistence_ripser(sm);
-    register_persistence_stable_rank(sm);
   }
 }

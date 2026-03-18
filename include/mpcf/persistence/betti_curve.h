@@ -15,9 +15,9 @@
 #ifndef MASSPCF_BETTI_CURVE_H
 #define MASSPCF_BETTI_CURVE_H
 
-#include "../task.h"
 #include "../functional/pcf.h"
 #include "barcode.h"
+#include "barcode_summary.h"
 
 #include <algorithm>
 
@@ -87,36 +87,12 @@ namespace mpcf::ph
   }
 
   template <typename T>
-  class BarcodeToBettiCurveTask : public StoppableTask<void>
+  auto make_betti_curve_task(const Tensor<Barcode<T>>& barcodes, Tensor<Pcf<T, T>>& out)
   {
-  public:
-    BarcodeToBettiCurveTask(const Tensor<Barcode<T>>& barcodes, Tensor<Pcf<T, T>>& ret)
-        : m_barcodes(barcodes), m_ret(ret)
-    {
-    }
-
-  private:
-    tf::Future<void> run_async(Executor& exec) override
-    {
-      tf::Taskflow flow;
-
-      next_step(m_barcodes.size(), "Converting barcodes to Betti curves", "barcode");
-
-      m_ret = Tensor<Pcf<T, T>>(m_barcodes.shape());
-
-      m_barcodes.walk([this, &flow](const std::vector<size_t>& index) {
-        flow.emplace([this, index] {
-          m_ret(index) = barcode_to_betti_curve(m_barcodes(index));
-          add_progress(1);
-        });
-      });
-
-      return exec.cpu()->run(std::move(flow));
-    }
-
-    const Tensor<Barcode<T>>& m_barcodes;
-    Tensor<Pcf<T, T>>& m_ret;
-  };
+    return std::make_unique<BarcodeSummaryTask<T, decltype(&barcode_to_betti_curve<T>)>>(
+        barcodes, out, barcode_to_betti_curve<T>,
+        "Converting barcodes to Betti curves");
+  }
 }
 
 #endif // MASSPCF_BETTI_CURVE_H

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MASSPCF_PY_BETTI_CURVE_H
-#define MASSPCF_PY_BETTI_CURVE_H
+#ifndef MASSPCF_PY_BARCODE_SUMMARY_H
+#define MASSPCF_PY_BARCODE_SUMMARY_H
 
 #include "../pybind.h"
 
 namespace mpcf_py
 {
-  void register_persistence_betti_curve(pybind11::module_& m);
+  void register_persistence_barcode_summary(pybind11::module_& m);
 }
 
-#endif // MASSPCF_PY_BETTI_CURVE_H
+#endif // MASSPCF_PY_BARCODE_SUMMARY_H
