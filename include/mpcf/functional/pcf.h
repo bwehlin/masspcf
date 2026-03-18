@@ -235,12 +235,6 @@ namespace mpcf
     template <typename Ut, typename Uv>
     friend void PrintTo(const Pcf& f, std::ostream* os);
 
-    template <typename Ut, typename Uv, Arithmetic Us>
-    friend Pcf<Ut, Uv> operator-(Us val, const Pcf<Ut, Uv>& f);
-
-    template <typename Ut, typename Uv, Arithmetic Us>
-    friend Pcf<Ut, Uv> operator/(Us val, const Pcf<Ut, Uv>& f);
-
   private:
     template <typename T1, typename T2>
     void initFromPairs(std::initializer_list<std::pair<T1, T2>> pts)
@@ -319,12 +313,12 @@ namespace mpcf
   template <typename Tt, typename Tv, Arithmetic Ts>
   [[nodiscard]] Pcf<Tt, Tv> operator-(Ts val, const Pcf<Tt, Tv>& f)
   {
-    Pcf<Tt, Tv> ret = f;
-    for (auto& pt : ret.m_points)
+    auto pts = f.points();
+    for (auto& pt : pts)
     {
       pt.v = static_cast<Tv>(val) - pt.v;
     }
-    return ret;
+    return Pcf<Tt, Tv>(std::move(pts));
   }
 
   template <typename Tt, typename Tv, Arithmetic Ts>
@@ -338,12 +332,12 @@ namespace mpcf
   template <typename Tt, typename Tv, Arithmetic Ts>
   [[nodiscard]] Pcf<Tt, Tv> operator/(Ts val, const Pcf<Tt, Tv>& f)
   {
-    Pcf<Tt, Tv> ret = f;
-    for (auto& pt : ret.m_points)
+    auto pts = f.points();
+    for (auto& pt : pts)
     {
       pt.v = static_cast<Tv>(val) / pt.v;
     }
-    return ret;
+    return Pcf<Tt, Tv>(std::move(pts));
   }
 
   template <typename Tt, typename Tv, Arithmetic Ts>

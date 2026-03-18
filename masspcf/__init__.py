@@ -21,6 +21,7 @@ from .norms import lp_norm
 from .pcf import Pcf
 from .reductions import max_time, mean
 from .serialize import from_serial_content
+from .symmetric_matrix import SymmetricMatrix
 from .tensor import (
     Float32Tensor,
     Float64Tensor,

@@ -29,6 +29,7 @@
 #include "functional/py_distance.h"
 #include "functional/py_random.h"
 #include "py_np_tensor_convert.h"
+#include "py_symmetric_matrix.h"
 
 #include "persistence/pymodule_persistence.h"
 
@@ -125,6 +126,7 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
   mpcf_py::register_reductions(m);
   mpcf_py::register_distance(m);
   mpcf_py::register_norms(m);
+  mpcf_py::register_symmetric_matrix(m);
 
   mpcf_py::register_module_persistence(m);
 }

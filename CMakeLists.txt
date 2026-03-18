@@ -402,6 +402,7 @@ SET(MPCF_PY_SOURCES
     functional/py_reductions.h functional/py_reductions.cpp
     py_tensor.h py_tensor.cpp
     py_io.h py_io.cpp
+    py_symmetric_matrix.h py_symmetric_matrix.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}
 )
 

@@ -1,0 +1,89 @@
+#    Copyright 2024-2026 Bjorn Wehlin
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from . import _mpcf_cpp as cpp
+from .typing import f32, f64
+
+if TYPE_CHECKING:
+    CppSymmetricMatrix = cpp.SymmetricMatrix_f32 | cpp.SymmetricMatrix_f64
+
+_dtype_to_cpp = {
+    f32: cpp.SymmetricMatrix_f32,
+    f64: cpp.SymmetricMatrix_f64,
+}
+
+_cpp_types = (cpp.SymmetricMatrix_f32, cpp.SymmetricMatrix_f64)
+
+
+class SymmetricMatrix:
+    """Compressed symmetric matrix using lower-triangular storage.
+
+    Stores only n*(n+1)/2 elements for an n×n symmetric matrix.
+    Supports subscript access with ``matrix[i, j]``.
+
+    Parameters
+    ----------
+    n_or_data : int | SymmetricMatrix | CppSymmetricMatrix
+        If an int, creates a zero-initialized matrix of that size.
+        If a SymmetricMatrix or C++ symmetric matrix, wraps it directly.
+    dtype : type[f32] | type[f64] | None, optional
+        Element type. Required when ``n_or_data`` is an int, ignored otherwise.
+    """
+
+    def __init__(
+        self,
+        n_or_data: int | SymmetricMatrix | CppSymmetricMatrix,
+        dtype: type[f32] | type[f64] | None = None,
+    ):
+        if isinstance(n_or_data, SymmetricMatrix):
+            self._data = n_or_data._data
+        elif isinstance(n_or_data, _cpp_types):
+            self._data = n_or_data
+        elif isinstance(n_or_data, int):
+            if dtype is None:
+                raise ValueError("dtype is required when constructing from size")
+            if dtype not in _dtype_to_cpp:
+                raise TypeError(f"Unsupported dtype {dtype}; use f32 or f64")
+            self._data = _dtype_to_cpp[dtype](n_or_data)
+        else:
+            raise TypeError(f"Expected int, SymmetricMatrix, or C++ SymmetricMatrix; got {type(n_or_data)}")
+
+    @property
+    def n(self) -> int:
+        return self._data.n
+
+    @property
+    def storage_count(self) -> int:
+        return self._data.storage_count
+
+    def __getitem__(self, ij):
+        i, j = ij
+        return self._data[i, j]
+
+    def __setitem__(self, ij, value):
+        i, j = ij
+        self._data[i, j] = value
+
+    def to_dense(self) -> np.ndarray:
+        """Return the full n×n symmetric matrix as a numpy array."""
+        return self._data.to_dense()
+
+    def __repr__(self):
+        return repr(self._data)
