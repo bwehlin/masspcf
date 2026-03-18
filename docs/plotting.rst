@@ -94,7 +94,8 @@ Persistence barcodes
 
 Use :py:func:`~masspcf.plotting.plot_barcode` to visualize persistence barcodes
 as horizontal line segments. Each bar runs from its birth to its death value.
-Bars with infinite death are capped automatically.
+Bars with infinite death are drawn as arrows extending to the right edge of the
+plot.
 
 Stack multiple homology dimensions by passing ``y_offset``:
 
@@ -136,6 +137,27 @@ alongside the stable rank:
       :language: python
       :start-after: docs snippet start tda_pipeline --
       :end-before: docs snippet end tda_pipeline --
+
+Betti curve pipeline
+====================
+
+The same pipeline using a barcode plot and Betti curves:
+
+.. image:: _static/gallery_betti_pipeline_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_betti_pipeline_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start betti_pipeline --
+      :end-before: docs snippet end betti_pipeline --
 
 max_time
 ========

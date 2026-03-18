@@ -12,7 +12,12 @@ Background
 
 The output is a **persistence barcode**: a collection of intervals :math:`[b_i, d_i)`, where each interval records the birth :math:`b_i` and death :math:`d_i` of a topological feature. Features that persist over a wide range of scales are considered significant, while short-lived features are often regarded as noise.
 
-The (1d) **stable rank** is a functional summary of a persistence barcode [CR20]_ [GC17]_ [SCL17]_. It is a piecewise constant function that counts, for each threshold :math:`t`, how many bars in the barcode have length at least :math:`t`. Because stable ranks are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
+masspcf provides two functional summaries of persistence barcodes, both of which are piecewise constant functions:
+
+- The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` [CR20]_ [GC17]_ [SCL17]_.
+- The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., [U17]_ [CM21]_).
+
+Because these summaries are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
 
 
 The pipeline
@@ -22,11 +27,11 @@ A typical TDA workflow in masspcf follows three steps:
 
 1. **Point clouds** -- Organize your data into a tensor of point clouds
 2. **Barcodes** -- Compute persistent homology to get persistence barcodes
-3. **Stable ranks** -- Convert barcodes to stable rank PCFs for further analysis
+3. **Functional summaries** -- Convert barcodes to stable rank or Betti curve PCFs for further analysis
 
 .. code-block:: text
 
-   Point clouds  ──>  Barcodes  ──>  Stable ranks (PCFs)
+   Point clouds  ──>  Barcodes  ──>  Stable ranks / Betti curves (PCFs)
                                           │
                                           ├──  distances (pdist)
                                           ├──  means (mean)
@@ -107,16 +112,42 @@ The function supports the following options:
 - ``verbose`` -- Print progress information (default ``True``).
 
 
-Step 3: Barcodes to stable ranks
-=================================
+Step 3: Functional summaries
+=============================
 
-:py:func:`~masspcf.persistence.barcode_to_stable_rank` converts a tensor of barcodes into a tensor of stable rank PCFs::
+Persistence barcodes can be converted to piecewise constant functions for
+downstream analysis. Because the results are PCFs, they fit naturally into
+masspcf's tensor framework, enabling distances, means, and norms.
+
+Stable ranks
+-------------
+
+:py:func:`~masspcf.persistence.barcode_to_stable_rank` converts barcodes into
+stable rank PCFs. The stable rank counts, for each threshold :math:`t`, the
+number of bars with length (death minus birth) strictly greater than :math:`t`
+[CR20]_::
 
    sranks = mpers.barcode_to_stable_rank(bcs)
 
-The output tensor has the same shape as the input. Each barcode is replaced by its corresponding stable rank function -- a piecewise constant function that, at threshold :math:`t`, gives the number of bars with length :math:`\geq t`.
+The output tensor has the same shape as the input.
 
-Since the result is a PCF tensor, you can use all of masspcf's standard operations on it::
+Betti curves
+-------------
+
+:py:func:`~masspcf.persistence.barcode_to_betti_curve` converts barcodes into
+Betti curves. The Betti curve counts, for each filtration value :math:`t`, the
+number of bars alive at :math:`t` (i.e., bars with birth :math:`\leq t <`
+death)::
+
+   bettis = mpers.barcode_to_betti_curve(bcs)
+
+The output tensor has the same shape as the input.
+
+Using functional summaries
+---------------------------
+
+Since stable ranks and Betti curves are PCFs, they are stored in PCF tensors
+and support all of masspcf's standard operations::
 
    import masspcf as mpcf
    from masspcf.plotting import plot as plotpcf
@@ -201,3 +232,7 @@ References
 .. [GC17] Gäfvert, O., & Chachólski, W. (2017). Stable invariants for multiparameter persistence. *arXiv preprint* arXiv:1703.03632.
 
 .. [SCL17] Scolamiero, M., Chachólski, W., Lundman, A., Ramanujam, R., & Öberg, S. (2017). Multidimensional persistence and noise. *Foundations of Computational Mathematics*, 17, 1367–1406.
+
+.. [U17] Umeda, Y. (2017). Time series classification via topological data analysis. *Information and Media Technologies*, 12, 228–239.
+
+.. [CM21] Chazal, F., & Michel, B. (2021). An introduction to topological data analysis: fundamental and practical aspects for data scientists. *Frontiers in Artificial Intelligence*, 4, 667963.

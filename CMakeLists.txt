@@ -379,6 +379,7 @@ SET(MPCF_LIB_SOURCES
 
 SET(MPCF_PY_PERSISTENCE_SOURCES
     py_barcode.h py_barcode.cpp
+    py_betti_curve.h py_betti_curve.cpp
     py_persistence_pair.h py_persistence_pair.cpp
     py_ripser.h py_ripser.cpp
     py_stable_rank.h py_stable_rank.cpp

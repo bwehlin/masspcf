@@ -12,26 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pymodule_persistence.h"
+#ifndef MASSPCF_PY_BETTI_CURVE_H
+#define MASSPCF_PY_BETTI_CURVE_H
 
-#include "py_barcode.h"
-#include "py_betti_curve.h"
-#include "py_persistence_pair.h"
-#include "py_ripser.h"
-#include "py_stable_rank.h"
-
-namespace py = pybind11;
+#include "../pybind.h"
 
 namespace mpcf_py
 {
-  void register_module_persistence(py::module_ &m)
-  {
-    auto sm = m.def_submodule("persistence");
-
-    register_persistence_barcode_tensor(sm);
-    register_persistence_betti_curve(sm);
-    register_persistence_persistence_pair(sm);
-    register_persistence_ripser(sm);
-    register_persistence_stable_rank(sm);
-  }
+  void register_persistence_betti_curve(pybind11::module_& m);
 }
+
+#endif // MASSPCF_PY_BETTI_CURVE_H

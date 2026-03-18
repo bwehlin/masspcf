@@ -71,6 +71,10 @@ def plot(f: PcfContainerLike, fmt="", ax=None, auto_label=False, max_time=None, 
 def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
     """Plot a persistence barcode as horizontal line segments.
 
+    Each bar is drawn as a horizontal segment from birth to death.
+    Bars with infinite death are drawn as arrows extending to the right
+    edge of the plot.
+
     Parameters
     ----------
     bc : Barcode or BarcodeTensor
@@ -95,15 +99,6 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
 
     ax = plt.gca() if ax is None else ax
 
-    def _collect_bars(bc_single):
-        bars = np.asarray(bc_single)
-        # Replace infinite deaths with a finite cap for display
-        finite = bars[np.isfinite(bars[:, 1])]
-        cap = finite[:, 1].max() * 1.1 if len(finite) > 0 else 1.0
-        bars = bars.copy()
-        bars[~np.isfinite(bars[:, 1]), 1] = cap
-        return bars
-
     if isinstance(bc, BarcodeTensor):
         if len(bc.shape) != 1:
             raise ValueError(f"Expected 1-dimensional tensor (got shape {bc.shape})")
@@ -112,16 +107,47 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
             y = plot_barcode(bc[i], ax=ax, y_offset=y, **kwargs)
         return y
 
-    bars = _collect_bars(bc)
+    bars = np.asarray(bc)
     if len(bars) == 0:
         return y_offset
 
-    segments = [[(b, y_offset + i), (d, y_offset + i)] for i, (b, d) in enumerate(bars)]
+    finite_mask = np.isfinite(bars[:, 1])
+    finite_bars = bars[finite_mask]
+    inf_bars = bars[~finite_mask]
 
+    # Draw finite bars
     defaults = {"linewidth": 1.5}
     defaults.update(kwargs)
-    lc = LineCollection(segments, **defaults)
-    ax.add_collection(lc)
+
+    if len(finite_bars) > 0:
+        finite_indices = np.where(finite_mask)[0]
+        segments = [[(b, y_offset + i), (d, y_offset + i)]
+                    for i, (b, d) in zip(finite_indices, finite_bars)]
+        lc = LineCollection(segments, **defaults)
+        ax.add_collection(lc)
+
+    # Draw infinite bars: line segment extending to the right edge with arrowhead
+    if len(inf_bars) > 0:
+        inf_indices = np.where(~finite_mask)[0]
+        color = defaults.get("color", None)
+        lw = defaults.get("linewidth", 1.5)
+
+        # Determine xmax from all finite deaths plus margin
+        if len(finite_bars) > 0:
+            xmax = finite_bars[:, 1].max() * 1.15
+        else:
+            xmax = inf_bars[:, 0].max() + 1.0
+
+        inf_segs = [[(b, y_offset + i), (xmax, y_offset + i)]
+                    for i, (b, _) in zip(inf_indices, inf_bars)]
+        inf_lc = LineCollection(inf_segs, linewidth=lw, color=color)
+        ax.add_collection(inf_lc)
+        for i in inf_indices:
+            ax.annotate("",
+                xy=(xmax, y_offset + i),
+                xytext=(xmax - (xmax * 0.02), y_offset + i),
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw))
+
     ax.autoscale_view()
 
     return y_offset + len(bars)
