@@ -32,31 +32,31 @@ def _roundtrip(tensor):
 def test_float32_tensor_roundtrip():
     original = mpcf.Float32Tensor(np.array([[1.0, 2.5], [3.0, -4.5]], dtype=np.float32))
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_float64_tensor_roundtrip():
     original = mpcf.Float64Tensor(np.array([[1.0, 2.5], [3.0, -4.5]], dtype=np.float64))
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_float32_tensor_1d():
     original = mpcf.Float32Tensor(np.array([1.5, 2.5, 3.5], dtype=np.float32))
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_float64_tensor_3d():
     original = mpcf.Float64Tensor(np.random.randn(2, 3, 4).astype(np.float64))
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_float32_tensor_scalar():
     original = mpcf.Float32Tensor(np.array([42.0], dtype=np.float32))
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 # --- PCF tensors ---
@@ -65,31 +65,31 @@ def test_float32_tensor_scalar():
 def test_pcf32_tensor_roundtrip():
     original = mpcf.random.noisy_sin((3, 4), dtype=mpcf.pcf32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_pcf64_tensor_roundtrip():
     original = mpcf.random.noisy_sin((3, 4), dtype=mpcf.pcf64)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_pcf32_tensor_1d():
     original = mpcf.random.noisy_cos((5,), dtype=mpcf.pcf32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_pcf32_tensor_zeros():
     original = mpcf.zeros((2, 3), dtype=mpcf.pcf32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_pcf64_tensor_zeros():
     original = mpcf.zeros((2, 3), dtype=mpcf.pcf64)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 # --- PointCloud tensors ---
@@ -100,7 +100,7 @@ def test_point_cloud32_tensor_roundtrip():
     original[0] = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
     original[1] = np.array([[5.0, 6.0]], dtype=np.float32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_point_cloud64_tensor_roundtrip():
@@ -108,13 +108,13 @@ def test_point_cloud64_tensor_roundtrip():
     original[0] = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
     original[1] = np.array([[5.0, 6.0]], dtype=np.float64)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_point_cloud32_tensor_empty():
     original = mpcf.zeros((2,), dtype=mpcf.pcloud32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 # --- Barcode tensors ---
@@ -124,20 +124,20 @@ def test_barcode32_tensor_roundtrip():
     original = mpcf.zeros((2,), dtype=mpcf.barcode32)
     original[0] = np.array([[0.0, 1.0], [0.5, 2.0]], dtype=np.float32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_barcode64_tensor_roundtrip():
     original = mpcf.zeros((2,), dtype=mpcf.barcode64)
     original[0] = np.array([[0.0, 1.0], [0.5, 2.0]], dtype=np.float64)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def test_barcode32_tensor_empty():
     original = mpcf.zeros((3,), dtype=mpcf.barcode32)
     restored = _roundtrip(original)
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 # --- Dtype preservation ---

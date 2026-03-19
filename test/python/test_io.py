@@ -29,7 +29,7 @@ def test_float32_tensor_roundtrip():
     buf.seek(0)  # rewind before reading!
     restored = mpcf.load(buf)
 
-    assert original == restored
+    assert original.array_equal(restored)
 
 
 def _make_symmetric_matrix(n, dtype):

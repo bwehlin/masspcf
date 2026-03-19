@@ -29,8 +29,8 @@ def test_assign_tensor_to_slice_1d():
     A[0, :] = X0
     A[1, :] = X1
 
-    assert A[0, :] == X0
-    assert A[1, :] == X1
+    assert A[0, :].array_equal(X0)
+    assert A[1, :].array_equal(X1)
 
 
 def test_assign_tensor_to_slice_nd():
@@ -42,8 +42,8 @@ def test_assign_tensor_to_slice_nd():
     A[:, 0:10] = X0
     A[:, 10:30] = X1
 
-    assert A[:, 0:10] == X0
-    assert A[:, 10:30] == X1
+    assert A[:, 0:10].array_equal(X0)
+    assert A[:, 10:30].array_equal(X1)
 
 
 def test_assign_tensor_to_slice_incommensurate_dims():

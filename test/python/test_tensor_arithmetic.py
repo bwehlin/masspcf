@@ -464,7 +464,7 @@ class TestPcfTensorPow:
         ])
         original = T.copy()
         _ = T ** 2
-        assert T == original
+        assert T.array_equal(original)
 
     def test_ipow(self, pcf_info):
         T, np_dtype = self._make_tensor(pcf_info, [

@@ -45,10 +45,10 @@ def test_stored_is_same_as_numpy():
     X = np.random.randn(10, 2).astype(np.float64)
 
     pclouds[0, 1, 2] = X
-    assert pclouds[0, 1, 2] == X
+    assert pclouds[0, 1, 2].array_equal(X)
 
     pclouds = mpcf.zeros(shape, dtype=mpcf.pcloud32)
     X = np.random.randn(10, 2).astype(np.float32)
 
     pclouds[0, 1, 2] = X
-    assert pclouds[0, 1, 2] == X
+    assert pclouds[0, 1, 2].array_equal(X)

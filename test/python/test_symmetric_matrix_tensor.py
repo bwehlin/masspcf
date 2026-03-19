@@ -115,7 +115,7 @@ class TestEquality:
         m = _make_matrix(2, dtype, {(0, 1): 1.0})
         t1[0] = m
         t2[0] = m
-        assert t1 == t2
+        assert t1.array_equal(t2)
 
     def test_unequal_tensors(self, dtype):
         t1 = mpcf.zeros((3,), dtype=dtype)
@@ -124,7 +124,7 @@ class TestEquality:
         m2 = _make_matrix(2, dtype, {(0, 1): 2.0})
         t1[0] = m1
         t2[0] = m2
-        assert not (t1 == t2)
+        assert not t1.array_equal(t2)
 
 
 class TestFlatten:
