@@ -78,3 +78,51 @@ def test_symmetric_matrix_tensor_roundtrip_empty(symmat_dtype, scalar_dtype):
     assert type(restored) is type(T)
     assert restored.shape == T.shape
     assert restored[0].n == 0
+
+
+def _make_distance_matrix(n, dtype):
+    mat = mpcf.DistanceMatrix(n, dtype=dtype)
+    for i in range(n):
+        for j in range(i):
+            mat[i, j] = float(i * n + j + 1)
+    return mat
+
+
+@pytest.mark.parametrize("distmat_dtype, scalar_dtype", [
+    (mpcf.distmat32, mpcf.f32),
+    (mpcf.distmat64, mpcf.f64),
+])
+def test_distance_matrix_tensor_roundtrip(distmat_dtype, scalar_dtype):
+    T = mpcf.zeros((2,), dtype=distmat_dtype)
+    T[0] = _make_distance_matrix(3, scalar_dtype)
+    T[1] = _make_distance_matrix(4, scalar_dtype)
+
+    buf = io.BytesIO()
+    mpcf.save(T, buf)
+
+    buf.seek(0)
+    restored = mpcf.load(buf)
+
+    assert type(restored) is type(T)
+    assert restored.shape == T.shape
+    for i in range(T.shape[0]):
+        np.testing.assert_array_equal(T[i].to_dense(), restored[i].to_dense())
+
+
+@pytest.mark.parametrize("distmat_dtype, scalar_dtype", [
+    (mpcf.distmat32, mpcf.f32),
+    (mpcf.distmat64, mpcf.f64),
+])
+def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
+    T = mpcf.zeros((1,), dtype=distmat_dtype)
+    T[0] = mpcf.DistanceMatrix(0, dtype=scalar_dtype)
+
+    buf = io.BytesIO()
+    mpcf.save(T, buf)
+
+    buf.seek(0)
+    restored = mpcf.load(buf)
+
+    assert type(restored) is type(T)
+    assert restored.shape == T.shape
+    assert restored[0].n == 0

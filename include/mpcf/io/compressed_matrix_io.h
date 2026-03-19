@@ -12,35 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MASSPCF_SYMMETRIC_MATRIX_IO_H
-#define MASSPCF_SYMMETRIC_MATRIX_IO_H
+#ifndef MASSPCF_COMPRESSED_MATRIX_IO_H
+#define MASSPCF_COMPRESSED_MATRIX_IO_H
 
 #include "io_stream_base.h"
 #include "../symmetric_matrix.h"
+#include "../distance_matrix.h"
 
 namespace mpcf::io::detail
 {
-  template <typename T>
-  void write_element(std::ostream& os, const SymmetricMatrix<T>& mat)
+  template <typename MatT>
+  void write_element(std::ostream& os, const MatT& mat)
+    requires requires { mat.n(); mat.storage_count(); mat.data(); }
   {
     write_bytes<uint64_t>(os, mat.n());
     for (size_t i = 0; i < mat.storage_count(); ++i)
     {
-      write_bytes<T>(os, mat.data()[i]);
+      write_bytes<typename MatT::value_type>(os, mat.data()[i]);
     }
   }
 
-  template <typename T>
-  SymmetricMatrix<T> read_symmetric_matrix(std::istream& is)
+  template <typename MatT>
+  MatT read_compressed_matrix(std::istream& is)
   {
     auto n = read_bytes<uint64_t>(is);
-    SymmetricMatrix<T> mat(n);
+    MatT mat(n);
+    auto* ptr = mat.mutable_data();
     for (size_t i = 0; i < mat.storage_count(); ++i)
     {
-      mat.data()[i] = read_bytes<T>(is);
+      ptr[i] = read_bytes<typename MatT::value_type>(is);
     }
     return mat;
   }
 }
 
-#endif // MASSPCF_SYMMETRIC_MATRIX_IO_H
+#endif // MASSPCF_COMPRESSED_MATRIX_IO_H

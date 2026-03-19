@@ -70,6 +70,9 @@ namespace mpcf_py
         .def_static("save_symmetric_matrix32_tensor", &IoOps::save_tensor_to_file<mpcf::SymmetricMatrix<mpcf::float32_t>>)
         .def_static("save_symmetric_matrix64_tensor", &IoOps::save_tensor_to_file<mpcf::SymmetricMatrix<mpcf::float64_t>>)
 
+        .def_static("save_distance_matrix32_tensor", &IoOps::save_tensor_to_file<mpcf::DistanceMatrix<mpcf::float32_t>>)
+        .def_static("save_distance_matrix64_tensor", &IoOps::save_tensor_to_file<mpcf::DistanceMatrix<mpcf::float64_t>>)
+
         .def_static("load_tensor_from_file", &IoOps::load_tensor_from_file)
 
         ;

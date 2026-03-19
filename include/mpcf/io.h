@@ -22,6 +22,7 @@
 #include "functional/pcf.h"
 #include "point_cloud.h"
 #include "symmetric_matrix.h"
+#include "distance_matrix.h"
 #include "persistence/barcode.h"
 
 #include <variant>
@@ -252,6 +253,9 @@ namespace mpcf
 
     else if (format == io::detail::tensorFormat<SymmetricMatrix<float32_t>>()) { return io::detail::read_tensor<SymmetricMatrix<float32_t>>(is); }
     else if (format == io::detail::tensorFormat<SymmetricMatrix<float64_t>>()) { return io::detail::read_tensor<SymmetricMatrix<float64_t>>(is); }
+
+    else if (format == io::detail::tensorFormat<DistanceMatrix<float32_t>>()) { return io::detail::read_tensor<DistanceMatrix<float32_t>>(is); }
+    else if (format == io::detail::tensorFormat<DistanceMatrix<float64_t>>()) { return io::detail::read_tensor<DistanceMatrix<float64_t>>(is); }
 
     else if (format == io::detail::tensorFormat<ph::Barcode<float32_t>>()) { return io::detail::read_tensor<ph::Barcode<float32_t>>(is); }
     else if (format == io::detail::tensorFormat<ph::Barcode<float64_t>>()) { return io::detail::read_tensor<ph::Barcode<float64_t>>(is); }

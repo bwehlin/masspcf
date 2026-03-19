@@ -403,6 +403,7 @@ SET(MPCF_PY_SOURCES
     py_tensor.h py_tensor.cpp
     py_io.h py_io.cpp
     py_symmetric_matrix.h py_symmetric_matrix.cpp
+    py_distance_matrix.h py_distance_matrix.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}
 )
 

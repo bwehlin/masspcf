@@ -62,6 +62,14 @@ class symmat64:
     pass
 
 
+class distmat32:
+    pass
+
+
+class distmat64:
+    pass
+
+
 class _DeprecatedDtype:
     def __init__(self, name, replacement, standin):
         self._name = name

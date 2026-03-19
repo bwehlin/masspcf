@@ -170,6 +170,18 @@ There are several concrete tensor types, each corresponding to a dtype:
    * - ``Barcode64Tensor``
      - ``barcode64``
      - 64-bit persistence barcodes
+   * - ``SymmetricMatrix32Tensor``
+     - ``symmat32``
+     - 32-bit symmetric matrices
+   * - ``SymmetricMatrix64Tensor``
+     - ``symmat64``
+     - 64-bit symmetric matrices
+   * - ``DistanceMatrix32Tensor``
+     - ``distmat32``
+     - 32-bit distance matrices
+   * - ``DistanceMatrix64Tensor``
+     - ``distmat64``
+     - 64-bit distance matrices
 
 In most cases, you do not need to construct these classes directly -- use :py:func:`~masspcf.zeros` or functions like :py:func:`~masspcf.random.noisy_sin` that return the appropriate tensor type automatically.
 
@@ -235,6 +247,22 @@ Barcode types
 - :py:class:`~masspcf.barcode64` -- 64-bit persistence barcodes
 
 Used to store persistence barcodes produced by homology computations.
+
+Symmetric matrix types
+-----------------------
+
+- :py:class:`~masspcf.symmat32` -- 32-bit symmetric matrices
+- :py:class:`~masspcf.symmat64` -- 64-bit symmetric matrices
+
+Compressed symmetric matrices using lower-triangular storage (n*(n+1)/2 elements for an n×n matrix).
+
+Distance matrix types
+-----------------------
+
+- :py:class:`~masspcf.distmat32` -- 32-bit distance matrices
+- :py:class:`~masspcf.distmat64` -- 64-bit distance matrices
+
+Compressed distance matrices with implicit zero diagonal and nonnegative entries (n*(n-1)/2 elements for an n×n matrix).
 
 Precision: 32-bit vs. 64-bit
 ------------------------------

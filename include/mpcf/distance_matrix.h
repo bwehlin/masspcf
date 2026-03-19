@@ -14,8 +14,8 @@
 * limitations under the License.
 */
 
-#ifndef MASSPCF_SYMMETRIC_MATRIX_H
-#define MASSPCF_SYMMETRIC_MATRIX_H
+#ifndef MASSPCF_DISTANCE_MATRIX_H
+#define MASSPCF_DISTANCE_MATRIX_H
 
 #include "config.h"
 
@@ -33,46 +33,86 @@ namespace mpcf
     MatT read_compressed_matrix(std::istream&);
   }
 
-  /// Lower-triangular compressed symmetric matrix.
+  /// Lower-triangular compressed distance matrix (zero diagonal, nonnegative entries).
   ///
-  /// Stores n*(n+1)/2 elements for an n×n symmetric matrix.
-  /// Element (i, j) maps to storage index max(i,j)*(max(i,j)+1)/2 + min(i,j).
+  /// Stores n*(n-1)/2 elements for an n×n symmetric matrix with
+  /// implicit zeros on the diagonal.
+  /// For i != j, element (i, j) maps to storage index
+  /// max(i,j)*(max(i,j)-1)/2 + min(i,j).
   template <ArithmeticType T>
-  class SymmetricMatrix
+  class DistanceMatrix
   {
   public:
     using value_type = T;
 
-    explicit SymmetricMatrix(size_t n, const T& init = {})
+    class EntryProxy
+    {
+    public:
+      explicit EntryProxy(T* ptr) : m_ptr(ptr) { }
+
+      operator T() const
+      {
+        if (!m_ptr)
+          return T{};
+        return *m_ptr;
+      }
+
+      EntryProxy& operator=(const T& value)
+      {
+        if (value < T{})
+          throw std::invalid_argument("Distance matrix entries must be nonnegative");
+        if (!m_ptr)
+        {
+          if (value != T{})
+            throw std::invalid_argument("Diagonal entries of a distance matrix must be zero");
+          return *this;
+        }
+        *m_ptr = value;
+        return *this;
+      }
+
+    private:
+      T* m_ptr;
+    };
+
+    explicit DistanceMatrix(size_t n, const T& init = {})
       : m_data(std::make_shared<T[]>(storage_size(n)))
       , m_n(n)
     {
+      if (init < T{})
+        throw std::invalid_argument("Distance matrix entries must be nonnegative");
       std::fill(m_data.get(), m_data.get() + storage_size(n), init);
     }
 
-    SymmetricMatrix() : SymmetricMatrix(0) { }
+    DistanceMatrix() : DistanceMatrix(0) { }
 
     [[nodiscard]] size_t n() const { return m_n; }
     [[nodiscard]] size_t storage_count() const { return storage_size(m_n); }
 
-    [[nodiscard]] T& operator()(size_t i, size_t j)
+    [[nodiscard]] EntryProxy operator()(size_t i, size_t j)
     {
+      bounds_check(i, j);
+      if (i == j)
+        return EntryProxy(nullptr);
+      return EntryProxy(&m_data[compressed_index(i, j)]);
+    }
+
+    [[nodiscard]] T operator()(size_t i, size_t j) const
+    {
+      bounds_check(i, j);
+      if (i == j)
+        return T{};
       return m_data[compressed_index(i, j)];
     }
 
-    [[nodiscard]] const T& operator()(size_t i, size_t j) const
-    {
-      return m_data[compressed_index(i, j)];
-    }
-
-    [[nodiscard]] bool operator==(const SymmetricMatrix& rhs) const
+    [[nodiscard]] bool operator==(const DistanceMatrix& rhs) const
     {
       if (m_n != rhs.m_n)
         return false;
       return std::equal(m_data.get(), m_data.get() + storage_size(m_n), rhs.m_data.get());
     }
 
-    [[nodiscard]] bool operator!=(const SymmetricMatrix& rhs) const
+    [[nodiscard]] bool operator!=(const DistanceMatrix& rhs) const
     {
       if (m_n != rhs.m_n)
         return true;
@@ -84,7 +124,7 @@ namespace mpcf
 
     [[nodiscard]] static size_t storage_size(size_t n)
     {
-      return n * (n + 1) / 2;
+      return n * (n - 1) / 2;
     }
 
   private:
@@ -93,18 +133,21 @@ namespace mpcf
     template <typename MatT>
     friend MatT io::detail::read_compressed_matrix(std::istream&);
 
-    [[nodiscard]] size_t compressed_index(size_t i, size_t j) const
+    void bounds_check(size_t i, size_t j) const
     {
       if (i >= m_n || j >= m_n)
       {
         std::ostringstream oss;
-        oss << "SymmetricMatrix index (" << i << ", " << j << ") out of range for matrix of size " << m_n;
+        oss << "DistanceMatrix index (" << i << ", " << j << ") out of range for matrix of size " << m_n;
         throw std::out_of_range(oss.str());
       }
+    }
 
+    [[nodiscard]] static size_t compressed_index(size_t i, size_t j)
+    {
       auto row = std::max(i, j);
       auto col = std::min(i, j);
-      return row * (row + 1) / 2 + col;
+      return row * (row - 1) / 2 + col;
     }
 
     std::shared_ptr<T[]> m_data;
@@ -113,4 +156,4 @@ namespace mpcf
 
 }
 
-#endif // MASSPCF_SYMMETRIC_MATRIX_H
+#endif // MASSPCF_DISTANCE_MATRIX_H

@@ -1,0 +1,126 @@
+#    Copyright 2024-2026 Bjorn Wehlin
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from . import _mpcf_cpp as cpp
+from ._tensor_base import Tensor
+from .typing import f32, f64, distmat32, distmat64
+
+if TYPE_CHECKING:
+    CppDistanceMatrix = cpp.DistanceMatrix_f32 | cpp.DistanceMatrix_f64
+
+_dtype_to_cpp = {
+    f32: cpp.DistanceMatrix_f32,
+    f64: cpp.DistanceMatrix_f64,
+}
+
+_cpp_types = (cpp.DistanceMatrix_f32, cpp.DistanceMatrix_f64)
+
+
+class DistanceMatrix:
+    """Compressed distance matrix (symmetric, zero diagonal, nonnegative).
+
+    Stores only n*(n-1)/2 elements for an n×n distance matrix.
+    Supports subscript access with ``matrix[i, j]``.
+
+    Parameters
+    ----------
+    n_or_data : int | DistanceMatrix | CppDistanceMatrix
+        If an int, creates a zero-initialized matrix of that size.
+        If a DistanceMatrix or C++ distance matrix, wraps it directly.
+    dtype : type[f32] | type[f64] | None, optional
+        Element precision. ``f32`` stores entries as 32-bit floats,
+        ``f64`` as 64-bit floats. Required when ``n_or_data`` is an int,
+        ignored otherwise.
+    """
+
+    def __init__(
+        self,
+        n_or_data: int | DistanceMatrix | CppDistanceMatrix,
+        dtype: type[f32] | type[f64] | None = None,
+    ):
+        if isinstance(n_or_data, DistanceMatrix):
+            self._data = n_or_data._data
+        elif isinstance(n_or_data, _cpp_types):
+            self._data = n_or_data
+        elif isinstance(n_or_data, int):
+            if dtype is None:
+                raise ValueError("dtype is required when constructing from size")
+            if dtype not in _dtype_to_cpp:
+                raise TypeError(f"Unsupported dtype {dtype}; use f32 or f64")
+            self._data = _dtype_to_cpp[dtype](n_or_data)
+        else:
+            raise TypeError(f"Expected int, DistanceMatrix, or C++ DistanceMatrix; got {type(n_or_data)}")
+
+    @property
+    def n(self) -> int:
+        return self._data.n
+
+    @property
+    def storage_count(self) -> int:
+        return self._data.storage_count
+
+    def __getitem__(self, ij):
+        i, j = ij
+        return self._data[i, j]
+
+    def __setitem__(self, ij, value):
+        i, j = ij
+        self._data[i, j] = value
+
+    def to_dense(self) -> np.ndarray:
+        """Return the full n×n distance matrix as a numpy array."""
+        return self._data.to_dense()
+
+    def __repr__(self):
+        return repr(self._data)
+
+
+class DistanceMatrixTensor(Tensor):
+    def __init__(self):
+        super().__init__()
+
+    def _decay_value(self, val):
+        return val._data
+
+    def _represent_element(self, element):
+        return DistanceMatrix(element)
+
+    def _get_valid_setitem_dtypes(self):
+        return [DistanceMatrix, DistanceMatrixTensor, DistanceMatrix32Tensor, DistanceMatrix64Tensor]
+
+
+class DistanceMatrix32Tensor(DistanceMatrixTensor):
+    def __init__(self, data: cpp.DistanceMatrix32Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = distmat32
+
+    def _to_py_tensor(self, data):
+        return DistanceMatrix32Tensor(data)
+
+
+class DistanceMatrix64Tensor(DistanceMatrixTensor):
+    def __init__(self, data: cpp.DistanceMatrix64Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = distmat64
+
+    def _to_py_tensor(self, data):
+        return DistanceMatrix64Tensor(data)

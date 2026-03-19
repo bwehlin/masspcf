@@ -16,13 +16,13 @@
 
 #pragma once
 
-#ifndef MASSPCF_PY_SYMMETRIC_MATRIX_H
-#define MASSPCF_PY_SYMMETRIC_MATRIX_H
+#ifndef MASSPCF_PY_DISTANCE_MATRIX_H
+#define MASSPCF_PY_DISTANCE_MATRIX_H
 
 #include "pybind.h"
 #include <pybind11/numpy.h>
 
-#include <mpcf/symmetric_matrix.h>
+#include <mpcf/distance_matrix.h>
 
 #include "py_np_support.h"
 
@@ -31,17 +31,16 @@
 namespace mpcf_py
 {
 
-  void register_symmetric_matrix(pybind11::module_& m);
+  void register_distance_matrix(pybind11::module_& m);
 
   template <typename T>
-  void register_symmetric_matrix_bindings(pybind11::module_& m, const std::string& suffix)
+  void register_distance_matrix_bindings(pybind11::module_& m, const std::string& suffix)
   {
     namespace py = pybind11;
-    using MatT = mpcf::SymmetricMatrix<T>;
+    using MatT = mpcf::DistanceMatrix<T>;
 
-    py::class_<MatT>(m, ("SymmetricMatrix" + suffix).c_str(), py::buffer_protocol())
+    py::class_<MatT>(m, ("DistanceMatrix" + suffix).c_str())
       .def(py::init<size_t>(), py::arg("n"))
-      .def(py::init<size_t, T>(), py::arg("n"), py::arg("init"))
       .def_property_readonly("n", &MatT::n)
       .def_property_readonly("storage_count", &MatT::storage_count)
       .def("__getitem__", [](const MatT& self, std::pair<size_t, size_t> ij) {
@@ -49,17 +48,6 @@ namespace mpcf_py
       })
       .def("__setitem__", [](MatT& self, std::pair<size_t, size_t> ij, T val) {
         self(ij.first, ij.second) = val;
-      })
-      .def_buffer([](const MatT& self) -> py::buffer_info {
-        return py::buffer_info(
-          const_cast<T*>(self.data()),
-          sizeof(T),
-          py::format_descriptor<T>::format(),
-          1,
-          { self.storage_count() },
-          { sizeof(T) },
-          true  // readonly
-        );
       })
       .def("to_dense", [](const MatT& self) {
         auto n = self.n();
@@ -76,7 +64,7 @@ namespace mpcf_py
       })
       .def("__repr__", [suffix](const MatT& self) {
         std::ostringstream oss;
-        oss << "SymmetricMatrix" << suffix << "(n=" << self.n() << ")";
+        oss << "DistanceMatrix" << suffix << "(n=" << self.n() << ")";
         return oss.str();
       })
     ;
@@ -84,4 +72,4 @@ namespace mpcf_py
 
 }
 
-#endif // MASSPCF_PY_SYMMETRIC_MATRIX_H
+#endif // MASSPCF_PY_DISTANCE_MATRIX_H

@@ -15,6 +15,7 @@
 import masspcf._mpcf_cpp as cpp
 
 from .persistence import Barcode32Tensor, Barcode64Tensor
+from .distance_matrix import DistanceMatrix32Tensor, DistanceMatrix64Tensor
 from .symmetric_matrix import SymmetricMatrix32Tensor, SymmetricMatrix64Tensor
 from .tensor import (
     Float32Tensor,
@@ -43,6 +44,8 @@ def _save(item: Tensor, file):
         Barcode64Tensor: cpp.IoOps.save_barcode64_tensor,
         SymmetricMatrix32Tensor: cpp.IoOps.save_symmetric_matrix32_tensor,
         SymmetricMatrix64Tensor: cpp.IoOps.save_symmetric_matrix64_tensor,
+        DistanceMatrix32Tensor: cpp.IoOps.save_distance_matrix32_tensor,
+        DistanceMatrix64Tensor: cpp.IoOps.save_distance_matrix64_tensor,
     }
 
     fn = _SAVE_DISPATCH.get(type(item))
@@ -67,6 +70,8 @@ def _load(file):
         cpp_p.Barcode64Tensor: Barcode64Tensor,
         cpp.SymmetricMatrix32Tensor: SymmetricMatrix32Tensor,
         cpp.SymmetricMatrix64Tensor: SymmetricMatrix64Tensor,
+        cpp.DistanceMatrix32Tensor: DistanceMatrix32Tensor,
+        cpp.DistanceMatrix64Tensor: DistanceMatrix64Tensor,
     }
 
     cpp_tensor = cpp.IoOps.load_tensor_from_file(file)

@@ -71,37 +71,38 @@ GPU acceleration
 For large collections of PCFs, ``pdist`` automatically offloads the computation to the GPU when one is available. The number of pairwise integrals grows as :math:`n(n-1)/2`, so GPU acceleration can provide dramatic speedups for large :math:`n`.
 
 
-Symmetric matrices
-===================
+Distance matrices
+==================
 
-:py:class:`~masspcf.SymmetricMatrix` provides a compressed storage format for symmetric matrices. Internally it stores only the lower triangle — :math:`n(n+1)/2` elements instead of :math:`n^2` — while supporting transparent ``[i, j]`` access.
+:py:class:`~masspcf.DistanceMatrix` provides a compressed storage format for distance matrices. Since a distance matrix is symmetric with zeros on the diagonal, it stores only the strict lower triangle — :math:`n(n-1)/2` elements instead of :math:`n^2`. Entries are enforced to be nonnegative, and writes to the diagonal are rejected unless the value is zero.
 
 ::
 
-   from masspcf import SymmetricMatrix
+   from masspcf import DistanceMatrix
    from masspcf.typing import f32
 
-   m = SymmetricMatrix(100, dtype=f32)
+   m = DistanceMatrix(100, dtype=f32)
    m[3, 7] = 2.5
    assert m[7, 3] == 2.5   # symmetric access
+   assert m[3, 3] == 0.0   # diagonal is always zero
 
 To convert to a full NumPy array::
 
    dense = m.to_dense()   # shape (100, 100), dtype float32
 
-Tensors of symmetric matrices
+Tensors of distance matrices
 ------------------------------
 
-Symmetric matrices can be stored in tensors just like PCFs or point clouds.
-Use the ``symmat32`` or ``symmat64`` dtypes::
+Distance matrices can be stored in tensors just like PCFs or point clouds.
+Use the ``distmat32`` or ``distmat64`` dtypes::
 
    import masspcf as mpcf
 
-   # A 1-D tensor holding 10 symmetric matrices
-   T = mpcf.zeros((10,), dtype=mpcf.symmat64)
+   # A 1-D tensor holding 10 distance matrices
+   T = mpcf.zeros((10,), dtype=mpcf.distmat64)
 
    # Assign a matrix into the tensor
-   m = mpcf.SymmetricMatrix(5, dtype=mpcf.f64)
+   m = mpcf.DistanceMatrix(5, dtype=mpcf.f64)
    m[0, 1] = 3.14
    T[0] = m
 
@@ -116,6 +117,29 @@ tensor types::
    T2 = T.copy()          # independent deep copy
    flat = T.flatten()     # shape (10,)
    T == T2                # True
+
+
+Symmetric matrices
+===================
+
+:py:class:`~masspcf.SymmetricMatrix` provides a more general compressed storage format for symmetric matrices without the distance matrix constraints. It stores the lower triangle including the diagonal — :math:`n(n+1)/2` elements instead of :math:`n^2`.
+
+::
+
+   from masspcf import SymmetricMatrix
+   from masspcf.typing import f32
+
+   m = SymmetricMatrix(100, dtype=f32)
+   m[3, 7] = 2.5
+   assert m[7, 3] == 2.5   # symmetric access
+
+To convert to a full NumPy array::
+
+   dense = m.to_dense()   # shape (100, 100), dtype float32
+
+Tensors of symmetric matrices use the ``symmat32`` or ``symmat64`` dtypes::
+
+   T = mpcf.zeros((10,), dtype=mpcf.symmat64)
 
 
 Norms

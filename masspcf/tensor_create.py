@@ -29,6 +29,8 @@ from .typing import (
     _check_deprecated_dtype,
     barcode32,
     barcode64,
+    distmat32,
+    distmat64,
     f32,
     f64,
     float32,  # Deprecated types
@@ -51,8 +53,12 @@ def zeros(shape: ShapeLike, dtype=pcf32):
     Creates a new `Tensor` of the specified `shape` and `dtype` whose entries are "zero." What "zero" means depends on the `dtype`:
 
     `dtype=pcf32/64`: A PCF that takes the value 0 for all times.
-    `dtype=f32/f64`: The number 0
-    `dtype=pcloud32/64`: An empty point cloud
+    `dtype=pcf32i/64i`: An integer PCF that takes the value 0 for all times.
+    `dtype=f32/f64`: The number 0.
+    `dtype=pcloud32/64`: An empty point cloud.
+    `dtype=barcode32/64`: An empty barcode.
+    `dtype=symmat32/64`: A 0×0 symmetric matrix.
+    `dtype=distmat32/64`: A 0×0 distance matrix.
 
     Parameters
     ----------
@@ -88,6 +94,8 @@ def zeros(shape: ShapeLike, dtype=pcf32):
             float64,
             barcode32,
             barcode64,
+            distmat32,
+            distmat64,
             symmat32,
             symmat64,
         ],
@@ -113,6 +121,12 @@ def zeros(shape: ShapeLike, dtype=pcf32):
         return Barcode32Tensor(cpp_p.Barcode32Tensor(shape))
     elif dtype == barcode64:
         return Barcode64Tensor(cpp_p.Barcode64Tensor(shape))
+    elif dtype == distmat32:
+        from .distance_matrix import DistanceMatrix32Tensor
+        return DistanceMatrix32Tensor(cpp.DistanceMatrix32Tensor(shape))
+    elif dtype == distmat64:
+        from .distance_matrix import DistanceMatrix64Tensor
+        return DistanceMatrix64Tensor(cpp.DistanceMatrix64Tensor(shape))
     elif dtype == symmat32:
         from .symmetric_matrix import SymmetricMatrix32Tensor
         return SymmetricMatrix32Tensor(cpp.SymmetricMatrix32Tensor(shape))
