@@ -54,6 +54,14 @@ class barcode64:
     pass
 
 
+class symmat32:
+    pass
+
+
+class symmat64:
+    pass
+
+
 class _DeprecatedDtype:
     def __init__(self, name, replacement, standin):
         self._name = name

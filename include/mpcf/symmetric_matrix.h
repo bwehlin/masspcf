@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -57,6 +58,21 @@ namespace mpcf
     [[nodiscard]] const T& operator()(size_t i, size_t j) const
     {
       return m_data[compressed_index(i, j)];
+    }
+
+    [[nodiscard]] bool operator==(const SymmetricMatrix& rhs) const
+    {
+      if (m_n != rhs.m_n)
+        return false;
+      return std::equal(m_data.get(), m_data.get() + storage_size(m_n), rhs.m_data.get());
+    }
+
+    [[nodiscard]] bool operator!=(const SymmetricMatrix& rhs) const
+    {
+      if (m_n != rhs.m_n)
+        return true;
+      return std::mismatch(m_data.get(), m_data.get() + storage_size(m_n), rhs.m_data.get()).first
+        != m_data.get() + storage_size(m_n);
     }
 
     [[nodiscard]] T* data() { return m_data.get(); }

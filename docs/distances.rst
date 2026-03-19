@@ -89,6 +89,34 @@ To convert to a full NumPy array::
 
    dense = m.to_dense()   # shape (100, 100), dtype float32
 
+Tensors of symmetric matrices
+------------------------------
+
+Symmetric matrices can be stored in tensors just like PCFs or point clouds.
+Use the ``symmat32`` or ``symmat64`` dtypes::
+
+   import masspcf as mpcf
+
+   # A 1-D tensor holding 10 symmetric matrices
+   T = mpcf.zeros((10,), dtype=mpcf.symmat64)
+
+   # Assign a matrix into the tensor
+   m = mpcf.SymmetricMatrix(5, dtype=mpcf.f64)
+   m[0, 1] = 3.14
+   T[0] = m
+
+   # Read it back — symmetric access works as expected
+   T[0][0, 1]   # 3.14
+   T[0][1, 0]   # 3.14
+
+Slicing, copying, flattening, and equality comparison all work as for other
+tensor types::
+
+   sub = T[2:5]           # slice — shape (3,)
+   T2 = T.copy()          # independent deep copy
+   flat = T.flatten()     # shape (10,)
+   T == T2                # True
+
 
 Norms
 =====

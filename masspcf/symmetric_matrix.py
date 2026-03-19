@@ -19,7 +19,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .typing import f32, f64
+from ._tensor_base import Tensor
+from .typing import f32, f64, symmat32, symmat64
 
 if TYPE_CHECKING:
     CppSymmetricMatrix = cpp.SymmetricMatrix_f32 | cpp.SymmetricMatrix_f64
@@ -87,3 +88,37 @@ class SymmetricMatrix:
 
     def __repr__(self):
         return repr(self._data)
+
+
+class SymmetricMatrixTensor(Tensor):
+    def __init__(self):
+        super().__init__()
+
+    def _decay_value(self, val):
+        return val._data
+
+    def _represent_element(self, element):
+        return SymmetricMatrix(element)
+
+    def _get_valid_setitem_dtypes(self):
+        return [SymmetricMatrix, SymmetricMatrixTensor, SymmetricMatrix32Tensor, SymmetricMatrix64Tensor]
+
+
+class SymmetricMatrix32Tensor(SymmetricMatrixTensor):
+    def __init__(self, data: cpp.SymmetricMatrix32Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = symmat32
+
+    def _to_py_tensor(self, data):
+        return SymmetricMatrix32Tensor(data)
+
+
+class SymmetricMatrix64Tensor(SymmetricMatrixTensor):
+    def __init__(self, data: cpp.SymmetricMatrix64Tensor):
+        super().__init__()
+        self._data = data
+        self.dtype = symmat64
+
+    def _to_py_tensor(self, data):
+        return SymmetricMatrix64Tensor(data)

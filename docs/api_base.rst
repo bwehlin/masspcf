@@ -154,6 +154,14 @@ typing
 
    64-bit barcode dtype. Use as the ``dtype`` argument when creating tensors of 64-bit persistence barcodes.
 
+.. py:class:: symmat32
+
+   32-bit symmetric matrix dtype. Use as the ``dtype`` argument when creating tensors of 32-bit symmetric matrices.
+
+.. py:class:: symmat64
+
+   64-bit symmetric matrix dtype. Use as the ``dtype`` argument when creating tensors of 64-bit symmetric matrices.
+
 .. py:class:: float32
 
    .. deprecated::

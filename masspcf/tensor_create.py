@@ -39,6 +39,8 @@ from .typing import (
     pcf64i,
     pcloud32,
     pcloud64,
+    symmat32,
+    symmat64,
 )
 
 cpp_p = cpp.persistence
@@ -86,6 +88,8 @@ def zeros(shape: ShapeLike, dtype=pcf32):
             float64,
             barcode32,
             barcode64,
+            symmat32,
+            symmat64,
         ],
     )
 
@@ -109,5 +113,11 @@ def zeros(shape: ShapeLike, dtype=pcf32):
         return Barcode32Tensor(cpp_p.Barcode32Tensor(shape))
     elif dtype == barcode64:
         return Barcode64Tensor(cpp_p.Barcode64Tensor(shape))
+    elif dtype == symmat32:
+        from .symmetric_matrix import SymmetricMatrix32Tensor
+        return SymmetricMatrix32Tensor(cpp.SymmetricMatrix32Tensor(shape))
+    elif dtype == symmat64:
+        from .symmetric_matrix import SymmetricMatrix64Tensor
+        return SymmetricMatrix64Tensor(cpp.SymmetricMatrix64Tensor(shape))
     else:
         raise NotImplementedError("This dtype has not been implemented.")

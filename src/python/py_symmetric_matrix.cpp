@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "py_symmetric_matrix.h"
+#include "py_tensor.h"
 
 namespace mpcf_py
 {
@@ -21,6 +22,9 @@ namespace mpcf_py
   {
     register_symmetric_matrix_bindings<mpcf::float32_t>(m, "_f32");
     register_symmetric_matrix_bindings<mpcf::float64_t>(m, "_f64");
+
+    register_typed_tensor_bindings<mpcf::SymmetricMatrix<mpcf::float32_t>>(m, "SymmetricMatrix32", "");
+    register_typed_tensor_bindings<mpcf::SymmetricMatrix<mpcf::float64_t>>(m, "SymmetricMatrix64", "");
   }
 
 }
