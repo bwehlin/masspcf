@@ -15,6 +15,7 @@
 import masspcf._mpcf_cpp as cpp
 
 from .persistence import Barcode32Tensor, Barcode64Tensor
+from .symmetric_matrix import SymmetricMatrix32Tensor, SymmetricMatrix64Tensor
 from .tensor import (
     Float32Tensor,
     Float64Tensor,
@@ -40,6 +41,8 @@ def _save(item: Tensor, file):
         PointCloud64Tensor: cpp.IoOps.save_point_cloud64_tensor,
         Barcode32Tensor: cpp.IoOps.save_barcode32_tensor,
         Barcode64Tensor: cpp.IoOps.save_barcode64_tensor,
+        SymmetricMatrix32Tensor: cpp.IoOps.save_symmetric_matrix32_tensor,
+        SymmetricMatrix64Tensor: cpp.IoOps.save_symmetric_matrix64_tensor,
     }
 
     fn = _SAVE_DISPATCH.get(type(item))
@@ -62,6 +65,8 @@ def _load(file):
         cpp.PointCloud64Tensor: PointCloud64Tensor,
         cpp_p.Barcode32Tensor: Barcode32Tensor,
         cpp_p.Barcode64Tensor: Barcode64Tensor,
+        cpp.SymmetricMatrix32Tensor: SymmetricMatrix32Tensor,
+        cpp.SymmetricMatrix64Tensor: SymmetricMatrix64Tensor,
     }
 
     cpp_tensor = cpp.IoOps.load_tensor_from_file(file)
@@ -74,7 +79,7 @@ def _load(file):
 def save(item: Tensor, file):
     """Save a tensor to a file in masspcf's binary format.
 
-    All tensor types are supported (PCF, numeric, point cloud, barcode).
+    All tensor types are supported.
 
     Parameters
     ----------

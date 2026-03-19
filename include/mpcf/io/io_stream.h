@@ -22,6 +22,7 @@
 #include "pcf_io.h"
 #include "point_io.h"
 #include "point_cloud_io.h"
+#include "symmetric_matrix_io.h"
 
 #include <cstddef>
 #include <vector>

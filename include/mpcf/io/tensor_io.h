@@ -17,6 +17,7 @@
 
 #include "io_stream_base.h"
 #include "barcode_io.h"
+#include "symmetric_matrix_io.h"
 #include "../tensor.h"
 #include "../functional/pcf.h"
 #include "../persistence/barcode.h"
@@ -32,6 +33,15 @@ namespace mpcf::io::detail
   template <typename T>
   inline constexpr bool is_barcode_v = is_barcode<T>::value;
 
+  template <typename T>
+  struct is_symmetric_matrix : std::false_type {};
+
+  template <typename T>
+  struct is_symmetric_matrix<SymmetricMatrix<T>> : std::true_type { using scalar_type = T; };
+
+  template <typename T>
+  inline constexpr bool is_symmetric_matrix_v = is_symmetric_matrix<T>::value;
+
   using StreamableTensor = std::variant<
       Tensor<float32_t>,
       Tensor<float64_t>,
@@ -46,7 +56,10 @@ namespace mpcf::io::detail
       Tensor<PointCloud<float64_t>>,
 
       Tensor<ph::Barcode<float32_t>>,
-      Tensor<ph::Barcode<float64_t>>
+      Tensor<ph::Barcode<float64_t>>,
+
+      Tensor<SymmetricMatrix<float32_t>>,
+      Tensor<SymmetricMatrix<float64_t>>
       >;
 
   struct TensorFormat
@@ -80,6 +93,9 @@ namespace mpcf::io::detail
 
     else if constexpr (std::is_same_v<T, PointCloud<float32_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, PointCloud<float64_t>>) { return TensorFormat{ .baseFormat = 1000, .subFormat = 64 }; }
+
+    else if constexpr (std::is_same_v<T, SymmetricMatrix<float32_t>>) { return TensorFormat{ .baseFormat = 1100, .subFormat = 32 }; }
+    else if constexpr (std::is_same_v<T, SymmetricMatrix<float64_t>>) { return TensorFormat{ .baseFormat = 1100, .subFormat = 64 }; }
 
     else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>) { return TensorFormat{ .baseFormat = 10000, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>) { return TensorFormat{ .baseFormat = 10000, .subFormat = 64 }; }
@@ -192,6 +208,8 @@ namespace mpcf::io::detail
     {
       if constexpr (is_barcode_v<T>)
         *elem = read_barcode<typename is_barcode<T>::scalar_type>(is);
+      else if constexpr (is_symmetric_matrix_v<T>)
+        *elem = read_symmetric_matrix<typename is_symmetric_matrix<T>::scalar_type>(is);
       else
         *elem = read_element<T>(is);
     }
