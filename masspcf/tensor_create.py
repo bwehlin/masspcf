@@ -15,6 +15,7 @@
 from . import _mpcf_cpp as cpp
 from ._tensor_base import Shape, ShapeLike
 from .tensor import (
+    BoolTensor,
     Float32Tensor,
     Float64Tensor,
     Pcf32iTensor,
@@ -29,6 +30,7 @@ from .typing import (
     _check_deprecated_dtype,
     barcode32,
     barcode64,
+    boolean,
     distmat32,
     distmat64,
     f32,
@@ -88,6 +90,7 @@ def zeros(shape: ShapeLike, dtype=pcf32):
             pcf64i,
             f32,
             f64,
+            boolean,
             pcloud32,
             pcloud64,
             float32,
@@ -101,7 +104,9 @@ def zeros(shape: ShapeLike, dtype=pcf32):
         ],
     )
 
-    if dtype in (pcf32, float32):
+    if dtype == boolean:
+        return BoolTensor(cpp.BoolTensor(shape, False))
+    elif dtype in (pcf32, float32):
         return Pcf32Tensor(cpp.Pcf32Tensor(shape))
     elif dtype in (pcf64, float64):
         return Pcf64Tensor(cpp.Pcf64Tensor(shape))

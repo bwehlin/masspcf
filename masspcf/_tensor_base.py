@@ -77,7 +77,47 @@ class Tensor(ABC):
             )  # TODO: 32/64 conversion, to_tensor, etc.
 
     def __eq__(self, rhs):
-        return self._data == rhs._data
+        if not isinstance(rhs, Tensor):
+            return NotImplemented
+        from .tensor import BoolTensor
+        return BoolTensor(self._data == rhs._data)
+
+    def __ne__(self, rhs):
+        if not isinstance(rhs, Tensor):
+            return NotImplemented
+        from .tensor import BoolTensor
+        return BoolTensor(self._data != rhs._data)
+
+    def __lt__(self, rhs):
+        from .tensor import BoolTensor
+        return BoolTensor(self._data < rhs._data)
+
+    def __le__(self, rhs):
+        from .tensor import BoolTensor
+        return BoolTensor(self._data <= rhs._data)
+
+    def __gt__(self, rhs):
+        from .tensor import BoolTensor
+        return BoolTensor(self._data > rhs._data)
+
+    def __ge__(self, rhs):
+        from .tensor import BoolTensor
+        return BoolTensor(self._data >= rhs._data)
+
+    def array_equal(self, rhs) -> bool:
+        """Test whether two tensors have the same shape and all equal elements.
+
+        Parameters
+        ----------
+        rhs : Tensor
+            The tensor to compare with.
+
+        Returns
+        -------
+        bool
+            True if the tensors are elementwise equal, False otherwise.
+        """
+        return self._data.array_equal(rhs._data)
 
     def __deepcopy__(self, memodict=None):
         return self._to_py_tensor(self._data.copy())

@@ -216,6 +216,12 @@ namespace mpcf_py
         })
 
       .def("__eq__", [](const TTensor& self, const TTensor& rhs){
+          return mpcf::elementwise_eq(self, rhs);
+        })
+      .def("__ne__", [](const TTensor& self, const TTensor& rhs){
+          return mpcf::elementwise_ne(self, rhs);
+        })
+      .def("array_equal", [](const TTensor& self, const TTensor& rhs){
           return self == rhs;
         })
 
@@ -243,6 +249,17 @@ namespace mpcf_py
     if constexpr (mpcf::CanNegate<T>)
     {
       cls.def("__neg__", [](const TTensor& self){ return -self; });
+    }
+
+    // Ordered comparisons (broadcasting, returns BoolTensor)
+    if constexpr (mpcf::CanOrder<T>)
+    {
+      cls
+        .def("__lt__", [](const TTensor& self, const TTensor& rhs){ return mpcf::elementwise_lt(self, rhs); })
+        .def("__le__", [](const TTensor& self, const TTensor& rhs){ return mpcf::elementwise_le(self, rhs); })
+        .def("__gt__", [](const TTensor& self, const TTensor& rhs){ return mpcf::elementwise_gt(self, rhs); })
+        .def("__ge__", [](const TTensor& self, const TTensor& rhs){ return mpcf::elementwise_ge(self, rhs); })
+      ;
     }
 
     // Tensor-Tensor arithmetic (broadcasting)

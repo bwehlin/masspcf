@@ -90,6 +90,12 @@ namespace mpcf
     { -t } -> std::convertible_to<T>;
   };
 
+  template <typename T>
+  concept CanOrder = requires(const T& a, const T& b)
+  {
+    { a < b } -> std::convertible_to<bool>;
+  };
+
   // Any type that can be evaluated at a point in DomainT, yielding a value convertible to CodomainT.
   template <typename T, typename DomainT, typename CodomainT>
   concept Evaluable = requires(T t, DomainT x)

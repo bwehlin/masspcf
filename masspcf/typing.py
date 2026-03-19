@@ -70,6 +70,10 @@ class distmat64:
     pass
 
 
+class boolean:
+    pass
+
+
 class _DeprecatedDtype:
     def __init__(self, name, replacement, standin):
         self._name = name

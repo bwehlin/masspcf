@@ -19,7 +19,7 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor
 from .pcf import Pcf
-from .typing import _validate_dtype, f32, f64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
+from .typing import _validate_dtype, boolean, f32, f64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
 
 
 class NumericTensor(Tensor, ArithmeticTensorMixin):
@@ -46,8 +46,13 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
 
     def __eq__(self, other):
         if isinstance(other, np.ndarray):
-            return np.array_equal(np.asarray(self), other)
+            other = type(self)(other)
         return super().__eq__(other)
+
+    def array_equal(self, other) -> bool:
+        if isinstance(other, np.ndarray):
+            return np.array_equal(np.asarray(self), other)
+        return super().array_equal(other)
 
 
 class Float32Tensor(NumericTensor):
@@ -212,6 +217,46 @@ class PointCloud64Tensor(PointCloudTensor):
     def _decay_value(self, val):
         t = Float64Tensor(val)
         return t._data
+
+
+class BoolTensor(Tensor):
+    """Tensor of boolean values, typically produced by elementwise comparisons."""
+
+    def __init__(self, data: cpp.BoolTensor):
+        super().__init__()
+        self._data = data
+        self.dtype = boolean
+
+    def _to_py_tensor(self, data):
+        return BoolTensor(data)
+
+    def _decay_value(self, val):
+        return val
+
+    def _represent_element(self, element):
+        return element
+
+    def _get_valid_setitem_dtypes(self):
+        return [BoolTensor, bool]
+
+    def __bool__(self):
+        total = 1
+        for d in self.shape:
+            total *= d
+        if total == 1:
+            idx = [0] * len(self.shape)
+            return bool(self._data._get_element(idx))
+        raise ValueError(
+            "The truth value of a tensor with more than one element is ambiguous. "
+            "Use array_equal() for whole-tensor comparison."
+        )
+
+    def __array__(self, dtype=None, copy=None):
+        data = self._data if self._data.is_contiguous() else self.copy()._data
+        arr = np.array(data)
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        return arr
 
 
 PcfContainerLike = Tensor | list[Pcf] | Pcf

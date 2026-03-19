@@ -363,13 +363,16 @@ namespace mpcf
 
   namespace detail
   {
-    template <typename T, typename BinaryOp>
-    Tensor<T> broadcast_binop(const Tensor<T>& lhs, const Tensor<T>& rhs, BinaryOp op)
+    /// Apply a binary operation elementwise to two broadcast-compatible tensors.
+    /// The result element type R is deduced from the return type of op.
+    template <typename T, typename BinaryOp,
+              typename R = std::invoke_result_t<BinaryOp, const T&, const T&>>
+    Tensor<R> broadcast_binop(const Tensor<T>& lhs, const Tensor<T>& rhs, BinaryOp op)
     {
       auto out_shape = broadcast_shapes(lhs.shape(), rhs.shape());
       auto lhs_view = lhs.broadcast_to(out_shape);
       auto rhs_view = rhs.broadcast_to(out_shape);
-      Tensor<T> result(out_shape);
+      Tensor<R> result(out_shape);
       result.walk([&](const std::vector<size_t>& idx) {
         result(idx) = op(lhs_view(idx), rhs_view(idx));
       });
@@ -393,19 +396,19 @@ namespace mpcf
 
   template <typename T>
   Tensor<T> Tensor<T>::operator+(const Tensor& rhs) const
-  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a + b; }); }
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a + b; }); }
 
   template <typename T>
   Tensor<T> Tensor<T>::operator-(const Tensor& rhs) const
-  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a - b; }); }
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a - b; }); }
 
   template <typename T>
   Tensor<T> Tensor<T>::operator*(const Tensor& rhs) const
-  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a * b; }); }
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a * b; }); }
 
   template <typename T>
   Tensor<T> Tensor<T>::operator/(const Tensor& rhs) const
-  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b){ return a / b; }); }
+  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a / b; }); }
 
   template <typename T>
   Tensor<T>& Tensor<T>::operator+=(const Tensor& rhs)
@@ -422,6 +425,38 @@ namespace mpcf
   template <typename T>
   Tensor<T>& Tensor<T>::operator/=(const Tensor& rhs)
   { return detail::broadcast_binop_inplace(*this, rhs, [](const T& a, const T& b){ return a / b; }); }
+
+  // Elementwise comparison with broadcasting (returns Tensor<bool>)
+
+  template <typename T>
+  requires std::equality_comparable<T>
+  Tensor<bool> elementwise_eq(const Tensor<T>& lhs, const Tensor<T>& rhs)
+  { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a == b; }); }
+
+  template <typename T>
+  requires std::equality_comparable<T>
+  Tensor<bool> elementwise_ne(const Tensor<T>& lhs, const Tensor<T>& rhs)
+  { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a != b; }); }
+
+  template <typename T>
+  requires CanOrder<T>
+  Tensor<bool> elementwise_lt(const Tensor<T>& lhs, const Tensor<T>& rhs)
+  { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a < b; }); }
+
+  template <typename T>
+  requires CanOrder<T>
+  Tensor<bool> elementwise_le(const Tensor<T>& lhs, const Tensor<T>& rhs)
+  { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a <= b; }); }
+
+  template <typename T>
+  requires CanOrder<T>
+  Tensor<bool> elementwise_gt(const Tensor<T>& lhs, const Tensor<T>& rhs)
+  { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a > b; }); }
+
+  template <typename T>
+  requires CanOrder<T>
+  Tensor<bool> elementwise_ge(const Tensor<T>& lhs, const Tensor<T>& rhs)
+  { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a >= b; }); }
 
   template <typename T>
   [[nodiscard]] size_t Tensor<T>::size() const noexcept

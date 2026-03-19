@@ -95,6 +95,8 @@ namespace mpcf_py
   {
     register_common_bindings(m);
 
+    register_typed_tensor_bindings<bool>(m, "Bool", "");
+
     register_typed_tensor_bindings<mpcf::float64_t>(m, "Float64", "");
     register_typed_tensor_bindings<mpcf::float32_t>(m, "Float32", "");
 

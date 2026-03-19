@@ -24,6 +24,7 @@ from .serialize import from_serial_content
 from .distance_matrix import DistanceMatrix, DistanceMatrix32Tensor, DistanceMatrix64Tensor
 from .symmetric_matrix import SymmetricMatrix, SymmetricMatrix32Tensor, SymmetricMatrix64Tensor
 from .tensor import (
+    BoolTensor,
     Float32Tensor,
     Float64Tensor,
     Pcf32iTensor,
@@ -37,6 +38,7 @@ from .tensor_create import zeros
 from .typing import (
     barcode32,
     barcode64,
+    boolean,
     f32,
     f64,
     float32,  # deprecated
