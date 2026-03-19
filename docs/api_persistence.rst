@@ -32,10 +32,10 @@ homology
    :undoc-members:
    :show-inheritance:
 
-stable_rank
------------
+barcode_summary
+----------------
 
-.. automodule:: masspcf.persistence.stable_rank
+.. automodule:: masspcf.persistence.barcode_summary
    :members:
    :undoc-members:
    :show-inheritance:

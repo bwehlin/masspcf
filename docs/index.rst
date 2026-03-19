@@ -20,8 +20,6 @@ The basic objects are *numpy*-like (multidimensional) arrays of PCFs, on which w
 
    masspcf
 
-   cpp_api/library_root
-
 .. grid:: 2
 
    .. grid-item-card:: Getting started

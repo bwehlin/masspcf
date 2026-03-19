@@ -54,7 +54,7 @@ def compute_persistent_homology(
 
     Returns barcodes for homology dimensions 0 through ``maxDim``. When
     ``complex_type`` is ``ComplexType.VietorisRips`` (currently the only
-    available option), the computation uses Ripser [1]_. When the input
+    available option), the computation uses Ripser [ripser_ref]_. When the input
     contains multiple point clouds, the computations are parallelized
     across them.
 
@@ -86,7 +86,7 @@ def compute_persistent_homology(
 
     References
     ----------
-    .. [1] U. Bauer, "Ripser: efficient computation of Vietoris-Rips
+    .. [ripser_ref] U. Bauer, "Ripser: efficient computation of Vietoris-Rips
        persistence barcodes", *Journal of Applied and Computational
        Topology*, vol. 5, pp. 391--423, 2021.
     """
