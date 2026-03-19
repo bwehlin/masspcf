@@ -95,12 +95,31 @@ Input flexibility
 
 - A single ``Float32Tensor`` or ``Float64Tensor`` (interpreted as a single point cloud)
 - A plain NumPy array (interpreted as a single point cloud)
+- A ``DistanceMatrix`` (precomputed pairwise distances for a single data set)
+- A ``DistanceMatrix32Tensor`` or ``DistanceMatrix64Tensor`` (a tensor of precomputed distance matrices)
 
 ::
 
    # From a NumPy array directly
    points = np.random.randn(50, 3)
    bcs = mpers.compute_persistent_homology(points, maxDim=1)
+
+When the input is a distance matrix, the ``distance_type`` parameter is
+ignored because distances are already provided::
+
+   from scipy.spatial.distance import pdist, squareform
+   import masspcf as mpcf
+   from masspcf import persistence as mpers
+
+   points = np.random.randn(50, 3)
+   D = squareform(pdist(points))
+
+   dm = mpcf.DistanceMatrix(50, dtype=mpcf.f64)
+   for i in range(50):
+       for j in range(i):
+           dm[i, j] = D[i, j]
+
+   bcs = mpers.compute_persistent_homology(dm, maxDim=1)
 
 Options
 -------

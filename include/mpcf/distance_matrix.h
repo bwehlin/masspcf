@@ -77,7 +77,7 @@ namespace mpcf
 
     explicit DistanceMatrix(size_t n, const T& init = {})
       : m_data(std::make_shared<T[]>(storage_size(n)))
-      , m_n(n)
+      , m_size(n)
     {
       if (init < T{})
         throw std::invalid_argument("Distance matrix entries must be nonnegative");
@@ -86,8 +86,8 @@ namespace mpcf
 
     DistanceMatrix() : DistanceMatrix(0) { }
 
-    [[nodiscard]] size_t n() const { return m_n; }
-    [[nodiscard]] size_t storage_count() const { return storage_size(m_n); }
+    [[nodiscard]] size_t size() const { return m_size; }
+    [[nodiscard]] size_t storage_count() const { return storage_size(m_size); }
 
     [[nodiscard]] EntryProxy operator()(size_t i, size_t j)
     {
@@ -107,17 +107,17 @@ namespace mpcf
 
     [[nodiscard]] bool operator==(const DistanceMatrix& rhs) const
     {
-      if (m_n != rhs.m_n)
+      if (m_size != rhs.m_size)
         return false;
-      return std::equal(m_data.get(), m_data.get() + storage_size(m_n), rhs.m_data.get());
+      return std::equal(m_data.get(), m_data.get() + storage_size(m_size), rhs.m_data.get());
     }
 
     [[nodiscard]] bool operator!=(const DistanceMatrix& rhs) const
     {
-      if (m_n != rhs.m_n)
+      if (m_size != rhs.m_size)
         return true;
-      return std::mismatch(m_data.get(), m_data.get() + storage_size(m_n), rhs.m_data.get()).first
-        != m_data.get() + storage_size(m_n);
+      return std::mismatch(m_data.get(), m_data.get() + storage_size(m_size), rhs.m_data.get()).first
+        != m_data.get() + storage_size(m_size);
     }
 
     [[nodiscard]] const T* data() const { return m_data.get(); }
@@ -135,10 +135,10 @@ namespace mpcf
 
     void bounds_check(size_t i, size_t j) const
     {
-      if (i >= m_n || j >= m_n)
+      if (i >= m_size || j >= m_size)
       {
         std::ostringstream oss;
-        oss << "DistanceMatrix index (" << i << ", " << j << ") out of range for matrix of size " << m_n;
+        oss << "DistanceMatrix index (" << i << ", " << j << ") out of range for matrix of size " << m_size;
         throw std::out_of_range(oss.str());
       }
     }
@@ -151,7 +151,7 @@ namespace mpcf
     }
 
     std::shared_ptr<T[]> m_data;
-    size_t m_n;
+    size_t m_size;
   };
 
 }

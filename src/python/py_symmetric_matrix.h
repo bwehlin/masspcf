@@ -42,7 +42,7 @@ namespace mpcf_py
     py::class_<MatT>(m, ("SymmetricMatrix" + suffix).c_str(), py::buffer_protocol())
       .def(py::init<size_t>(), py::arg("n"))
       .def(py::init<size_t, T>(), py::arg("n"), py::arg("init"))
-      .def_property_readonly("n", &MatT::n)
+      .def_property_readonly("size", &MatT::size)
       .def_property_readonly("storage_count", &MatT::storage_count)
       .def("__getitem__", [](const MatT& self, std::pair<size_t, size_t> ij) {
         return self(ij.first, ij.second);
@@ -62,7 +62,7 @@ namespace mpcf_py
         );
       })
       .def("to_dense", [](const MatT& self) {
-        auto n = self.n();
+        auto n = self.size();
         py::array_t<T> out({n, n});
         NumpyTensor<T> buf(out);
         for (size_t i = 0; i < n; ++i)
@@ -76,7 +76,7 @@ namespace mpcf_py
       })
       .def("__repr__", [suffix](const MatT& self) {
         std::ostringstream oss;
-        oss << "SymmetricMatrix" << suffix << "(n=" << self.n() << ")";
+        oss << "SymmetricMatrix" << suffix << "(size=" << self.size() << ")";
         return oss.str();
       })
     ;

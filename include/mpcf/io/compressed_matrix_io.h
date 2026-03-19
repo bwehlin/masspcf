@@ -23,9 +23,9 @@ namespace mpcf::io::detail
 {
   template <typename MatT>
   void write_element(std::ostream& os, const MatT& mat)
-    requires requires { mat.n(); mat.storage_count(); mat.data(); }
+    requires requires { mat.size(); mat.storage_count(); mat.data(); }
   {
-    write_bytes<uint64_t>(os, mat.n());
+    write_bytes<uint64_t>(os, mat.size());
     for (size_t i = 0; i < mat.storage_count(); ++i)
     {
       write_bytes<typename MatT::value_type>(os, mat.data()[i]);

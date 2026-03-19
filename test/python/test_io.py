@@ -77,7 +77,7 @@ def test_symmetric_matrix_tensor_roundtrip_empty(symmat_dtype, scalar_dtype):
 
     assert type(restored) is type(T)
     assert restored.shape == T.shape
-    assert restored[0].n == 0
+    assert restored[0].size == 0
 
 
 def _make_distance_matrix(n, dtype):
@@ -125,4 +125,4 @@ def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
 
     assert type(restored) is type(T)
     assert restored.shape == T.shape
-    assert restored[0].n == 0
+    assert restored[0].size == 0

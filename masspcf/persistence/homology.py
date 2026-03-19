@@ -18,13 +18,19 @@ import numpy as np
 
 from .. import _mpcf_cpp as cpp
 from ..async_task import _run_task
+from ..distance_matrix import (
+    DistanceMatrix,
+    DistanceMatrix32Tensor,
+    DistanceMatrix64Tensor,
+    DistanceMatrixTensor,
+)
 from ..tensor import (
     Float32Tensor,
     Float64Tensor,
     PointCloud32Tensor,
     PointCloud64Tensor,
 )
-from ..typing import barcode32, barcode64, pcloud32, pcloud64
+from ..typing import barcode32, barcode64, distmat32, distmat64, pcloud32, pcloud64
 from .ph_tensor import Barcode32Tensor, Barcode64Tensor
 
 cpp_p = cpp.persistence
@@ -41,6 +47,9 @@ class ComplexType(Enum):
 def compute_persistent_homology(
     X: PointCloud32Tensor
     | PointCloud64Tensor
+    | DistanceMatrix
+    | DistanceMatrix32Tensor
+    | DistanceMatrix64Tensor
     | Float32Tensor
     | Float64Tensor
     | np.ndarray,
@@ -50,26 +59,31 @@ def compute_persistent_homology(
     reduced: bool = False,
     verbose: bool = True,
 ) -> Barcode32Tensor | Barcode64Tensor:
-    r"""Compute persistent homology of a point cloud.
+    r"""Compute persistent homology of a point cloud or distance matrix.
 
     Returns barcodes for homology dimensions 0 through ``maxDim``. When
     ``complex_type`` is ``ComplexType.VietorisRips`` (currently the only
     available option), the computation uses Ripser [ripser_ref]_. When the input
-    contains multiple point clouds, the computations are parallelized
-    across them.
+    contains multiple point clouds or distance matrices, the computations are
+    parallelized across them.
 
     For an input tensor of shape :math:`(d_1, \ldots, d_n)`, the output has
     shape :math:`(d_1, \ldots, d_n, \texttt{maxDim} + 1)`.
 
     Parameters
     ----------
-    X : PointCloud32Tensor, PointCloud64Tensor, Float32Tensor, Float64Tensor, or numpy.ndarray
-        Input point cloud. A ``Float32/64Tensor`` or NumPy array is
+    X : PointCloud32Tensor, PointCloud64Tensor, DistanceMatrix, DistanceMatrix32Tensor, DistanceMatrix64Tensor, Float32Tensor, Float64Tensor, or numpy.ndarray
+        Input data. A ``Float32/64Tensor`` or NumPy array is
         interpreted as a single point cloud (one row per point).
+        A ``DistanceMatrix`` or ``DistanceMatrix{32,64}Tensor`` provides
+        precomputed pairwise distances directly; ``distance_type`` is
+        ignored in that case.
     maxDim : int, optional
         Maximum homology dimension to compute, by default 1.
     distance_type : DistanceType, optional
-        Distance metric, by default ``DistanceType.Euclidean``.
+        Distance metric for point cloud input, by default
+        ``DistanceType.Euclidean``. Ignored when the input is a distance
+        matrix.
     complex_type : ComplexType, optional
         Simplicial complex type, by default ``ComplexType.VietorisRips``.
     reduced : bool, optional
@@ -92,8 +106,36 @@ def compute_persistent_homology(
     """
 
     from ..tensor_create import zeros
-    from .ripser import _compute_barcodes_euclidean_pcloud_ripser
+    from .ripser import _compute_barcodes_distmat_ripser, _compute_barcodes_euclidean_pcloud_ripser
 
+    # --- Distance matrix input path ---
+    if isinstance(X, (DistanceMatrix, DistanceMatrixTensor)):
+        if isinstance(X, DistanceMatrix):
+            # Wrap single DistanceMatrix into a 1-element tensor
+            if isinstance(X._data, cpp.DistanceMatrix_f32):
+                dmX = zeros((1,), dtype=distmat32)
+            else:
+                dmX = zeros((1,), dtype=distmat64)
+            dmX[0] = X
+            X = dmX
+
+        if isinstance(X, DistanceMatrix32Tensor):
+            out = zeros((1,), dtype=barcode32)
+        else:
+            out = zeros((1,), dtype=barcode64)
+
+        if complex_type != ComplexType.VietorisRips:
+            raise ValueError(f"Unsupported complex type {complex_type}")
+
+        task = _compute_barcodes_distmat_ripser(X, out, maxDim, reduced)
+        _run_task(lambda: task, verbose=verbose)
+
+        if len(out.shape) == 2 and out.shape[0] == 1:
+            out = out[0, :]
+
+        return out
+
+    # --- Point cloud input path ---
     if isinstance(X, np.ndarray):
         if X.dtype == np.float32:
             X = Float32Tensor(X)
@@ -137,19 +179,3 @@ def compute_persistent_homology(
         out = out[0, :]
 
     return out
-
-
-"""
-    backend, fs = _get_norms_backend(fs)
-    out = np.zeros(X.shape, dtype=numpy_type(X))
-
-    task = None
-    try:
-        task = backend.lpnorm_l1(out, X._data)
-        _wait_for_task(task, verbose=verbose)
-        return out
-    finally:
-        if task is not None:
-            task.request_stop()
-            _wait_for_task(task, verbose=verbose)
-"""

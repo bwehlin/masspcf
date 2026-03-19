@@ -69,8 +69,8 @@ class DistanceMatrix:
             raise TypeError(f"Expected int, DistanceMatrix, or C++ DistanceMatrix; got {type(n_or_data)}")
 
     @property
-    def n(self) -> int:
-        return self._data.n
+    def size(self) -> int:
+        return self._data.size
 
     @property
     def storage_count(self) -> int:

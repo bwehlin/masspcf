@@ -16,6 +16,7 @@
 #define MASSPCF_COMPUTE_PERSISTENCE_H
 
 #include "../tensor.h"
+#include "../distance_matrix.h"
 #include "../executor.h"
 #include "../task.h"
 
@@ -25,58 +26,25 @@
 #include "ripser/ripser.h"
 
 #include <iostream>
+#include <type_traits>
 
 namespace mpcf::ph
 {
   namespace detail
   {
-    template <typename T>
-    void compute_persistence_euclidean_single_impl(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index, bool reducedHomology = false)
+    /// Run Ripser on any distance-matrix-like object (must have .size() and operator()(i,j)).
+    /// Computes the enclosing radius threshold, builds the compressed lower-triangular
+    /// matrix, runs Ripser, and writes barcodes into ret at the given index.
+    template <typename DistMatT, typename T>
+    void run_ripser(const DistMatT& distanceMatrix, size_t n, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index, bool reducedHomology)
     {
-      if (index.back() != 0)
-      {
-        // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
-        return;
-      }
-
-      auto pcIdx = std::vector<size_t>(index.begin(), std::prev(index.end()));
-      auto const & points = pclouds(pcIdx);
-
-      if (points.rank() == 0 || std::any_of(points.shape().begin(), points.shape().end(), [](size_t v){ return v == 0; }))
-      {
-        // No points or all degenerate points => trivial homology
-        return;
-      }
-
-      if (points.rank() != 2)
-      {
-        throw std::runtime_error("Point cloud at index " + index_to_string(pcIdx) + " has unexpected shape " +
-                                 shape_to_string(points.shape()) + " (should be (m, n))");
-      }
-
-      std::vector<std::vector<rips::value_t>> rpoints;
-      rpoints.reserve(points.shape(0));
-
-      for (auto i = 0_uz; i < points.shape(0); ++i)
-      {
-        rpoints.emplace_back();
-        auto & curRPoint = rpoints.back();
-        curRPoint.resize(points.shape(1));
-        for (auto j = 0_uz; j < points.shape(1); ++j)
-        {
-          curRPoint[j] = points({i, j});
-        }
-      }
-
-      rips::euclidean_distance_matrix distanceMatrix(std::move(rpoints));
-
       rips::value_t threshold = std::numeric_limits<rips::value_t>::infinity();
-      for (auto i = 0_uz; i < points.shape(0); ++i)
+      for (auto i = 0_uz; i < n; ++i)
       {
         auto r = -std::numeric_limits<rips::value_t>::infinity();
-        for (auto j = 0_uz; j < points.shape(0); ++j)
+        for (auto j = 0_uz; j < n; ++j)
         {
-          r = std::max(r, distanceMatrix(i, j));
+          r = std::max(r, static_cast<rips::value_t>(distanceMatrix(i, j)));
         }
         threshold = std::min(threshold, r);
       }
@@ -84,7 +52,7 @@ namespace mpcf::ph
       rips::value_t ratio = static_cast<rips::value_t>(1);
       rips::coefficient_t modulus = 2;
 
-      rips::compressed_lower_distance_matrix dist(std::move(distanceMatrix));
+      rips::compressed_lower_distance_matrix dist(distanceMatrix);
       rips::ripser<rips::compressed_lower_distance_matrix> ripser(std::move(dist), maxDim, threshold, ratio, modulus);
       ripser.compute_barcodes();
 
@@ -112,14 +80,74 @@ namespace mpcf::ph
         ret(retIdx) = std::move(bars);
       }
     }
+
+    template <typename T>
+    void compute_persistence_euclidean_single_impl(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index, bool reducedHomology = false)
+    {
+      if (index.back() != 0)
+      {
+        return;
+      }
+
+      auto pcIdx = std::vector<size_t>(index.begin(), std::prev(index.end()));
+      auto const & points = pclouds(pcIdx);
+
+      if (points.rank() == 0 || std::any_of(points.shape().begin(), points.shape().end(), [](size_t v){ return v == 0; }))
+      {
+        return;
+      }
+
+      if (points.rank() != 2)
+      {
+        throw std::runtime_error("Point cloud at index " + index_to_string(pcIdx) + " has unexpected shape " +
+                                 shape_to_string(points.shape()) + " (should be (m, n))");
+      }
+
+      std::vector<std::vector<rips::value_t>> rpoints;
+      rpoints.reserve(points.shape(0));
+
+      for (auto i = 0_uz; i < points.shape(0); ++i)
+      {
+        rpoints.emplace_back();
+        auto & curRPoint = rpoints.back();
+        curRPoint.resize(points.shape(1));
+        for (auto j = 0_uz; j < points.shape(1); ++j)
+        {
+          curRPoint[j] = points({i, j});
+        }
+      }
+
+      rips::euclidean_distance_matrix distanceMatrix(std::move(rpoints));
+      run_ripser(distanceMatrix, points.shape(0), ret, maxDim, index, reducedHomology);
+    }
+
+    template <typename T>
+    void compute_persistence_distmat_single_impl(const Tensor<DistanceMatrix<T>>& dmats, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index, bool reducedHomology = false)
+    {
+      if (index.back() != 0)
+      {
+        return;
+      }
+
+      auto dmIdx = std::vector<size_t>(index.begin(), std::prev(index.end()));
+      auto const & dmat = dmats(dmIdx);
+
+      if (dmat.size() == 0)
+      {
+        return;
+      }
+
+      run_ripser(dmat, dmat.size(), ret, maxDim, index, reducedHomology);
+    }
   }
 
-  template <typename T>
-  class RipserTask : public StoppableTask<void>
+  /// Parallel Ripser task, templated on the input element type (PointCloud<T> or DistanceMatrix<T>).
+  template <typename ElemT, typename T>
+  class RipserTaskImpl : public StoppableTask<void>
   {
   public:
-    RipserTask(const Tensor<PointCloud<T>>& pclouds, Tensor<Barcode<T>>& ret, size_t maxDim = 1, bool reducedHomology = false)
-      : m_pclouds(pclouds), m_ret(ret), m_maxDim(maxDim), m_reducedHomology(reducedHomology)
+    RipserTaskImpl(const Tensor<ElemT>& input, Tensor<Barcode<T>>& ret, size_t maxDim = 1, bool reducedHomology = false)
+      : m_input(input), m_ret(ret), m_maxDim(maxDim), m_reducedHomology(reducedHomology)
     { }
 
   private:
@@ -127,23 +155,25 @@ namespace mpcf::ph
     {
       tf::Taskflow flow;
 
-      auto shape = m_pclouds.shape();
+      auto shape = m_input.shape();
       shape.emplace_back(m_maxDim + 1);
       m_ret = Tensor<Barcode<T>>(shape);
 
-      next_step(m_pclouds.size(), "Computing persistence", "pointcloud");
+      next_step(m_input.size(), "Computing persistence", "pointcloud");
 
       m_ret.walk([this, &flow](const std::vector<size_t>& index) {
         if (index.back() != 0)
         {
-          // We do the computation on the index that corresponds to H_0. "H_0" writes into all H_k.
           return;
         }
 
         flow.emplace([this, index] {
           if (stop_requested())
             return;
-          detail::compute_persistence_euclidean_single_impl(m_pclouds, m_ret, m_maxDim, index, m_reducedHomology);
+          if constexpr (std::is_same_v<ElemT, PointCloud<T>>)
+            detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, index, m_reducedHomology);
+          else
+            detail::compute_persistence_distmat_single_impl(m_input, m_ret, m_maxDim, index, m_reducedHomology);
           add_progress(1);
         });
       });
@@ -151,14 +181,18 @@ namespace mpcf::ph
       return exec.cpu()->run(std::move(flow));
     }
 
-    const Tensor<PointCloud<T>>& m_pclouds;
+    const Tensor<ElemT>& m_input;
     Tensor<Barcode<T>>& m_ret;
     size_t m_maxDim;
     bool m_reducedHomology;
 
   };
 
+  template <typename T>
+  using RipserTask = RipserTaskImpl<PointCloud<T>, T>;
 
+  template <typename T>
+  using RipserDistMatTask = RipserTaskImpl<DistanceMatrix<T>, T>;
 
 }
 

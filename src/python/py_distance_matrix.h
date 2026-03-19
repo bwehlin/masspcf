@@ -41,7 +41,7 @@ namespace mpcf_py
 
     py::class_<MatT>(m, ("DistanceMatrix" + suffix).c_str())
       .def(py::init<size_t>(), py::arg("n"))
-      .def_property_readonly("n", &MatT::n)
+      .def_property_readonly("size", &MatT::size)
       .def_property_readonly("storage_count", &MatT::storage_count)
       .def("__getitem__", [](const MatT& self, std::pair<size_t, size_t> ij) {
         return self(ij.first, ij.second);
@@ -50,7 +50,7 @@ namespace mpcf_py
         self(ij.first, ij.second) = val;
       })
       .def("to_dense", [](const MatT& self) {
-        auto n = self.n();
+        auto n = self.size();
         py::array_t<T> out({n, n});
         NumpyTensor<T> buf(out);
         for (size_t i = 0; i < n; ++i)
@@ -64,7 +64,7 @@ namespace mpcf_py
       })
       .def("__repr__", [suffix](const MatT& self) {
         std::ostringstream oss;
-        oss << "DistanceMatrix" << suffix << "(n=" << self.n() << ")";
+        oss << "DistanceMatrix" << suffix << "(size=" << self.size() << ")";
         return oss.str();
       })
     ;

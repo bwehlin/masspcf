@@ -67,8 +67,8 @@ class SymmetricMatrix:
             raise TypeError(f"Expected int, SymmetricMatrix, or C++ SymmetricMatrix; got {type(n_or_data)}")
 
     @property
-    def n(self) -> int:
-        return self._data.n
+    def size(self) -> int:
+        return self._data.size
 
     @property
     def storage_count(self) -> int:

@@ -17,17 +17,17 @@ def dtype(request):
 class TestConstruction:
     def test_construct(self, dtype):
         m = mpcf.SymmetricMatrix(5, dtype=dtype)
-        assert m.n == 5
+        assert m.size == 5
         assert m.storage_count == 5 + 4 + 3 + 2 + 1
 
     def test_construct_zero_size(self, dtype):
         m = mpcf.SymmetricMatrix(0, dtype=dtype)
-        assert m.n == 0
+        assert m.size == 0
         assert m.storage_count == 0
 
     def test_construct_size_one(self, dtype):
         m = mpcf.SymmetricMatrix(1, dtype=dtype)
-        assert m.n == 1
+        assert m.size == 1
         assert m.storage_count == 1
 
     def test_construct_requires_dtype(self):
@@ -48,7 +48,7 @@ class TestConstruction:
         from masspcf import _mpcf_cpp as cpp
         raw = cpp.SymmetricMatrix_f64(4)
         m = mpcf.SymmetricMatrix(raw)
-        assert m.n == 4
+        assert m.size == 4
 
     def test_construct_rejects_bad_type(self):
         with pytest.raises(TypeError, match="Expected int"):

@@ -16,6 +16,7 @@
 #include "../py_async_support.h"
 
 #include <mpcf/tensor.h>
+#include <mpcf/distance_matrix.h>
 #include <mpcf/persistence/barcode.h>
 #include <mpcf/persistence/compute_persistence.h>
 
@@ -33,10 +34,16 @@ namespace
       return mpcf_py::execute_stoppable_task<mpcf::ph::RipserTask<T>>(pclouds, out, maxDim, reducedHomology);
     }
 
+    static std::unique_ptr<mpcf::StoppableTask<void>> spawn_ripser_distmat_task(const mpcf::Tensor<mpcf::DistanceMatrix<T>>& dmats, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim, bool reducedHomology)
+    {
+      return mpcf_py::execute_stoppable_task<mpcf::ph::RipserDistMatTask<T>>(dmats, out, maxDim, reducedHomology);
+    }
+
     static void register_bindings(py::module_& m, const std::string& suffix)
     {
       py::class_<PyRipserBindings>(m, ("PersistenceRipser" + suffix).c_str())
         .def_static("spawn_ripser_pcloud_euclidean_task", &PyRipserBindings::spawn_ripser_pcloud_euclidean_task)
+        .def_static("spawn_ripser_distmat_task", &PyRipserBindings::spawn_ripser_distmat_task)
       ;
     }
   };
