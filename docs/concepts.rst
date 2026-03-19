@@ -212,6 +212,56 @@ The dtype system
 
 The ``dtype`` parameter controls the element type of a tensor, analogous to NumPy's ``dtype``. masspcf defines the following dtypes in :py:mod:`masspcf.typing` (also re-exported from the top-level ``masspcf`` module):
 
+.. list-table:: Dtype overview
+   :header-rows: 1
+   :widths: 15 15 70
+
+   * - dtype
+     - Precision
+     - Description
+   * - ``barcode32``
+     - 32-bit float
+     - Persistence barcodes
+   * - ``barcode64``
+     - 64-bit float
+     - Persistence barcodes
+   * - ``distmat32``
+     - 32-bit float
+     - Distance matrices — n(n-1)/2 storage, zero diagonal, nonnegative
+   * - ``distmat64``
+     - 64-bit float
+     - Distance matrices — n(n-1)/2 storage, zero diagonal, nonnegative
+   * - ``f32``
+     - 32-bit float
+     - Scalar values (alias for ``numpy.float32``)
+   * - ``f64``
+     - 64-bit float
+     - Scalar values (alias for ``numpy.float64``)
+   * - ``pcf32``
+     - 32-bit float
+     - Piecewise constant functions (default)
+   * - ``pcf32i``
+     - 32-bit int
+     - Integer-valued piecewise constant functions
+   * - ``pcf64``
+     - 64-bit float
+     - Piecewise constant functions (higher precision)
+   * - ``pcf64i``
+     - 64-bit int
+     - Integer-valued piecewise constant functions
+   * - ``pcloud32``
+     - 32-bit float
+     - Point clouds
+   * - ``pcloud64``
+     - 64-bit float
+     - Point clouds
+   * - ``symmat32``
+     - 32-bit float
+     - Symmetric matrices — n(n+1)/2 storage
+   * - ``symmat64``
+     - 64-bit float
+     - Symmetric matrices — n(n+1)/2 storage
+
 PCF types
 ---------
 
