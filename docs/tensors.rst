@@ -134,8 +134,8 @@ Arithmetic
 ==========
 
 Numeric and PCF tensors support the standard arithmetic operators ``+``, ``-``,
-``*``, ``/``, unary ``-``, and their in-place counterparts ``+=``, ``-=``,
-``*=``, ``/=``.
+``*``, ``/``, ``**``, unary ``-``, and their in-place counterparts ``+=``,
+``-=``, ``*=``, ``/=``, ``**=``.
 
 Scalar arithmetic
 -----------------
@@ -160,6 +160,24 @@ and numeric scalars. Scalar ``+`` and ``-`` shift the values, while ``*`` and
    1.0 / X           # elementwise reciprocal
    -X                # negate
    X + some_pcf      # pointwise PCF addition
+
+Power
+-----
+
+The ``**`` operator raises every element to a given exponent. It works for both
+numeric and PCF tensors::
+
+   X = mpcf.Float64Tensor(np.array([4.0, 9.0, 16.0]))
+   Y = X ** 0.5       # [2.0, 3.0, 4.0]
+   X **= 2            # in-place: [16.0, 81.0, 256.0]
+
+   F = mpcf.zeros((5,))
+   # ... fill F with PCFs ...
+   G = F ** 2          # square every PCF's values
+   F **= 3             # cube in place
+
+A ``RuntimeWarning`` is emitted if the result contains NaN or infinity (e.g.
+raising a negative value to a fractional power).
 
 Tensor-tensor arithmetic (broadcasting)
 ----------------------------------------

@@ -263,6 +263,45 @@ namespace mpcf
     return ret;
   }
 
+  /**
+   * Elementwise power for tensors.
+   *
+   * Returns a new tensor whose elements are each raised to `exponent`
+   * via `mpcf::pow`. Works for scalar element types (float, double)
+   * and any type that provides a `.pow()` member (e.g. Pcf).
+   *
+   * @param t        the input tensor
+   * @param exponent the exponent to raise each element to
+   * @return a new tensor with transformed elements
+   */
+  template <typename T, typename U>
+  requires CanPow<T, U>
+  Tensor<T> pow(const Tensor<T>& t, U exponent)
+  {
+    Tensor<T> ret = t.copy();
+    ret.apply([&exponent](T& val){
+      val = mpcf::pow(val, exponent);
+    });
+    return ret;
+  }
+
+  /**
+   * In-place elementwise power for tensors.
+   *
+   * Raises each element of `t` to `exponent` in place via `mpcf::pow`.
+   *
+   * @param t        the tensor to modify
+   * @param exponent the exponent to raise each element to
+   */
+  template <typename T, typename U>
+  requires CanPow<T, U>
+  void ipow(Tensor<T>& t, U exponent)
+  {
+    t.apply([&exponent](T& val){
+      val = mpcf::pow(val, exponent);
+    });
+  }
+
   // ============================================================================
   // Broadcasting
   // ============================================================================

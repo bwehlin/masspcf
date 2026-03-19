@@ -254,3 +254,37 @@ class ArithmeticTensorMixin:
     def __itruediv__(self, rhs):
         self._data /= self._decay_operand(rhs)
         return self
+
+    def __pow__(self, exponent):
+        """Raise every element of the tensor to a power.
+
+        Returns a new tensor whose elements are each raised to
+        ``exponent``. A ``RuntimeWarning`` is emitted if the result
+        contains NaN or infinity.
+
+        Parameters
+        ----------
+        exponent : float or int
+            The exponent.
+
+        Returns
+        -------
+        Tensor
+            A new tensor with transformed elements.
+        """
+        return self._to_py_tensor(self._data.__pow__(exponent))
+
+    def __ipow__(self, exponent):
+        """Raise every element of the tensor to a power in place.
+
+        Parameters
+        ----------
+        exponent : float or int
+            The exponent.
+
+        Returns
+        -------
+        self
+        """
+        self._data.__ipow__(exponent)
+        return self

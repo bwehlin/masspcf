@@ -151,6 +151,19 @@ namespace
         .def("__truediv__", [](const TPcf& self, Tv c) -> TPcf { return self / c; })
         .def("__rtruediv__", [](const TPcf& self, Tv c) -> TPcf { return c / self; })
         .def("__neg__", [](const TPcf& self) -> TPcf { return -self; })
+        .def("__pow__", [](const TPcf& self, Tv c) -> TPcf {
+          auto result = mpcf::pow(self, c);
+          for (const auto& pt : result.points())
+          {
+            if (std::isnan(pt.v) || std::isinf(pt.v))
+            {
+              PyErr_WarnEx(PyExc_RuntimeWarning,
+                "invalid or infinite value encountered in pcf pow", 1);
+              break;
+            }
+          }
+          return result;
+        })
         .def("__call__", [](const TPcf& self, Tt t) -> Tv { return self.evaluate(t); })
         .def("__call__", [](const TPcf& self, py::array_t<Tt> times) -> py::array_t<Tv> {
           // Flatten to 1D for processing, remember original shape

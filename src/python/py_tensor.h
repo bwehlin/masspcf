@@ -27,7 +27,6 @@
 #include <mpcf/tensor.h>
 #include <mpcf/concepts.h>
 #include <mpcf/functional/pcf.h>
-
 #include "functional/py_pcf_tensor_eval.h"
 
 #include <algorithm>
@@ -352,6 +351,32 @@ namespace mpcf_py
     if constexpr (mpcf::CanDivideTo<T, Tv, T>)
     {
       cls.def("__rtruediv__", [](const TTensor& self, Tv lhs){ return lhs / self; });
+    }
+
+    if constexpr (mpcf::CanPow<T, Tv>)
+    {
+      cls.def("__pow__", [](const TTensor& self, Tv exponent) {
+        auto result = mpcf::pow(self, exponent);
+        bool warned = result.any_of([](const T& elem) {
+          if constexpr (mpcf::PcfLike<T>)
+            return std::ranges::any_of(elem.points(), [](const auto& pt) {
+              return std::isnan(pt.v) || std::isinf(pt.v);
+            });
+          else
+            return std::isnan(elem) || std::isinf(elem);
+        });
+        if (warned)
+        {
+          PyErr_WarnEx(PyExc_RuntimeWarning,
+            "invalid or infinite value encountered in pow", 1);
+        }
+        return result;
+      });
+
+      cls.def("__ipow__", [](TTensor& self, Tv exponent) -> TTensor& {
+        mpcf::ipow(self, exponent);
+        return self;
+      });
     }
 
     if constexpr (mpcf::PcfLike<T>)

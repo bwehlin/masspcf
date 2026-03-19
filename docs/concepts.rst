@@ -59,6 +59,15 @@ You can convert a ``Pcf`` back to a NumPy array with :py:meth:`~masspcf.Pcf.to_n
 
    arr = f.to_numpy()  # shape (3, 2), dtype float32
 
+Individual PCFs support arithmetic (``+``, ``-``, ``*``, ``/``, ``**``) with
+other PCFs and with scalars::
+
+   f = mpcf.Pcf([[0, 4.0], [1, 9.0]])
+   g = f ** 0.5    # square root: values become [2.0, 3.0]
+   h = f * 2.0     # scale: values become [8.0, 18.0]
+
+See :doc:`tensors` for the full arithmetic reference, including broadcasting.
+
 Tensors
 =======
 

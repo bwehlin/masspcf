@@ -172,6 +172,51 @@ class Pcf:
     def __neg__(self):
         return Pcf(-self._data)
 
+    def __pow__(self, exponent):
+        """Raise every value of the PCF to a power.
+
+        Returns a new PCF whose value at each breakpoint is raised to
+        ``exponent``. The domain (time coordinates) is unchanged.
+
+        A ``RuntimeWarning`` is emitted if the result contains NaN or
+        infinity (e.g. negative base with fractional exponent).
+
+        Parameters
+        ----------
+        exponent : float or int
+            The exponent.
+
+        Returns
+        -------
+        Pcf
+            A new PCF with transformed values.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import masspcf as mpcf
+        >>> f = mpcf.Pcf(np.array([[0.0, 4.0], [1.0, 9.0]], dtype=np.float64))
+        >>> g = f ** 0.5
+        >>> g(0.5)
+        2.0
+        """
+        return Pcf(self._data.__pow__(exponent))
+
+    def __ipow__(self, exponent):
+        """Raise every value of the PCF to a power in place.
+
+        Parameters
+        ----------
+        exponent : float or int
+            The exponent.
+
+        Returns
+        -------
+        self
+        """
+        self._data = self._data.__pow__(exponent)
+        return self
+
     def __call__(self, t):
         """Evaluate the PCF at the given time(s).
 

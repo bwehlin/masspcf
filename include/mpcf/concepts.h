@@ -15,6 +15,8 @@
 #ifndef MASSPCF_CONCEPTS_H
 #define MASSPCF_CONCEPTS_H
 
+#include "math.h"
+
 #include <concepts>
 #include <iterator>
 #include <vector>
@@ -71,6 +73,15 @@ namespace mpcf
   concept CanDivideTo = requires(A a, B b)
   {
     { a / b } -> std::convertible_to<R>;
+  };
+
+  /// Satisfied when `mpcf::pow(T, U)` is a valid expression.
+  /// This is true for arithmetic scalars (via `std::pow`) and for any
+  /// type that provides a `.pow()` member (e.g. `Pcf`).
+  template <typename T, typename U>
+  concept CanPow = requires(T t, U u)
+  {
+    { mpcf::pow(t, u) };
   };
 
   template <typename T>

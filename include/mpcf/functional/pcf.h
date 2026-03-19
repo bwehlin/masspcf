@@ -24,6 +24,7 @@
 #include <vector>
 #include <iostream>
 #include <ostream>
+#include <cmath>
 
 namespace mpcf
 {
@@ -224,6 +225,37 @@ namespace mpcf
       }
     }
 
+    /**
+     * Raise every value of the PCF to a power.
+     *
+     * Returns a new PCF whose value at every breakpoint is raised to
+     * `exponent`. The domain (time coordinates) is unchanged.
+     * Squaring (exponent == 2) avoids `std::pow` for performance.
+     *
+     * @param exponent the exponent to raise each value to
+     * @return a new PCF with transformed values
+     */
+    template <Arithmetic T>
+    [[nodiscard]] Pcf pow(T exponent) const
+    {
+      auto pts = m_points;
+      if (exponent == 2)
+      {
+        for (auto& pt : pts)
+        {
+          pt.v = pt.v * pt.v;
+        }
+      }
+      else
+      {
+        for (auto& pt : pts)
+        {
+          pt.v = static_cast<Tv>(std::pow(pt.v, exponent));
+        }
+      }
+      return Pcf(std::move(pts));
+    }
+
     [[nodiscard]] const std::vector<point_type>& points() const { return m_points; }
     [[nodiscard]] size_t size() const noexcept { return m_points.size(); }
     
@@ -354,6 +386,13 @@ namespace mpcf
     Pcf<Tt, Tv> ret = f;
     ret *= val;
     return ret;
+  }
+
+  /// Convenience free function; equivalent to `f.pow(exponent)`.
+  template <typename Tt, typename Tv, Arithmetic Ts>
+  [[nodiscard]] Pcf<Tt, Tv> pow(const Pcf<Tt, Tv>& f, Ts exponent)
+  {
+    return f.pow(exponent);
   }
 
   template <typename Tt, typename Tv>

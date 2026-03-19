@@ -380,6 +380,111 @@ class TestFloat64TensorBroadcast:
         npt.assert_array_equal(np.asarray(Y), b)
 
 
+class TestNumericTensorPow:
+    @pytest.fixture(params=[
+        pytest.param((mpcf.Float32Tensor, np.float32), id="float32"),
+        pytest.param((mpcf.Float64Tensor, np.float64), id="float64"),
+    ])
+    def tensor_info(self, request):
+        return request.param
+
+    def _make(self, tensor_info, vals):
+        cls, dtype = tensor_info
+        return cls(np.array(vals, dtype=dtype))
+
+    def test_pow_2(self, tensor_info):
+        X = self._make(tensor_info, [2.0, 3.0, 4.0])
+        Y = X ** 2
+        npt.assert_array_equal(np.asarray(Y), [4.0, 9.0, 16.0])
+
+    def test_pow_half(self, tensor_info):
+        X = self._make(tensor_info, [4.0, 9.0, 16.0])
+        Y = X ** 0.5
+        npt.assert_array_almost_equal(np.asarray(Y), [2.0, 3.0, 4.0])
+
+    def test_pow_negative_exponent(self, tensor_info):
+        X = self._make(tensor_info, [2.0, 4.0, 5.0])
+        Y = X ** -1.0
+        npt.assert_array_almost_equal(np.asarray(Y), [0.5, 0.25, 0.2])
+
+    def test_pow_does_not_mutate(self, tensor_info):
+        X = self._make(tensor_info, [2.0, 3.0, 4.0])
+        _ = X ** 2
+        npt.assert_array_equal(np.asarray(X), [2.0, 3.0, 4.0])
+
+    def test_pow_negative_base_fractional_exp_warns(self, tensor_info):
+        X = self._make(tensor_info, [-2.0, 4.0])
+        with pytest.warns(RuntimeWarning):
+            Y = X ** 0.5
+        assert np.isnan(np.asarray(Y)[0])
+        npt.assert_almost_equal(np.asarray(Y)[1], 2.0)
+
+    def test_pow_zero_base_negative_exp_warns(self, tensor_info):
+        X = self._make(tensor_info, [0.0, 2.0])
+        with pytest.warns(RuntimeWarning):
+            Y = X ** -1.0
+        assert np.isinf(np.asarray(Y)[0])
+        npt.assert_almost_equal(np.asarray(Y)[1], 0.5)
+
+    def test_ipow(self, tensor_info):
+        X = self._make(tensor_info, [2.0, 3.0, 4.0])
+        X **= 2
+        npt.assert_array_equal(np.asarray(X), [4.0, 9.0, 16.0])
+
+
+class TestPcfTensorPow:
+    @pytest.fixture(params=[
+        pytest.param((mpcf.pcf32, np.float32), id="pcf32"),
+        pytest.param((mpcf.pcf64, np.float64), id="pcf64"),
+    ])
+    def pcf_info(self, request):
+        return request.param
+
+    def _make_tensor(self, pcf_info, vals_list):
+        pcf_dtype, np_dtype = pcf_info
+        tensor = mpcf.zeros((len(vals_list),), dtype=pcf_dtype)
+        for i, vals in enumerate(vals_list):
+            tensor[i] = mpcf.Pcf(np.array(vals, dtype=np_dtype))
+        return tensor, np_dtype
+
+    def test_pow_2(self, pcf_info):
+        T, np_dtype = self._make_tensor(pcf_info, [
+            [[0.0, 2.0], [1.0, 3.0]],
+            [[0.0, 4.0], [1.0, 5.0]],
+        ])
+        R = T ** 2
+        expected_0 = mpcf.Pcf(np.array([[0.0, 4.0], [1.0, 9.0]], dtype=np_dtype))
+        expected_1 = mpcf.Pcf(np.array([[0.0, 16.0], [1.0, 25.0]], dtype=np_dtype))
+        assert R[0] == expected_0
+        assert R[1] == expected_1
+
+    def test_pow_does_not_mutate(self, pcf_info):
+        T, _ = self._make_tensor(pcf_info, [
+            [[0.0, 2.0], [1.0, 3.0]],
+        ])
+        original = T.copy()
+        _ = T ** 2
+        assert T == original
+
+    def test_ipow(self, pcf_info):
+        T, np_dtype = self._make_tensor(pcf_info, [
+            [[0.0, 2.0], [1.0, 3.0]],
+            [[0.0, 4.0], [1.0, 5.0]],
+        ])
+        T **= 2
+        expected_0 = mpcf.Pcf(np.array([[0.0, 4.0], [1.0, 9.0]], dtype=np_dtype))
+        expected_1 = mpcf.Pcf(np.array([[0.0, 16.0], [1.0, 25.0]], dtype=np_dtype))
+        assert T[0] == expected_0
+        assert T[1] == expected_1
+
+    def test_pow_negative_base_fractional_exp_warns(self, pcf_info):
+        T, _ = self._make_tensor(pcf_info, [
+            [[0.0, -2.0], [1.0, 4.0]],
+        ])
+        with pytest.warns(RuntimeWarning):
+            _ = T ** 0.5
+
+
 class TestFloat32TensorBroadcast:
     def test_add_broadcast(self):
         a = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
