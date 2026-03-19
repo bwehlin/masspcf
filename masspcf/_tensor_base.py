@@ -65,9 +65,11 @@ class Tensor(ABC):
 
         if isinstance(slices, int):
             self._data._set_element([slices], self._decay_value(val))
+        elif isinstance(slices, slice):
+            real_slices = [_pyslice_to_slice(slices)]
+            self._data[real_slices] = val._data
         elif all(isinstance(s, int) for s in slices):
             self._data._set_element(slices, self._decay_value(val))
-        # TODO: single slice
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
             self._data[real_slices] = (

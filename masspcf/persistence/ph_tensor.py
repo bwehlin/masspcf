@@ -35,7 +35,7 @@ class BarcodeTensor(Tensor):
         return Barcode(element)
 
     def _get_valid_setitem_dtypes(self):
-        return [Barcode, np.ndarray]
+        return [BarcodeTensor, Barcode32Tensor, Barcode64Tensor, Barcode, np.ndarray]
 
 
 class Barcode32Tensor(BarcodeTensor):

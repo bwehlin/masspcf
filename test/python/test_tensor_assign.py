@@ -12,9 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import numpy as np
+import numpy.testing as npt
 import pytest
 
 import masspcf as mpcf
+import masspcf.persistence as mpers
 
 
 def test_assign_tensor_to_slice_1d():
@@ -48,7 +51,7 @@ def test_assign_tensor_to_slice_incommensurate_dims():
 
     A = mpcf.zeros((10, 30))
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         A[:, 0:5] = X0
 
 
@@ -57,3 +60,108 @@ def test_assign_wrong_dtype_raises_error():
 
     with pytest.raises(TypeError):
         X[2, 3] = 0.5
+
+
+# --- Bare-slice assignment ---
+
+
+def _check_broadcast_assign(np_target, np_rhs, slices):
+    """Perform the same broadcast assignment on both numpy and mpcf, assert results match."""
+    np_a = np_target.copy()
+    np_a[slices] = np_rhs
+
+    mpcf_a = mpcf.Float64Tensor(np_target.copy())
+    mpcf_rhs = mpcf.Float64Tensor(np_rhs)
+    mpcf_a[slices] = mpcf_rhs
+
+    npt.assert_array_equal(np.asarray(mpcf_a), np_a)
+
+
+def test_assign_bare_slice():
+    _check_broadcast_assign(
+        np.zeros((4, 3)),
+        np.array([[1.0, 2.0, 3.0]]),
+        slice(1, 3),
+    )
+
+
+# --- Broadcast assignment ---
+
+
+def test_broadcast_assign_row_to_2d_float():
+    """Assign (4,) row to every row of a (3, 4) slice."""
+    _check_broadcast_assign(
+        np.zeros((3, 4)),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+        (slice(None), slice(None)),
+    )
+
+
+def test_broadcast_assign_col_to_2d_float():
+    """Assign (3, 1) column to fill a (3, 4) slice."""
+    _check_broadcast_assign(
+        np.zeros((3, 4)),
+        np.array([[10.0], [20.0], [30.0]]),
+        (slice(None), slice(None)),
+    )
+
+
+def test_broadcast_assign_scalar_tensor_float():
+    """Assign (1,) tensor to fill a (5,) slice."""
+    _check_broadcast_assign(
+        np.zeros((5,)),
+        np.array([42.0]),
+        slice(None),
+    )
+
+
+def test_broadcast_assign_to_slice_float():
+    """Broadcast into a slice, not the whole tensor."""
+    _check_broadcast_assign(
+        np.zeros((4, 3)),
+        np.array([7.0, 8.0, 9.0]),
+        (slice(1, 3), slice(None)),
+    )
+
+
+def test_broadcast_assign_incompatible_raises():
+    """Assigning (3,) to (4, 2) should fail — not broadcast-compatible."""
+    A = mpcf.Float64Tensor(np.zeros((4, 2)))
+    rhs = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+
+    with pytest.raises(ValueError):
+        A[:, :] = rhs
+
+
+def test_broadcast_assign_would_expand_target_raises():
+    """RHS bigger than target — broadcast shape would differ from target."""
+    A = mpcf.Float64Tensor(np.zeros((3,)))
+    rhs = mpcf.Float64Tensor(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]))
+
+    with pytest.raises(ValueError):
+        A[:] = rhs
+
+
+def test_broadcast_assign_pcf():
+    """Broadcast a single PCF across a row of a 2D PCF tensor."""
+    pcf = mpcf.random.noisy_sin((1,))
+
+    A = mpcf.zeros((3,), dtype=mpcf.pcf32)
+    A[:] = pcf
+
+    for i in range(3):
+        assert A[i] == pcf[0]
+
+
+def test_broadcast_assign_barcode():
+    """Broadcast a single barcode row across a barcode tensor."""
+    bc = mpers.Barcode(np.array([[0.0, 1.0], [0.5, 2.0]]))
+
+    row = mpcf.zeros((1,), dtype=mpcf.barcode64)
+    row[0] = bc
+
+    A = mpcf.zeros((3,), dtype=mpcf.barcode64)
+    A[:] = row
+
+    for i in range(3):
+        assert A[i].is_isomorphic_to(bc)

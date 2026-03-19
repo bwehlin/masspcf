@@ -110,14 +110,18 @@ namespace mpcf
   requires std::is_convertible_v<U, T>
   void Tensor<T>::assign_from(const Tensor<U>& rhs)
   {
-    if (shape() != rhs.shape())
+    auto target = shape();
+    auto out_shape = broadcast_shapes(target, rhs.shape());
+    if (out_shape != target)
     {
-      throw std::runtime_error("Incommensurate shapes (tried to assign from a tensor of shape " + shape_to_string(rhs.shape()) + " to a tensor of shape " +
-          shape_to_string(shape()) + ")");
+      throw std::invalid_argument("Cannot broadcast RHS of shape " + shape_to_string(rhs.shape()) +
+          " into target of shape " + shape_to_string(target) +
+          " (broadcast result would have shape " + shape_to_string(out_shape) + ")");
     }
 
-    walk([this, &rhs](const std::vector<size_t>& idx){
-      (*this)(idx) = rhs(idx);
+    auto rhs_view = rhs.broadcast_to(target);
+    walk([this, &rhs_view](const std::vector<size_t>& idx){
+      (*this)(idx) = rhs_view(idx);
     });
   }
 

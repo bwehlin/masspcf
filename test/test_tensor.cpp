@@ -112,7 +112,7 @@ namespace
     using T = TypeParam;
     mpcf::Tensor<T> src({ 2, 3 });
     mpcf::Tensor<T> dst({ 3, 2 });
-    EXPECT_THROW(dst.assign_from(src), std::runtime_error);
+    EXPECT_THROW(dst.assign_from(src), std::invalid_argument);
   }
 
 // size()
@@ -605,7 +605,7 @@ namespace
   {
     mpcf::Tensor<float> src({ 2, 3 });
     mpcf::Tensor<double> dst({ 3, 2 });
-    EXPECT_THROW(dst.assign_from(src), std::runtime_error);
+    EXPECT_THROW(dst.assign_from(src), std::invalid_argument);
   }
 
   TEST(TensorTpp, CrossTypeEqualityIntAndDouble)
