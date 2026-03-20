@@ -15,7 +15,7 @@
 #ifndef MASSPCF_CONCEPTS_H
 #define MASSPCF_CONCEPTS_H
 
-#include "math.h"
+#include "math_ops.h"
 
 #include <concepts>
 #include <iterator>

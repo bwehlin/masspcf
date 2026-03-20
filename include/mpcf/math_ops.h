@@ -14,8 +14,8 @@
 * limitations under the License.
 */
 
-#ifndef MPCF_MATH_H
-#define MPCF_MATH_H
+#ifndef MPCF_MATH_OPS_H
+#define MPCF_MATH_OPS_H
 
 #include <cmath>
 #include <type_traits>
@@ -59,4 +59,4 @@ namespace mpcf
   }
 }
 
-#endif // MPCF_MATH_H
+#endif // MPCF_MATH_OPS_H
