@@ -46,7 +46,7 @@ masspcf = [
 
 [tool.cibuildwheel]
 test-sources = ["test"]
-test-requires = "pytest"
+test-requires = ["pytest", "scipy"]
 test-command = """
 python ./test/print_wheel_contents.py && python -m pytest --verbose ./test
 """
