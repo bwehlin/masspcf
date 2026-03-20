@@ -128,6 +128,18 @@ You can also assign into tensors::
    A[0, :] = noisy_sin((10,), n_points=100)
    A[1, :] = noisy_sin((10,), n_points=50)
 
+Boolean masks can select elements by condition::
+
+   import numpy as np
+
+   X = mpcf.Float32Tensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+   mask = mpcf.BoolTensor(np.array([True, False, True, False]))
+
+   X[:, mask]   # shape (3, 2) — select columns where mask is True
+   X[X > threshold]  # flat 1D — all elements matching the condition
+
+See :doc:`tensors` for full details on :ref:`boolean masking <masking-numpy-differences>`.
+
 Tensor types
 ------------
 

@@ -43,7 +43,7 @@ These functions return ``Pcf32Tensor`` by default. Pass ``dtype=mpcf.pcf64`` for
 From serialized NumPy data
 ---------------------------
 
-If you already have PCF data in NumPy arrays, :py:func:`~masspcf.from_serial_content` lets you construct a tensor from a flat content array and an enumeration array that describes how to split it::
+:py:func:`~masspcf.from_serial_content` constructs a tensor from PCF data already stored in NumPy arrays — a flat content array and an enumeration array that describes how to split it::
 
    import numpy as np
    import masspcf as mpcf
@@ -67,7 +67,7 @@ The enumeration array can be multidimensional. If it has shape ``(n1, n2, ..., n
 Indexing and slicing
 ====================
 
-Tensors support NumPy-style indexing. The behavior depends on whether you index with integers or slices.
+Tensors support NumPy-style indexing. The behavior depends on whether the index uses integers or slices.
 
 Single-element access
 ---------------------
@@ -95,7 +95,7 @@ Views share the underlying data with the original tensor, so no data is copied.
 Assignment
 ----------
 
-You can assign into tensors using the same indexing syntax::
+Tensors support assignment with the same indexing syntax::
 
    from masspcf.random import noisy_sin, noisy_cos
 
@@ -107,7 +107,7 @@ You can assign into tensors using the same indexing syntax::
    # Assign noisy cos functions into the second row
    A[1, :] = noisy_cos((10,), n_points=15)
 
-You can also assign individual elements::
+Individual elements can also be assigned::
 
    f = mpcf.Pcf([[0, 1.0], [1, 2.0], [3, 0.0]])
    A[0, 0] = f
@@ -338,10 +338,102 @@ the same breakpoints and values::
    F.array_equal(G)   # True
 
 
+Boolean masking
+===============
+
+A ``BoolTensor`` can be used as an index to select elements where the mask is
+``True``. Comparison operators return ``BoolTensor`` objects, so the result of
+a comparison can be used directly as a mask.
+
+Full-shape masking
+------------------
+
+When a ``BoolTensor`` has the same shape as the tensor it indexes, the result
+is a flat 1-D tensor of the elements where the mask is ``True``::
+
+   import numpy as np
+
+   X = mpcf.Float32Tensor(np.array([[1, 2, 3],
+                                     [4, 5, 6]], dtype=np.float32))
+   mask = mpcf.BoolTensor(np.array([[True,  False, True],
+                                     [False, True,  False]]))
+
+   X[mask]   # Float32Tensor: [1, 3, 5]
+
+This behaves the same as NumPy::
+
+   arr = np.array([[1, 2, 3], [4, 5, 6]])
+   arr[np.array([[True, False, True], [False, True, False]])]
+   # array([1, 3, 5])
+
+Assignment with a full-shape mask is also supported::
+
+   X[mask] = 0.0          # scalar fill: set masked positions to 0
+   X[mask] = some_tensor   # tensor assign: must have the right number of elements
+
+Axis masking
+------------
+
+A 1-D ``BoolTensor`` can be used at a specific axis position alongside slices
+and integer indices. This selects along that axis where the mask is ``True``,
+preserving other dimensions::
+
+   X = mpcf.Float32Tensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+
+   col_mask = mpcf.BoolTensor(np.array([True, False, True, False]))
+   X[:, col_mask]       # shape (3, 2) — selects columns 0 and 2
+
+   row_mask = mpcf.BoolTensor(np.array([False, True, True]))
+   X[row_mask, :]       # shape (2, 4) — selects rows 1 and 2
+
+This works with slices too::
+
+   Y = mpcf.Float32Tensor(np.arange(60, dtype=np.float32).reshape(3, 4, 5))
+
+   mask = mpcf.BoolTensor(np.array([True, False, True, False]))
+   Y[:, mask, 1:4]      # shape (3, 2, 3)
+
+Creating BoolTensors
+--------------------
+
+``BoolTensor`` can be created from NumPy arrays or from comparison operators::
+
+   # From a NumPy array
+   mask = mpcf.BoolTensor(np.array([True, False, True]))
+
+   # From a comparison
+   X = mpcf.Float32Tensor(np.array([1, 2, 3, 4, 5], dtype=np.float32))
+   threshold = mpcf.Float32Tensor(np.full(5, 3.0, dtype=np.float32))
+   mask = X > threshold   # BoolTensor: [False, False, False, True, True]
+
+.. _masking-numpy-differences:
+
+Differences from NumPy
+----------------------
+
+Axis masking follows **outer indexing** semantics: each index independently
+selects along its own axis. This matches what most users expect and is the
+behavior described in `NEP 21 <https://numpy.org/neps/nep-0021-advanced-indexing.html>`_.
+
+In practice, the only case where this differs from NumPy is when an integer
+index and a boolean mask appear in the same indexing expression. Consider a
+3-D tensor ``X`` of shape ``(2, 3, 4)`` and a boolean mask of length 4:
+
+- ``X[0, :, mask]`` first selects index 0 along the first axis (giving a
+  ``(3, 4)`` result), then applies the mask along the last axis.
+- In NumPy, ``arr[0, :, mask]`` instead reorders dimensions so that the mask
+  axis comes first, giving a different shape.
+
+masspcf applies indices left-to-right without reordering.
+
+For expressions that only use slices and masks (the common case), masspcf and
+NumPy produce identical results.
+
+
 Evaluation
 ==========
 
-PCF tensors are callable: you can evaluate every element at one or more times
+PCF tensors are callable — every element can be evaluated at one or more times
 in a single call.
 
 Consider a small example with two PCFs::
