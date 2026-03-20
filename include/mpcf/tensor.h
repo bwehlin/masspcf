@@ -408,6 +408,14 @@ namespace mpcf
   template <typename T>
   void masked_fill(Tensor<T>& dst, const Tensor<bool>& mask, const T& value);
 
+  /**
+   * Select along a single axis where mask is true.
+   * mask must be 1D with length == src.shape()[axis].
+   * Returns a tensor with shape[axis] reduced to count of true values.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> axis_select(const Tensor<T>& src, size_t axis, const Tensor<bool>& mask);
+
 }
 
 #include "tensor.tpp"

@@ -50,22 +50,48 @@ class Tensor(ABC):
 
     def __getitem__(self, slices):
         from .tensor import BoolTensor
-        if isinstance(slices, BoolTensor):
-            return self._to_py_tensor(self._data.masked_select(slices._data))  # type: ignore[arg-type]
-        if isinstance(slices, int):  # X[n]
-            x = self._data._get_element(slices)
-            return self._represent_element(x)
-        elif isinstance(slices, slice):  # X[n:m] etc...
-            x = self._data[[_pyslice_to_slice(slices)]]
-            return self._to_py_tensor(x)
-        elif all(
-            isinstance(s, int) for s in slices
-        ):  # X[1, 2, 3] etc... (for this, we wan't a single element rather than a tensor)
-            x = self._data._get_element(slices)
-            return self._represent_element(x)
-        else:
-            real_slices = [_pyslice_to_slice(s) for s in slices]
-            return self._to_py_tensor(self._data[real_slices])
+
+        # Normalize to tuple
+        if not isinstance(slices, tuple):
+            slices = (slices,)
+
+        # Find BoolTensor positions
+        bool_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, BoolTensor)]
+
+        if not bool_positions:
+            return self._getitem_slices(slices)
+
+        # Single full-shape BoolTensor: flat masked select
+        if len(slices) == 1 and isinstance(slices[0], BoolTensor):
+            return self._to_py_tensor(self._data.masked_select(slices[0]._data))  # type: ignore[arg-type]
+
+        # Multiple BoolTensors not yet supported
+        if len(bool_positions) > 1:
+            raise IndexError("Only one BoolTensor mask per indexing expression is supported")
+
+        # Mixed indexing: decompose into slices + axis selection
+        # Replace BoolTensor with slice(None), apply slices, then axis_select
+        slice_parts = tuple(slice(None) if isinstance(s, BoolTensor) else s for s in slices)
+        result = self._getitem_slices(slice_parts)
+
+        # Compute axis after dimension drops from integer indices
+        orig_pos = bool_positions[0][0]
+        bool_tensor = bool_positions[0][1]
+        dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+        axis = orig_pos - dims_dropped
+
+        return self._to_py_tensor(result._data.axis_select(axis, bool_tensor._data))  # type: ignore[arg-type]
+
+    def _getitem_slices(self, slices):
+        """Handle indexing with only int/slice components (no BoolTensor)."""
+        if len(slices) == 1 and isinstance(slices[0], int):
+            return self._represent_element(self._data._get_element(slices[0]))
+        if len(slices) == 1 and isinstance(slices[0], slice):
+            return self._to_py_tensor(self._data[[_pyslice_to_slice(slices[0])]])
+        if all(isinstance(s, int) for s in slices):
+            return self._represent_element(self._data._get_element(slices))
+        real_slices = [_pyslice_to_slice(s) for s in slices]
+        return self._to_py_tensor(self._data[real_slices])
 
     @abstractmethod
     def _get_valid_setitem_dtypes(self):

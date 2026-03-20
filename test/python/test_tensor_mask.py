@@ -252,3 +252,90 @@ class TestBoolTensorFromNumpy:
     def test_empty(self):
         bt = BoolTensor(np.array([], dtype=bool))
         assert tuple(bt.shape) == (0,)
+
+
+# =============================================================================
+# Mixed bool + slice indexing: tensor[:, mask, 1:5] etc.
+# =============================================================================
+
+
+def _assert_mixed_getitem(np_arr, np_index, mpcf_index):
+    """Assert that mpcf mixed indexing matches NumPy."""
+    t = _mpcf(np_arr)
+    result = np.asarray(t[mpcf_index])
+    expected = np_arr[np_index]
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == expected.shape
+
+
+class TestMixedBoolSliceGetitem:
+    def test_2d_mask_axis0(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        mask = np.array([True, False, True])
+        _assert_mixed_getitem(arr, (mask, slice(None)), (BoolTensor(mask), slice(None)))
+
+    def test_2d_mask_axis1(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        mask = np.array([True, False, True, False])
+        _assert_mixed_getitem(arr, (slice(None), mask), (slice(None), BoolTensor(mask)))
+
+    def test_3d_mask_middle_axis(self):
+        arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+        mask = np.array([False, True, True])
+        _assert_mixed_getitem(
+            arr,
+            (slice(None), mask, slice(None)),
+            (slice(None), BoolTensor(mask), slice(None)),
+        )
+
+    def test_mask_with_slice(self):
+        arr = np.arange(60, dtype=np.float32).reshape(3, 4, 5)
+        mask = np.array([True, False, True, False])
+        _assert_mixed_getitem(
+            arr,
+            (slice(None), mask, slice(1, 4)),
+            (slice(None), BoolTensor(mask), slice(1, 4)),
+        )
+
+    def test_mask_with_int_index(self):
+        """tensor[0, :, mask] applies int indexing then mask on the result.
+        NumPy's advanced indexing reorders dimensions here; we don't."""
+        arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+        mask = np.array([True, False, True, False])
+        expected = arr[0][:, mask]
+        t = _mpcf(arr)
+        result = np.asarray(t[0, slice(None), BoolTensor(mask)])
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == expected.shape
+
+    def test_mask_with_step_slice(self):
+        arr = np.arange(30, dtype=np.float32).reshape(5, 6)
+        mask = np.array([False, True, True, False, True, False])
+        _assert_mixed_getitem(
+            arr,
+            (slice(0, 5, 2), mask),
+            (slice(0, 5, 2), BoolTensor(mask)),
+        )
+
+    def test_all_false_mask(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        mask = np.array([False, False, False, False])
+        _assert_mixed_getitem(arr, (slice(None), mask), (slice(None), BoolTensor(mask)))
+
+    def test_all_true_mask(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        mask = np.array([True, True, True, True])
+        _assert_mixed_getitem(arr, (slice(None), mask), (slice(None), BoolTensor(mask)))
+
+    def test_mask_length_mismatch_raises(self):
+        t = _mpcf(np.zeros((3, 4), dtype=np.float32))
+        mask = BoolTensor(np.array([True, False]))  # length 2, axis 1 has size 4
+        with pytest.raises(ValueError):
+            t[slice(None), mask]
+
+    def test_multiple_masks_raises(self):
+        t = _mpcf(np.zeros((3, 4, 5), dtype=np.float32))
+        m1 = BoolTensor(np.array([True, False, True]))
+        m2 = BoolTensor(np.array([True, True, False, True, False]))
+        with pytest.raises(IndexError):
+            t[m1, slice(None), m2]

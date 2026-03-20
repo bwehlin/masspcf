@@ -64,4 +64,22 @@ namespace
     EXPECT_FLOAT_EQ(t({2}), -1.0f);
   }
 
+  TEST(AxisSelect, Smoke2D)
+  {
+    // 2x3 tensor, select along axis 1 with mask [T, F, T]
+    mpcf::Tensor<float> t({2, 3});
+    t({0, 0}) = 0; t({0, 1}) = 1; t({0, 2}) = 2;
+    t({1, 0}) = 3; t({1, 1}) = 4; t({1, 2}) = 5;
+
+    mpcf::Tensor<bool> mask({3});
+    mask({0}) = true; mask({1}) = false; mask({2}) = true;
+
+    auto result = mpcf::axis_select(t, 1, mask);
+    ASSERT_EQ(result.shape(), (std::vector<size_t>{2, 2}));
+    EXPECT_FLOAT_EQ(result({0, 0}), 0);
+    EXPECT_FLOAT_EQ(result({0, 1}), 2);
+    EXPECT_FLOAT_EQ(result({1, 0}), 3);
+    EXPECT_FLOAT_EQ(result({1, 1}), 5);
+  }
+
 } // namespace

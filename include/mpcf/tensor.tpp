@@ -498,25 +498,25 @@ namespace mpcf
         "masked_assign: mask shape does not match tensor shape");
     }
 
-    // Count true values to validate
-    size_t count = 0;
-    walk(dst, [&count, &mask](const std::vector<size_t>& idx) {
-      if (mask(idx))
-        ++count;
-    });
-
-    if (values.size() != count)
-    {
-      throw std::invalid_argument(
-        "masked_assign: values length (" + std::to_string(values.size()) +
-        ") does not match number of true values in mask (" + std::to_string(count) + ")");
-    }
-
     size_t pos = 0;
     walk(dst, [&](const std::vector<size_t>& idx) {
       if (mask(idx))
+      {
+        if (pos >= values.size())
+        {
+          throw std::invalid_argument(
+            "masked_assign: more true values in mask than elements in values");
+        }
         dst(idx) = values({pos++});
+      }
     });
+
+    if (pos != values.size())
+    {
+      throw std::invalid_argument(
+        "masked_assign: values length (" + std::to_string(values.size()) +
+        ") does not match number of true values in mask (" + std::to_string(pos) + ")");
+    }
   }
 
   template <typename T>
@@ -532,6 +532,49 @@ namespace mpcf
       if (mask(idx))
         dst(idx) = value;
     });
+  }
+
+  template <typename T>
+  Tensor<T> axis_select(const Tensor<T>& src, size_t axis, const Tensor<bool>& mask)
+  {
+    if (axis >= src.shape().size())
+    {
+      throw std::invalid_argument(
+        "axis_select: axis " + std::to_string(axis) +
+        " out of range for tensor with " + std::to_string(src.shape().size()) + " dimensions");
+    }
+
+    if (mask.shape().size() != 1 || mask.shape()[0] != src.shape()[axis])
+    {
+      throw std::invalid_argument(
+        "axis_select: mask must be 1D with length matching dimension " + std::to_string(axis));
+    }
+
+    // Precompute true indices for O(1) lookup
+    std::vector<size_t> true_indices;
+    for (size_t i = 0; i < mask.shape()[0]; ++i)
+    {
+      if (mask({i}))
+        true_indices.push_back(i);
+    }
+
+    // Build output shape
+    auto out_shape = src.shape();
+    out_shape[axis] = true_indices.size();
+
+    if (true_indices.empty())
+    {
+      return Tensor<T>(out_shape);
+    }
+
+    Tensor<T> result(out_shape);
+    walk(result, [&](const std::vector<size_t>& out_idx) {
+      auto src_idx = out_idx;
+      src_idx[axis] = true_indices[out_idx[axis]];
+      result(out_idx) = src(src_idx);
+    });
+
+    return result;
   }
 
   template <typename T>
