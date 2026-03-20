@@ -182,6 +182,9 @@ There are several concrete tensor types, each corresponding to a dtype:
    * - ``DistanceMatrix64Tensor``
      - ``distmat64``
      - 64-bit distance matrices
+   * - ``BoolTensor``
+     - ``boolean``
+     - Boolean values (returned by comparison operators)
 
 In most cases, you do not need to construct these classes directly -- use :py:func:`~masspcf.zeros` or functions like :py:func:`~masspcf.random.noisy_sin` that return the appropriate tensor type automatically.
 

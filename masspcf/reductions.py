@@ -69,7 +69,7 @@ def mean(fs: PcfContainerLike, dim: int = 0):
 
     for all :math:`t`.
 
-    See :ref:`tensors:How dim works` for a detailed explanation of dimension
+    See :ref:`tensors-how-dim-works` for a detailed explanation of dimension
     reduction semantics.
 
     Parameters
@@ -102,7 +102,7 @@ def max_time(fs: PcfContainerLike, dim: int = 0):
 
     The result is numeric, not a PCF.
 
-    See :ref:`tensors:How dim works` for a detailed explanation of dimension
+    See :ref:`tensors-how-dim-works` for a detailed explanation of dimension
     reduction semantics.
 
     Parameters

@@ -247,6 +247,97 @@ virtually repeated without copying data::
    # Every row of view is [1, 2, 3]; view shares data with X
 
 
+Comparisons
+===========
+
+Tensors support the comparison operators ``==``, ``!=``, ``<``, ``<=``, ``>``,
+and ``>=``. Each returns a :py:class:`~masspcf.BoolTensor` containing the
+element-wise result, just like NumPy::
+
+   import numpy as np
+   import masspcf as mpcf
+
+   A = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+   B = mpcf.Float64Tensor(np.array([1.0, 9.0, 3.0]))
+
+   result = A == B   # BoolTensor: [True, False, True]
+   result = A < B    # BoolTensor: [False, True, False]
+
+Broadcasting
+------------
+
+Comparisons follow the same broadcasting rules as arithmetic. Shapes are
+compared dimension-by-dimension from the right, and size-1 or missing
+dimensions are expanded::
+
+   A = mpcf.Float64Tensor(np.array([[1.0, 2.0],
+                                     [3.0, 4.0]]))   # shape (2, 2)
+   B = mpcf.Float64Tensor(np.array([1.0, 4.0]))      # shape (2,)
+
+   result = A == B
+   # BoolTensor of shape (2, 2):
+   # [[True,  False],
+   #  [False, True]]
+
+Column and scalar broadcasting also work::
+
+   col = mpcf.Float64Tensor(np.array([[2.0], [3.0]]))  # shape (2, 1)
+   result = A < col
+   # BoolTensor of shape (2, 2):
+   # [[True, False],
+   #  [False, False]]
+
+   scalar = mpcf.Float64Tensor(np.array([2.0]))        # shape (1,)
+   result = A >= scalar
+   # BoolTensor of shape (2, 2):
+   # [[False, True],
+   #  [True,  True]]
+
+Converting to Python bool
+-------------------------
+
+Calling ``bool()`` on a single-element ``BoolTensor`` returns a Python ``bool``.
+For multi-element tensors, ``bool()`` raises ``ValueError``, matching NumPy's
+behavior::
+
+   A = mpcf.Float64Tensor(np.array([1.0]))
+   B = mpcf.Float64Tensor(np.array([1.0]))
+   bool(A == B)   # True
+
+   C = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+   D = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+   bool(C == D)   # ValueError: more than one element
+
+array_equal
+-----------
+
+To check whether two tensors are entirely equal (as a single ``bool``), use
+:py:meth:`~masspcf._tensor_base.Tensor.array_equal`::
+
+   A = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+   B = A.copy()
+
+   A.array_equal(B)   # True
+   A.array_equal(np.array([1.0, 2.0, 3.0]))  # also accepts NumPy arrays
+
+   C = mpcf.Float64Tensor(np.array([1.0, 9.0, 3.0]))
+   A.array_equal(C)   # False
+
+Tensors with different shapes always compare as not equal.
+
+PCF comparisons
+---------------
+
+Comparison operators also work on PCF tensors. Two PCFs are equal if they have
+the same breakpoints and values::
+
+   F = mpcf.random.noisy_sin((3,))
+   G = F.copy()
+
+   result = F == G    # BoolTensor: [True, True, True]
+   F.array_equal(G)   # True
+
+
 Evaluation
 ==========
 
@@ -388,6 +479,8 @@ Reductions
 Reductions collapse a tensor along a specified dimension. The ``dim`` parameter
 selects which axis to reduce over: every "slice" along that axis is combined
 into a single output value.
+
+.. _tensors-how-dim-works:
 
 How ``dim`` works
 -----------------
