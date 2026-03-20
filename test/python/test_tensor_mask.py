@@ -259,11 +259,10 @@ class TestBoolTensorFromNumpy:
 # =============================================================================
 
 
-def _assert_mixed_getitem(np_arr, np_index, mpcf_index):
+def _assert_mixed_getitem(arr, index):
     """Assert that mpcf mixed indexing matches NumPy."""
-    t = _mpcf(np_arr)
-    result = np.asarray(t[mpcf_index])
-    expected = np_arr[np_index]
+    result = np.asarray(_mpcf(arr)[index])
+    expected = arr[index]
     np.testing.assert_array_equal(result, expected)
     assert result.shape == expected.shape
 
@@ -271,31 +270,19 @@ def _assert_mixed_getitem(np_arr, np_index, mpcf_index):
 class TestMixedBoolSliceGetitem:
     def test_2d_mask_axis0(self):
         arr = np.arange(12, dtype=np.float32).reshape(3, 4)
-        mask = np.array([True, False, True])
-        _assert_mixed_getitem(arr, (mask, slice(None)), (BoolTensor(mask), slice(None)))
+        _assert_mixed_getitem(arr, (np.array([True, False, True]), slice(None)))
 
     def test_2d_mask_axis1(self):
         arr = np.arange(12, dtype=np.float32).reshape(3, 4)
-        mask = np.array([True, False, True, False])
-        _assert_mixed_getitem(arr, (slice(None), mask), (slice(None), BoolTensor(mask)))
+        _assert_mixed_getitem(arr, (slice(None), np.array([True, False, True, False])))
 
     def test_3d_mask_middle_axis(self):
         arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
-        mask = np.array([False, True, True])
-        _assert_mixed_getitem(
-            arr,
-            (slice(None), mask, slice(None)),
-            (slice(None), BoolTensor(mask), slice(None)),
-        )
+        _assert_mixed_getitem(arr, (slice(None), np.array([False, True, True]), slice(None)))
 
     def test_mask_with_slice(self):
         arr = np.arange(60, dtype=np.float32).reshape(3, 4, 5)
-        mask = np.array([True, False, True, False])
-        _assert_mixed_getitem(
-            arr,
-            (slice(None), mask, slice(1, 4)),
-            (slice(None), BoolTensor(mask), slice(1, 4)),
-        )
+        _assert_mixed_getitem(arr, (slice(None), np.array([True, False, True, False]), slice(1, 4)))
 
     def test_mask_with_int_index(self):
         """tensor[0, :, mask] applies int indexing then mask on the result.
@@ -303,39 +290,93 @@ class TestMixedBoolSliceGetitem:
         arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
         mask = np.array([True, False, True, False])
         expected = arr[0][:, mask]
-        t = _mpcf(arr)
-        result = np.asarray(t[0, slice(None), BoolTensor(mask)])
+        result = np.asarray(_mpcf(arr)[0, slice(None), mask])
         np.testing.assert_array_equal(result, expected)
         assert result.shape == expected.shape
 
     def test_mask_with_step_slice(self):
         arr = np.arange(30, dtype=np.float32).reshape(5, 6)
-        mask = np.array([False, True, True, False, True, False])
-        _assert_mixed_getitem(
-            arr,
-            (slice(0, 5, 2), mask),
-            (slice(0, 5, 2), BoolTensor(mask)),
-        )
+        _assert_mixed_getitem(arr, (slice(0, 5, 2), np.array([False, True, True, False, True, False])))
 
     def test_all_false_mask(self):
         arr = np.arange(12, dtype=np.float32).reshape(3, 4)
-        mask = np.array([False, False, False, False])
-        _assert_mixed_getitem(arr, (slice(None), mask), (slice(None), BoolTensor(mask)))
+        _assert_mixed_getitem(arr, (slice(None), np.array([False, False, False, False])))
 
     def test_all_true_mask(self):
         arr = np.arange(12, dtype=np.float32).reshape(3, 4)
-        mask = np.array([True, True, True, True])
-        _assert_mixed_getitem(arr, (slice(None), mask), (slice(None), BoolTensor(mask)))
+        _assert_mixed_getitem(arr, (slice(None), np.array([True, True, True, True])))
 
     def test_mask_length_mismatch_raises(self):
         t = _mpcf(np.zeros((3, 4), dtype=np.float32))
-        mask = BoolTensor(np.array([True, False]))  # length 2, axis 1 has size 4
         with pytest.raises(ValueError):
-            t[slice(None), mask]
+            t[slice(None), np.array([True, False])]
 
     def test_multiple_masks_raises(self):
         t = _mpcf(np.zeros((3, 4, 5), dtype=np.float32))
-        m1 = BoolTensor(np.array([True, False, True]))
-        m2 = BoolTensor(np.array([True, True, False, True, False]))
         with pytest.raises(IndexError):
-            t[m1, slice(None), m2]
+            t[np.array([True, False, True]), slice(None), np.array([True, True, False, True, False])]
+
+
+# =============================================================================
+# Mixed bool + slice __setitem__
+# =============================================================================
+
+
+def _assert_mixed_setitem_scalar(arr, index, fill_value):
+    """Assert that mpcf mixed setitem with scalar matches NumPy."""
+    np_arr = arr.copy()
+    np_arr[index] = fill_value
+    t = _mpcf(arr.copy())
+    t[index] = fill_value
+    np.testing.assert_array_equal(np.asarray(t), np_arr)
+
+
+def _assert_mixed_setitem_tensor(arr, index, values):
+    """Assert that mpcf mixed setitem with tensor matches NumPy."""
+    np_arr = arr.copy()
+    np_arr[index] = values
+    t = _mpcf(arr.copy())
+    t[index] = _mpcf(values)
+    np.testing.assert_array_equal(np.asarray(t), np_arr)
+
+
+class TestMixedBoolSliceSetitem:
+    def test_scalar_fill_axis1(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_mixed_setitem_scalar(arr, (slice(None), np.array([True, False, True, False])), -1.0)
+
+    def test_scalar_fill_axis0(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_mixed_setitem_scalar(arr, (np.array([False, True, True]), slice(None)), 0.0)
+
+    def test_scalar_fill_3d_middle(self):
+        arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+        _assert_mixed_setitem_scalar(
+            arr, (slice(None), np.array([True, False, True]), slice(None)), 99.0)
+
+    def test_scalar_fill_with_slice(self):
+        arr = np.arange(60, dtype=np.float32).reshape(3, 4, 5)
+        _assert_mixed_setitem_scalar(
+            arr, (slice(None), np.array([True, False, True, False]), slice(1, 4)), -5.0)
+
+    def test_tensor_assign_axis1(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        values = np.array([[10, 20], [30, 40], [50, 60]], dtype=np.float32)
+        _assert_mixed_setitem_tensor(
+            arr, (slice(None), np.array([True, False, True, False])), values)
+
+    def test_tensor_assign_3d(self):
+        arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+        values = np.zeros((2, 2, 4), dtype=np.float32)
+        _assert_mixed_setitem_tensor(
+            arr, (slice(None), np.array([True, False, True]), slice(None)), values)
+
+    def test_fill_shape_mismatch_raises(self):
+        t = _mpcf(np.zeros((3, 4), dtype=np.float32))
+        with pytest.raises(ValueError):
+            t[slice(None), np.array([True, False])] = -1.0
+
+    def test_multiple_masks_raises(self):
+        t = _mpcf(np.zeros((3, 4, 5), dtype=np.float32))
+        with pytest.raises(IndexError):
+            t[np.array([True, False, True]), slice(None), np.array([True, True, False, True, False])] = 0.0

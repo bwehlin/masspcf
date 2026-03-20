@@ -534,29 +534,40 @@ namespace mpcf
     });
   }
 
+  namespace detail
+  {
+    inline void validate_axis_mask(size_t axis, size_t ndim, const Tensor<bool>& mask, size_t axis_size)
+    {
+      if (axis >= ndim)
+      {
+        throw std::invalid_argument(
+          "axis " + std::to_string(axis) +
+          " out of range for tensor with " + std::to_string(ndim) + " dimensions");
+      }
+      if (mask.shape().size() != 1 || mask.shape()[0] != axis_size)
+      {
+        throw std::invalid_argument(
+          "mask must be 1D with length matching dimension " + std::to_string(axis));
+      }
+    }
+
+    inline std::vector<size_t> collect_true_indices(const Tensor<bool>& mask)
+    {
+      std::vector<size_t> indices;
+      for (size_t i = 0; i < mask.shape()[0]; ++i)
+      {
+        if (mask({i}))
+          indices.push_back(i);
+      }
+      return indices;
+    }
+  }
+
   template <typename T>
   Tensor<T> axis_select(const Tensor<T>& src, size_t axis, const Tensor<bool>& mask)
   {
-    if (axis >= src.shape().size())
-    {
-      throw std::invalid_argument(
-        "axis_select: axis " + std::to_string(axis) +
-        " out of range for tensor with " + std::to_string(src.shape().size()) + " dimensions");
-    }
-
-    if (mask.shape().size() != 1 || mask.shape()[0] != src.shape()[axis])
-    {
-      throw std::invalid_argument(
-        "axis_select: mask must be 1D with length matching dimension " + std::to_string(axis));
-    }
-
-    // Precompute true indices for O(1) lookup
-    std::vector<size_t> true_indices;
-    for (size_t i = 0; i < mask.shape()[0]; ++i)
-    {
-      if (mask({i}))
-        true_indices.push_back(i);
-    }
+    detail::validate_axis_mask(axis, src.shape().size(), mask, src.shape()[axis]);
+    auto true_indices = detail::collect_true_indices(mask);
 
     // Build output shape
     auto out_shape = src.shape();
@@ -575,6 +586,40 @@ namespace mpcf
     });
 
     return result;
+  }
+
+  template <typename T>
+  void axis_assign(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const Tensor<T>& values)
+  {
+    detail::validate_axis_mask(axis, dst.shape().size(), mask, dst.shape()[axis]);
+    auto true_indices = detail::collect_true_indices(mask);
+
+    // Validate values shape
+    auto expected_shape = dst.shape();
+    expected_shape[axis] = true_indices.size();
+    if (values.shape() != expected_shape)
+    {
+      throw std::invalid_argument(
+        "axis_assign: values shape does not match expected shape");
+    }
+
+    // Walk over values and write into dst at mapped positions
+    walk(values, [&](const std::vector<size_t>& val_idx) {
+      auto dst_idx = val_idx;
+      dst_idx[axis] = true_indices[val_idx[axis]];
+      dst(dst_idx) = values(val_idx);
+    });
+  }
+
+  template <typename T>
+  void axis_fill(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const T& value)
+  {
+    detail::validate_axis_mask(axis, dst.shape().size(), mask, dst.shape()[axis]);
+
+    walk(dst, [&](const std::vector<size_t>& idx) {
+      if (mask({idx[axis]}))
+        dst(idx) = value;
+    });
   }
 
   template <typename T>

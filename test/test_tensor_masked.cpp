@@ -82,4 +82,38 @@ namespace
     EXPECT_FLOAT_EQ(result({1, 1}), 5);
   }
 
+  TEST(AxisAssign, Smoke2D)
+  {
+    mpcf::Tensor<float> t({2, 3}, 0.0f);
+    mpcf::Tensor<bool> mask({3});
+    mask({0}) = true; mask({1}) = false; mask({2}) = true;
+
+    mpcf::Tensor<float> values({2, 2});
+    values({0, 0}) = 10; values({0, 1}) = 20;
+    values({1, 0}) = 30; values({1, 1}) = 40;
+
+    mpcf::axis_assign(t, 1, mask, values);
+    EXPECT_FLOAT_EQ(t({0, 0}), 10);
+    EXPECT_FLOAT_EQ(t({0, 1}), 0);
+    EXPECT_FLOAT_EQ(t({0, 2}), 20);
+    EXPECT_FLOAT_EQ(t({1, 0}), 30);
+    EXPECT_FLOAT_EQ(t({1, 1}), 0);
+    EXPECT_FLOAT_EQ(t({1, 2}), 40);
+  }
+
+  TEST(AxisFill, Smoke2D)
+  {
+    mpcf::Tensor<float> t({2, 3}, 0.0f);
+    mpcf::Tensor<bool> mask({3});
+    mask({0}) = false; mask({1}) = true; mask({2}) = false;
+
+    mpcf::axis_fill(t, 1, mask, 99.0f);
+    EXPECT_FLOAT_EQ(t({0, 0}), 0);
+    EXPECT_FLOAT_EQ(t({0, 1}), 99);
+    EXPECT_FLOAT_EQ(t({0, 2}), 0);
+    EXPECT_FLOAT_EQ(t({1, 0}), 0);
+    EXPECT_FLOAT_EQ(t({1, 1}), 99);
+    EXPECT_FLOAT_EQ(t({1, 2}), 0);
+  }
+
 } // namespace

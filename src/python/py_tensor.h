@@ -310,6 +310,12 @@ namespace mpcf_py
     cls.def("axis_select", [](const TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask) {
       return mpcf::axis_select(self, axis, mask);
     });
+    cls.def("axis_assign", [](TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask, const TTensor& values) {
+      mpcf::axis_assign(self, axis, mask, values);
+    });
+    cls.def("axis_fill", [](TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask, const T& value) {
+      mpcf::axis_fill(self, axis, mask, value);
+    });
 
     using Tv = scalar_of_t<T>;
     using Tt = time_of_t<T>;

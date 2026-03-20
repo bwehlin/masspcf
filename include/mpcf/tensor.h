@@ -416,6 +416,21 @@ namespace mpcf
   template <typename T>
   [[nodiscard]] Tensor<T> axis_select(const Tensor<T>& src, size_t axis, const Tensor<bool>& mask);
 
+  /**
+   * Assign values into dst along a single axis where mask is true.
+   * mask must be 1D with length == dst.shape()[axis].
+   * values.shape() must match the shape that axis_select(dst, axis, mask) would produce.
+   */
+  template <typename T>
+  void axis_assign(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const Tensor<T>& values);
+
+  /**
+   * Fill dst with a scalar value along a single axis where mask is true.
+   * mask must be 1D with length == dst.shape()[axis].
+   */
+  template <typename T>
+  void axis_fill(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const T& value);
+
 }
 
 #include "tensor.tpp"

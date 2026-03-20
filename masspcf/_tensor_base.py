@@ -48,12 +48,23 @@ def _pyslice_to_slice(s):
 class Tensor(ABC):
     _data: CppTensor
 
+    @staticmethod
+    def _coerce_bool_masks(slices):
+        """Convert numpy bool arrays in an index tuple to BoolTensors."""
+        import numpy as np
+        from .tensor import BoolTensor
+        if not isinstance(slices, tuple):
+            slices = (slices,)
+        slices = tuple(
+            BoolTensor(s) if isinstance(s, np.ndarray) and s.dtype == np.bool_ else s
+            for s in slices
+        )
+        return slices
+
     def __getitem__(self, slices):
         from .tensor import BoolTensor
 
-        # Normalize to tuple
-        if not isinstance(slices, tuple):
-            slices = (slices,)
+        slices = self._coerce_bool_masks(slices)
 
         # Find BoolTensor positions
         bool_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, BoolTensor)]
@@ -106,27 +117,56 @@ class Tensor(ABC):
 
     def __setitem__(self, slices, val):
         from .tensor import BoolTensor
-        if isinstance(slices, BoolTensor):
-            self._validate_setitem_dtype(val)
-            if isinstance(val, Tensor):
-                self._data.masked_assign(slices._data, val._data)  # type: ignore[arg-type]
-            else:
-                self._data.masked_fill(slices._data, self._decay_value(val))  # type: ignore[arg-type]
-            return
+
+        slices = self._coerce_bool_masks(slices)
+
+        # Find BoolTensor positions
+        bool_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, BoolTensor)]
+
         self._validate_setitem_dtype(val)
 
-        if isinstance(slices, int):
-            self._data._set_element([slices], self._decay_value(val))
-        elif isinstance(slices, slice):
-            real_slices = [_pyslice_to_slice(slices)]
+        if not bool_positions:
+            self._setitem_slices(slices, val)
+            return
+
+        # Single full-shape BoolTensor: flat masked assign/fill
+        if len(slices) == 1 and isinstance(slices[0], BoolTensor):
+            if isinstance(val, Tensor):
+                self._data.masked_assign(slices[0]._data, val._data)  # type: ignore[arg-type]
+            else:
+                self._data.masked_fill(slices[0]._data, self._decay_value(val))  # type: ignore[arg-type]
+            return
+
+        # Multiple BoolTensors not yet supported
+        if len(bool_positions) > 1:
+            raise IndexError("Only one BoolTensor mask per indexing expression is supported")
+
+        # Mixed indexing: apply slices first to get a mutable view, then axis op
+        slice_parts = tuple(slice(None) if isinstance(s, BoolTensor) else s for s in slices)
+        view = self._getitem_slices(slice_parts)
+
+        orig_pos = bool_positions[0][0]
+        bool_tensor = bool_positions[0][1]
+        dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+        axis = orig_pos - dims_dropped
+
+        if isinstance(val, Tensor):
+            view._data.axis_assign(axis, bool_tensor._data, val._data)  # type: ignore[arg-type]
+        else:
+            view._data.axis_fill(axis, bool_tensor._data, self._decay_value(val))  # type: ignore[arg-type]
+
+    def _setitem_slices(self, slices, val):
+        """Handle setitem with only int/slice components (no BoolTensor)."""
+        if len(slices) == 1 and isinstance(slices[0], int):
+            self._data._set_element([slices[0]], self._decay_value(val))
+        elif len(slices) == 1 and isinstance(slices[0], slice):
+            real_slices = [_pyslice_to_slice(slices[0])]
             self._data[real_slices] = val._data
         elif all(isinstance(s, int) for s in slices):
             self._data._set_element(slices, self._decay_value(val))
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
-            self._data[real_slices] = (
-                val._data
-            )  # TODO: 32/64 conversion, to_tensor, etc.
+            self._data[real_slices] = val._data
 
     def __eq__(self, rhs):
         if not isinstance(rhs, Tensor):
