@@ -23,7 +23,7 @@ def test_shape_dunder():
 
 
 def test_basic_shape_strides():
-    X = mpcf.zeros((7, 3, 5, 6), dtype=mpcf.f64)
+    X = mpcf.zeros((7, 3, 5, 6), dtype=mpcf.float64)
 
     assert X.shape == mpcf.Shape((7, 3, 5, 6))
     assert X.shape != mpcf.Shape((1, 2, 3))
@@ -56,7 +56,7 @@ def test_dtype_results_in_correct_type():
 
 
 def test_tensor_copy_does_not_modify_original():
-    X = mpcf.zeros((10, 10), dtype=mpcf.f64)
+    X = mpcf.zeros((10, 10), dtype=mpcf.float64)
 
     X[2, 3] = 1.5
 

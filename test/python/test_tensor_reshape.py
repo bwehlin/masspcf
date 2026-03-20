@@ -2,7 +2,7 @@ import masspcf as mpcf
 
 
 def test_tensor2d_flatten():
-    X = mpcf.zeros((2, 3), dtype=mpcf.f32)
+    X = mpcf.zeros((2, 3), dtype=mpcf.float32)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):

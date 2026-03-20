@@ -130,13 +130,21 @@ typing
 
    64-bit integer PCF dtype. Use as the ``dtype`` argument when creating tensors of 64-bit integer piecewise constant functions.
 
-.. py:data:: f32
+.. py:class:: float32
 
-   32-bit floating-point scalar dtype (alias for ``numpy.float32``). Use as the ``dtype`` argument when creating tensors of scalar float values.
+   32-bit floating-point scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar float values.
 
-.. py:data:: f64
+.. py:class:: float64
 
-   64-bit floating-point scalar dtype (alias for ``numpy.float64``). Use as the ``dtype`` argument when creating tensors of scalar float values.
+   64-bit floating-point scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar float values.
+
+.. py:class:: int32
+
+   32-bit integer scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar integer values.
+
+.. py:class:: int64
+
+   64-bit integer scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar integer values.
 
 .. py:class:: pcloud32
 
@@ -162,16 +170,3 @@ typing
 
    64-bit symmetric matrix dtype. Use as the ``dtype`` argument when creating tensors of 64-bit symmetric matrices.
 
-.. py:class:: float32
-
-   .. deprecated::
-      Use :py:class:`pcf32` or :py:data:`f32` instead.
-
-   32-bit floating-point type (type alias for ``numpy.float32`` -- see ``numpy`` documentation for more information.)
-
-.. py:class:: float64
-
-   .. deprecated::
-      Use :py:class:`pcf64` or :py:data:`f64` instead.
-
-   64-bit floating-point type (type alias for ``numpy.float64`` -- see ``numpy`` documentation for more information.)

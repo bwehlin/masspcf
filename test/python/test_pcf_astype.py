@@ -23,7 +23,7 @@ def test_astype_pcf32_to_pcf64():
     f = mpcf.Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
     g = f.astype(mpcf.pcf64)
 
-    assert g.vtype == np.float64
+    assert g.vtype == mpcf.float64
     npt.assert_array_almost_equal(f.to_numpy(), g.to_numpy(), decimal=5)
 
 
@@ -31,7 +31,7 @@ def test_astype_pcf64_to_pcf32():
     f = mpcf.Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float64))
     g = f.astype(mpcf.pcf32)
 
-    assert g.vtype == np.float32
+    assert g.vtype == mpcf.float32
     npt.assert_array_almost_equal(f.to_numpy(), g.to_numpy(), decimal=5)
 
 
@@ -39,21 +39,21 @@ def test_astype_np_float32():
     f = mpcf.Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float64))
     g = f.astype(np.float32)
 
-    assert g.vtype == np.float32
+    assert g.vtype == mpcf.float32
 
 
 def test_astype_np_float64():
     f = mpcf.Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
     g = f.astype(np.float64)
 
-    assert g.vtype == np.float64
+    assert g.vtype == mpcf.float64
 
 
 def test_astype_same_dtype():
     f = mpcf.Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
     g = f.astype(mpcf.pcf32)
 
-    assert g.vtype == np.float32
+    assert g.vtype == mpcf.float32
     npt.assert_array_equal(f.to_numpy(), g.to_numpy())
 
 

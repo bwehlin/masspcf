@@ -297,6 +297,17 @@ namespace mpcf_py
 
     cls.def("broadcast_to", [](const TTensor& self, const std::vector<size_t>& shape){ return self.broadcast_to(shape); });
 
+    // Masked operations
+    cls.def("masked_select", [](const TTensor& self, const mpcf::Tensor<bool>& mask) {
+      return mpcf::masked_select(self, mask);
+    });
+    cls.def("masked_assign", [](TTensor& self, const mpcf::Tensor<bool>& mask, const TTensor& values) {
+      mpcf::masked_assign(self, mask, values);
+    });
+    cls.def("masked_fill", [](TTensor& self, const mpcf::Tensor<bool>& mask, const T& value) {
+      mpcf::masked_fill(self, mask, value);
+    });
+
     using Tv = scalar_of_t<T>;
     using Tt = time_of_t<T>;
 

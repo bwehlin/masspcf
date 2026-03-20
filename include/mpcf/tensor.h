@@ -383,6 +383,31 @@ namespace mpcf
 #endif
   void walk(const TTensor& tensor, UnaryFunc&& f);
 
+  // ============================================================================
+  // Masked operations
+  // ============================================================================
+
+  /**
+   * Select elements from src where mask is true, returning a 1D tensor.
+   * Mask shape must match src.shape(). Elements are collected in row-major order.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> masked_select(const Tensor<T>& src, const Tensor<bool>& mask);
+
+  /**
+   * Assign values into dst at positions where mask is true.
+   * Mask shape must match dst.shape(). values must be 1D with length == count of true values.
+   */
+  template <typename T>
+  void masked_assign(Tensor<T>& dst, const Tensor<bool>& mask, const Tensor<T>& values);
+
+  /**
+   * Fill dst with a scalar value at positions where mask is true.
+   * Mask shape must match dst.shape().
+   */
+  template <typename T>
+  void masked_fill(Tensor<T>& dst, const Tensor<bool>& mask, const T& value);
+
 }
 
 #include "tensor.tpp"

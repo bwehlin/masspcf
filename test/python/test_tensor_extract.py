@@ -5,7 +5,7 @@ import masspcf as mpcf
 
 
 def test_extract_element():
-    X = mpcf.zeros((2, 3), dtype=mpcf.f64)
+    X = mpcf.zeros((2, 3), dtype=mpcf.float64)
 
     print(X.strides)
 
@@ -17,7 +17,7 @@ def test_extract_element():
 
 
 def test_extract_element1d():
-    X = mpcf.zeros((2), dtype=mpcf.f64)
+    X = mpcf.zeros((2), dtype=mpcf.float64)
     X[1] = 2.0
 
     assert X[0] == 0.0
@@ -25,7 +25,7 @@ def test_extract_element1d():
 
 
 def test_extract_subtensor():
-    X = mpcf.zeros((3, 4, 5), dtype=mpcf.f64)
+    X = mpcf.zeros((3, 4, 5), dtype=mpcf.float64)
 
     for i in range(3):
         for j in range(4):
@@ -56,7 +56,7 @@ def test_extract_subtensor():
 
 
 def test_extract1d_with_step():
-    X = mpcf.zeros((6), dtype=mpcf.f64)
+    X = mpcf.zeros((6), dtype=mpcf.float64)
 
     for i in range(X.shape[0]):
         X[i] = i
@@ -73,7 +73,7 @@ def test_extract1d_with_step():
 
 
 def test_extract_with_step():
-    X = mpcf.zeros((3, 9, 2), dtype=mpcf.f64)
+    X = mpcf.zeros((3, 9, 2), dtype=mpcf.float64)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
@@ -128,7 +128,7 @@ def test_extract_with_step():
 
 
 def test_extract_with_offsets():
-    X = mpcf.zeros((7, 9, 5), dtype=mpcf.f64)
+    X = mpcf.zeros((7, 9, 5), dtype=mpcf.float64)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
@@ -145,8 +145,8 @@ def test_extract_with_offsets():
 
 
 def test_recursive_extract():
-    X = mpcf.zeros((9, 8, 7, 6), dtype=mpcf.f64)
-    Xnp = np.zeros((9, 8, 7, 6), dtype=mpcf.f64)
+    X = mpcf.zeros((9, 8, 7, 6), dtype=mpcf.float64)
+    Xnp = np.zeros((9, 8, 7, 6), dtype=np.float64)
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):

@@ -79,9 +79,9 @@ Distance matrices
 ::
 
    from masspcf import DistanceMatrix
-   from masspcf.typing import f32
+   from masspcf.typing import float32
 
-   m = DistanceMatrix(100, dtype=f32)
+   m = DistanceMatrix(100, dtype=float32)
    m[3, 7] = 2.5
    assert m[7, 3] == 2.5   # symmetric access
    assert m[3, 3] == 0.0   # diagonal is always zero
@@ -102,7 +102,7 @@ Use the ``distmat32`` or ``distmat64`` dtypes::
    T = mpcf.zeros((10,), dtype=mpcf.distmat64)
 
    # Assign a matrix into the tensor
-   m = mpcf.DistanceMatrix(5, dtype=mpcf.f64)
+   m = mpcf.DistanceMatrix(5, dtype=mpcf.float64)
    m[0, 1] = 3.14
    T[0] = m
 
@@ -127,9 +127,9 @@ Symmetric matrices
 ::
 
    from masspcf import SymmetricMatrix
-   from masspcf.typing import f32
+   from masspcf.typing import float32
 
-   m = SymmetricMatrix(100, dtype=f32)
+   m = SymmetricMatrix(100, dtype=float32)
    m[3, 7] = 2.5
    assert m[7, 3] == 2.5   # symmetric access
 

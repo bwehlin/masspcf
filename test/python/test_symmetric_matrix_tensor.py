@@ -5,11 +5,11 @@ from masspcf.symmetric_matrix import (
     SymmetricMatrix32Tensor,
     SymmetricMatrix64Tensor,
 )
-from masspcf.typing import f32, f64, symmat32, symmat64
+from masspcf.typing import float32, float64, symmat32, symmat64
 
 
 DTYPES = [symmat32, symmat64]
-SCALAR_DTYPES = {symmat32: f32, symmat64: f64}
+SCALAR_DTYPES = {symmat32: float32, symmat64: float64}
 TENSOR_TYPES = {symmat32: SymmetricMatrix32Tensor, symmat64: SymmetricMatrix64Tensor}
 
 

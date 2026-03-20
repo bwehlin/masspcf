@@ -19,7 +19,7 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor
 from .pcf import Pcf
-from .typing import _validate_dtype, boolean, f32, f64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
+from .typing import _validate_dtype, boolean, float32, float64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
 
 
 class NumericTensor(Tensor, ArithmeticTensorMixin):
@@ -69,7 +69,7 @@ class Float32Tensor(NumericTensor):
             raise TypeError(f"Cannot create {type(self)} from {type(data)}")
 
         self._data = data
-        self.dtype = f32
+        self.dtype = float32
 
     def _to_py_tensor(self, data):
         return Float32Tensor(data)
@@ -89,7 +89,7 @@ class Float64Tensor(NumericTensor):
             raise TypeError(f"Cannot create {type(self)} from {type(data)}")
 
         self._data = data
-        self.dtype = f64
+        self.dtype = float64
 
     def _to_py_tensor(self, data):
         return Float64Tensor(data)
@@ -222,8 +222,10 @@ class PointCloud64Tensor(PointCloudTensor):
 class BoolTensor(Tensor):
     """Tensor of boolean values, typically produced by elementwise comparisons."""
 
-    def __init__(self, data: cpp.BoolTensor):
+    def __init__(self, data: cpp.BoolTensor | np.ndarray):
         super().__init__()
+        if isinstance(data, np.ndarray):
+            data = cpp.ndarray_to_bool_tensor(np.asarray(data, dtype=np.bool_))
         self._data = data
         self.dtype = boolean
 

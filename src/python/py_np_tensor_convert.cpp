@@ -59,7 +59,7 @@ namespace mpcf_py
   {
     register_np_conversion_function<mpcf::float32_t, mpcf::float32_t>(m, "32");
     register_np_conversion_function<mpcf::float64_t, mpcf::float64_t>(m, "64");
-
+    m.def("ndarray_to_bool_tensor", &convert_numpy_to_tensor<bool, bool>);
   }
 
 }

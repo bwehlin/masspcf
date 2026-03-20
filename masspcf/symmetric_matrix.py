@@ -20,14 +20,14 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from ._tensor_base import Tensor
-from .typing import f32, f64, symmat32, symmat64
+from .typing import float32, float64, symmat32, symmat64
 
 if TYPE_CHECKING:
     CppSymmetricMatrix = cpp.SymmetricMatrix_f32 | cpp.SymmetricMatrix_f64
 
 _dtype_to_cpp = {
-    f32: cpp.SymmetricMatrix_f32,
-    f64: cpp.SymmetricMatrix_f64,
+    float32: cpp.SymmetricMatrix_f32,
+    float64: cpp.SymmetricMatrix_f64,
 }
 
 _cpp_types = (cpp.SymmetricMatrix_f32, cpp.SymmetricMatrix_f64)
@@ -44,14 +44,14 @@ class SymmetricMatrix:
     n_or_data : int | SymmetricMatrix | CppSymmetricMatrix
         If an int, creates a zero-initialized matrix of that size.
         If a SymmetricMatrix or C++ symmetric matrix, wraps it directly.
-    dtype : type[f32] | type[f64] | None, optional
+    dtype : type[float32] | type[float64] | None, optional
         Element type. Required when ``n_or_data`` is an int, ignored otherwise.
     """
 
     def __init__(
         self,
         n_or_data: int | SymmetricMatrix | CppSymmetricMatrix,
-        dtype: type[f32] | type[f64] | None = None,
+        dtype: type[float32] | type[float64] | None = None,
     ):
         if isinstance(n_or_data, SymmetricMatrix):
             self._data = n_or_data._data
@@ -61,7 +61,7 @@ class SymmetricMatrix:
             if dtype is None:
                 raise ValueError("dtype is required when constructing from size")
             if dtype not in _dtype_to_cpp:
-                raise TypeError(f"Unsupported dtype {dtype}; use f32 or f64")
+                raise TypeError(f"Unsupported dtype {dtype}; use float32 or float64")
             self._data = _dtype_to_cpp[dtype](n_or_data)
         else:
             raise TypeError(f"Expected int, SymmetricMatrix, or C++ SymmetricMatrix; got {type(n_or_data)}")

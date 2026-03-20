@@ -16,7 +16,7 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from .tensor import Pcf32Tensor, Pcf64Tensor
-from .typing import _assert_valid_dtype, _check_deprecated_dtype, pcf32, pcf64
+from .typing import _assert_valid_dtype, pcf32, pcf64
 
 
 def from_serial_content(
@@ -46,8 +46,6 @@ def from_serial_content(
             dtype = pcf64
         else:
             raise TypeError("content must have dtype either np.float32 or np.float64.")
-
-    _check_deprecated_dtype(dtype)
 
     if dtype == pcf32 and content.dtype != np.float32:
         content = content.astype(np.float32)

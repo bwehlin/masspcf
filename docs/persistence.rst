@@ -114,7 +114,7 @@ ignored because distances are already provided::
    points = np.random.randn(50, 3)
    D = squareform(pdist(points))
 
-   dm = mpcf.DistanceMatrix(50, dtype=mpcf.f64)
+   dm = mpcf.DistanceMatrix(50, dtype=mpcf.float64)
    for i in range(50):
        for j in range(i):
            dm[i, j] = D[i, j]

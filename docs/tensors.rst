@@ -21,7 +21,7 @@ The most common way to create a tensor is :py:func:`~masspcf.zeros`, which alloc
    Y = mpcf.zeros((4, 10, 25), dtype=mpcf.pcf64)
 
    # Scalar float tensor
-   Z = mpcf.zeros((5, 5), dtype=mpcf.f64)
+   Z = mpcf.zeros((5, 5), dtype=mpcf.float64)
 
 For PCF dtypes, "zero" is a function that is identically zero. For numeric dtypes, it is the number 0. For point cloud dtypes, it is an empty point cloud.
 

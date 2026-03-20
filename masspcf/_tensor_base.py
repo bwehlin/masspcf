@@ -15,12 +15,25 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Union
 
 from . import _mpcf_cpp as cpp
 
 Shape = cpp.Shape
 
 ShapeLike = Shape | tuple[int, ...]
+
+CppTensor = Union[
+    cpp.Float32Tensor,
+    cpp.Float64Tensor,
+    cpp.Pcf32Tensor,
+    cpp.Pcf64Tensor,
+    cpp.Pcf32iTensor,
+    cpp.Pcf64iTensor,
+    cpp.PointCloud32Tensor,
+    cpp.PointCloud64Tensor,
+    cpp.BoolTensor,
+]
 
 
 def _pyslice_to_slice(s):
@@ -33,7 +46,12 @@ def _pyslice_to_slice(s):
 
 
 class Tensor(ABC):
+    _data: CppTensor
+
     def __getitem__(self, slices):
+        from .tensor import BoolTensor
+        if isinstance(slices, BoolTensor):
+            return self._to_py_tensor(self._data.masked_select(slices._data))  # type: ignore[arg-type]
         if isinstance(slices, int):  # X[n]
             x = self._data._get_element(slices)
             return self._represent_element(x)
@@ -61,6 +79,14 @@ class Tensor(ABC):
             )
 
     def __setitem__(self, slices, val):
+        from .tensor import BoolTensor
+        if isinstance(slices, BoolTensor):
+            self._validate_setitem_dtype(val)
+            if isinstance(val, Tensor):
+                self._data.masked_assign(slices._data, val._data)  # type: ignore[arg-type]
+            else:
+                self._data.masked_fill(slices._data, self._decay_value(val))  # type: ignore[arg-type]
+            return
         self._validate_setitem_dtype(val)
 
         if isinstance(slices, int):
@@ -80,13 +106,13 @@ class Tensor(ABC):
         if not isinstance(rhs, Tensor):
             return NotImplemented
         from .tensor import BoolTensor
-        return BoolTensor(self._data == rhs._data)
+        return BoolTensor(self._data == rhs._data)  # type: ignore[arg-type]
 
     def __ne__(self, rhs):
         if not isinstance(rhs, Tensor):
             return NotImplemented
         from .tensor import BoolTensor
-        return BoolTensor(self._data != rhs._data)
+        return BoolTensor(self._data != rhs._data)  # type: ignore[arg-type]
 
     def __lt__(self, rhs):
         from .tensor import BoolTensor

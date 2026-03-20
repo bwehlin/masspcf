@@ -458,6 +458,82 @@ namespace mpcf
   Tensor<bool> elementwise_ge(const Tensor<T>& lhs, const Tensor<T>& rhs)
   { return detail::broadcast_binop(lhs, rhs, [](const T& a, const T& b){ return a >= b; }); }
 
+  // ============================================================================
+  // Masked operations
+  // ============================================================================
+
+  template <typename T>
+  Tensor<T> masked_select(const Tensor<T>& src, const Tensor<bool>& mask)
+  {
+    if (mask.shape() != src.shape())
+    {
+      throw std::invalid_argument(
+        "masked_select: mask shape does not match tensor shape");
+    }
+
+    // Single pass: collect matching elements into a buffer
+    std::vector<T> buf;
+    walk(src, [&](const std::vector<size_t>& idx) {
+      if (mask(idx))
+        buf.push_back(src(idx));
+    });
+
+    if (buf.empty())
+    {
+      return Tensor<T>({0});
+    }
+
+    Tensor<T> result({buf.size()});
+    std::move(buf.begin(), buf.end(), result.data());
+
+    return result;
+  }
+
+  template <typename T>
+  void masked_assign(Tensor<T>& dst, const Tensor<bool>& mask, const Tensor<T>& values)
+  {
+    if (mask.shape() != dst.shape())
+    {
+      throw std::invalid_argument(
+        "masked_assign: mask shape does not match tensor shape");
+    }
+
+    // Count true values to validate
+    size_t count = 0;
+    walk(dst, [&count, &mask](const std::vector<size_t>& idx) {
+      if (mask(idx))
+        ++count;
+    });
+
+    if (values.size() != count)
+    {
+      throw std::invalid_argument(
+        "masked_assign: values length (" + std::to_string(values.size()) +
+        ") does not match number of true values in mask (" + std::to_string(count) + ")");
+    }
+
+    size_t pos = 0;
+    walk(dst, [&](const std::vector<size_t>& idx) {
+      if (mask(idx))
+        dst(idx) = values({pos++});
+    });
+  }
+
+  template <typename T>
+  void masked_fill(Tensor<T>& dst, const Tensor<bool>& mask, const T& value)
+  {
+    if (mask.shape() != dst.shape())
+    {
+      throw std::invalid_argument(
+        "masked_fill: mask shape does not match tensor shape");
+    }
+
+    walk(dst, [&](const std::vector<size_t>& idx) {
+      if (mask(idx))
+        dst(idx) = value;
+    });
+  }
+
   template <typename T>
   [[nodiscard]] size_t Tensor<T>::size() const noexcept
   {

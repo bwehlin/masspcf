@@ -147,14 +147,14 @@ def test_load_preserves_float32_type():
     original = mpcf.Float32Tensor(np.ones((2, 2), dtype=np.float32))
     restored = _roundtrip(original)
     assert type(restored) is mpcf.Float32Tensor
-    assert restored.dtype == mpcf.f32
+    assert restored.dtype == mpcf.float32
 
 
 def test_load_preserves_float64_type():
     original = mpcf.Float64Tensor(np.ones((2, 2), dtype=np.float64))
     restored = _roundtrip(original)
     assert type(restored) is mpcf.Float64Tensor
-    assert restored.dtype == mpcf.f64
+    assert restored.dtype == mpcf.float64
 
 
 def test_load_preserves_pcf32_type():
