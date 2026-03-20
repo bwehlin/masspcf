@@ -20,9 +20,9 @@ import masspcf._mpcf_cpp as mcpp
 
 def test_numpy_tensor_create_gives_correct_cpp_type():
     Xnp = np.zeros((10, 20), dtype=np.float32)
-    X = mpcf.Float32Tensor(Xnp)
+    X = mpcf.FloatTensor(Xnp)
     assert isinstance(X._data, mcpp.Float32Tensor)
 
     Xnp = np.zeros((10, 20), dtype=np.float64)
-    X = mpcf.Float64Tensor(Xnp)
+    X = mpcf.FloatTensor(Xnp)
     assert isinstance(X._data, mcpp.Float64Tensor)

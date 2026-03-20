@@ -42,7 +42,7 @@ A typical TDA workflow in masspcf follows three steps:
 Step 1: Point clouds
 ====================
 
-Point clouds are stored in ``PointCloud32Tensor`` or ``PointCloud64Tensor``. Each element of the tensor is a point cloud, represented internally as an :math:`n \times d` numeric array where :math:`n` is the number of points and :math:`d` is the ambient dimension.
+Point clouds are stored in ``PointCloudTensor``. Each element of the tensor is a point cloud, represented internally as an :math:`n \times d` numeric array where :math:`n` is the number of points and :math:`d` is the ambient dimension.
 
 Create a tensor and assign point clouds as NumPy arrays::
 
@@ -93,10 +93,10 @@ Input flexibility
 
 ``compute_persistent_homology`` also accepts:
 
-- A single ``Float32Tensor`` or ``Float64Tensor`` (interpreted as a single point cloud)
+- A single ``FloatTensor`` (interpreted as a single point cloud)
 - A plain NumPy array (interpreted as a single point cloud)
 - A ``DistanceMatrix`` (precomputed pairwise distances for a single data set)
-- A ``DistanceMatrix32Tensor`` or ``DistanceMatrix64Tensor`` (a tensor of precomputed distance matrices)
+- A ``DistanceMatrixTensor`` (a tensor of precomputed distance matrices)
 
 ::
 

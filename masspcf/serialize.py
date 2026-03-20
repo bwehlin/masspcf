@@ -15,13 +15,13 @@
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .tensor import Pcf32Tensor, Pcf64Tensor
+from .tensor import PcfTensor
 from .typing import _assert_valid_dtype, pcf32, pcf64
 
 
 def from_serial_content(
     content: np.ndarray, enumeration: np.ndarray, dtype=None
-) -> Pcf32Tensor | Pcf64Tensor:
+) -> PcfTensor:
     """Creates a `Tensor` of PCFs from serial numpy data.
 
     Parameters
@@ -35,8 +35,8 @@ def from_serial_content(
 
     Returns
     -------
-    Tensor
-        `Tensor` of shape ``(n_1, n_2, ..., n_k)``, where element ``(i_1, i_2, ..., i_k)`` is a `Pcf` with points ``content[start, stop]`` with ``start=enumeration[i_1,...,i_k, 0]`` and ``stop=enumeration[i_1,...,i_k, 1]``.
+    PcfTensor
+        `PcfTensor` of shape ``(n_1, n_2, ..., n_k)``, where element ``(i_1, i_2, ..., i_k)`` is a `Pcf` with points ``content[start, stop]`` with ``start=enumeration[i_1,...,i_k, 0]`` and ``stop=enumeration[i_1,...,i_k, 1]``.
     """
 
     if dtype is None:
@@ -55,6 +55,6 @@ def from_serial_content(
     _assert_valid_dtype(dtype, [pcf32, pcf64])
 
     if dtype == pcf32:
-        return Pcf32Tensor(cpp.make_from_serial_content_32(content, enumeration))
+        return PcfTensor(cpp.make_from_serial_content_32(content, enumeration))
     elif dtype == pcf64:
-        return Pcf64Tensor(cpp.make_from_serial_content_64(content, enumeration))
+        return PcfTensor(cpp.make_from_serial_content_64(content, enumeration))

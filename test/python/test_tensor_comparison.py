@@ -35,9 +35,9 @@ def test_bool_tensor_bool_single_element():
     np_b = np.array([1.0])
     np_c = np.array([2.0])
 
-    a = mpcf.Float64Tensor(np_a)
-    b = mpcf.Float64Tensor(np_b)
-    c = mpcf.Float64Tensor(np_c)
+    a = mpcf.FloatTensor(np_a)
+    b = mpcf.FloatTensor(np_b)
+    c = mpcf.FloatTensor(np_c)
 
     assert a.shape == np_a.shape
 
@@ -53,8 +53,8 @@ def test_bool_tensor_bool_multi_element_raises():
     with pytest.raises(ValueError):
         bool(np_a == np_b)
 
-    a = mpcf.Float64Tensor(np_a)
-    b = mpcf.Float64Tensor(np_b)
+    a = mpcf.FloatTensor(np_a)
+    b = mpcf.FloatTensor(np_b)
     with pytest.raises(ValueError, match="more than one element"):
         bool(a == b)
 
@@ -65,7 +65,7 @@ def test_bool_tensor_bool_multi_element_raises():
 def test_eq_elementwise():
     np_a = np.array([1.0, 2.0, 3.0])
     np_b = np.array([1.0, 9.0, 3.0])
-    result = mpcf.Float64Tensor(np_a) == mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) == mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     npt.assert_array_equal(np.asarray(result), np_a == np_b)
 
@@ -73,7 +73,7 @@ def test_eq_elementwise():
 def test_ne_elementwise():
     np_a = np.array([1.0, 2.0, 3.0])
     np_b = np.array([1.0, 9.0, 3.0])
-    result = mpcf.Float64Tensor(np_a) != mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) != mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     npt.assert_array_equal(np.asarray(result), np_a != np_b)
 
@@ -81,7 +81,7 @@ def test_ne_elementwise():
 def test_lt_elementwise():
     np_a = np.array([1.0, 5.0, 3.0])
     np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.Float64Tensor(np_a) < mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) < mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     npt.assert_array_equal(np.asarray(result), np_a < np_b)
 
@@ -89,7 +89,7 @@ def test_lt_elementwise():
 def test_le_elementwise():
     np_a = np.array([1.0, 5.0, 3.0])
     np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.Float64Tensor(np_a) <= mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) <= mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     npt.assert_array_equal(np.asarray(result), np_a <= np_b)
 
@@ -97,7 +97,7 @@ def test_le_elementwise():
 def test_gt_elementwise():
     np_a = np.array([1.0, 5.0, 3.0])
     np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.Float64Tensor(np_a) > mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) > mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     npt.assert_array_equal(np.asarray(result), np_a > np_b)
 
@@ -105,7 +105,7 @@ def test_gt_elementwise():
 def test_ge_elementwise():
     np_a = np.array([1.0, 5.0, 3.0])
     np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.Float64Tensor(np_a) >= mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) >= mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     npt.assert_array_equal(np.asarray(result), np_a >= np_b)
 
@@ -117,7 +117,7 @@ def test_eq_broadcast_row():
     np_a = np.array([[1.0, 2.0], [3.0, 4.0]])
     np_b = np.array([1.0, 4.0])
     expected = np_a == np_b
-    result = mpcf.Float64Tensor(np_a) == mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) == mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     assert result.shape == expected.shape
     npt.assert_array_equal(np.asarray(result), expected)
@@ -127,7 +127,7 @@ def test_lt_broadcast_col():
     np_a = np.array([[1.0, 2.0], [3.0, 4.0]])
     np_b = np.array([[2.0], [3.0]])
     expected = np_a < np_b
-    result = mpcf.Float64Tensor(np_a) < mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) < mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     assert result.shape == expected.shape
     npt.assert_array_equal(np.asarray(result), expected)
@@ -137,7 +137,7 @@ def test_ge_broadcast_scalar_tensor():
     np_a = np.array([1.0, 2.0, 3.0])
     np_b = np.array([2.0])
     expected = np_a >= np_b
-    result = mpcf.Float64Tensor(np_a) >= mpcf.Float64Tensor(np_b)
+    result = mpcf.FloatTensor(np_a) >= mpcf.FloatTensor(np_b)
     assert isinstance(result, mpcf.BoolTensor)
     assert result.shape == expected.shape
     npt.assert_array_equal(np.asarray(result), expected)
@@ -148,7 +148,7 @@ def test_ge_broadcast_scalar_tensor():
 
 def test_array_equal_true():
     np_a = np.array([1.0, 2.0, 3.0])
-    a = mpcf.Float64Tensor(np_a)
+    a = mpcf.FloatTensor(np_a)
     assert a.array_equal(a) == np.array_equal(np_a, np_a)
     assert a.array_equal(a.copy()) == np.array_equal(np_a, np_a.copy())
 
@@ -156,23 +156,23 @@ def test_array_equal_true():
 def test_array_equal_false():
     np_a = np.array([1.0, 2.0, 3.0])
     np_b = np.array([1.0, 9.0, 3.0])
-    a = mpcf.Float64Tensor(np_a)
-    b = mpcf.Float64Tensor(np_b)
+    a = mpcf.FloatTensor(np_a)
+    b = mpcf.FloatTensor(np_b)
     assert a.array_equal(b) == np.array_equal(np_a, np_b)
 
 
 def test_array_equal_different_shape():
     np_a = np.array([1.0, 2.0])
     np_b = np.array([1.0, 2.0, 3.0])
-    a = mpcf.Float64Tensor(np_a)
-    b = mpcf.Float64Tensor(np_b)
+    a = mpcf.FloatTensor(np_a)
+    b = mpcf.FloatTensor(np_b)
     assert a.array_equal(b) == np.array_equal(np_a, np_b)
 
 
 def test_array_equal_numpy():
     np_a = np.array([1.0, 2.0, 3.0])
     np_b = np.array([1.0, 9.0, 3.0])
-    a = mpcf.Float64Tensor(np_a)
+    a = mpcf.FloatTensor(np_a)
     assert a.array_equal(np_a) == np.array_equal(np_a, np_a)
     assert a.array_equal(np_b) == np.array_equal(np_a, np_b)
 

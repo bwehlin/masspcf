@@ -20,20 +20,20 @@ from .. import _mpcf_cpp as cpp
 from ..async_task import _run_task
 from ..distance_matrix import (
     DistanceMatrix,
-    DistanceMatrix32Tensor,
-    DistanceMatrix64Tensor,
     DistanceMatrixTensor,
 )
 from ..tensor import (
-    Float32Tensor,
-    Float64Tensor,
-    PointCloud32Tensor,
-    PointCloud64Tensor,
+    FloatTensor,
+    PointCloudTensor,
 )
-from ..typing import barcode32, barcode64, distmat32, distmat64, pcloud32, pcloud64
-from .ph_tensor import Barcode32Tensor, Barcode64Tensor
+from ..typing import barcode32, barcode64, distmat32, distmat64, float32, float64, pcloud32, pcloud64
+from .ph_tensor import BarcodeTensor
 
 cpp_p = cpp.persistence
+
+_DISTMAT_TO_BARCODE_DTYPE = {distmat32: barcode32, distmat64: barcode64}
+_PCLOUD_TO_BARCODE_DTYPE = {pcloud32: barcode32, pcloud64: barcode64}
+_FLOAT_TO_PCLOUD_DTYPE = {float32: pcloud32, float64: pcloud64}
 
 
 class DistanceType(Enum):
@@ -45,20 +45,17 @@ class ComplexType(Enum):
 
 
 def compute_persistent_homology(
-    X: PointCloud32Tensor
-    | PointCloud64Tensor
+    X: PointCloudTensor
     | DistanceMatrix
-    | DistanceMatrix32Tensor
-    | DistanceMatrix64Tensor
-    | Float32Tensor
-    | Float64Tensor
+    | DistanceMatrixTensor
+    | FloatTensor
     | np.ndarray,
     maxDim: int = 1,
     distance_type: DistanceType = DistanceType.Euclidean,
     complex_type: ComplexType = ComplexType.VietorisRips,
     reduced: bool = False,
     verbose: bool = True,
-) -> Barcode32Tensor | Barcode64Tensor:
+) -> BarcodeTensor:
     r"""Compute persistent homology of a point cloud or distance matrix.
 
     Returns barcodes for homology dimensions 0 through ``maxDim``. When
@@ -72,10 +69,10 @@ def compute_persistent_homology(
 
     Parameters
     ----------
-    X : PointCloud32Tensor, PointCloud64Tensor, DistanceMatrix, DistanceMatrix32Tensor, DistanceMatrix64Tensor, Float32Tensor, Float64Tensor, or numpy.ndarray
-        Input data. A ``Float32/64Tensor`` or NumPy array is
+    X : PointCloudTensor, DistanceMatrix, DistanceMatrixTensor, FloatTensor, or numpy.ndarray
+        Input data. A ``FloatTensor`` or NumPy array is
         interpreted as a single point cloud (one row per point).
-        A ``DistanceMatrix`` or ``DistanceMatrix{32,64}Tensor`` provides
+        A ``DistanceMatrix`` or ``DistanceMatrixTensor`` provides
         precomputed pairwise distances directly; ``distance_type`` is
         ignored in that case.
     maxDim : int, optional
@@ -95,7 +92,7 @@ def compute_persistent_homology(
 
     Returns
     -------
-    Barcode32Tensor or Barcode64Tensor
+    BarcodeTensor
         A tensor of barcodes.
 
     References
@@ -119,10 +116,8 @@ def compute_persistent_homology(
             dmX[0] = X
             X = dmX
 
-        if isinstance(X, DistanceMatrix32Tensor):
-            out = zeros((1,), dtype=barcode32)
-        else:
-            out = zeros((1,), dtype=barcode64)
+        barcode_dtype = _DISTMAT_TO_BARCODE_DTYPE[X.dtype]
+        out = zeros((1,), dtype=barcode_dtype)
 
         if complex_type != ComplexType.VietorisRips:
             raise ValueError(f"Unsupported complex type {complex_type}")
@@ -137,29 +132,18 @@ def compute_persistent_homology(
 
     # --- Point cloud input path ---
     if isinstance(X, np.ndarray):
-        if X.dtype == np.float32:
-            X = Float32Tensor(X)
-        elif X.dtype == np.float64:
-            X = Float64Tensor(X)
-        else:
-            raise TypeError(
-                f"Input has unsupported numpy dtype {X.dtype} (only np.float32/64 are supported)."
-            )
+        X = FloatTensor(X)
 
     out = None
-    if isinstance(X, Float32Tensor):
-        pcX = zeros((1,), dtype=pcloud32)
+    if isinstance(X, FloatTensor):
+        pcloud_dtype = _FLOAT_TO_PCLOUD_DTYPE[X.dtype]
+        pcX = zeros((1,), dtype=pcloud_dtype)
         pcX[0] = X
-        X = PointCloud32Tensor(pcX)
-    elif isinstance(X, Float64Tensor):
-        pcX = zeros((1,), dtype=pcloud64)
-        pcX[0] = X
-        X = PointCloud64Tensor(pcX)
+        X = pcX
 
-    if isinstance(X, PointCloud32Tensor):
-        out = zeros((1,), dtype=barcode32)
-    elif isinstance(X, PointCloud64Tensor):
-        out = zeros((1,), dtype=barcode64)
+    if isinstance(X, PointCloudTensor):
+        barcode_dtype = _PCLOUD_TO_BARCODE_DTYPE[X.dtype]
+        out = zeros((1,), dtype=barcode_dtype)
 
     if complex_type == ComplexType.VietorisRips:
         # Use Ripser

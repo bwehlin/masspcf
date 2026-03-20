@@ -195,7 +195,8 @@ class TestIntPcfIO:
         buf.seek(0)
         loaded = mpcf.load(buf)
 
-        assert isinstance(loaded, mpcf.Pcf32iTensor)
+        assert isinstance(loaded, mpcf.IntPcfTensor)
+        assert loaded.dtype == mpcf.pcf32i
         assert loaded.shape == (2,)
         npt.assert_array_equal(loaded[0].to_numpy(), t[0].to_numpy())
         npt.assert_array_equal(loaded[1].to_numpy(), t[1].to_numpy())
@@ -212,7 +213,8 @@ class TestIntPcfIO:
         buf.seek(0)
         loaded = mpcf.load(buf)
 
-        assert isinstance(loaded, mpcf.Pcf64iTensor)
+        assert isinstance(loaded, mpcf.IntPcfTensor)
+        assert loaded.dtype == mpcf.pcf64i
         assert loaded.shape == (2,)
         npt.assert_array_equal(loaded[0].to_numpy(), t[0].to_numpy())
         npt.assert_array_equal(loaded[1].to_numpy(), t[1].to_numpy())

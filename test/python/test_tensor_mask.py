@@ -16,12 +16,12 @@ import numpy as np
 import pytest
 
 import masspcf as mpcf
-from masspcf.tensor import BoolTensor, Float32Tensor
+from masspcf.tensor import BoolTensor, FloatTensor
 
 
 def _mpcf(arr):
-    """Convert a float32 numpy array to a Float32Tensor."""
-    return Float32Tensor(np.asarray(arr, dtype=np.float32))
+    """Convert a float32 numpy array to a FloatTensor."""
+    return FloatTensor(np.asarray(arr, dtype=np.float32))
 
 
 def _assert_masked_select(arr, mask):

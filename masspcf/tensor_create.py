@@ -16,14 +16,10 @@ from . import _mpcf_cpp as cpp
 from ._tensor_base import Shape, ShapeLike
 from .tensor import (
     BoolTensor,
-    Float32Tensor,
-    Float64Tensor,
-    Pcf32iTensor,
-    Pcf32Tensor,
-    Pcf64iTensor,
-    Pcf64Tensor,
-    PointCloud32Tensor,
-    PointCloud64Tensor,
+    FloatTensor,
+    IntPcfTensor,
+    PcfTensor,
+    PointCloudTensor,
 )
 from .typing import (
     Dtype,
@@ -73,7 +69,7 @@ def zeros(shape: ShapeLike, dtype: Dtype = pcf32):
         The newly created tensor
     """
 
-    from .persistence.ph_tensor import Barcode32Tensor, Barcode64Tensor
+    from .persistence.ph_tensor import BarcodeTensor
 
     if not isinstance(shape, Shape):
         shape = Shape(shape)  # If passed as, e.g., tuple of ints
@@ -102,36 +98,36 @@ def zeros(shape: ShapeLike, dtype: Dtype = pcf32):
     if dtype == boolean:
         return BoolTensor(cpp.BoolTensor(shape, False))
     elif dtype == pcf32:
-        return Pcf32Tensor(cpp.Pcf32Tensor(shape))
+        return PcfTensor(cpp.Pcf32Tensor(shape))
     elif dtype == pcf64:
-        return Pcf64Tensor(cpp.Pcf64Tensor(shape))
+        return PcfTensor(cpp.Pcf64Tensor(shape))
     elif dtype == pcf32i:
-        return Pcf32iTensor(cpp.Pcf32iTensor(shape))
+        return IntPcfTensor(cpp.Pcf32iTensor(shape))
     elif dtype == pcf64i:
-        return Pcf64iTensor(cpp.Pcf64iTensor(shape))
+        return IntPcfTensor(cpp.Pcf64iTensor(shape))
     elif dtype == float32:
-        return Float32Tensor(cpp.Float32Tensor(shape, 0.0))
+        return FloatTensor(cpp.Float32Tensor(shape, 0.0))
     elif dtype == float64:
-        return Float64Tensor(cpp.Float64Tensor(shape, 0.0))
+        return FloatTensor(cpp.Float64Tensor(shape, 0.0))
     elif dtype == pcloud32:
-        return PointCloud32Tensor(cpp.PointCloud32Tensor(shape))
+        return PointCloudTensor(cpp.PointCloud32Tensor(shape))
     elif dtype == pcloud64:
-        return PointCloud64Tensor(cpp.PointCloud64Tensor(shape))
+        return PointCloudTensor(cpp.PointCloud64Tensor(shape))
     elif dtype == barcode32:
-        return Barcode32Tensor(cpp_p.Barcode32Tensor(shape))
+        return BarcodeTensor(cpp_p.Barcode32Tensor(shape))
     elif dtype == barcode64:
-        return Barcode64Tensor(cpp_p.Barcode64Tensor(shape))
+        return BarcodeTensor(cpp_p.Barcode64Tensor(shape))
     elif dtype == distmat32:
-        from .distance_matrix import DistanceMatrix32Tensor
-        return DistanceMatrix32Tensor(cpp.DistanceMatrix32Tensor(shape))
+        from .distance_matrix import DistanceMatrixTensor
+        return DistanceMatrixTensor(cpp.DistanceMatrix32Tensor(shape))
     elif dtype == distmat64:
-        from .distance_matrix import DistanceMatrix64Tensor
-        return DistanceMatrix64Tensor(cpp.DistanceMatrix64Tensor(shape))
+        from .distance_matrix import DistanceMatrixTensor
+        return DistanceMatrixTensor(cpp.DistanceMatrix64Tensor(shape))
     elif dtype == symmat32:
-        from .symmetric_matrix import SymmetricMatrix32Tensor
-        return SymmetricMatrix32Tensor(cpp.SymmetricMatrix32Tensor(shape))
+        from .symmetric_matrix import SymmetricMatrixTensor
+        return SymmetricMatrixTensor(cpp.SymmetricMatrix32Tensor(shape))
     elif dtype == symmat64:
-        from .symmetric_matrix import SymmetricMatrix64Tensor
-        return SymmetricMatrix64Tensor(cpp.SymmetricMatrix64Tensor(shape))
+        from .symmetric_matrix import SymmetricMatrixTensor
+        return SymmetricMatrixTensor(cpp.SymmetricMatrix64Tensor(shape))
     else:
         raise NotImplementedError("This dtype has not been implemented.")

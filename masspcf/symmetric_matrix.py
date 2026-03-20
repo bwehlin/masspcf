@@ -32,6 +32,11 @@ _dtype_to_cpp = {
 
 _cpp_types = (cpp.SymmetricMatrix_f32, cpp.SymmetricMatrix_f64)
 
+_SYMMAT_CPP_TO_DTYPE = {
+    cpp.SymmetricMatrix32Tensor: symmat32,
+    cpp.SymmetricMatrix64Tensor: symmat64,
+}
+
 
 class SymmetricMatrix:
     """Compressed symmetric matrix using lower-triangular storage.
@@ -91,8 +96,17 @@ class SymmetricMatrix:
 
 
 class SymmetricMatrixTensor(Tensor):
-    def __init__(self):
+    def __init__(self, data: cpp.SymmetricMatrix32Tensor | cpp.SymmetricMatrix64Tensor):
         super().__init__()
+        if isinstance(data, SymmetricMatrixTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.SymmetricMatrix32Tensor, cpp.SymmetricMatrix64Tensor)):
+            raise TypeError(f"Cannot create SymmetricMatrixTensor from {type(data)}")
+        self._data = data
+        self.dtype = _SYMMAT_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return SymmetricMatrixTensor(data)
 
     def _decay_value(self, val):
         return val._data
@@ -101,24 +115,4 @@ class SymmetricMatrixTensor(Tensor):
         return SymmetricMatrix(element)
 
     def _get_valid_setitem_dtypes(self):
-        return [SymmetricMatrix, SymmetricMatrixTensor, SymmetricMatrix32Tensor, SymmetricMatrix64Tensor]
-
-
-class SymmetricMatrix32Tensor(SymmetricMatrixTensor):
-    def __init__(self, data: cpp.SymmetricMatrix32Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = symmat32
-
-    def _to_py_tensor(self, data):
-        return SymmetricMatrix32Tensor(data)
-
-
-class SymmetricMatrix64Tensor(SymmetricMatrixTensor):
-    def __init__(self, data: cpp.SymmetricMatrix64Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = symmat64
-
-    def _to_py_tensor(self, data):
-        return SymmetricMatrix64Tensor(data)
+        return [SymmetricMatrix, SymmetricMatrixTensor]

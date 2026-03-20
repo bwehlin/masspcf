@@ -50,7 +50,7 @@ def noisy_sin(shape, n_points=20, dtype=pcf32):
 
     Returns
     -------
-    Pcf32Tensor or Pcf64Tensor
+    PcfTensor
         Tensor of noisy sine PCFs with the given shape.
     """
     backend = _get_backend(dtype)
@@ -85,7 +85,7 @@ def noisy_cos(shape, n_points=20, dtype=pcf32):
 
     Returns
     -------
-    Pcf32Tensor or Pcf64Tensor
+    PcfTensor
         Tensor of noisy cosine PCFs with the given shape.
     """
     backend = _get_backend(dtype)

@@ -38,7 +38,7 @@ For quick experimentation, :py:mod:`masspcf.random` provides functions that gene
    # 2-D: 10 x 50 noisy cosine functions with 30 breakpoints each
    cosines = noisy_cos((10, 50), n_points=30)
 
-These functions return ``Pcf32Tensor`` by default. Pass ``dtype=mpcf.pcf64`` for 64-bit.
+These functions return ``PcfTensor`` by default. Pass ``dtype=mpcf.pcf64`` for 64-bit.
 
 From serialized NumPy data
 ---------------------------
@@ -59,7 +59,7 @@ From serialized NumPy data
    enumeration = np.array([[0, 3], [3, 7], [7, 9]])
 
    F = mpcf.from_serial_content(content, enumeration)
-   # F is a Pcf32Tensor of shape (3,)
+   # F is a PcfTensor of shape (3,)
 
 The enumeration array can be multidimensional. If it has shape ``(n1, n2, ..., nk, 2)``, the resulting tensor has shape ``(n1, n2, ..., nk)``.
 
@@ -77,7 +77,7 @@ Indexing with all integers returns the element at that position::
    X = mpcf.zeros((10, 5))
    f = X[3, 2]   # returns a Pcf object
 
-For a ``Pcf32Tensor`` or ``Pcf64Tensor``, the returned element is a :py:class:`~masspcf.Pcf`. For a ``Float32Tensor``, it is a Python float. For a ``PointCloud32Tensor``, it is a ``Float32Tensor`` (representing the point cloud as a numeric array).
+For a ``PcfTensor``, the returned element is a :py:class:`~masspcf.Pcf`. For a ``FloatTensor``, it is a Python float. For a ``PointCloudTensor``, it is a ``FloatTensor`` (representing the point cloud as a numeric array).
 
 Slicing
 -------
@@ -142,7 +142,7 @@ Scalar arithmetic
 
 Every operator accepts a scalar on either side::
 
-   X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+   X = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))
 
    Y = X * 2.0      # [2.0, 4.0, 6.0]
    Z = 10.0 + X     # [11.0, 12.0, 13.0]
@@ -167,7 +167,7 @@ Power
 The ``**`` operator raises every element to a given exponent. It works for both
 numeric and PCF tensors::
 
-   X = mpcf.Float64Tensor(np.array([4.0, 9.0, 16.0]))
+   X = mpcf.FloatTensor(np.array([4.0, 9.0, 16.0]))
    Y = X ** 0.5       # [2.0, 3.0, 4.0]
    X **= 2            # in-place: [16.0, 81.0, 256.0]
 
@@ -195,9 +195,9 @@ performed with `NumPy-style broadcasting
    import numpy as np
    import masspcf as mpcf
 
-   A = mpcf.Float64Tensor(np.array([[1.0, 2.0, 3.0],
+   A = mpcf.FloatTensor(np.array([[1.0, 2.0, 3.0],
                                      [4.0, 5.0, 6.0]]))    # shape (2, 3)
-   B = mpcf.Float64Tensor(np.array([10.0, 20.0, 30.0]))    # shape (3,)
+   B = mpcf.FloatTensor(np.array([10.0, 20.0, 30.0]))    # shape (3,)
 
    C = A + B   # shape (2, 3) — B is broadcast along dim 0
    # C == [[11, 22, 33],
@@ -205,8 +205,8 @@ performed with `NumPy-style broadcasting
 
 Both operands can be expanded at the same time::
 
-   col = mpcf.Float64Tensor(np.array([[1.0], [2.0]]))       # shape (2, 1)
-   row = mpcf.Float64Tensor(np.array([[10.0, 20.0, 30.0]])) # shape (1, 3)
+   col = mpcf.FloatTensor(np.array([[1.0], [2.0]]))       # shape (2, 1)
+   row = mpcf.FloatTensor(np.array([[10.0, 20.0, 30.0]])) # shape (1, 3)
 
    result = col + row   # shape (2, 3)
    # result == [[11, 21, 31],
@@ -221,8 +221,8 @@ shape of the left operand, just like NumPy::
 
 Incompatible shapes raise ``ValueError``::
 
-   X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-   Y = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+   X = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))
+   Y = mpcf.FloatTensor(np.array([1.0, 2.0]))
    # X + Y  -> ValueError: shapes (3,) and (2,) are not broadcast-compatible
 
 Broadcasting also works with PCF tensors::
@@ -242,7 +242,7 @@ For advanced use, :py:meth:`~masspcf._tensor_base.Tensor.broadcast_to` returns
 a view of a tensor as if it had the given shape. Size-1 dimensions are
 virtually repeated without copying data::
 
-   X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))   # shape (3,)
+   X = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))   # shape (3,)
    view = X.broadcast_to((4, 3))                         # shape (4, 3)
    # Every row of view is [1, 2, 3]; view shares data with X
 
@@ -257,8 +257,8 @@ element-wise result, just like NumPy::
    import numpy as np
    import masspcf as mpcf
 
-   A = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-   B = mpcf.Float64Tensor(np.array([1.0, 9.0, 3.0]))
+   A = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))
+   B = mpcf.FloatTensor(np.array([1.0, 9.0, 3.0]))
 
    result = A == B   # BoolTensor: [True, False, True]
    result = A < B    # BoolTensor: [False, True, False]
@@ -270,9 +270,9 @@ Comparisons follow the same broadcasting rules as arithmetic. Shapes are
 compared dimension-by-dimension from the right, and size-1 or missing
 dimensions are expanded::
 
-   A = mpcf.Float64Tensor(np.array([[1.0, 2.0],
+   A = mpcf.FloatTensor(np.array([[1.0, 2.0],
                                      [3.0, 4.0]]))   # shape (2, 2)
-   B = mpcf.Float64Tensor(np.array([1.0, 4.0]))      # shape (2,)
+   B = mpcf.FloatTensor(np.array([1.0, 4.0]))        # shape (2,)
 
    result = A == B
    # BoolTensor of shape (2, 2):
@@ -281,13 +281,13 @@ dimensions are expanded::
 
 Column and scalar broadcasting also work::
 
-   col = mpcf.Float64Tensor(np.array([[2.0], [3.0]]))  # shape (2, 1)
+   col = mpcf.FloatTensor(np.array([[2.0], [3.0]]))  # shape (2, 1)
    result = A < col
    # BoolTensor of shape (2, 2):
    # [[True, False],
    #  [False, False]]
 
-   scalar = mpcf.Float64Tensor(np.array([2.0]))        # shape (1,)
+   scalar = mpcf.FloatTensor(np.array([2.0]))        # shape (1,)
    result = A >= scalar
    # BoolTensor of shape (2, 2):
    # [[False, True],
@@ -300,12 +300,12 @@ Calling ``bool()`` on a single-element ``BoolTensor`` returns a Python ``bool``.
 For multi-element tensors, ``bool()`` raises ``ValueError``, matching NumPy's
 behavior::
 
-   A = mpcf.Float64Tensor(np.array([1.0]))
-   B = mpcf.Float64Tensor(np.array([1.0]))
+   A = mpcf.FloatTensor(np.array([1.0]))
+   B = mpcf.FloatTensor(np.array([1.0]))
    bool(A == B)   # True
 
-   C = mpcf.Float64Tensor(np.array([1.0, 2.0]))
-   D = mpcf.Float64Tensor(np.array([1.0, 2.0]))
+   C = mpcf.FloatTensor(np.array([1.0, 2.0]))
+   D = mpcf.FloatTensor(np.array([1.0, 2.0]))
    bool(C == D)   # ValueError: more than one element
 
 array_equal
@@ -314,13 +314,13 @@ array_equal
 To check whether two tensors are entirely equal (as a single ``bool``), use
 :py:meth:`~masspcf._tensor_base.Tensor.array_equal`::
 
-   A = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+   A = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))
    B = A.copy()
 
    A.array_equal(B)   # True
    A.array_equal(np.array([1.0, 2.0, 3.0]))  # also accepts NumPy arrays
 
-   C = mpcf.Float64Tensor(np.array([1.0, 9.0, 3.0]))
+   C = mpcf.FloatTensor(np.array([1.0, 9.0, 3.0]))
    A.array_equal(C)   # False
 
 Tensors with different shapes always compare as not equal.
@@ -353,12 +353,12 @@ is a flat 1-D tensor of the elements where the mask is ``True``::
 
    import numpy as np
 
-   X = mpcf.Float32Tensor(np.array([[1, 2, 3],
+   X = mpcf.FloatTensor(np.array([[1, 2, 3],
                                      [4, 5, 6]], dtype=np.float32))
    mask = mpcf.BoolTensor(np.array([[True,  False, True],
                                      [False, True,  False]]))
 
-   X[mask]   # Float32Tensor: [1, 3, 5]
+   X[mask]   # FloatTensor: [1, 3, 5]
 
 This behaves the same as NumPy::
 
@@ -378,7 +378,7 @@ A 1-D ``BoolTensor`` can be used at a specific axis position alongside slices
 and integer indices. This selects along that axis where the mask is ``True``,
 preserving other dimensions::
 
-   X = mpcf.Float32Tensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
 
    col_mask = mpcf.BoolTensor(np.array([True, False, True, False]))
    X[:, col_mask]       # shape (3, 2) — selects columns 0 and 2
@@ -388,7 +388,7 @@ preserving other dimensions::
 
 This works with slices too::
 
-   Y = mpcf.Float32Tensor(np.arange(60, dtype=np.float32).reshape(3, 4, 5))
+   Y = mpcf.FloatTensor(np.arange(60, dtype=np.float32).reshape(3, 4, 5))
 
    mask = mpcf.BoolTensor(np.array([True, False, True, False]))
    Y[:, mask, 1:4]      # shape (3, 2, 3)
@@ -402,8 +402,8 @@ Creating BoolTensors
    mask = mpcf.BoolTensor(np.array([True, False, True]))
 
    # From a comparison
-   X = mpcf.Float32Tensor(np.array([1, 2, 3, 4, 5], dtype=np.float32))
-   threshold = mpcf.Float32Tensor(np.full(5, 3.0, dtype=np.float32))
+   X = mpcf.FloatTensor(np.array([1, 2, 3, 4, 5], dtype=np.float32))
+   threshold = mpcf.FloatTensor(np.full(5, 3.0, dtype=np.float32))
    mask = X > threshold   # BoolTensor: [False, False, False, True, True]
 
 .. _masking-numpy-differences:
@@ -543,11 +543,11 @@ Lists are converted to NumPy arrays internally::
 Float tensor evaluation
 -----------------------
 
-Passing a :py:class:`~masspcf.Float32Tensor` or :py:class:`~masspcf.Float64Tensor`
+Passing a :py:class:`~masspcf.FloatTensor`
 returns a tensor of the same type::
 
-   t = mpcf.Float32Tensor(np.array([1, 2, 4], dtype=np.float32))
-   result = X(t)  # returns a Float32Tensor of shape (2, 2, 3)
+   t = mpcf.FloatTensor(np.array([1, 2, 4], dtype=np.float32))
+   result = X(t)  # returns a FloatTensor of shape (2, 2, 3)
 
 Time complexity
 ---------------

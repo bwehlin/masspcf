@@ -21,18 +21,14 @@ from .norms import lp_norm
 from .pcf import Pcf
 from .reductions import max_time, mean
 from .serialize import from_serial_content
-from .distance_matrix import DistanceMatrix, DistanceMatrix32Tensor, DistanceMatrix64Tensor
-from .symmetric_matrix import SymmetricMatrix, SymmetricMatrix32Tensor, SymmetricMatrix64Tensor
+from .distance_matrix import DistanceMatrix, DistanceMatrixTensor
+from .symmetric_matrix import SymmetricMatrix, SymmetricMatrixTensor
 from .tensor import (
     BoolTensor,
-    Float32Tensor,
-    Float64Tensor,
-    Pcf32iTensor,
-    Pcf32Tensor,
-    Pcf64iTensor,
-    Pcf64Tensor,
-    PointCloud32Tensor,
-    PointCloud64Tensor,
+    FloatTensor,
+    IntPcfTensor,
+    PcfTensor,
+    PointCloudTensor,
 )
 from .tensor_create import zeros
 from .typing import (

@@ -221,17 +221,17 @@ class Pcf:
 
         Parameters
         ----------
-        t : float, int, list, numpy.ndarray, Float32Tensor, or Float64Tensor
+        t : float, int, list, numpy.ndarray, or FloatTensor
             The time(s) at which to evaluate the PCF. Can be a single scalar
             or an array-like of times with arbitrary shape.
 
         Returns
         -------
-        float, numpy.ndarray, Float32Tensor, or Float64Tensor
+        float, numpy.ndarray, or FloatTensor
             The PCF value(s) at the given time(s). A scalar input returns a
             Python float. A list or ndarray input returns an ndarray of the
-            same shape. A ``Float32Tensor`` or ``Float64Tensor`` input returns
-            a tensor of the same type and shape.
+            same shape. A ``FloatTensor`` input returns a tensor of the same
+            type and shape.
 
         Raises
         ------
@@ -248,13 +248,13 @@ class Pcf:
         >>> f(np.array([0.5, 1.5, 4.0]))
         array([1. , 2. , 0.5], dtype=float32)
         """
-        from .tensor import Float32Tensor, Float64Tensor
+        from .tensor import FloatTensor
 
         if isinstance(t, int | float):
             return self._data(t)
 
         return_tensor = None
-        if isinstance(t, Float32Tensor | Float64Tensor):
+        if isinstance(t, FloatTensor):
             return_tensor = type(t)
             t = np.asarray(t)
         elif isinstance(t, list):

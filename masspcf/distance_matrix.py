@@ -32,6 +32,11 @@ _dtype_to_cpp = {
 
 _cpp_types = (cpp.DistanceMatrix_f32, cpp.DistanceMatrix_f64)
 
+_DISTMAT_CPP_TO_DTYPE = {
+    cpp.DistanceMatrix32Tensor: distmat32,
+    cpp.DistanceMatrix64Tensor: distmat64,
+}
+
 
 class DistanceMatrix:
     """Compressed distance matrix (symmetric, zero diagonal, nonnegative).
@@ -93,8 +98,17 @@ class DistanceMatrix:
 
 
 class DistanceMatrixTensor(Tensor):
-    def __init__(self):
+    def __init__(self, data: cpp.DistanceMatrix32Tensor | cpp.DistanceMatrix64Tensor):
         super().__init__()
+        if isinstance(data, DistanceMatrixTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.DistanceMatrix32Tensor, cpp.DistanceMatrix64Tensor)):
+            raise TypeError(f"Cannot create DistanceMatrixTensor from {type(data)}")
+        self._data = data
+        self.dtype = _DISTMAT_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return DistanceMatrixTensor(data)
 
     def _decay_value(self, val):
         return val._data
@@ -103,24 +117,4 @@ class DistanceMatrixTensor(Tensor):
         return DistanceMatrix(element)
 
     def _get_valid_setitem_dtypes(self):
-        return [DistanceMatrix, DistanceMatrixTensor, DistanceMatrix32Tensor, DistanceMatrix64Tensor]
-
-
-class DistanceMatrix32Tensor(DistanceMatrixTensor):
-    def __init__(self, data: cpp.DistanceMatrix32Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = distmat32
-
-    def _to_py_tensor(self, data):
-        return DistanceMatrix32Tensor(data)
-
-
-class DistanceMatrix64Tensor(DistanceMatrixTensor):
-    def __init__(self, data: cpp.DistanceMatrix64Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = distmat64
-
-    def _to_py_tensor(self, data):
-        return DistanceMatrix64Tensor(data)
+        return [DistanceMatrix, DistanceMatrixTensor]

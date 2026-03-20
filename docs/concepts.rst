@@ -132,7 +132,7 @@ Boolean masks can select elements by condition::
 
    import numpy as np
 
-   X = mpcf.Float32Tensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
    mask = mpcf.BoolTensor(np.array([True, False, True, False]))
 
    X[:, mask]   # shape (3, 2) — select columns where mask is True
@@ -152,25 +152,25 @@ There are several concrete tensor types, each corresponding to a dtype:
    * - Tensor class
      - dtype
      - Contents
-   * - ``Pcf32Tensor`` / ``Pcf64Tensor``
+   * - ``PcfTensor``
      - ``pcf32`` / ``pcf64``
      - Piecewise constant functions
-   * - ``Pcf32iTensor`` / ``Pcf64iTensor``
+   * - ``IntPcfTensor``
      - ``pcf32i`` / ``pcf64i``
      - Integer-valued piecewise constant functions
-   * - ``Float32Tensor`` / ``Float64Tensor``
+   * - ``FloatTensor``
      - ``float32`` / ``float64``
      - Floating-point scalars
-   * - ``PointCloud32Tensor`` / ``PointCloud64Tensor``
+   * - ``PointCloudTensor``
      - ``pcloud32`` / ``pcloud64``
      - Point clouds
-   * - ``Barcode32Tensor`` / ``Barcode64Tensor``
+   * - ``BarcodeTensor``
      - ``barcode32`` / ``barcode64``
      - Persistence barcodes
-   * - ``SymmetricMatrix32Tensor`` / ``SymmetricMatrix64Tensor``
+   * - ``SymmetricMatrixTensor``
      - ``symmat32`` / ``symmat64``
      - Symmetric matrices
-   * - ``DistanceMatrix32Tensor`` / ``DistanceMatrix64Tensor``
+   * - ``DistanceMatrixTensor``
      - ``distmat32`` / ``distmat64``
      - Distance matrices
    * - ``BoolTensor``

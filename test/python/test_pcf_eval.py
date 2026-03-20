@@ -110,14 +110,16 @@ class TestListEval:
 class TestTensorEval:
     def test_float32_tensor(self):
         f = make_f32()
-        t = mpcf.Float32Tensor(np.array([0.0, 1.5, 5.0], dtype=np.float32))
+        t = mpcf.FloatTensor(np.array([0.0, 1.5, 5.0], dtype=np.float32))
         result = f(t)
-        assert isinstance(result, mpcf.Float32Tensor)
+        assert isinstance(result, mpcf.FloatTensor)
+        assert result.dtype == mpcf.float32
         npt.assert_array_almost_equal(np.asarray(result), [1.0, 2.0, 0.5])
 
     def test_float64_tensor(self):
         f = make_f64()
-        t = mpcf.Float64Tensor(np.array([0.0, 1.5, 5.0], dtype=np.float64))
+        t = mpcf.FloatTensor(np.array([0.0, 1.5, 5.0], dtype=np.float64))
         result = f(t)
-        assert isinstance(result, mpcf.Float64Tensor)
+        assert isinstance(result, mpcf.FloatTensor)
+        assert result.dtype == mpcf.float64
         npt.assert_array_almost_equal(np.asarray(result), [1.0, 2.0, 0.5])

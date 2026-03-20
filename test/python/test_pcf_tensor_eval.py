@@ -135,14 +135,11 @@ class TestPcfTensorEvalArray:
         assert result.shape == (2, 3)
         npt.assert_array_almost_equal(result, [[1, 2, 5], [3, 3, 1]])
 
-    @pytest.mark.parametrize("float_tensor_type, float_dtype", [
-        (mpcf.Float32Tensor, np.float32),
-        (mpcf.Float64Tensor, np.float64),
-    ])
-    def test_float_tensor_input(self, dtypes, float_tensor_type, float_dtype):
+    @pytest.mark.parametrize("float_dtype", [np.float32, np.float64])
+    def test_float_tensor_input(self, dtypes, float_dtype):
         pcf_dtype, np_dtype = dtypes
         X = make_1d_tensor(pcf_dtype, np_dtype)
-        t = float_tensor_type(np.array([0, 5], dtype=float_dtype))
+        t = mpcf.FloatTensor(np.array([0, 5], dtype=float_dtype))
         result = X(t)
         assert result.shape == (2, 2)
         npt.assert_array_almost_equal(result, [[1, 5], [3, 1]])

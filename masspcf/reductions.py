@@ -15,42 +15,29 @@
 from . import _mpcf_cpp as cpp
 from .pcf import Pcf
 from .tensor import (
-    Float32Tensor,
-    Float64Tensor,
-    Pcf32Tensor,
-    Pcf64Tensor,
+    FloatTensor,
+    PcfTensor,
     PcfContainerLike,
+    _get_backend,
 )
+from .typing import pcf32, pcf64
 
 
 def _get_tensor_and_backend(fs):
-    if isinstance(fs, Pcf32Tensor):
-        return fs, cpp.Reductions_f32_f32
-    elif isinstance(fs, Pcf64Tensor):
-        return fs, cpp.Reductions_f64_f64
-    else:
-        raise ValueError("Unsupported input type.")
+    mapping = {pcf32: cpp.Reductions_f32_f32, pcf64: cpp.Reductions_f64_f64}
+    backend, tensor = _get_backend(fs, mapping)
+    return tensor, backend
 
 
 def _to_tensor_or_val(outFs):
-    if isinstance(outFs, cpp.Pcf32Tensor | cpp.Pcf64Tensor):
+    if isinstance(outFs, (cpp.Pcf32Tensor, cpp.Pcf64Tensor)):
         if len(outFs.shape) == 1 and outFs.shape[0] == 1:
             return Pcf(outFs._get_element(0))
-    elif (
-        isinstance(outFs, cpp.Float32Tensor | cpp.Float64Tensor)
-        and len(outFs.shape) == 1
-        and outFs.shape[0] == 1
-    ):
-        return outFs._get_element(0)
-
-    if isinstance(outFs, cpp.Pcf32Tensor):
-        return Pcf32Tensor(outFs)
-    elif isinstance(outFs, cpp.Pcf64Tensor):
-        return Pcf64Tensor(outFs)
-    elif isinstance(outFs, cpp.Float32Tensor):
-        return Float32Tensor(outFs)
-    elif isinstance(outFs, cpp.Float64Tensor):
-        return Float64Tensor(outFs)
+        return PcfTensor(outFs)
+    elif isinstance(outFs, (cpp.Float32Tensor, cpp.Float64Tensor)):
+        if len(outFs.shape) == 1 and outFs.shape[0] == 1:
+            return outFs._get_element(0)
+        return FloatTensor(outFs)
     else:
         raise ValueError(
             "Invalid output type (this is probably a bug -- please report it!)."
@@ -75,7 +62,7 @@ def mean(fs: PcfContainerLike, dim: int = 0):
     Parameters
     ----------
     fs : PcfContainerLike
-        A ``Pcf32Tensor`` or ``Pcf64Tensor``.
+        A ``PcfTensor`` with dtype ``pcf32`` or ``pcf64``.
     dim : int, optional
         Dimension along which to reduce, by default 0.
 
@@ -108,13 +95,13 @@ def max_time(fs: PcfContainerLike, dim: int = 0):
     Parameters
     ----------
     fs : PcfContainerLike
-        A ``Pcf32Tensor`` or ``Pcf64Tensor``.
+        A ``PcfTensor`` with dtype ``pcf32`` or ``pcf64``.
     dim : int, optional
         Dimension along which to reduce, by default 0.
 
     Returns
     -------
-    float or Float32Tensor or Float64Tensor
+    float or FloatTensor
         A scalar if the result is 0-dimensional, otherwise a numeric tensor.
     """
     tensor, backend = _get_tensor_and_backend(fs)
