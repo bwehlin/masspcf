@@ -307,14 +307,16 @@ namespace
     EXPECT_EQ(view.shape(0), 0u);
   }
 
-  TYPED_TEST(TensorTppTyped, SliceRangeNegativeStepThrows)
+  TYPED_TEST(TensorTppTyped, SliceRangeNegativeStep)
   {
     using T = TypeParam;
-    auto t = make_sequential<T>({ 5 });
-    EXPECT_THROW(
-        (t[std::vector<mpcf::Slice>{ mpcf::range(4, 0, -1) }]),
-        std::runtime_error
-    );
+    auto t = make_sequential<T>({ 5 });  // [0, 1, 2, 3, 4]
+    auto view = t[std::vector<mpcf::Slice>{ mpcf::range(4, 0, -1) }];
+    EXPECT_EQ(view.shape(0), 4u);
+    EXPECT_EQ(view({0}), T(4));
+    EXPECT_EQ(view({1}), T(3));
+    EXPECT_EQ(view({2}), T(2));
+    EXPECT_EQ(view({3}), T(1));
   }
 
   TYPED_TEST(TensorTppTyped, SliceRangeWithDefaultStartStop)

@@ -21,7 +21,7 @@ import masspcf as mpcf
 
 
 def test_float32_tensor_roundtrip():
-    original = mpcf.Float32Tensor(np.random.randn(2, 3))
+    original = mpcf.FloatTensor(np.random.randn(2, 3))
 
     buf = io.BytesIO()
     mpcf.save(original, buf)
@@ -41,8 +41,8 @@ def _make_symmetric_matrix(n, dtype):
 
 
 @pytest.mark.parametrize("symmat_dtype, scalar_dtype", [
-    (mpcf.symmat32, mpcf.f32),
-    (mpcf.symmat64, mpcf.f64),
+    (mpcf.symmat32, mpcf.float32),
+    (mpcf.symmat64, mpcf.float64),
 ])
 def test_symmetric_matrix_tensor_roundtrip(symmat_dtype, scalar_dtype):
     T = mpcf.zeros((2,), dtype=symmat_dtype)
@@ -62,8 +62,8 @@ def test_symmetric_matrix_tensor_roundtrip(symmat_dtype, scalar_dtype):
 
 
 @pytest.mark.parametrize("symmat_dtype, scalar_dtype", [
-    (mpcf.symmat32, mpcf.f32),
-    (mpcf.symmat64, mpcf.f64),
+    (mpcf.symmat32, mpcf.float32),
+    (mpcf.symmat64, mpcf.float64),
 ])
 def test_symmetric_matrix_tensor_roundtrip_empty(symmat_dtype, scalar_dtype):
     T = mpcf.zeros((1,), dtype=symmat_dtype)
@@ -89,8 +89,8 @@ def _make_distance_matrix(n, dtype):
 
 
 @pytest.mark.parametrize("distmat_dtype, scalar_dtype", [
-    (mpcf.distmat32, mpcf.f32),
-    (mpcf.distmat64, mpcf.f64),
+    (mpcf.distmat32, mpcf.float32),
+    (mpcf.distmat64, mpcf.float64),
 ])
 def test_distance_matrix_tensor_roundtrip(distmat_dtype, scalar_dtype):
     T = mpcf.zeros((2,), dtype=distmat_dtype)
@@ -110,8 +110,8 @@ def test_distance_matrix_tensor_roundtrip(distmat_dtype, scalar_dtype):
 
 
 @pytest.mark.parametrize("distmat_dtype, scalar_dtype", [
-    (mpcf.distmat32, mpcf.f32),
-    (mpcf.distmat64, mpcf.f64),
+    (mpcf.distmat32, mpcf.float32),
+    (mpcf.distmat64, mpcf.float64),
 ])
 def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
     T = mpcf.zeros((1,), dtype=distmat_dtype)

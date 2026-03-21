@@ -20,7 +20,7 @@ import masspcf.persistence as mpers
 
 def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correct_dtype_and_shape():
     Xnp = np.random.randn(10, 2).astype(np.float64)
-    X = mpcf.Float64Tensor(Xnp)
+    X = mpcf.FloatTensor(Xnp)
 
     bcs = mpers.compute_persistent_homology(
         X,
@@ -29,11 +29,12 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correc
         distance_type=mpers.DistanceType.Euclidean,
     )
 
-    assert isinstance(bcs, mpers.Barcode64Tensor)
+    assert isinstance(bcs, mpers.BarcodeTensor)
+    assert bcs.dtype == mpcf.barcode64
     assert bcs.shape == (4,)
 
     Xnp = np.random.randn(10, 2).astype(np.float32)
-    X = mpcf.Float32Tensor(Xnp)
+    X = mpcf.FloatTensor(Xnp)
 
     bcs = mpers.compute_persistent_homology(
         X,
@@ -42,7 +43,8 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correc
         distance_type=mpers.DistanceType.Euclidean,
     )
 
-    assert isinstance(bcs, mpers.Barcode32Tensor)
+    assert isinstance(bcs, mpers.BarcodeTensor)
+    assert bcs.dtype == mpcf.barcode32
     assert bcs.shape == (4,)
 
 
@@ -56,7 +58,8 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns
         distance_type=mpers.DistanceType.Euclidean,
     )
 
-    assert isinstance(bcs, mpers.Barcode64Tensor)
+    assert isinstance(bcs, mpers.BarcodeTensor)
+    assert bcs.dtype == mpcf.barcode64
     assert bcs.shape == (3, 2, 7, 4)
 
     X = mpcf.zeros((3, 2, 7), dtype=mpcf.pcloud32)
@@ -68,7 +71,8 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns
         distance_type=mpers.DistanceType.Euclidean,
     )
 
-    assert isinstance(bcs, mpers.Barcode32Tensor)
+    assert isinstance(bcs, mpers.BarcodeTensor)
+    assert bcs.dtype == mpcf.barcode32
     assert bcs.shape == (3, 2, 7, 4)
 
 

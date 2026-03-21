@@ -20,17 +20,22 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from ._tensor_base import Tensor
-from .typing import f32, f64, distmat32, distmat64
+from .typing import float32, float64, distmat32, distmat64
 
 if TYPE_CHECKING:
     CppDistanceMatrix = cpp.DistanceMatrix_f32 | cpp.DistanceMatrix_f64
 
 _dtype_to_cpp = {
-    f32: cpp.DistanceMatrix_f32,
-    f64: cpp.DistanceMatrix_f64,
+    float32: cpp.DistanceMatrix_f32,
+    float64: cpp.DistanceMatrix_f64,
 }
 
 _cpp_types = (cpp.DistanceMatrix_f32, cpp.DistanceMatrix_f64)
+
+_DISTMAT_CPP_TO_DTYPE = {
+    cpp.DistanceMatrix32Tensor: distmat32,
+    cpp.DistanceMatrix64Tensor: distmat64,
+}
 
 
 class DistanceMatrix:
@@ -44,16 +49,16 @@ class DistanceMatrix:
     n_or_data : int | DistanceMatrix | CppDistanceMatrix
         If an int, creates a zero-initialized matrix of that size.
         If a DistanceMatrix or C++ distance matrix, wraps it directly.
-    dtype : type[f32] | type[f64] | None, optional
-        Element precision. ``f32`` stores entries as 32-bit floats,
-        ``f64`` as 64-bit floats. Required when ``n_or_data`` is an int,
+    dtype : type[float32] | type[float64] | None, optional
+        Element precision. ``float32`` stores entries as 32-bit floats,
+        ``float64`` as 64-bit floats. Required when ``n_or_data`` is an int,
         ignored otherwise.
     """
 
     def __init__(
         self,
         n_or_data: int | DistanceMatrix | CppDistanceMatrix,
-        dtype: type[f32] | type[f64] | None = None,
+        dtype: type[float32] | type[float64] | None = None,
     ):
         if isinstance(n_or_data, DistanceMatrix):
             self._data = n_or_data._data
@@ -63,7 +68,7 @@ class DistanceMatrix:
             if dtype is None:
                 raise ValueError("dtype is required when constructing from size")
             if dtype not in _dtype_to_cpp:
-                raise TypeError(f"Unsupported dtype {dtype}; use f32 or f64")
+                raise TypeError(f"Unsupported dtype {dtype}; use float32 or float64")
             self._data = _dtype_to_cpp[dtype](n_or_data)
         else:
             raise TypeError(f"Expected int, DistanceMatrix, or C++ DistanceMatrix; got {type(n_or_data)}")
@@ -93,8 +98,17 @@ class DistanceMatrix:
 
 
 class DistanceMatrixTensor(Tensor):
-    def __init__(self):
+    def __init__(self, data: cpp.DistanceMatrix32Tensor | cpp.DistanceMatrix64Tensor):
         super().__init__()
+        if isinstance(data, DistanceMatrixTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.DistanceMatrix32Tensor, cpp.DistanceMatrix64Tensor)):
+            raise TypeError(f"Cannot create DistanceMatrixTensor from {type(data)}")
+        self._data = data
+        self.dtype = _DISTMAT_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return DistanceMatrixTensor(data)
 
     def _decay_value(self, val):
         return val._data
@@ -103,24 +117,4 @@ class DistanceMatrixTensor(Tensor):
         return DistanceMatrix(element)
 
     def _get_valid_setitem_dtypes(self):
-        return [DistanceMatrix, DistanceMatrixTensor, DistanceMatrix32Tensor, DistanceMatrix64Tensor]
-
-
-class DistanceMatrix32Tensor(DistanceMatrixTensor):
-    def __init__(self, data: cpp.DistanceMatrix32Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = distmat32
-
-    def _to_py_tensor(self, data):
-        return DistanceMatrix32Tensor(data)
-
-
-class DistanceMatrix64Tensor(DistanceMatrixTensor):
-    def __init__(self, data: cpp.DistanceMatrix64Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = distmat64
-
-    def _to_py_tensor(self, data):
-        return DistanceMatrix64Tensor(data)
+        return [DistanceMatrix, DistanceMatrixTensor]

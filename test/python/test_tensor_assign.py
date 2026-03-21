@@ -70,8 +70,8 @@ def _check_broadcast_assign(np_target, np_rhs, slices):
     np_a = np_target.copy()
     np_a[slices] = np_rhs
 
-    mpcf_a = mpcf.Float64Tensor(np_target.copy())
-    mpcf_rhs = mpcf.Float64Tensor(np_rhs)
+    mpcf_a = mpcf.FloatTensor(np_target.copy())
+    mpcf_rhs = mpcf.FloatTensor(np_rhs)
     mpcf_a[slices] = mpcf_rhs
 
     npt.assert_array_equal(np.asarray(mpcf_a), np_a)
@@ -126,8 +126,8 @@ def test_broadcast_assign_to_slice_float():
 
 def test_broadcast_assign_incompatible_raises():
     """Assigning (3,) to (4, 2) should fail — not broadcast-compatible."""
-    A = mpcf.Float64Tensor(np.zeros((4, 2)))
-    rhs = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
+    A = mpcf.FloatTensor(np.zeros((4, 2)))
+    rhs = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))
 
     with pytest.raises(ValueError):
         A[:, :] = rhs
@@ -135,8 +135,8 @@ def test_broadcast_assign_incompatible_raises():
 
 def test_broadcast_assign_would_expand_target_raises():
     """RHS bigger than target — broadcast shape would differ from target."""
-    A = mpcf.Float64Tensor(np.zeros((3,)))
-    rhs = mpcf.Float64Tensor(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]))
+    A = mpcf.FloatTensor(np.zeros((3,)))
+    rhs = mpcf.FloatTensor(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]))
 
     with pytest.raises(ValueError):
         A[:] = rhs

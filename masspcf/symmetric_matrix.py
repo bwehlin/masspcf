@@ -20,17 +20,22 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from ._tensor_base import Tensor
-from .typing import f32, f64, symmat32, symmat64
+from .typing import float32, float64, symmat32, symmat64
 
 if TYPE_CHECKING:
     CppSymmetricMatrix = cpp.SymmetricMatrix_f32 | cpp.SymmetricMatrix_f64
 
 _dtype_to_cpp = {
-    f32: cpp.SymmetricMatrix_f32,
-    f64: cpp.SymmetricMatrix_f64,
+    float32: cpp.SymmetricMatrix_f32,
+    float64: cpp.SymmetricMatrix_f64,
 }
 
 _cpp_types = (cpp.SymmetricMatrix_f32, cpp.SymmetricMatrix_f64)
+
+_SYMMAT_CPP_TO_DTYPE = {
+    cpp.SymmetricMatrix32Tensor: symmat32,
+    cpp.SymmetricMatrix64Tensor: symmat64,
+}
 
 
 class SymmetricMatrix:
@@ -44,14 +49,14 @@ class SymmetricMatrix:
     n_or_data : int | SymmetricMatrix | CppSymmetricMatrix
         If an int, creates a zero-initialized matrix of that size.
         If a SymmetricMatrix or C++ symmetric matrix, wraps it directly.
-    dtype : type[f32] | type[f64] | None, optional
+    dtype : type[float32] | type[float64] | None, optional
         Element type. Required when ``n_or_data`` is an int, ignored otherwise.
     """
 
     def __init__(
         self,
         n_or_data: int | SymmetricMatrix | CppSymmetricMatrix,
-        dtype: type[f32] | type[f64] | None = None,
+        dtype: type[float32] | type[float64] | None = None,
     ):
         if isinstance(n_or_data, SymmetricMatrix):
             self._data = n_or_data._data
@@ -61,7 +66,7 @@ class SymmetricMatrix:
             if dtype is None:
                 raise ValueError("dtype is required when constructing from size")
             if dtype not in _dtype_to_cpp:
-                raise TypeError(f"Unsupported dtype {dtype}; use f32 or f64")
+                raise TypeError(f"Unsupported dtype {dtype}; use float32 or float64")
             self._data = _dtype_to_cpp[dtype](n_or_data)
         else:
             raise TypeError(f"Expected int, SymmetricMatrix, or C++ SymmetricMatrix; got {type(n_or_data)}")
@@ -91,8 +96,17 @@ class SymmetricMatrix:
 
 
 class SymmetricMatrixTensor(Tensor):
-    def __init__(self):
+    def __init__(self, data: cpp.SymmetricMatrix32Tensor | cpp.SymmetricMatrix64Tensor):
         super().__init__()
+        if isinstance(data, SymmetricMatrixTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.SymmetricMatrix32Tensor, cpp.SymmetricMatrix64Tensor)):
+            raise TypeError(f"Cannot create SymmetricMatrixTensor from {type(data)}")
+        self._data = data
+        self.dtype = _SYMMAT_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return SymmetricMatrixTensor(data)
 
     def _decay_value(self, val):
         return val._data
@@ -101,24 +115,4 @@ class SymmetricMatrixTensor(Tensor):
         return SymmetricMatrix(element)
 
     def _get_valid_setitem_dtypes(self):
-        return [SymmetricMatrix, SymmetricMatrixTensor, SymmetricMatrix32Tensor, SymmetricMatrix64Tensor]
-
-
-class SymmetricMatrix32Tensor(SymmetricMatrixTensor):
-    def __init__(self, data: cpp.SymmetricMatrix32Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = symmat32
-
-    def _to_py_tensor(self, data):
-        return SymmetricMatrix32Tensor(data)
-
-
-class SymmetricMatrix64Tensor(SymmetricMatrixTensor):
-    def __init__(self, data: cpp.SymmetricMatrix64Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = symmat64
-
-    def _to_py_tensor(self, data):
-        return SymmetricMatrix64Tensor(data)
+        return [SymmetricMatrix, SymmetricMatrixTensor]

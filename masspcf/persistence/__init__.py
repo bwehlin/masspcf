@@ -19,4 +19,4 @@ from .barcode_summary import (
     barcode_to_stable_rank,
 )
 from .homology import ComplexType, DistanceType, compute_persistent_homology
-from .ph_tensor import Barcode32Tensor, Barcode64Tensor, BarcodeTensor
+from .ph_tensor import BarcodeTensor

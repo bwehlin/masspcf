@@ -164,7 +164,8 @@ namespace mpcf::io::detail
     for (auto i = 0_uz; i < tensor.shape().size(); ++i)
     {
       write_bytes<std::uint64_t>(os, tensor.shape()[i]);
-      write_bytes<std::uint64_t>(os, tensor.strides()[i]);
+      // Safe: write_tensor() guarantees contiguous input, so strides are always positive
+      write_bytes<std::uint64_t>(os, static_cast<uint64_t>(tensor.strides()[i]));
     }
 
     auto sz = tensor.size();
@@ -199,11 +200,11 @@ namespace mpcf::io::detail
   {
     auto shapeSz = read_bytes<std::uint64_t>(is);
     std::vector<size_t> shape(shapeSz);
-    std::vector<size_t> strides(shapeSz);
+    std::vector<ptrdiff_t> strides(shapeSz);
     for (auto i = 0_uz; i < shapeSz; ++i)
     {
       shape[i] = read_bytes<std::uint64_t>(is);
-      strides[i] = read_bytes<std::uint64_t>(is);
+      strides[i] = static_cast<ptrdiff_t>(read_bytes<std::uint64_t>(is));
     }
 
     Tensor<T> ret(shape);

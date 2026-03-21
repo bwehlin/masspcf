@@ -19,7 +19,7 @@ from ..tensor import Tensor, _get_backend
 from ..tensor_create import zeros
 from ..typing import barcode32, barcode64, pcf32, pcf64
 from .barcode import Barcode
-from .ph_tensor import Barcode32Tensor, Barcode64Tensor
+from .ph_tensor import BarcodeTensor
 
 cpp_p = cpp.persistence
 
@@ -27,6 +27,8 @@ _BACKEND_MAP = {
     barcode32: cpp_p.PersistenceBarcodeSummary32,
     barcode64: cpp_p.PersistenceBarcodeSummary64,
 }
+
+_BARCODE_TO_PCF_DTYPE = {barcode32: pcf32, barcode64: pcf64}
 
 
 def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
@@ -37,10 +39,8 @@ def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
     if isinstance(X, Barcode):
         return Pcf(getattr(backend, single_method)(X._data, **kwargs))
     elif isinstance(X, Tensor):
-        if isinstance(X, Barcode32Tensor):
-            out = zeros((1,), dtype=pcf32)
-        elif isinstance(X, Barcode64Tensor):
-            out = zeros((1,), dtype=pcf64)
+        pcf_dtype = _BARCODE_TO_PCF_DTYPE[X.dtype]
+        out = zeros((1,), dtype=pcf_dtype)
 
         _run_task(
             lambda: getattr(backend, task_method)(X._data, out._data, **kwargs),
@@ -54,7 +54,7 @@ def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
 
 
 def barcode_to_stable_rank(
-    bc: Barcode | Barcode32Tensor | Barcode64Tensor, verbose=True
+    bc: Barcode | BarcodeTensor, verbose=True
 ):
     r"""Convert barcodes to stable rank functions.
 
@@ -64,7 +64,7 @@ def barcode_to_stable_rank(
 
     Parameters
     ----------
-    bc : Barcode, Barcode32Tensor, or Barcode64Tensor
+    bc : Barcode or BarcodeTensor
         A single barcode or a tensor of barcodes.
     verbose : bool, optional
         Show progress information, by default True.
@@ -87,7 +87,7 @@ def barcode_to_stable_rank(
 
 
 def barcode_to_betti_curve(
-    bc: Barcode | Barcode32Tensor | Barcode64Tensor, verbose=True
+    bc: Barcode | BarcodeTensor, verbose=True
 ):
     r"""Convert barcodes to Betti curves.
 
@@ -97,7 +97,7 @@ def barcode_to_betti_curve(
 
     Parameters
     ----------
-    bc : Barcode, Barcode32Tensor, or Barcode64Tensor
+    bc : Barcode or BarcodeTensor
         A single barcode or a tensor of barcodes.
     verbose : bool, optional
         Show progress information, by default True.
@@ -123,7 +123,7 @@ def barcode_to_betti_curve(
 
 
 def barcode_to_accumulated_persistence(
-    bc: Barcode | Barcode32Tensor | Barcode64Tensor,
+    bc: Barcode | BarcodeTensor,
     max_death: float = float("inf"),
     verbose: bool = True,
 ):
@@ -144,7 +144,7 @@ def barcode_to_accumulated_persistence(
 
     Parameters
     ----------
-    bc : Barcode, Barcode32Tensor, or Barcode64Tensor
+    bc : Barcode or BarcodeTensor
         A single barcode or a tensor of barcodes.
     max_death : float, optional
         If finite, exclude bars whose death time exceeds this value.

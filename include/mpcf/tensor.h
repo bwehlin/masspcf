@@ -173,8 +173,8 @@ namespace mpcf
     Tensor& operator*=(const Tensor& rhs);
     Tensor& operator/=(const Tensor& rhs);
 
-    [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
-    [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
+    [[nodiscard]] const std::vector<ptrdiff_t>& strides() const noexcept { return m_strides; }
+    [[nodiscard]] ptrdiff_t stride(size_t idx) const noexcept { return m_strides[idx]; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
     [[nodiscard]] size_t rank() const noexcept { return m_shape.size(); }
@@ -187,7 +187,7 @@ namespace mpcf
 
     [[nodiscard]] bool is_contiguous() const noexcept { return m_isContiguous; }
 
-    [[nodiscard]] size_t offset() const noexcept { return m_offset; }
+    [[nodiscard]] ptrdiff_t offset() const noexcept { return m_offset; }
     [[nodiscard]] value_type* data() const noexcept { return m_data.get() + m_offset; }
 
     template <typename SliceVector>
@@ -204,6 +204,34 @@ namespace mpcf
     //const T& operator()(const std::vector<size_t>& index) const;
 
     Tensor flatten() const;
+
+    /**
+     * Return a tensor with the given shape, sharing data when contiguous.
+     * One dimension may be -1 to infer its size from the total element count.
+     * If the tensor is not contiguous, a contiguous copy is made first.
+     */
+    [[nodiscard]] Tensor reshape(const std::vector<ptrdiff_t>& new_shape) const;
+
+    /**
+     * Return a view with axes permuted. If axes is empty, reverses all axes (like NumPy .T).
+     */
+    [[nodiscard]] Tensor transpose(const std::vector<size_t>& axes = {}) const;
+
+    /**
+     * Remove all size-1 dimensions. Returns a view.
+     */
+    [[nodiscard]] Tensor squeeze() const;
+
+    /**
+     * Remove a specific size-1 dimension. Raises if its size is not 1. Returns a view.
+     */
+    [[nodiscard]] Tensor squeeze(size_t axis) const;
+
+    /**
+     * Insert a size-1 dimension at the given axis position. Supports negative
+     * indexing. Returns a view.
+     */
+    [[nodiscard]] Tensor expand_dims(ptrdiff_t axis) const;
 
     /**
      * Make a deep copy of the tensor. The new tensor will be a contiguous version of the original tensor.
@@ -277,14 +305,14 @@ namespace mpcf
 
     [[nodiscard]] size_t get_total_size() const;
 
-    [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const;
+    [[nodiscard]] ptrdiff_t index_to_data_index(const std::vector<size_t>& index) const;
     [[nodiscard]] const T& index_to_ref(const std::vector<size_t>& index) const;
     [[nodiscard]] T& index_to_ref(const std::vector<size_t>& index);
 
-    std::vector<size_t> m_strides;
+    std::vector<ptrdiff_t> m_strides;
     std::vector<size_t> m_shape;
     std::shared_ptr<value_type[]> m_data;
-    size_t m_offset = 0ul;
+    ptrdiff_t m_offset = 0;
 
     ViewType m_viewType = ViewType::Base;
     bool m_isContiguous = true;
@@ -306,7 +334,8 @@ namespace mpcf
   requires CanDivideTo<T, U, T>
   [[nodiscard]] Tensor<T> operator/(const U& u, const Tensor<T>& t);
 
-  inline std::string shape_to_string(const std::vector<size_t>& shape)
+  template <typename IntT>
+  inline std::string shape_to_string(const std::vector<IntT>& shape)
   {
     std::stringstream ss;
     ss << "(";
@@ -322,7 +351,8 @@ namespace mpcf
     return ss.str();
   }
 
-  inline std::string index_to_string(const std::vector<size_t>& idx)
+  template <typename IntT>
+  inline std::string index_to_string(const std::vector<IntT>& idx)
   {
     if (idx.size() == 1)
     {
@@ -382,6 +412,138 @@ namespace mpcf
   requires std::invocable<UnaryFunc, std::vector<size_t>>
 #endif
   void walk(const TTensor& tensor, UnaryFunc&& f);
+
+  // ============================================================================
+  // Masked operations
+  // ============================================================================
+
+  /**
+   * Select elements from src where mask is true, returning a 1D tensor.
+   * Mask shape must match src.shape(). Elements are collected in row-major order.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> masked_select(const Tensor<T>& src, const Tensor<bool>& mask);
+
+  /**
+   * Assign values into dst at positions where mask is true.
+   * Mask shape must match dst.shape(). values must be 1D with length == count of true values.
+   */
+  template <typename T>
+  void masked_assign(Tensor<T>& dst, const Tensor<bool>& mask, const Tensor<T>& values);
+
+  /**
+   * Fill dst with a scalar value at positions where mask is true.
+   * Mask shape must match dst.shape().
+   */
+  template <typename T>
+  void masked_fill(Tensor<T>& dst, const Tensor<bool>& mask, const T& value);
+
+  /**
+   * Select along a single axis where mask is true.
+   * mask must be 1D with length == src.shape()[axis].
+   * Returns a tensor with shape[axis] reduced to count of true values.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> axis_select(const Tensor<T>& src, size_t axis, const Tensor<bool>& mask);
+
+  /**
+   * Assign values into dst along a single axis where mask is true.
+   * mask must be 1D with length == dst.shape()[axis].
+   * values.shape() must match the shape that axis_select(dst, axis, mask) would produce.
+   */
+  template <typename T>
+  void axis_assign(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const Tensor<T>& values);
+
+  /**
+   * Fill dst with a scalar value along a single axis where mask is true.
+   * mask must be 1D with length == dst.shape()[axis].
+   */
+  template <typename T>
+  void axis_fill(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const T& value);
+
+  /**
+   * Select along multiple axes where each mask is true (outer indexing).
+   * Each pair is (axis, mask). Masks are applied independently per axis.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> multi_axis_select(const Tensor<T>& src,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks);
+
+  /**
+   * Fill dst with a scalar value at positions where all masks are true (outer indexing).
+   * Each pair is (axis, mask). A position is filled if mask_i[idx[axis_i]] is true for every i.
+   */
+  template <typename T>
+  void multi_axis_fill(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+    const T& value);
+
+  /**
+   * Assign values into dst at positions where all masks are true (outer indexing).
+   * Each pair is (axis, mask). values.shape() must match the multi_axis_select output shape.
+   */
+  template <typename T>
+  void multi_axis_assign(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+    const Tensor<T>& values);
+
+  // ============================================================================
+  // Generalized multi-axis operations (bool masks and/or int indices)
+  // ============================================================================
+
+  /// An axis selector: either a boolean mask or an integer index array.
+  using AxisSelector = std::variant<Tensor<bool>, Tensor<int64_t>>;
+
+  /**
+   * Select along multiple axes using any mix of bool masks and int index arrays
+   * (outer indexing). Each pair is (axis, selector).
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> outer_select(const Tensor<T>& src,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors);
+
+  /**
+   * Fill dst with a scalar at positions selected by outer indexing.
+   */
+  template <typename T>
+  void outer_fill(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+    const T& value);
+
+  /**
+   * Assign values into dst at positions selected by outer indexing.
+   * values.shape() must match the outer_select output shape.
+   */
+  template <typename T>
+  void outer_assign(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+    const Tensor<T>& values);
+
+  // ============================================================================
+  // Index-based gather/scatter operations
+  // ============================================================================
+
+  /**
+   * Gather elements from src along a single axis using integer indices.
+   * indices must be 1D. Returns a tensor with shape[axis] == indices.size().
+   */
+  template <typename T, typename I>
+  [[nodiscard]] Tensor<T> index_select(const Tensor<T>& src, size_t axis, const Tensor<I>& indices);
+
+  /**
+   * Scatter values into dst along a single axis at integer indices.
+   * indices must be 1D. values.shape() must match the shape that
+   * index_select(dst, axis, indices) would produce.
+   */
+  template <typename T, typename I>
+  void index_assign(Tensor<T>& dst, size_t axis, const Tensor<I>& indices, const Tensor<T>& values);
+
+  /**
+   * Fill dst with a scalar value along a single axis at integer indices.
+   * indices must be 1D.
+   */
+  template <typename T, typename I>
+  void index_fill(Tensor<T>& dst, size_t axis, const Tensor<I>& indices, const T& value);
 
 }
 

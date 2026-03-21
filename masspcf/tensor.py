@@ -19,7 +19,45 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor
 from .pcf import Pcf
-from .typing import _validate_dtype, boolean, f32, f64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
+from .typing import (
+    _NP_TO_MPCF,
+    _validate_dtype,
+    boolean,
+    float32,
+    float64,
+    int32,
+    int64,
+    pcf32,
+    pcf32i,
+    pcf64,
+    pcf64i,
+    pcloud32,
+    pcloud64,
+    uint32,
+    uint64,
+)
+
+_FLOAT_CPP_TO_DTYPE = {
+    cpp.Float32Tensor: float32,
+    cpp.Float64Tensor: float64,
+}
+
+_PCF_CPP_TO_DTYPE = {
+    cpp.Pcf32Tensor: pcf32,
+    cpp.Pcf64Tensor: pcf64,
+}
+
+_INTPCF_CPP_TO_DTYPE = {
+    cpp.Pcf32iTensor: pcf32i,
+    cpp.Pcf64iTensor: pcf64i,
+}
+
+_PCLOUD_CPP_TO_DTYPE = {
+    cpp.PointCloud32Tensor: pcloud32,
+    cpp.PointCloud64Tensor: pcloud64,
+}
+
+_PCLOUD_TO_FLOAT_DTYPE = {pcloud32: float32, pcloud64: float64}
 
 
 class NumericTensor(Tensor, ArithmeticTensorMixin):
@@ -27,7 +65,7 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
         super().__init__()
 
     def _get_valid_setitem_dtypes(self):
-        return [NumericTensor, Float32Tensor, Float64Tensor, float, int, np.ndarray]
+        return [NumericTensor, float, int, np.ndarray]
 
     def _decay_value(self, val):
         return val
@@ -54,45 +92,44 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
             return np.array_equal(np.asarray(self), other)
         return super().array_equal(other)
 
+    def __floordiv__(self, rhs):
+        rhs_arr = np.asarray(rhs) if isinstance(rhs, NumericTensor) else rhs
+        return self._to_py_tensor(np.asarray(self) // rhs_arr)
 
-class Float32Tensor(NumericTensor):
-    def __init__(self, data: cpp.Float32Tensor | Float32Tensor | np.ndarray):
+    def __rfloordiv__(self, lhs):
+        return self._to_py_tensor(lhs // np.asarray(self))
+
+    def __ifloordiv__(self, rhs):
+        rhs_arr = np.asarray(rhs) if isinstance(rhs, NumericTensor) else rhs
+        new = self._to_py_tensor(np.asarray(self) // rhs_arr)
+        self._data = new._data
+        return self
+
+
+class FloatTensor(NumericTensor):
+    def __init__(self, data: cpp.Float32Tensor | cpp.Float64Tensor | FloatTensor | np.ndarray, dtype=None):
         super().__init__()
 
-        if isinstance(data, cpp.Float32Tensor):
-            pass
-        elif isinstance(data, Float32Tensor):
+        if isinstance(data, FloatTensor):
             data = data._data
         elif isinstance(data, np.ndarray):
-            data = cpp.ndarray_to_tensor_32(data)
-        else:
-            raise TypeError(f"Cannot create {type(self)} from {type(data)}")
+            if dtype is None:
+                if data.dtype == np.float32:
+                    dtype = float32
+                else:
+                    dtype = float64
+            if dtype == float32:
+                data = cpp.ndarray_to_tensor_32(np.asarray(data, dtype=np.float32))
+            else:
+                data = cpp.ndarray_to_tensor_64(np.asarray(data, dtype=np.float64))
+        elif not isinstance(data, (cpp.Float32Tensor, cpp.Float64Tensor)):
+            raise TypeError(f"Cannot create FloatTensor from {type(data)}")
 
         self._data = data
-        self.dtype = f32
+        self.dtype = _FLOAT_CPP_TO_DTYPE[type(self._data)]
 
     def _to_py_tensor(self, data):
-        return Float32Tensor(data)
-
-
-class Float64Tensor(NumericTensor):
-    def __init__(self, data: cpp.Float64Tensor | Float64Tensor | np.ndarray):
-        super().__init__()
-
-        if isinstance(data, cpp.Float64Tensor):
-            pass
-        elif isinstance(data, Float64Tensor):
-            data = data._data
-        elif isinstance(data, np.ndarray):
-            data = cpp.ndarray_to_tensor_64(data)
-        else:
-            raise TypeError(f"Cannot create {type(self)} from {type(data)}")
-
-        self._data = data
-        self.dtype = f64
-
-    def _to_py_tensor(self, data):
-        return Float64Tensor(data)
+        return FloatTensor(data)
 
     def __repr__(self):
         return np.asarray(self).__repr__()
@@ -101,12 +138,77 @@ class Float64Tensor(NumericTensor):
         return np.asarray(self).__str__()
 
 
-class PcfTensor(Tensor, ArithmeticTensorMixin, FunctionTensorMixin):
+_INT_CPP_TO_DTYPE = {
+    cpp.Int32Tensor: int32,
+    cpp.Int64Tensor: int64,
+    cpp.Uint32Tensor: uint32,
+    cpp.Uint64Tensor: uint64,
+}
+
+
+class IntTensor(NumericTensor):
+    def __init__(self, data, dtype=None):
+        super().__init__()
+
+        if isinstance(data, IntTensor):
+            data = data._data
+        elif isinstance(data, np.ndarray):
+            if dtype is None:
+                dtype = _NP_TO_MPCF.get(data.dtype.type, int64)
+            convert = {
+                int32: lambda d: cpp.ndarray_to_tensor_i32(np.asarray(d, dtype=np.int32)),
+                int64: lambda d: cpp.ndarray_to_tensor_i64(np.asarray(d, dtype=np.int64)),
+                uint32: lambda d: cpp.ndarray_to_tensor_u32(np.asarray(d, dtype=np.uint32)),
+                uint64: lambda d: cpp.ndarray_to_tensor_u64(np.asarray(d, dtype=np.uint64)),
+            }
+            data = convert[dtype](data)
+        elif not isinstance(data, tuple(_INT_CPP_TO_DTYPE.keys())):
+            raise TypeError(f"Cannot create IntTensor from {type(data)}")
+
+        self._data = data
+        self.dtype = _INT_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return IntTensor(data)
+
+    def _as_float64(self):
+        """Convert to float64 FloatTensor, matching NumPy int division promotion."""
+        return FloatTensor(np.asarray(self).astype(np.float64))
+
+    def __truediv__(self, rhs):
+        if isinstance(rhs, IntTensor):
+            return self._as_float64() / rhs._as_float64()
+        return self._as_float64() / rhs
+
+    def __rtruediv__(self, lhs):
+        if isinstance(lhs, IntTensor):
+            return lhs._as_float64() / self._as_float64()
+        return lhs / self._as_float64()
+
+    def __itruediv__(self, rhs):
+        raise TypeError(
+            "In-place true division is not supported for IntTensor "
+            "(result is float). Use `x = x / y` instead."
+        )
+
+    def __neg__(self):
+        if self.dtype in (uint32, uint64):
+            raise TypeError(f"Negation is not supported for unsigned dtype {self.dtype.__name__}")
+        return super().__neg__()
+
+    def __repr__(self):
+        return np.asarray(self).__repr__()
+
+    def __str__(self):
+        return np.asarray(self).__str__()
+
+
+class _PcfTensorBase(Tensor, ArithmeticTensorMixin, FunctionTensorMixin):
     def __init__(self):
         super().__init__()
 
     def _get_valid_setitem_dtypes(self):
-        return [PcfTensor, Pcf, Pcf32Tensor, Pcf64Tensor, Pcf32iTensor, Pcf64iTensor]
+        return [_PcfTensorBase, Pcf]
 
     def _decay_value(self, val):
         return val._data
@@ -115,115 +217,66 @@ class PcfTensor(Tensor, ArithmeticTensorMixin, FunctionTensorMixin):
         return Pcf(element)
 
 
-class Pcf32Tensor(PcfTensor):
-    def __init__(self, data: cpp.Pcf32Tensor):
+class PcfTensor(_PcfTensorBase):
+    def __init__(self, data: cpp.Pcf32Tensor | cpp.Pcf64Tensor):
         super().__init__()
+        if isinstance(data, PcfTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.Pcf32Tensor, cpp.Pcf64Tensor)):
+            raise TypeError(f"Cannot create PcfTensor from {type(data)}")
         self._data = data
-        self.dtype = pcf32
+        self.dtype = _PCF_CPP_TO_DTYPE[type(self._data)]
 
     def _to_py_tensor(self, data):
-        return Pcf32Tensor(data)
+        return PcfTensor(data)
 
 
-class Pcf64Tensor(PcfTensor):
-    def __init__(self, data: cpp.Pcf64Tensor):
+class IntPcfTensor(_PcfTensorBase):
+    def __init__(self, data: cpp.Pcf32iTensor | cpp.Pcf64iTensor):
         super().__init__()
+        if isinstance(data, IntPcfTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.Pcf32iTensor, cpp.Pcf64iTensor)):
+            raise TypeError(f"Cannot create IntPcfTensor from {type(data)}")
         self._data = data
-        self.dtype = pcf64
+        self.dtype = _INTPCF_CPP_TO_DTYPE[type(self._data)]
 
     def _to_py_tensor(self, data):
-        return Pcf64Tensor(data)
-
-
-class Pcf32iTensor(PcfTensor):
-    def __init__(self, data: cpp.Pcf32iTensor):
-        super().__init__()
-        self._data = data
-        self.dtype = pcf32i
-
-    def _to_py_tensor(self, data):
-        return Pcf32iTensor(data)
-
-
-class Pcf64iTensor(PcfTensor):
-    def __init__(self, data: cpp.Pcf64iTensor):
-        super().__init__()
-        self._data = data
-        self.dtype = pcf64i
-
-    def _to_py_tensor(self, data):
-        return Pcf64iTensor(data)
+        return IntPcfTensor(data)
 
 
 class PointCloudTensor(Tensor):
+    def __init__(self, data: cpp.PointCloud32Tensor | cpp.PointCloud64Tensor):
+        super().__init__()
+        if isinstance(data, PointCloudTensor):
+            data = data._data
+        elif not isinstance(data, (cpp.PointCloud32Tensor, cpp.PointCloud64Tensor)):
+            raise TypeError(f"Cannot create PointCloudTensor from {type(data)}")
+        self._data = data
+        self.dtype = _PCLOUD_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return PointCloudTensor(data)
+
+    def _represent_element(self, element):
+        return FloatTensor(element)
+
+    def _decay_value(self, val):
+        float_dtype = _PCLOUD_TO_FLOAT_DTYPE[self.dtype]
+        t = FloatTensor(val, dtype=float_dtype)
+        return t._data
+
     def _get_valid_setitem_dtypes(self):
-        return [Float64Tensor, Float32Tensor, np.ndarray, float, int]
-
-
-class PointCloud32Tensor(PointCloudTensor):
-    def __init__(self, data: cpp.PointCloud32Tensor | PointCloud32Tensor):
-        super().__init__()
-
-        Tensor._validate_constructor_arg(
-            self, data, [cpp.PointCloud32Tensor, PointCloud32Tensor]
-        )
-
-        if isinstance(data, cpp.PointCloud32Tensor):
-            self._data = data
-        elif isinstance(data, PointCloud32Tensor):
-            self._data = data._data
-        else:
-            raise TypeError(
-                f"Internal type error, please report this: Unhandled {type(data)}"
-            )
-
-        self.dtype = pcloud32
-
-    def _to_py_tensor(self, data):
-        return PointCloud32Tensor(data)
-
-    def _represent_element(self, element):
-        return Float32Tensor(element)
-
-    def _decay_value(self, val):
-        t = Float32Tensor(val)
-        return t._data
-
-
-class PointCloud64Tensor(PointCloudTensor):
-    def __init__(self, data: cpp.PointCloud64Tensor):
-        super().__init__()
-        Tensor._validate_constructor_arg(
-            self, data, [cpp.PointCloud64Tensor, PointCloud64Tensor]
-        )
-
-        if isinstance(data, cpp.PointCloud64Tensor):
-            self._data = data
-        elif isinstance(data, PointCloud64Tensor):
-            self._data = data._data
-        else:
-            raise TypeError(
-                f"Internal type error, please report this: Unhandled {type(data)}"
-            )
-
-        self.dtype = pcloud64
-
-    def _to_py_tensor(self, data):
-        return PointCloud64Tensor(data)
-
-    def _represent_element(self, element):
-        return Float64Tensor(element)
-
-    def _decay_value(self, val):
-        t = Float64Tensor(val)
-        return t._data
+        return [FloatTensor, np.ndarray, float, int]
 
 
 class BoolTensor(Tensor):
     """Tensor of boolean values, typically produced by elementwise comparisons."""
 
-    def __init__(self, data: cpp.BoolTensor):
+    def __init__(self, data: cpp.BoolTensor | np.ndarray):
         super().__init__()
+        if isinstance(data, np.ndarray):
+            data = cpp.ndarray_to_bool_tensor(np.asarray(data, dtype=np.bool_))
         self._data = data
         self.dtype = boolean
 
@@ -263,7 +316,7 @@ PcfContainerLike = Tensor | list[Pcf] | Pcf
 
 
 def _to_tensor_pcf(fs: PcfContainerLike):
-    if isinstance(fs, PcfTensor):
+    if isinstance(fs, _PcfTensorBase):
         return fs
 
     # TODO: Deal with lists/single pcfs
@@ -282,10 +335,7 @@ def _get_backend(fs, backendMapping: dict):
             )
         return backend, fs
     elif isinstance(fs, np.ndarray):
-        if fs.dtype == np.float32:
-            return _get_backend(Float32Tensor(fs), backendMapping)
-        elif fs.dtype == np.float64:
-            return _get_backend(Float64Tensor(fs), backendMapping)
+        return _get_backend(FloatTensor(fs), backendMapping)
     elif hasattr(fs, "dtype"):
         _validate_dtype(fs.dtype, backendMapping.keys())
         backend = backendMapping.get(fs.dtype)

@@ -617,6 +617,7 @@ if (BUILD_TESTER)
       test/test_pcf_algebra_and_norms.cpp
       test/test_tensor_io_core.cpp
       test/test_barcode_and_stable_rank.cpp
+      test/test_tensor_masked.cpp
   )
 
   if (BUILD_CUDA_TESTER)

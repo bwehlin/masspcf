@@ -12,14 +12,32 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import warnings
-
 import numpy as np
 
 # mpcf type aliases
 
-f32 = np.float32
-f64 = np.float64
+class float32:
+    pass
+
+
+class float64:
+    pass
+
+
+class int32:
+    pass
+
+
+class int64:
+    pass
+
+
+class uint32:
+    pass
+
+
+class uint64:
+    pass
 
 
 class pcf32:
@@ -74,38 +92,34 @@ class boolean:
     pass
 
 
-class _DeprecatedDtype:
-    def __init__(self, name, replacement, standin):
-        self._name = name
-        self._replacement = replacement
-        self._standin = standin
+Dtype = type[
+    pcf32 | pcf64 | pcf32i | pcf64i
+    | float32 | float64
+    | int32 | int64 | uint32 | uint64
+    | pcloud32 | pcloud64
+    | barcode32 | barcode64
+    | symmat32 | symmat64
+    | distmat32 | distmat64
+    | boolean
+]
 
-    def __repr__(self):
-        return self._name
+_MPCF_TO_NP = {
+    float32: np.float32,
+    float64: np.float64,
+    int32: np.int32,
+    int64: np.int64,
+    uint32: np.uint32,
+    uint64: np.uint64,
+}
 
-    def __str__(self):
-        return self._name
-
-    def __name__(self):
-        return self.name
-
-    def show_deprectation_warning(self):
-        warnings.warn(
-            f"{self._name} is deprecated; use {self._replacement} instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    def get_standin(self):
-        self.show_deprectation_warning()
-        return self._standin
-
-
-def _check_deprecated_dtype(dtype):
-    if isinstance(dtype, _DeprecatedDtype):
-        return dtype.get_standin()
-    else:
-        return dtype
+_NP_TO_MPCF = {
+    np.float32: float32,
+    np.float64: float64,
+    np.int32: int32,
+    np.int64: int64,
+    np.uint32: uint32,
+    np.uint64: uint64,
+}
 
 
 def _assert_valid_dtype(dtype, valid_dtypes):
@@ -124,18 +138,5 @@ def _assert_valid_dtype(dtype, valid_dtypes):
 
 
 def _validate_dtype(dtype, valid_dtypes):
-    dtype = _check_deprecated_dtype(dtype)
     _assert_valid_dtype(dtype, valid_dtypes)
     return dtype
-
-
-float32 = _DeprecatedDtype(
-    "float32",
-    "pcf32/pcf64 for 32/64-bit float PCFs and f32/f64 for numeric 32/64-bit floats",
-    pcf32,
-)
-float64 = _DeprecatedDtype(
-    "float64",
-    "pcf32/pcf64 for 32/64-bit float PCFs and f32/f64 for numeric 32/64-bit floats",
-    pcf64,
-)

@@ -2,14 +2,14 @@ import numpy as np
 import pytest
 
 import masspcf as mpcf
-from masspcf.typing import f32, f64
+from masspcf.typing import float32, float64
 
 
-DTYPES = [f32, f64]
-NP_DTYPES = {f32: np.float32, f64: np.float64}
+DTYPES = [float32, float64]
+NP_DTYPES = {float32: np.float32, float64: np.float64}
 
 
-@pytest.fixture(params=DTYPES, ids=["f32", "f64"])
+@pytest.fixture(params=DTYPES, ids=["float32", "float64"])
 def dtype(request):
     return request.param
 

@@ -84,7 +84,7 @@ def test_mean_2d_dim1():
 def test_get_tensor_and_backend_invalid():
     from masspcf.reductions import _get_tensor_and_backend
 
-    with pytest.raises(ValueError, match="Unsupported input type"):
+    with pytest.raises(ValueError, match="not supported"):
         _get_tensor_and_backend("not a tensor")
 
 

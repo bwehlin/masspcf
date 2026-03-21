@@ -21,10 +21,24 @@ from .barcode import Barcode
 
 cpp_p = cpp.persistence
 
+_BARCODE_CPP_TO_DTYPE = {
+    cpp_p.Barcode32Tensor: barcode32,
+    cpp_p.Barcode64Tensor: barcode64,
+}
+
 
 class BarcodeTensor(Tensor):
-    def __init__(self):
+    def __init__(self, data):
         super().__init__()
+        if isinstance(data, BarcodeTensor):
+            data = data._data
+        elif not isinstance(data, (cpp_p.Barcode32Tensor, cpp_p.Barcode64Tensor)):
+            raise TypeError(f"Cannot create BarcodeTensor from {type(data)}")
+        self._data = data
+        self.dtype = _BARCODE_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return BarcodeTensor(data)
 
     def _decay_value(self, val):
         if isinstance(val, np.ndarray):
@@ -35,24 +49,4 @@ class BarcodeTensor(Tensor):
         return Barcode(element)
 
     def _get_valid_setitem_dtypes(self):
-        return [BarcodeTensor, Barcode32Tensor, Barcode64Tensor, Barcode, np.ndarray]
-
-
-class Barcode32Tensor(BarcodeTensor):
-    def __init__(self, data: cpp_p.Barcode32Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = barcode32
-
-    def _to_py_tensor(self, data):
-        return Barcode32Tensor(data)
-
-
-class Barcode64Tensor(BarcodeTensor):
-    def __init__(self, data: cpp_p.Barcode64Tensor):
-        super().__init__()
-        self._data = data
-        self.dtype = barcode64
-
-    def _to_py_tensor(self, data):
-        return Barcode64Tensor(data)
+        return [BarcodeTensor, Barcode, np.ndarray]

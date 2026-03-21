@@ -92,7 +92,7 @@ The primary way to create a tensor is with :py:func:`~masspcf.zeros`::
    Y = mpcf.zeros((10, 50), dtype=mpcf.pcf64)
 
    # A tensor of scalar floats
-   Z = mpcf.zeros((5, 5), dtype=mpcf.f32)
+   Z = mpcf.zeros((5, 5), dtype=mpcf.float32)
 
 What "zero" means depends on the dtype: for PCF types, it is a function that is identically zero; for numeric types, it is the number 0; for point cloud types, it is an empty point cloud.
 
@@ -128,6 +128,18 @@ You can also assign into tensors::
    A[0, :] = noisy_sin((10,), n_points=100)
    A[1, :] = noisy_sin((10,), n_points=50)
 
+Boolean masks can select elements by condition::
+
+   import numpy as np
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+   mask = mpcf.BoolTensor(np.array([True, False, True, False]))
+
+   X[:, mask]   # shape (3, 2) — select columns where mask is True
+   X[X > threshold]  # flat 1D — all elements matching the condition
+
+See :doc:`tensors` for full details on :ref:`boolean masking <masking-numpy-differences>`.
+
 Tensor types
 ------------
 
@@ -135,53 +147,32 @@ There are several concrete tensor types, each corresponding to a dtype:
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 20 50
+   :widths: 35 20 45
 
    * - Tensor class
      - dtype
      - Contents
-   * - ``Pcf32Tensor``
-     - ``pcf32``
-     - 32-bit piecewise constant functions
-   * - ``Pcf64Tensor``
-     - ``pcf64``
-     - 64-bit piecewise constant functions
-   * - ``Pcf32iTensor``
-     - ``pcf32i``
-     - 32-bit integer piecewise constant functions
-   * - ``Pcf64iTensor``
-     - ``pcf64i``
-     - 64-bit integer piecewise constant functions
-   * - ``Float32Tensor``
-     - ``f32``
-     - 32-bit floating-point scalars
-   * - ``Float64Tensor``
-     - ``f64``
-     - 64-bit floating-point scalars
-   * - ``PointCloud32Tensor``
-     - ``pcloud32``
-     - 32-bit point clouds
-   * - ``PointCloud64Tensor``
-     - ``pcloud64``
-     - 64-bit point clouds
-   * - ``Barcode32Tensor``
-     - ``barcode32``
-     - 32-bit persistence barcodes
-   * - ``Barcode64Tensor``
-     - ``barcode64``
-     - 64-bit persistence barcodes
-   * - ``SymmetricMatrix32Tensor``
-     - ``symmat32``
-     - 32-bit symmetric matrices
-   * - ``SymmetricMatrix64Tensor``
-     - ``symmat64``
-     - 64-bit symmetric matrices
-   * - ``DistanceMatrix32Tensor``
-     - ``distmat32``
-     - 32-bit distance matrices
-   * - ``DistanceMatrix64Tensor``
-     - ``distmat64``
-     - 64-bit distance matrices
+   * - ``PcfTensor``
+     - ``pcf32`` / ``pcf64``
+     - Piecewise constant functions
+   * - ``IntPcfTensor``
+     - ``pcf32i`` / ``pcf64i``
+     - Integer-valued piecewise constant functions
+   * - ``FloatTensor``
+     - ``float32`` / ``float64``
+     - Floating-point scalars
+   * - ``PointCloudTensor``
+     - ``pcloud32`` / ``pcloud64``
+     - Point clouds
+   * - ``BarcodeTensor``
+     - ``barcode32`` / ``barcode64``
+     - Persistence barcodes
+   * - ``SymmetricMatrixTensor``
+     - ``symmat32`` / ``symmat64``
+     - Symmetric matrices
+   * - ``DistanceMatrixTensor``
+     - ``distmat32`` / ``distmat64``
+     - Distance matrices
    * - ``BoolTensor``
      - ``boolean``
      - Boolean values (returned by comparison operators)
@@ -217,53 +208,35 @@ The ``dtype`` parameter controls the element type of a tensor, analogous to NumP
 
 .. list-table:: Dtype overview
    :header-rows: 1
-   :widths: 15 15 70
+   :widths: 25 15 60
 
    * - dtype
      - Precision
      - Description
-   * - ``barcode32``
-     - 32-bit float
-     - Persistence barcodes
-   * - ``barcode64``
-     - 64-bit float
-     - Persistence barcodes
-   * - ``distmat32``
-     - 32-bit float
-     - Distance matrices — n(n-1)/2 storage, zero diagonal, nonnegative
-   * - ``distmat64``
-     - 64-bit float
-     - Distance matrices — n(n-1)/2 storage, zero diagonal, nonnegative
-   * - ``f32``
-     - 32-bit float
-     - Scalar values (alias for ``numpy.float32``)
-   * - ``f64``
-     - 64-bit float
-     - Scalar values (alias for ``numpy.float64``)
-   * - ``pcf32``
-     - 32-bit float
-     - Piecewise constant functions (default)
-   * - ``pcf32i``
-     - 32-bit int
+   * - ``pcf32`` / ``pcf64``
+     - float
+     - Piecewise constant functions (``pcf32`` is the default)
+   * - ``pcf32i`` / ``pcf64i``
+     - int
      - Integer-valued piecewise constant functions
-   * - ``pcf64``
-     - 64-bit float
-     - Piecewise constant functions (higher precision)
-   * - ``pcf64i``
-     - 64-bit int
-     - Integer-valued piecewise constant functions
-   * - ``pcloud32``
-     - 32-bit float
+   * - ``float32`` / ``float64``
+     - float
+     - Scalar floating-point values
+   * - ``int32`` / ``int64``
+     - int
+     - Scalar integer values
+   * - ``pcloud32`` / ``pcloud64``
+     - float
      - Point clouds
-   * - ``pcloud64``
-     - 64-bit float
-     - Point clouds
-   * - ``symmat32``
-     - 32-bit float
+   * - ``barcode32`` / ``barcode64``
+     - float
+     - Persistence barcodes
+   * - ``symmat32`` / ``symmat64``
+     - float
      - Symmetric matrices — n(n+1)/2 storage
-   * - ``symmat64``
-     - 64-bit float
-     - Symmetric matrices — n(n+1)/2 storage
+   * - ``distmat32`` / ``distmat64``
+     - float
+     - Distance matrices — n(n-1)/2 storage, zero diagonal, nonnegative
 
 PCF types
 ---------
@@ -280,10 +253,15 @@ evaluation, arithmetic, and serialization, but not norms or distances.
 Numeric types
 -------------
 
-- :py:data:`~masspcf.f32` -- 32-bit floating-point scalars (alias for ``numpy.float32``)
-- :py:data:`~masspcf.f64` -- 64-bit floating-point scalars (alias for ``numpy.float64``)
+- :py:class:`~masspcf.float32` -- 32-bit floating-point scalars
+- :py:class:`~masspcf.float64` -- 64-bit floating-point scalars
 
 These are used for tensors that hold scalar values, such as the results of norm or distance computations.
+
+- :py:class:`~masspcf.int32` -- 32-bit integer scalars
+- :py:class:`~masspcf.int64` -- 64-bit integer scalars
+
+These are used for tensors that hold integer values.
 
 Point cloud types
 -----------------

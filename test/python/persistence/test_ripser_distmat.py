@@ -41,10 +41,11 @@ def test_distmat_single_matches_point_cloud():
 
     bcs_pc = mpers.compute_persistent_homology(points, maxDim=2, verbose=False)
 
-    dm = _points_to_distmat(points, mpcf.f64)
+    dm = _points_to_distmat(points, mpcf.float64)
     bcs_dm = mpers.compute_persistent_homology(dm, maxDim=2, verbose=False)
 
-    assert isinstance(bcs_dm, mpers.Barcode64Tensor)
+    assert isinstance(bcs_dm, mpers.BarcodeTensor)
+    assert bcs_dm.dtype == mpcf.barcode64
     assert bcs_dm.shape == bcs_pc.shape
 
     for k in range(bcs_pc.shape[0]):
@@ -52,17 +53,18 @@ def test_distmat_single_matches_point_cloud():
 
 
 def test_distmat_single_f32():
-    """DistanceMatrix with f32 dtype produces Barcode32Tensor."""
+    """DistanceMatrix with f32 dtype produces BarcodeTensor with barcode32."""
     points = np.array([
         [0.0, 0.0],
         [1.0, 0.0],
         [0.0, 1.0],
     ])
 
-    dm = _points_to_distmat(points, mpcf.f32)
+    dm = _points_to_distmat(points, mpcf.float32)
     bcs = mpers.compute_persistent_homology(dm, maxDim=1, verbose=False)
 
-    assert isinstance(bcs, mpers.Barcode32Tensor)
+    assert isinstance(bcs, mpers.BarcodeTensor)
+    assert bcs.dtype == mpcf.barcode32
     assert bcs.shape == (2,)
 
 
@@ -76,12 +78,13 @@ def test_distmat_tensor_matches_point_cloud():
     for i in range(3):
         pts = np.random.randn(8, 3)
         pclouds[i] = pts
-        dmats[i] = _points_to_distmat(pts, mpcf.f64)
+        dmats[i] = _points_to_distmat(pts, mpcf.float64)
 
     bcs_pc = mpers.compute_persistent_homology(pclouds, maxDim=1, verbose=False)
     bcs_dm = mpers.compute_persistent_homology(dmats, maxDim=1, verbose=False)
 
-    assert isinstance(bcs_dm, mpers.Barcode64Tensor)
+    assert isinstance(bcs_dm, mpers.BarcodeTensor)
+    assert bcs_dm.dtype == mpcf.barcode64
     assert bcs_dm.shape == bcs_pc.shape
 
     for i in range(3):
@@ -98,7 +101,7 @@ def test_distmat_reduced_homology():
         [3.0, 4.0],
     ])
 
-    dm = _points_to_distmat(points, mpcf.f64)
+    dm = _points_to_distmat(points, mpcf.float64)
 
     bcs_unreduced = mpers.compute_persistent_homology(dm, maxDim=1, reduced=False, verbose=False)
     bcs_reduced = mpers.compute_persistent_homology(dm, maxDim=1, reduced=True, verbose=False)

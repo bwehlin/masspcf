@@ -172,7 +172,7 @@ namespace mpcf_py
 
           std::vector<pybind11::ssize_t> strides(self.strides().size(), 0);
           std::transform(self.strides().begin(), self.strides().end(), strides.begin(),
-              [](size_t v) { return static_cast<pybind11::ssize_t>(v * sizeof(T)); });
+              [](ptrdiff_t v) { return static_cast<pybind11::ssize_t>(v * sizeof(T)); });
 
           return pybind11::buffer_info(
               static_cast<void*>(self.data() + self.offset()),
@@ -242,6 +242,11 @@ namespace mpcf_py
 
       .def("copy", &TTensor::copy)
       .def("flatten", &TTensor::flatten)
+      .def("reshape", &TTensor::reshape)
+      .def("transpose", &TTensor::transpose, pybind11::arg("axes") = std::vector<size_t>{})
+      .def("squeeze", [](const TTensor& self) { return self.squeeze(); })
+      .def("squeeze", [](const TTensor& self, size_t axis) { return self.squeeze(axis); }, pybind11::arg("axis"))
+      .def("expand_dims", &TTensor::expand_dims, pybind11::arg("axis"))
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 
@@ -296,6 +301,56 @@ namespace mpcf_py
     }
 
     cls.def("broadcast_to", [](const TTensor& self, const std::vector<size_t>& shape){ return self.broadcast_to(shape); });
+
+    // Masked operations
+    cls.def("masked_select", [](const TTensor& self, const mpcf::Tensor<bool>& mask) {
+      return mpcf::masked_select(self, mask);
+    });
+    cls.def("masked_assign", [](TTensor& self, const mpcf::Tensor<bool>& mask, const TTensor& values) {
+      mpcf::masked_assign(self, mask, values);
+    });
+    cls.def("masked_fill", [](TTensor& self, const mpcf::Tensor<bool>& mask, const T& value) {
+      mpcf::masked_fill(self, mask, value);
+    });
+    cls.def("axis_select", [](const TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask) {
+      return mpcf::axis_select(self, axis, mask);
+    });
+    cls.def("axis_assign", [](TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask, const TTensor& values) {
+      mpcf::axis_assign(self, axis, mask, values);
+    });
+    cls.def("axis_fill", [](TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask, const T& value) {
+      mpcf::axis_fill(self, axis, mask, value);
+    });
+    cls.def("multi_axis_select", [](const TTensor& self, const std::vector<std::pair<size_t, mpcf::Tensor<bool>>>& axis_masks) {
+      return mpcf::multi_axis_select(self, axis_masks);
+    });
+    cls.def("multi_axis_assign", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::Tensor<bool>>>& axis_masks, const TTensor& values) {
+      mpcf::multi_axis_assign(self, axis_masks, values);
+    });
+    cls.def("multi_axis_fill", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::Tensor<bool>>>& axis_masks, const T& value) {
+      mpcf::multi_axis_fill(self, axis_masks, value);
+    });
+
+    cls.def("outer_select", [](const TTensor& self, const std::vector<std::pair<size_t, mpcf::AxisSelector>>& selectors) {
+      return mpcf::outer_select(self, selectors);
+    });
+    cls.def("outer_assign", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::AxisSelector>>& selectors, const TTensor& values) {
+      mpcf::outer_assign(self, selectors, values);
+    });
+    cls.def("outer_fill", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::AxisSelector>>& selectors, const T& value) {
+      mpcf::outer_fill(self, selectors, value);
+    });
+
+    // Index-based gather/scatter (always use int64 as index type)
+    cls.def("index_select", [](const TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices) {
+      return mpcf::index_select(self, axis, indices);
+    });
+    cls.def("index_assign", [](TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices, const TTensor& values) {
+      mpcf::index_assign(self, axis, indices, values);
+    });
+    cls.def("index_fill", [](TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices, const T& value) {
+      mpcf::index_fill(self, axis, indices, value);
+    });
 
     using Tv = scalar_of_t<T>;
     using Tt = time_of_t<T>;

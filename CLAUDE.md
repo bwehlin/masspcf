@@ -71,7 +71,7 @@ cd test && ../cmake-build-debug/mpcf_test  # run from test/ directory
 - **`executor.h`** — taskflow-based parallel task dispatch (CPU)
 
 ### Type system
-Two precision levels: `pcf32` (float32 time+value) and `pcf64` (float64). Tensor types: `Pcf{32,64}Tensor`, `Float{32,64}Tensor`, `PointCloud{32,64}Tensor`, `Barcode{32,64}Tensor`. Type aliases live in `masspcf/typing.py`.
+Each tensor class supports multiple precisions via a `dtype` parameter: `PcfTensor` (dtype=pcf32/pcf64), `IntPcfTensor` (dtype=pcf32i/pcf64i), `FloatTensor` (dtype=float32/float64), `PointCloudTensor` (dtype=pcloud32/pcloud64), `BarcodeTensor` (dtype=barcode32/barcode64), `DistanceMatrixTensor` (dtype=distmat32/distmat64), `SymmetricMatrixTensor` (dtype=symmat32/symmat64). Dtype sentinels live in `masspcf/typing.py`. The C++ layer still has separate types per precision (e.g. `cpp.Float32Tensor`, `cpp.Float64Tensor`); the Python classes dispatch internally.
 
 ### Python module layers
 1. **Low**: `_mpcf_cpp` (backend dispatch) → `_mpcf_cpu` / `_mpcf_cudaXX` (pybind11)

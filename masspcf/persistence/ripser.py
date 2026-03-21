@@ -13,17 +13,17 @@
 #  limitations under the License.
 
 from .. import _mpcf_cpp as cpp
-from ..distance_matrix import DistanceMatrix32Tensor, DistanceMatrix64Tensor
-from ..tensor import PointCloud32Tensor, PointCloud64Tensor, _get_backend
+from ..distance_matrix import DistanceMatrixTensor
+from ..tensor import PointCloudTensor, _get_backend
 from ..typing import distmat32, distmat64, pcloud32, pcloud64
-from .ph_tensor import Barcode32Tensor, Barcode64Tensor
+from .ph_tensor import BarcodeTensor
 
 cpp_p = cpp.persistence
 
 
 def _compute_barcodes_euclidean_pcloud_ripser(
-    X: PointCloud32Tensor | PointCloud64Tensor,
-    out: Barcode32Tensor | Barcode64Tensor,
+    X: PointCloudTensor,
+    out: BarcodeTensor,
     maxDim: int = 1,
     reducedHomology: bool = False,
 ):
@@ -35,8 +35,8 @@ def _compute_barcodes_euclidean_pcloud_ripser(
 
 
 def _compute_barcodes_distmat_ripser(
-    X: DistanceMatrix32Tensor | DistanceMatrix64Tensor,
-    out: Barcode32Tensor | Barcode64Tensor,
+    X: DistanceMatrixTensor,
+    out: BarcodeTensor,
     maxDim: int = 1,
     reducedHomology: bool = False,
 ):

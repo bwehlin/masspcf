@@ -24,15 +24,15 @@ class TestCopyConstructor:
     def test_copy_from_pcf_f32(self):
         f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
         g = Pcf(f)
-        assert g.ttype == np.float32
-        assert g.vtype == np.float32
+        assert g.ttype == mpcf.float32
+        assert g.vtype == mpcf.float32
         npt.assert_array_equal(f.to_numpy(), g.to_numpy())
 
     def test_copy_from_pcf_f64(self):
         f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float64))
         g = Pcf(f)
-        assert g.ttype == np.float64
-        assert g.vtype == np.float64
+        assert g.ttype == mpcf.float64
+        assert g.vtype == mpcf.float64
         npt.assert_array_equal(f.to_numpy(), g.to_numpy())
 
 
@@ -40,15 +40,15 @@ class TestIntArrayInput:
     def test_int64_array(self):
         arr = np.array([[0, 1], [2, 3]], dtype=np.int64)
         f = Pcf(arr)
-        assert f.ttype == np.int64
-        assert f.vtype == np.int64
+        assert f.ttype == mpcf.int64
+        assert f.vtype == mpcf.int64
         assert f.size() == 2
 
     def test_int32_array(self):
         arr = np.array([[0, 1], [2, 3]], dtype=np.int32)
         f = Pcf(arr)
-        assert f.ttype == np.int32
-        assert f.vtype == np.int32
+        assert f.ttype == mpcf.int32
+        assert f.vtype == mpcf.int32
         assert f.size() == 2
 
     def test_unsupported_array_dtype_raises(self):
@@ -60,30 +60,30 @@ class TestIntArrayInput:
 class TestListInput:
     def test_list_default_dtype(self):
         f = Pcf([[0.0, 1.0], [2.0, 3.0]])
-        assert f.ttype == np.float64
-        assert f.vtype == np.float64
+        assert f.ttype == mpcf.float64
+        assert f.vtype == mpcf.float64
         assert f.size() == 2
 
     def test_list_f32(self):
         f = Pcf([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32)
-        assert f.ttype == np.float32
-        assert f.vtype == np.float32
+        assert f.ttype == mpcf.float32
+        assert f.vtype == mpcf.float32
         npt.assert_array_almost_equal(
             f.to_numpy(), [[0.0, 1.0], [2.0, 3.0]]
         )
 
     def test_list_f64(self):
         f = Pcf([[0.0, 1.0], [2.0, 3.0]], dtype=np.float64)
-        assert f.ttype == np.float64
-        assert f.vtype == np.float64
+        assert f.ttype == mpcf.float64
+        assert f.vtype == mpcf.float64
         npt.assert_array_almost_equal(
             f.to_numpy(), [[0.0, 1.0], [2.0, 3.0]]
         )
 
     def test_list_int32(self):
         f = Pcf([[0, 1], [2, 3]], dtype=np.int32)
-        assert f.ttype == np.int32
-        assert f.vtype == np.int32
+        assert f.ttype == mpcf.int32
+        assert f.vtype == mpcf.int32
         npt.assert_array_equal(f.to_numpy(), [[0, 1], [2, 3]])
 
     def test_list_unsupported_dtype_raises(self):
@@ -105,12 +105,12 @@ class TestDtypeConstructor:
     def test_ndarray_with_pcf32_dtype(self):
         arr = np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float64)
         f = Pcf(arr, dtype=mpcf.pcf32)
-        assert f.ttype == np.float32
+        assert f.ttype == mpcf.float32
 
     def test_ndarray_with_pcf64_dtype(self):
         arr = np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32)
         f = Pcf(arr, dtype=mpcf.pcf64)
-        assert f.ttype == np.float64
+        assert f.ttype == mpcf.float64
 
 
 class TestInternalMethods:

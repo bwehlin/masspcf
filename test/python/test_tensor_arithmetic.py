@@ -1,3 +1,5 @@
+import operator
+
 import numpy as np
 import numpy.testing as npt
 import pytest
@@ -13,101 +15,167 @@ def _make_pcf64(vals):
     return mpcf.Pcf(np.array(vals, dtype=np.float64))
 
 
-# --- Float tensors ---
+def _assert_scalar_op(np_arr, scalar, op, TensorType=mpcf.FloatTensor):
+    """Assert that a scalar op on a tensor matches numpy."""
+    result = np.asarray(op(TensorType(np_arr), scalar))
+    expected = op(np_arr, scalar)
+    npt.assert_array_equal(result, expected)
 
 
-class TestFloat64TensorArithmetic:
-    def test_add(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        Y = X + 10.0
-        npt.assert_array_equal(np.asarray(Y), [11.0, 12.0, 13.0])
-
-    def test_iadd(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        X += 10.0
-        npt.assert_array_equal(np.asarray(X), [11.0, 12.0, 13.0])
-
-    def test_sub(self):
-        X = mpcf.Float64Tensor(np.array([10.0, 20.0, 30.0]))
-        Y = X - 1.0
-        npt.assert_array_equal(np.asarray(Y), [9.0, 19.0, 29.0])
-
-    def test_isub(self):
-        X = mpcf.Float64Tensor(np.array([10.0, 20.0, 30.0]))
-        X -= 1.0
-        npt.assert_array_equal(np.asarray(X), [9.0, 19.0, 29.0])
-
-    def test_mul(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        Y = X * 5.0
-        npt.assert_array_equal(np.asarray(Y), [5.0, 10.0, 15.0])
-
-    def test_imul(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        X *= 5.0
-        npt.assert_array_equal(np.asarray(X), [5.0, 10.0, 15.0])
-
-    def test_truediv(self):
-        X = mpcf.Float64Tensor(np.array([10.0, 20.0, 30.0]))
-        Y = X / 2.0
-        npt.assert_array_equal(np.asarray(Y), [5.0, 10.0, 15.0])
-
-    def test_itruediv(self):
-        X = mpcf.Float64Tensor(np.array([10.0, 20.0, 30.0]))
-        X /= 2.0
-        npt.assert_array_equal(np.asarray(X), [5.0, 10.0, 15.0])
-
-    def test_radd(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        Y = 10.0 + X
-        npt.assert_array_equal(np.asarray(Y), [11.0, 12.0, 13.0])
-
-    def test_rsub(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        Y = 10.0 - X
-        npt.assert_array_equal(np.asarray(Y), [9.0, 8.0, 7.0])
-
-    def test_rmul(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        Y = 5.0 * X
-        npt.assert_array_equal(np.asarray(Y), [5.0, 10.0, 15.0])
-
-    def test_add_does_not_modify_original(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        _ = X + 10.0
-        npt.assert_array_equal(np.asarray(X), [1.0, 2.0, 3.0])
-
-    def test_2d(self):
-        X = mpcf.Float64Tensor(np.array([[1.0, 2.0], [3.0, 4.0]]))
-        Y = X * 2.0
-        npt.assert_array_equal(np.asarray(Y), [[2.0, 4.0], [6.0, 8.0]])
+def _assert_scalar_iop(np_arr, scalar, iop, TensorType=mpcf.FloatTensor):
+    """Assert that an in-place scalar op on a tensor matches numpy."""
+    np_copy = np_arr.copy()
+    iop(np_copy, scalar)
+    t = TensorType(np_arr.copy())
+    iop(t, scalar)
+    npt.assert_array_equal(np.asarray(t), np_copy)
 
 
-class TestFloat32TensorArithmetic:
-    def test_add(self):
-        X = mpcf.Float32Tensor(np.array([1.0, 2.0, 3.0], dtype=np.float32))
-        Y = X + 10.0
-        npt.assert_array_almost_equal(np.asarray(Y), [11.0, 12.0, 13.0])
+# --- Numeric tensors (parameterized across float and int) ---
 
-    def test_mul(self):
-        X = mpcf.Float32Tensor(np.array([1.0, 2.0, 3.0], dtype=np.float32))
-        Y = X * 5.0
-        npt.assert_array_almost_equal(np.asarray(Y), [5.0, 10.0, 15.0])
 
-    def test_truediv(self):
-        X = mpcf.Float32Tensor(np.array([10.0, 20.0, 30.0], dtype=np.float32))
-        Y = X / 2.0
-        npt.assert_array_almost_equal(np.asarray(Y), [5.0, 10.0, 15.0])
+_NUMERIC_TYPES = [
+    pytest.param(mpcf.FloatTensor, np.float64, id="float64"),
+    pytest.param(mpcf.FloatTensor, np.float32, id="float32"),
+    pytest.param(mpcf.IntTensor, np.int32, id="int32"),
+    pytest.param(mpcf.IntTensor, np.int64, id="int64"),
+]
+
+
+def _assert_binary_op(np_a, np_b, op, TensorType):
+    """Assert that a binary op on tensors matches numpy."""
+    result = np.asarray(op(TensorType(np_a), TensorType(np_b)))
+    expected = op(np_a, np_b)
+    npt.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestNumericScalarArithmetic:
+    def test_add(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_op(a, np_dtype(10), lambda x, y: x + y, TensorType)
+
+    def test_iadd(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_iop(a, np_dtype(10), operator.iadd, TensorType)
+
+    def test_sub(self, TensorType, np_dtype):
+        a = np.array([10, 20, 30], dtype=np_dtype)
+        _assert_scalar_op(a, np_dtype(1), lambda x, y: x - y, TensorType)
+
+    def test_isub(self, TensorType, np_dtype):
+        a = np.array([10, 20, 30], dtype=np_dtype)
+        _assert_scalar_iop(a, np_dtype(1), operator.isub, TensorType)
+
+    def test_mul(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_op(a, np_dtype(5), lambda x, y: x * y, TensorType)
+
+    def test_imul(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_iop(a, np_dtype(5), operator.imul, TensorType)
+
+    def test_radd(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_op(a, np_dtype(10), lambda x, y: y + x, TensorType)
+
+    def test_rsub(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_op(a, np_dtype(10), lambda x, y: y - x, TensorType)
+
+    def test_rmul(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_scalar_op(a, np_dtype(5), lambda x, y: y * x, TensorType)
+
+    def test_add_does_not_modify_original(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        X = TensorType(a)
+        _ = X + np_dtype(10)
+        npt.assert_array_equal(np.asarray(X), a)
+
+    def test_2d(self, TensorType, np_dtype):
+        a = np.array([[1, 2], [3, 4]], dtype=np_dtype)
+        result = np.asarray(TensorType(a) * np_dtype(2))
+        npt.assert_array_equal(result, a * np_dtype(2))
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestNumericTensorTensorArithmetic:
+    def test_add(self, TensorType, np_dtype):
+        a = np.array([1, 2, 3], dtype=np_dtype)
+        b = np.array([10, 20, 30], dtype=np_dtype)
+        _assert_binary_op(a, b, lambda x, y: x + y, TensorType)
+
+    def test_sub(self, TensorType, np_dtype):
+        a = np.array([10, 20, 30], dtype=np_dtype)
+        b = np.array([1, 2, 3], dtype=np_dtype)
+        _assert_binary_op(a, b, lambda x, y: x - y, TensorType)
+
+    def test_mul(self, TensorType, np_dtype):
+        a = np.array([2, 3, 4], dtype=np_dtype)
+        b = np.array([5, 6, 7], dtype=np_dtype)
+        _assert_binary_op(a, b, lambda x, y: x * y, TensorType)
+
+
+# --- Float-only: division (float semantics differ from int truncation) ---
+
+
+class TestFloatDivision:
+    def test_truediv_float64(self):
+        a = np.array([10.0, 20.0, 30.0])
+        _assert_scalar_op(a, 2.0, lambda x, y: x / y)
+
+    def test_itruediv_float64(self):
+        a = np.array([10.0, 20.0, 30.0])
+        _assert_scalar_iop(a, 2.0, operator.itruediv)
+
+    def test_truediv_float32(self):
+        a = np.array([10.0, 20.0, 30.0], dtype=np.float32)
+        _assert_scalar_op(a, np.float32(2.0), lambda x, y: x / y)
+
+
+# --- Floor division ---
+
+
+_FLOAT_TYPES = [
+    pytest.param(mpcf.FloatTensor, np.float64, id="float64"),
+    pytest.param(mpcf.FloatTensor, np.float32, id="float32"),
+]
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _FLOAT_TYPES)
+class TestFloatFloorDiv:
+    def test_floordiv_scalar(self, TensorType, np_dtype):
+        a = np.array([10.5, -7.3, 21.0], dtype=np_dtype)
+        result = np.asarray(TensorType(a) // np_dtype(3))
+        npt.assert_array_almost_equal(result, a // np_dtype(3))
+
+    def test_floordiv_tensor(self, TensorType, np_dtype):
+        a = np.array([10.5, -7.3, 21.0], dtype=np_dtype)
+        b = np.array([3.0, 2.0, 4.0], dtype=np_dtype)
+        result = np.asarray(TensorType(a) // TensorType(b))
+        npt.assert_array_almost_equal(result, a // b)
+
+    def test_rfloordiv_scalar(self, TensorType, np_dtype):
+        a = np.array([3.0, 7.0, 4.0], dtype=np_dtype)
+        result = np.asarray(np_dtype(10) // TensorType(a))
+        npt.assert_array_almost_equal(result, np_dtype(10) // a)
+
+    def test_ifloordiv_scalar(self, TensorType, np_dtype):
+        a = np.array([10.5, -7.3, 21.0], dtype=np_dtype)
+        t = TensorType(a.copy())
+        t //= np_dtype(3)
+        npt.assert_array_almost_equal(np.asarray(t), a // np_dtype(3))
 
 
 # --- PCF tensors (parametrized across all PCF dtypes) ---
 
 
 _PCF_DTYPES = [
-    pytest.param(mpcf.pcf32, np.float32, mpcf.Pcf32Tensor, id="pcf32"),
-    pytest.param(mpcf.pcf64, np.float64, mpcf.Pcf64Tensor, id="pcf64"),
-    pytest.param(mpcf.pcf32i, np.int32, mpcf.Pcf32iTensor, id="pcf32i"),
-    pytest.param(mpcf.pcf64i, np.int64, mpcf.Pcf64iTensor, id="pcf64i"),
+    pytest.param(mpcf.pcf32, np.float32, mpcf.PcfTensor, id="pcf32"),
+    pytest.param(mpcf.pcf64, np.float64, mpcf.PcfTensor, id="pcf64"),
+    pytest.param(mpcf.pcf32i, np.int32, mpcf.IntPcfTensor, id="pcf32i"),
+    pytest.param(mpcf.pcf64i, np.int64, mpcf.IntPcfTensor, id="pcf64i"),
 ]
 
 
@@ -301,7 +369,7 @@ class TestPcfTensorMulDiv:
 # --- Float tensor broadcasting ---
 
 
-def _check_broadcast_op(np_a, np_b, op, TensorType=mpcf.Float64Tensor):
+def _check_broadcast_op(np_a, np_b, op, TensorType=mpcf.FloatTensor):
     """Apply op to both numpy arrays and mpcf tensors, assert results match."""
     X = TensorType(np_a)
     Y = TensorType(np_b)
@@ -346,35 +414,29 @@ class TestFloat64TensorBroadcast:
     def test_iadd_broadcast(self):
         a = np.array([[1.0, 2.0], [3.0, 4.0]])
         b = np.array([10.0, 20.0])
-        X = mpcf.Float64Tensor(a.copy())
-        Y = mpcf.Float64Tensor(b)
+        X = mpcf.FloatTensor(a.copy())
+        Y = mpcf.FloatTensor(b)
         X += Y
         expected = a + b
         npt.assert_array_equal(np.asarray(X), expected)
 
     def test_iadd_incompatible_raises(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0]))
-        Y = mpcf.Float64Tensor(np.array([[1.0, 2.0], [3.0, 4.0]]))
-        try:
+        X = mpcf.FloatTensor(np.array([1.0, 2.0]))
+        Y = mpcf.FloatTensor(np.array([[1.0, 2.0], [3.0, 4.0]]))
+        with pytest.raises(ValueError):
             X += Y
-            assert False, "Should have raised"
-        except ValueError:
-            pass
 
     def test_incompatible_shapes_raise(self):
-        X = mpcf.Float64Tensor(np.array([1.0, 2.0, 3.0]))
-        Y = mpcf.Float64Tensor(np.array([1.0, 2.0]))
-        try:
+        X = mpcf.FloatTensor(np.array([1.0, 2.0, 3.0]))
+        Y = mpcf.FloatTensor(np.array([1.0, 2.0]))
+        with pytest.raises(ValueError):
             _ = X + Y
-            assert False, "Should have raised"
-        except ValueError:
-            pass
 
     def test_add_does_not_modify_originals(self):
         a = np.array([1.0, 2.0, 3.0])
         b = np.array([10.0, 20.0, 30.0])
-        X = mpcf.Float64Tensor(a)
-        Y = mpcf.Float64Tensor(b)
+        X = mpcf.FloatTensor(a)
+        Y = mpcf.FloatTensor(b)
         _ = X + Y
         npt.assert_array_equal(np.asarray(X), a)
         npt.assert_array_equal(np.asarray(Y), b)
@@ -382,8 +444,8 @@ class TestFloat64TensorBroadcast:
 
 class TestNumericTensorPow:
     @pytest.fixture(params=[
-        pytest.param((mpcf.Float32Tensor, np.float32), id="float32"),
-        pytest.param((mpcf.Float64Tensor, np.float64), id="float64"),
+        pytest.param((mpcf.FloatTensor, np.float32), id="float32"),
+        pytest.param((mpcf.FloatTensor, np.float64), id="float64"),
     ])
     def tensor_info(self, request):
         return request.param
@@ -393,24 +455,28 @@ class TestNumericTensorPow:
         return cls(np.array(vals, dtype=dtype))
 
     def test_pow_2(self, tensor_info):
-        X = self._make(tensor_info, [2.0, 3.0, 4.0])
-        Y = X ** 2
-        npt.assert_array_equal(np.asarray(Y), [4.0, 9.0, 16.0])
+        _, dtype = tensor_info
+        a = np.array([2.0, 3.0, 4.0], dtype=dtype)
+        result = np.asarray(self._make(tensor_info, a) ** 2)
+        npt.assert_array_equal(result, a ** 2)
 
     def test_pow_half(self, tensor_info):
-        X = self._make(tensor_info, [4.0, 9.0, 16.0])
-        Y = X ** 0.5
-        npt.assert_array_almost_equal(np.asarray(Y), [2.0, 3.0, 4.0])
+        _, dtype = tensor_info
+        a = np.array([4.0, 9.0, 16.0], dtype=dtype)
+        result = np.asarray(self._make(tensor_info, a) ** 0.5)
+        npt.assert_array_almost_equal(result, a ** 0.5)
 
     def test_pow_negative_exponent(self, tensor_info):
-        X = self._make(tensor_info, [2.0, 4.0, 5.0])
-        Y = X ** -1.0
-        npt.assert_array_almost_equal(np.asarray(Y), [0.5, 0.25, 0.2])
+        _, dtype = tensor_info
+        a = np.array([2.0, 4.0, 5.0], dtype=dtype)
+        result = np.asarray(self._make(tensor_info, a) ** -1.0)
+        npt.assert_array_almost_equal(result, a ** -1.0)
 
     def test_pow_does_not_mutate(self, tensor_info):
-        X = self._make(tensor_info, [2.0, 3.0, 4.0])
+        a = np.array([2.0, 3.0, 4.0])
+        X = self._make(tensor_info, a)
         _ = X ** 2
-        npt.assert_array_equal(np.asarray(X), [2.0, 3.0, 4.0])
+        npt.assert_array_equal(np.asarray(X), a)
 
     def test_pow_negative_base_fractional_exp_warns(self, tensor_info):
         X = self._make(tensor_info, [-2.0, 4.0])
@@ -427,9 +493,11 @@ class TestNumericTensorPow:
         npt.assert_almost_equal(np.asarray(Y)[1], 0.5)
 
     def test_ipow(self, tensor_info):
-        X = self._make(tensor_info, [2.0, 3.0, 4.0])
+        _, dtype = tensor_info
+        a = np.array([2.0, 3.0, 4.0], dtype=dtype)
+        X = self._make(tensor_info, a)
         X **= 2
-        npt.assert_array_equal(np.asarray(X), [4.0, 9.0, 16.0])
+        npt.assert_array_equal(np.asarray(X), a ** 2)
 
 
 class TestPcfTensorPow:
@@ -489,4 +557,4 @@ class TestFloat32TensorBroadcast:
     def test_add_broadcast(self):
         a = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         b = np.array([10.0, 20.0], dtype=np.float32)
-        _check_broadcast_op(a, b, lambda x, y: x + y, mpcf.Float32Tensor)
+        _check_broadcast_op(a, b, lambda x, y: x + y, mpcf.FloatTensor)

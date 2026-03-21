@@ -24,23 +24,23 @@ class TestIntPcfDtypeConstruction:
     def test_from_float_array_with_pcf32i_dtype(self):
         arr = np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float64)
         f = Pcf(arr, dtype=mpcf.pcf32i)
-        assert f.ttype == np.int32
-        assert f.vtype == np.int32
+        assert f.ttype == mpcf.int32
+        assert f.vtype == mpcf.int32
         npt.assert_array_equal(f.to_numpy(), [[0, 1], [2, 3]])
 
     def test_from_float_array_with_pcf64i_dtype(self):
         arr = np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32)
         f = Pcf(arr, dtype=mpcf.pcf64i)
-        assert f.ttype == np.int64
-        assert f.vtype == np.int64
+        assert f.ttype == mpcf.int64
+        assert f.vtype == mpcf.int64
 
     def test_from_list_pcf32i_dtype(self):
         f = Pcf([[0, 1], [2, 3]], dtype=mpcf.pcf32i)
-        assert f.ttype == np.int32
+        assert f.ttype == mpcf.int32
 
     def test_from_list_pcf64i_dtype(self):
         f = Pcf([[0, 1], [2, 3]], dtype=mpcf.pcf64i)
-        assert f.ttype == np.int64
+        assert f.ttype == mpcf.int64
 
 
 class TestIntPcfEval:
@@ -126,19 +126,19 @@ class TestIntPcfAstype:
     def test_i32_to_f32(self):
         f = Pcf(np.array([[0, 1], [2, 3]], dtype=np.int32))
         g = f.astype(mpcf.pcf32)
-        assert g.vtype == np.float32
+        assert g.vtype == mpcf.float32
         npt.assert_array_almost_equal(g.to_numpy(), [[0.0, 1.0], [2.0, 3.0]])
 
     def test_f32_to_i32(self):
         f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
         g = f.astype(mpcf.pcf32i)
-        assert g.vtype == np.int32
+        assert g.vtype == mpcf.int32
         npt.assert_array_equal(g.to_numpy(), [[0, 1], [2, 3]])
 
     def test_i32_to_i64(self):
         f = Pcf(np.array([[0, 1], [2, 3]], dtype=np.int32))
         g = f.astype(mpcf.pcf64i)
-        assert g.vtype == np.int64
+        assert g.vtype == mpcf.int64
 
 
 class TestIntPcfTensor:
@@ -195,7 +195,8 @@ class TestIntPcfIO:
         buf.seek(0)
         loaded = mpcf.load(buf)
 
-        assert isinstance(loaded, mpcf.Pcf32iTensor)
+        assert isinstance(loaded, mpcf.IntPcfTensor)
+        assert loaded.dtype == mpcf.pcf32i
         assert loaded.shape == (2,)
         npt.assert_array_equal(loaded[0].to_numpy(), t[0].to_numpy())
         npt.assert_array_equal(loaded[1].to_numpy(), t[1].to_numpy())
@@ -212,7 +213,8 @@ class TestIntPcfIO:
         buf.seek(0)
         loaded = mpcf.load(buf)
 
-        assert isinstance(loaded, mpcf.Pcf64iTensor)
+        assert isinstance(loaded, mpcf.IntPcfTensor)
+        assert loaded.dtype == mpcf.pcf64i
         assert loaded.shape == (2,)
         npt.assert_array_equal(loaded[0].to_numpy(), t[0].to_numpy())
         npt.assert_array_equal(loaded[1].to_numpy(), t[1].to_numpy())

@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from .typing import _assert_valid_dtype, _check_deprecated_dtype, pcf32, pcf32i, pcf64, pcf64i
+from .typing import _assert_valid_dtype, _MPCF_TO_NP, _NP_TO_MPCF, float32, float64, int32, int64, pcf32, pcf32i, pcf64, pcf64i
 
 
 class Pcf:
@@ -64,13 +64,13 @@ class Pcf:
     }
 
     _CPP_TYPE_INFO = {
-        cpp.Pcf_f32_f32: (np.float32, np.float32),
-        cpp.Pcf_f64_f64: (np.float64, np.float64),
-        cpp.Pcf_i32_i32: (np.int32, np.int32),
-        cpp.Pcf_i64_i64: (np.int64, np.int64),
+        cpp.Pcf_f32_f32: (float32, float32),
+        cpp.Pcf_f64_f64: (float64, float64),
+        cpp.Pcf_i32_i32: (int32, int32),
+        cpp.Pcf_i64_i64: (int64, int64),
     }
 
-    def __init__(self, arr: np.ndarray | Pcf | list[list[float]] | list[list[int]], dtype=None):
+    def __init__(self, arr: np.ndarray | Pcf | list[list[float | int] | tuple[float | int, ...]], dtype=None):
         if isinstance(arr, Pcf):
             self._data = arr._data
             self.ttype = arr.ttype
@@ -78,7 +78,6 @@ class Pcf:
 
         elif isinstance(arr, np.ndarray):
             if dtype is not None:
-                dtype = _check_deprecated_dtype(dtype)
                 np_dtype = self._DTYPE_TO_NP.get(dtype, dtype)
                 if arr.dtype != np_dtype:
                     arr = arr.astype(np_dtype)
@@ -89,8 +88,8 @@ class Pcf:
                     "Unsupported array type (must be np.float32/64 or np.int32/64)"
                 )
             self._data = constructor(arr)
-            self.ttype = arr.dtype
-            self.vtype = arr.dtype
+            self.ttype = _NP_TO_MPCF[arr.dtype.type]
+            self.vtype = _NP_TO_MPCF[arr.dtype.type]
 
         elif isinstance(arr, tuple(self._CPP_TYPE_INFO.keys())):
             self._data = arr
@@ -98,15 +97,15 @@ class Pcf:
 
         elif isinstance(arr, list):
             if dtype is None:
-                dtype = np.float64
+                dtype = pcf64
             np_dtype = self._DTYPE_TO_NP.get(dtype, dtype)
             data = np.array(arr, dtype=np_dtype)
             constructor = self._NP_TO_CPP.get(np_dtype)
             if constructor is None:
                 raise ValueError("Unsupported dtype")
             self._data = constructor(data)
-            self.ttype = np_dtype
-            self.vtype = np_dtype
+            self.ttype = _NP_TO_MPCF[np_dtype]
+            self.vtype = _NP_TO_MPCF[np_dtype]
 
         else:
             raise ValueError(
@@ -222,17 +221,17 @@ class Pcf:
 
         Parameters
         ----------
-        t : float, int, list, numpy.ndarray, Float32Tensor, or Float64Tensor
+        t : float, int, list, numpy.ndarray, or FloatTensor
             The time(s) at which to evaluate the PCF. Can be a single scalar
             or an array-like of times with arbitrary shape.
 
         Returns
         -------
-        float, numpy.ndarray, Float32Tensor, or Float64Tensor
+        float, numpy.ndarray, or FloatTensor
             The PCF value(s) at the given time(s). A scalar input returns a
             Python float. A list or ndarray input returns an ndarray of the
-            same shape. A ``Float32Tensor`` or ``Float64Tensor`` input returns
-            a tensor of the same type and shape.
+            same shape. A ``FloatTensor`` input returns a tensor of the same
+            type and shape.
 
         Raises
         ------
@@ -249,17 +248,17 @@ class Pcf:
         >>> f(np.array([0.5, 1.5, 4.0]))
         array([1. , 2. , 0.5], dtype=float32)
         """
-        from .tensor import Float32Tensor, Float64Tensor
+        from .tensor import FloatTensor
 
         if isinstance(t, int | float):
             return self._data(t)
 
         return_tensor = None
-        if isinstance(t, Float32Tensor | Float64Tensor):
+        if isinstance(t, FloatTensor):
             return_tensor = type(t)
             t = np.asarray(t)
         elif isinstance(t, list):
-            t = np.asarray(t, dtype=self.ttype)
+            t = np.asarray(t, dtype=_MPCF_TO_NP[self.ttype])
 
         result = self._data(t)
 
@@ -274,14 +273,14 @@ class Pcf:
     #  return self._data.to_numpy().save()
 
     _VTYPE_NAMES = {
-        np.dtype(np.float32): "float32",
-        np.dtype(np.float64): "float64",
-        np.dtype(np.int32): "int32",
-        np.dtype(np.int64): "int64",
+        float32: "float32",
+        float64: "float64",
+        int32: "int32",
+        int64: "int64",
     }
 
     def __str__(self):
-        dtname = self._VTYPE_NAMES.get(np.dtype(self.vtype), str(self.vtype))
+        dtname = self._VTYPE_NAMES.get(self.vtype, str(self.vtype))
         return f"<PCF size={self._data.size()}, dtype={dtname}>"
 
     def __array__(self, dtype=None, copy=None):

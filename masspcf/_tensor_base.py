@@ -15,12 +15,29 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Union
 
 from . import _mpcf_cpp as cpp
 
 Shape = cpp.Shape
 
 ShapeLike = Shape | tuple[int, ...]
+
+CppTensor = Union[
+    cpp.Float32Tensor,
+    cpp.Float64Tensor,
+    cpp.Int32Tensor,
+    cpp.Int64Tensor,
+    cpp.Uint32Tensor,
+    cpp.Uint64Tensor,
+    cpp.Pcf32Tensor,
+    cpp.Pcf64Tensor,
+    cpp.Pcf32iTensor,
+    cpp.Pcf64iTensor,
+    cpp.PointCloud32Tensor,
+    cpp.PointCloud64Tensor,
+    cpp.BoolTensor,
+]
 
 
 def _pyslice_to_slice(s):
@@ -32,22 +49,91 @@ def _pyslice_to_slice(s):
     raise TypeError("Unhandled slice type")
 
 
+def _resolve_negative_indices(index_tensor, axis_size):
+    """Resolve negative indices and bounds-check."""
+    import numpy as np
+    from .tensor import IntTensor
+    arr = np.asarray(index_tensor).astype(np.int64).copy()
+    neg = arr < 0
+    arr[neg] += axis_size
+    if np.any((arr < 0) | (arr >= axis_size)):
+        raise IndexError(f"Index out of bounds for axis with size {axis_size}")
+    return IntTensor(arr)
+
+
 class Tensor(ABC):
+    _data: CppTensor
+
+    __array_ufunc__ = None
+
+    def __array__(self, dtype=None, copy=None):
+        raise TypeError(
+            f"np.asarray() is not supported for {type(self).__name__}. "
+            f"Only numeric tensors (FloatTensor, IntTensor, BoolTensor) "
+            f"can be converted to NumPy arrays."
+        )
+
+    @staticmethod
+    def _coerce_index_arrays(slices):
+        """Convert numpy bool/int arrays in an index tuple to BoolTensor/IntTensor."""
+        import numpy as np
+        from .tensor import BoolTensor, IntTensor
+        if not isinstance(slices, tuple):
+            slices = (slices,)
+        result = []
+        for s in slices:
+            if isinstance(s, np.ndarray):
+                if s.dtype == np.bool_:
+                    result.append(BoolTensor(s))
+                elif np.issubdtype(s.dtype, np.integer):
+                    result.append(IntTensor(s))
+                else:
+                    result.append(s)
+            else:
+                result.append(s)
+        return tuple(result)
+
     def __getitem__(self, slices):
-        if isinstance(slices, int):  # X[n]
-            x = self._data._get_element(slices)
-            return self._represent_element(x)
-        elif isinstance(slices, slice):  # X[n:m] etc...
-            x = self._data[[_pyslice_to_slice(slices)]]
-            return self._to_py_tensor(x)
-        elif all(
-            isinstance(s, int) for s in slices
-        ):  # X[1, 2, 3] etc... (for this, we wan't a single element rather than a tensor)
-            x = self._data._get_element(slices)
-            return self._represent_element(x)
-        else:
-            real_slices = [_pyslice_to_slice(s) for s in slices]
-            return self._to_py_tensor(self._data[real_slices])
+        from .tensor import BoolTensor, IntTensor
+
+        slices = self._coerce_index_arrays(slices)
+
+        # Collect advanced index positions (BoolTensor or IntTensor)
+        advanced = [(i, s) for i, s in enumerate(slices) if isinstance(s, (BoolTensor, IntTensor))]
+
+        if not advanced:
+            return self._getitem_slices(slices)
+
+        # Single full-shape BoolTensor: flat masked select
+        if len(slices) == 1 and isinstance(slices[0], BoolTensor):
+            return self._to_py_tensor(self._data.masked_select(slices[0]._data))  # type: ignore[arg-type]
+
+        # Apply plain slices first, leaving advanced index axes as slice(None)
+        slice_parts = tuple(slice(None) if isinstance(s, (BoolTensor, IntTensor)) else s for s in slices)
+        result = self._getitem_slices(slice_parts)
+
+        # Apply each advanced index sequentially (outer indexing)
+        for orig_pos, idx in advanced:
+            dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+            axis = orig_pos - dims_dropped
+            if isinstance(idx, BoolTensor):
+                result = self._to_py_tensor(result._data.axis_select(axis, idx._data))  # type: ignore[arg-type]
+            else:
+                resolved = _resolve_negative_indices(idx, result.shape[axis])
+                result = self._to_py_tensor(result._data.index_select(axis, resolved._data))
+
+        return result
+
+    def _getitem_slices(self, slices):
+        """Handle indexing with only int/slice components (no BoolTensor)."""
+        if len(slices) == 1 and isinstance(slices[0], int):
+            return self._represent_element(self._data._get_element(slices[0]))
+        if len(slices) == 1 and isinstance(slices[0], slice):
+            return self._to_py_tensor(self._data[[_pyslice_to_slice(slices[0])]])
+        if all(isinstance(s, int) for s in slices):
+            return self._represent_element(self._data._get_element(slices))
+        real_slices = [_pyslice_to_slice(s) for s in slices]
+        return self._to_py_tensor(self._data[real_slices])
 
     @abstractmethod
     def _get_valid_setitem_dtypes(self):
@@ -61,32 +147,83 @@ class Tensor(ABC):
             )
 
     def __setitem__(self, slices, val):
+        from .tensor import BoolTensor, IntTensor
+
+        slices = self._coerce_index_arrays(slices)
+
+        advanced = [(i, s) for i, s in enumerate(slices) if isinstance(s, (BoolTensor, IntTensor))]
+
         self._validate_setitem_dtype(val)
 
-        if isinstance(slices, int):
-            self._data._set_element([slices], self._decay_value(val))
-        elif isinstance(slices, slice):
-            real_slices = [_pyslice_to_slice(slices)]
+        if not advanced:
+            self._setitem_slices(slices, val)
+            return
+
+        # Single full-shape BoolTensor: flat masked assign/fill
+        if len(slices) == 1 and isinstance(slices[0], BoolTensor):
+            if isinstance(val, Tensor):
+                self._data.masked_assign(slices[0]._data, val._data)  # type: ignore[arg-type]
+            else:
+                self._data.masked_fill(slices[0]._data, self._decay_value(val))  # type: ignore[arg-type]
+            return
+
+        # Apply plain slices first to get a mutable view
+        slice_parts = tuple(slice(None) if isinstance(s, (BoolTensor, IntTensor)) else s for s in slices)
+        view = self._getitem_slices(slice_parts)
+
+        # Build selectors for outer indexing
+        selectors = []
+        for orig_pos, idx in advanced:
+            dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+            axis = orig_pos - dims_dropped
+            if isinstance(idx, BoolTensor):
+                selectors.append((axis, idx._data))
+            else:
+                resolved = _resolve_negative_indices(idx, view.shape[axis])
+                selectors.append((axis, resolved._data))
+
+        if len(selectors) == 1:
+            axis, sel_data = selectors[0]
+            if isinstance(slices[advanced[0][0]], BoolTensor):
+                if isinstance(val, Tensor):
+                    view._data.axis_assign(axis, sel_data, val._data)  # type: ignore[arg-type]
+                else:
+                    view._data.axis_fill(axis, sel_data, self._decay_value(val))  # type: ignore[arg-type]
+            else:
+                if isinstance(val, Tensor):
+                    view._data.index_assign(axis, sel_data, val._data)  # type: ignore[arg-type]
+                else:
+                    view._data.index_fill(axis, sel_data, self._decay_value(val))  # type: ignore[arg-type]
+        else:
+            if isinstance(val, Tensor):
+                view._data.outer_assign(selectors, val._data)  # type: ignore[arg-type]
+            else:
+                view._data.outer_fill(selectors, self._decay_value(val))  # type: ignore[arg-type]
+
+    def _setitem_slices(self, slices, val):
+        """Handle setitem with only int/slice components (no BoolTensor)."""
+        if len(slices) == 1 and isinstance(slices[0], int):
+            self._data._set_element([slices[0]], self._decay_value(val))
+        elif len(slices) == 1 and isinstance(slices[0], slice):
+            real_slices = [_pyslice_to_slice(slices[0])]
             self._data[real_slices] = val._data
         elif all(isinstance(s, int) for s in slices):
             self._data._set_element(slices, self._decay_value(val))
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
-            self._data[real_slices] = (
-                val._data
-            )  # TODO: 32/64 conversion, to_tensor, etc.
+            self._data[real_slices] = val._data
 
     def __eq__(self, rhs):
         if not isinstance(rhs, Tensor):
             return NotImplemented
         from .tensor import BoolTensor
-        return BoolTensor(self._data == rhs._data)
+        return BoolTensor(self._data == rhs._data)  # type: ignore[arg-type]
 
     def __ne__(self, rhs):
         if not isinstance(rhs, Tensor):
             return NotImplemented
         from .tensor import BoolTensor
-        return BoolTensor(self._data != rhs._data)
+        return BoolTensor(self._data != rhs._data)  # type: ignore[arg-type]
 
     def __lt__(self, rhs):
         from .tensor import BoolTensor
@@ -180,6 +317,24 @@ class Tensor(ABC):
 
     def flatten(self):
         return self._to_py_tensor(self._data.flatten())
+
+    def reshape(self, shape):
+        return self._to_py_tensor(self._data.reshape(list(shape)))
+
+    def transpose(self, axes=None):
+        return self._to_py_tensor(self._data.transpose(list(axes) if axes else []))
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def squeeze(self, axis=None):
+        if axis is None:
+            return self._to_py_tensor(self._data.squeeze())
+        return self._to_py_tensor(self._data.squeeze(axis))
+
+    def expand_dims(self, axis):
+        return self._to_py_tensor(self._data.expand_dims(axis))
 
     @property
     def shape(self) -> Shape:

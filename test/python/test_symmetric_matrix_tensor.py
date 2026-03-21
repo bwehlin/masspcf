@@ -1,16 +1,12 @@
 import pytest
 
 import masspcf as mpcf
-from masspcf.symmetric_matrix import (
-    SymmetricMatrix32Tensor,
-    SymmetricMatrix64Tensor,
-)
-from masspcf.typing import f32, f64, symmat32, symmat64
+from masspcf.symmetric_matrix import SymmetricMatrixTensor
+from masspcf.typing import float32, float64, symmat32, symmat64
 
 
 DTYPES = [symmat32, symmat64]
-SCALAR_DTYPES = {symmat32: f32, symmat64: f64}
-TENSOR_TYPES = {symmat32: SymmetricMatrix32Tensor, symmat64: SymmetricMatrix64Tensor}
+SCALAR_DTYPES = {symmat32: float32, symmat64: float64}
 
 
 @pytest.fixture(params=DTYPES, ids=["symmat32", "symmat64"])
@@ -30,7 +26,8 @@ def _make_matrix(n, dtype, values=None):
 class TestConstruction:
     def test_zeros(self, dtype):
         t = mpcf.zeros((5,), dtype=dtype)
-        assert isinstance(t, TENSOR_TYPES[dtype])
+        assert isinstance(t, SymmetricMatrixTensor)
+        assert t.dtype == dtype
         assert t.shape == mpcf.Shape((5,))
 
     def test_zeros_multidimensional(self, dtype):
