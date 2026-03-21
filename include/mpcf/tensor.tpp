@@ -917,34 +917,22 @@ namespace mpcf
         }
         else if constexpr (std::is_same_v<argT, SliceRange>)
         {
-          if (!arg.start)
-          {
-            arg.start = 0_z;
-          }
-          if (!arg.stop)
-          {
-            arg.stop = static_cast<ptrdiff_t>(ret.m_shape[i]);
-          }
           if (!arg.step)
           {
             arg.step = 1_z;
           }
 
-          auto start = *arg.start;
-          auto stop = *arg.stop;
           auto step = *arg.step;
+          auto dim_size = static_cast<ptrdiff_t>(ret.m_shape[i]);
 
-          if (start < 0_z)
-            start = 0;
-          if (stop > static_cast<std::ptrdiff_t>(ret.m_shape[i]))
-            stop = static_cast<std::ptrdiff_t>(ret.m_shape[i]);
+          if (step > 0)
+          {
+            auto start = arg.start.value_or(0_z);
+            auto stop = arg.stop.value_or(dim_size);
 
-          if (step == 0_z)
-          {
-            ret.m_shape[i] = 0;
-          }
-          else if (step > 0)
-          {
+            if (start < 0_z) start = 0;
+            if (stop > dim_size) stop = dim_size;
+
             if (stop <= start)
             {
               ret.m_shape[i] = 0;
@@ -953,13 +941,34 @@ namespace mpcf
             {
               ret.m_shape[i] = (stop - start + step - 1_z) / step;
             }
+
+            ret.m_offset += start * ret.m_strides[i];
+          }
+          else if (step < 0)
+          {
+            auto start = arg.start.value_or(dim_size - 1_z);
+            auto stop = arg.stop.value_or(-dim_size - 1_z);
+
+            if (start >= dim_size) start = dim_size - 1;
+            if (start < 0_z) start = 0;
+            if (stop < -1_z) stop = -1;
+
+            if (start <= stop)
+            {
+              ret.m_shape[i] = 0;
+            }
+            else
+            {
+              ret.m_shape[i] = (start - stop + (-step) - 1_z) / (-step);
+            }
+
+            ret.m_offset += start * ret.m_strides[i];
           }
           else
           {
-            throw std::runtime_error("Negative step not supported...");
+            ret.m_shape[i] = 0; // step == 0
           }
 
-          ret.m_offset += start * ret.m_strides[i]; // use clamped start
           ret.m_strides[i] *= step;
 
         }

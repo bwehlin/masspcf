@@ -90,6 +90,13 @@ Using slices returns a tensor (view)::
    sub = X[2:8, 1:, 2]       # shape (6, 4)
    every_other = X[::2, :, :]  # shape (5, 5, 4)
 
+Negative steps are supported for reversing or striding backwards::
+
+   Y = mpcf.FloatTensor(np.array([1, 2, 3, 4, 5], dtype=np.float32))
+   Y[::-1]       # [5, 4, 3, 2, 1]
+   Y[::-2]       # [5, 3, 1]
+   Y[3:0:-1]     # [4, 3, 2]
+
 Views share the underlying data with the original tensor, so no data is copied.
 
 Assignment

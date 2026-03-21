@@ -177,3 +177,49 @@ def test_recursive_extract():
         for j in range(v1.shape[1]):
             for k in range(v1.shape[2]):
                 assert v1[i, j, k] == np_v1[i, j, k]
+
+
+# --- Negative strides ---
+
+
+def test_reverse_1d():
+    np_arr = np.arange(5, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    np.testing.assert_array_equal(np.asarray(t[::-1]), np_arr[::-1])
+
+
+def test_reverse_1d_step2():
+    np_arr = np.arange(6, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    np.testing.assert_array_equal(np.asarray(t[::-2]), np_arr[::-2])
+
+
+def test_negative_step_with_bounds():
+    np_arr = np.arange(10, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    np.testing.assert_array_equal(np.asarray(t[7:2:-1]), np_arr[7:2:-1])
+    np.testing.assert_array_equal(np.asarray(t[8:1:-3]), np_arr[8:1:-3])
+
+
+def test_negative_step_2d():
+    np_arr = _populate(np.zeros((4, 5), dtype=np.float64))
+    t = mpcf.FloatTensor(np_arr)
+    np.testing.assert_array_equal(np.asarray(t[::-1, :]), np_arr[::-1, :])
+    np.testing.assert_array_equal(np.asarray(t[:, ::-1]), np_arr[:, ::-1])
+    np.testing.assert_array_equal(np.asarray(t[::-1, ::-1]), np_arr[::-1, ::-1])
+
+
+def test_negative_step_2d_with_bounds():
+    np_arr = _populate(np.zeros((5, 6), dtype=np.float64))
+    t = mpcf.FloatTensor(np_arr)
+    np.testing.assert_array_equal(np.asarray(t[3:0:-1, 5:1:-2]), np_arr[3:0:-1, 5:1:-2])
+
+
+def test_negative_step_empty_result():
+    np_arr = np.arange(5, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    # start < stop with negative step → empty
+    result = np.asarray(t[1:4:-1])
+    expected = np_arr[1:4:-1]
+    assert result.shape == expected.shape
+    np.testing.assert_array_equal(result, expected)
