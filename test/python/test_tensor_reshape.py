@@ -141,3 +141,46 @@ class TestTranspose:
         t = TensorType(np.arange(24, dtype=np_dtype).reshape(2, 3, 4))
         with pytest.raises((ValueError, RuntimeError)):
             t.transpose((2, 2, 0))
+
+
+# --- squeeze ---
+
+
+def _assert_squeeze(np_arr, axis, TensorType):
+    """Assert that mpcf squeeze matches NumPy."""
+    t = TensorType(np_arr)
+    if axis is None:
+        result = np.asarray(t.squeeze())
+        expected = np_arr.squeeze()
+    else:
+        result = np.asarray(t.squeeze(axis))
+        expected = np_arr.squeeze(axis=axis)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == expected.shape
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestSqueeze:
+    def test_squeeze_all(self, TensorType, np_dtype):
+        _assert_squeeze(np.arange(6, dtype=np_dtype).reshape(1, 6, 1), None, TensorType)
+
+    def test_squeeze_specific_axis(self, TensorType, np_dtype):
+        _assert_squeeze(np.arange(6, dtype=np_dtype).reshape(1, 6, 1), 0, TensorType)
+
+    def test_squeeze_last_axis(self, TensorType, np_dtype):
+        _assert_squeeze(np.arange(6, dtype=np_dtype).reshape(1, 6, 1), 2, TensorType)
+
+    def test_squeeze_no_size1_dims(self, TensorType, np_dtype):
+        _assert_squeeze(np.arange(12, dtype=np_dtype).reshape(3, 4), None, TensorType)
+
+    def test_squeeze_is_view(self, TensorType, np_dtype):
+        np_arr = np.arange(6, dtype=np_dtype).reshape(1, 6)
+        t = TensorType(np_arr)
+        sq = t.squeeze()
+        sq[0] = 99
+        assert t[0, 0] == 99
+
+    def test_squeeze_non_size1_raises(self, TensorType, np_dtype):
+        t = TensorType(np.arange(12, dtype=np_dtype).reshape(3, 4))
+        with pytest.raises((ValueError, RuntimeError)):
+            t.squeeze(0)

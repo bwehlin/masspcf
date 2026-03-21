@@ -158,6 +158,16 @@ To reverse the order of axes, use the ``.T`` property. For finer control,
 
 Transpose always returns a view.
 
+To remove size-1 dimensions, use ``squeeze``. With no argument it removes all
+of them; with an axis argument it removes only that one::
+
+   X = mpcf.FloatTensor(np.arange(6, dtype=np.float32).reshape(1, 6, 1))
+   X.squeeze()      # shape (6,)
+   X.squeeze(0)     # shape (6, 1)
+
+Squeeze always returns a view. Squeezing an axis whose size is not 1 raises
+``ValueError``.
+
 
 Arithmetic
 ==========

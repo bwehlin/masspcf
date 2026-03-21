@@ -893,6 +893,55 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T> Tensor<T>::squeeze() const
+  {
+    Tensor<T> ret;
+    ret.m_data = m_data;
+    ret.m_offset = m_offset;
+    ret.m_isContiguous = m_isContiguous;
+    ret.m_viewType = ViewType::Base;
+
+    for (size_t i = 0; i < m_shape.size(); ++i)
+    {
+      if (m_shape[i] != 1)
+      {
+        ret.m_shape.push_back(m_shape[i]);
+        ret.m_strides.push_back(m_strides[i]);
+      }
+    }
+
+    return ret;
+  }
+
+  template <typename T>
+  Tensor<T> Tensor<T>::squeeze(size_t axis) const
+  {
+    if (axis >= m_shape.size())
+      throw std::invalid_argument("squeeze: axis " + std::to_string(axis) +
+        " out of range for tensor with " + std::to_string(m_shape.size()) + " dimensions");
+    if (m_shape[axis] != 1)
+      throw std::invalid_argument("squeeze: cannot squeeze axis " + std::to_string(axis) +
+        " with size " + std::to_string(m_shape[axis]));
+
+    Tensor<T> ret;
+    ret.m_data = m_data;
+    ret.m_offset = m_offset;
+    ret.m_isContiguous = m_isContiguous;
+    ret.m_viewType = ViewType::Base;
+
+    for (size_t i = 0; i < m_shape.size(); ++i)
+    {
+      if (i != axis)
+      {
+        ret.m_shape.push_back(m_shape[i]);
+        ret.m_strides.push_back(m_strides[i]);
+      }
+    }
+
+    return ret;
+  }
+
+  template <typename T>
   Tensor<T> Tensor<T>::transpose(const std::vector<size_t>& axes) const
   {
     auto ndim = m_shape.size();

@@ -218,6 +218,16 @@ namespace mpcf
     [[nodiscard]] Tensor transpose(const std::vector<size_t>& axes = {}) const;
 
     /**
+     * Remove all size-1 dimensions. Returns a view.
+     */
+    [[nodiscard]] Tensor squeeze() const;
+
+    /**
+     * Remove a specific size-1 dimension. Raises if its size is not 1. Returns a view.
+     */
+    [[nodiscard]] Tensor squeeze(size_t axis) const;
+
+    /**
      * Make a deep copy of the tensor. The new tensor will be a contiguous version of the original tensor.
      * @return Deep copy of the tensor
      */

@@ -364,6 +364,11 @@ class Tensor(ABC):
     def T(self):
         return self.transpose()
 
+    def squeeze(self, axis=None):
+        if axis is None:
+            return self._to_py_tensor(self._data.squeeze())
+        return self._to_py_tensor(self._data.squeeze(axis))
+
     @property
     def shape(self) -> Shape:
         return self._data.shape
