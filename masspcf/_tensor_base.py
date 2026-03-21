@@ -66,6 +66,15 @@ def _resolve_negative_indices(index_tensor, axis_size):
 class Tensor(ABC):
     _data: CppTensor
 
+    __array_ufunc__ = None
+
+    def __array__(self, dtype=None, copy=None):
+        raise TypeError(
+            f"np.asarray() is not supported for {type(self).__name__}. "
+            f"Only numeric tensors (FloatTensor, IntTensor, BoolTensor) "
+            f"can be converted to NumPy arrays."
+        )
+
     @staticmethod
     def _coerce_index_arrays(slices):
         """Convert numpy bool/int arrays in an index tuple to BoolTensor/IntTensor."""
