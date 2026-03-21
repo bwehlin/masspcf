@@ -98,51 +98,31 @@ class Tensor(ABC):
 
         slices = self._coerce_index_arrays(slices)
 
-        # Find BoolTensor and IntTensor positions
-        bool_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, BoolTensor)]
-        int_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, IntTensor)]
+        # Collect advanced index positions (BoolTensor or IntTensor)
+        advanced = [(i, s) for i, s in enumerate(slices) if isinstance(s, (BoolTensor, IntTensor))]
 
-        if bool_positions and int_positions:
-            raise IndexError("Cannot mix BoolTensor and IntTensor indices")
-
-        if not bool_positions and not int_positions:
+        if not advanced:
             return self._getitem_slices(slices)
 
-        # --- BoolTensor indexing ---
-        if bool_positions:
-            # Single full-shape BoolTensor: flat masked select
-            if len(slices) == 1 and isinstance(slices[0], BoolTensor):
-                return self._to_py_tensor(self._data.masked_select(slices[0]._data))  # type: ignore[arg-type]
+        # Single full-shape BoolTensor: flat masked select
+        if len(slices) == 1 and isinstance(slices[0], BoolTensor):
+            return self._to_py_tensor(self._data.masked_select(slices[0]._data))  # type: ignore[arg-type]
 
-            # Apply slices first, then apply bool masks (outer indexing)
-            slice_parts = tuple(slice(None) if isinstance(s, BoolTensor) else s for s in slices)
-            result = self._getitem_slices(slice_parts)
-
-            if len(bool_positions) == 1:
-                orig_pos, bool_tensor = bool_positions[0]
-                dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-                axis = orig_pos - dims_dropped
-                return self._to_py_tensor(result._data.axis_select(axis, bool_tensor._data))  # type: ignore[arg-type]
-
-            axis_masks = []
-            for orig_pos, bool_tensor in bool_positions:
-                dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-                axis_masks.append((orig_pos - dims_dropped, bool_tensor._data))
-            return self._to_py_tensor(result._data.multi_axis_select(axis_masks))
-
-        # --- IntTensor advanced indexing ---
-        if len(int_positions) > 1:
-            raise IndexError("Only one IntTensor index per expression is supported")
-
-        slice_parts = tuple(slice(None) if isinstance(s, IntTensor) else s for s in slices)
+        # Apply plain slices first, leaving advanced index axes as slice(None)
+        slice_parts = tuple(slice(None) if isinstance(s, (BoolTensor, IntTensor)) else s for s in slices)
         result = self._getitem_slices(slice_parts)
 
-        orig_pos, index_tensor = int_positions[0]
-        dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-        axis = orig_pos - dims_dropped
+        # Apply each advanced index sequentially (outer indexing)
+        for orig_pos, idx in advanced:
+            dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+            axis = orig_pos - dims_dropped
+            if isinstance(idx, BoolTensor):
+                result = self._to_py_tensor(result._data.axis_select(axis, idx._data))  # type: ignore[arg-type]
+            else:
+                resolved = _resolve_negative_indices(idx, result.shape[axis])
+                result = self._to_py_tensor(result._data.index_select(axis, resolved._data))
 
-        resolved = _resolve_negative_indices(index_tensor, result.shape[axis])
-        return self._to_py_tensor(result._data.index_select(axis, resolved._data))
+        return result
 
     def _getitem_slices(self, slices):
         """Handle indexing with only int/slice components (no BoolTensor)."""
@@ -171,70 +151,54 @@ class Tensor(ABC):
 
         slices = self._coerce_index_arrays(slices)
 
-        # Find BoolTensor and IntTensor positions
-        bool_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, BoolTensor)]
-        int_positions = [(i, s) for i, s in enumerate(slices) if isinstance(s, IntTensor)]
-
-        if bool_positions and int_positions:
-            raise IndexError("Cannot mix BoolTensor and IntTensor indices")
+        advanced = [(i, s) for i, s in enumerate(slices) if isinstance(s, (BoolTensor, IntTensor))]
 
         self._validate_setitem_dtype(val)
 
-        if not bool_positions and not int_positions:
+        if not advanced:
             self._setitem_slices(slices, val)
             return
 
-        # --- BoolTensor indexing ---
-        if bool_positions:
-            # Single full-shape BoolTensor: flat masked assign/fill
-            if len(slices) == 1 and isinstance(slices[0], BoolTensor):
-                if isinstance(val, Tensor):
-                    self._data.masked_assign(slices[0]._data, val._data)  # type: ignore[arg-type]
-                else:
-                    self._data.masked_fill(slices[0]._data, self._decay_value(val))  # type: ignore[arg-type]
-                return
-
-            # Mixed indexing: apply slices first to get a mutable view, then axis ops
-            slice_parts = tuple(slice(None) if isinstance(s, BoolTensor) else s for s in slices)
-            view = self._getitem_slices(slice_parts)
-
-            def _build_axis_masks(positions):
-                masks = []
-                for orig_pos, bt in positions:
-                    dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-                    masks.append((orig_pos - dims_dropped, bt._data))
-                return masks
-
-            if len(bool_positions) == 1:
-                axis, mask_data = _build_axis_masks(bool_positions)[0]
-                if isinstance(val, Tensor):
-                    view._data.axis_assign(axis, mask_data, val._data)  # type: ignore[arg-type]
-                else:
-                    view._data.axis_fill(axis, mask_data, self._decay_value(val))  # type: ignore[arg-type]
+        # Single full-shape BoolTensor: flat masked assign/fill
+        if len(slices) == 1 and isinstance(slices[0], BoolTensor):
+            if isinstance(val, Tensor):
+                self._data.masked_assign(slices[0]._data, val._data)  # type: ignore[arg-type]
             else:
-                axis_masks = _build_axis_masks(bool_positions)
-                if isinstance(val, Tensor):
-                    view._data.multi_axis_assign(axis_masks, val._data)  # type: ignore[arg-type]
-                else:
-                    view._data.multi_axis_fill(axis_masks, self._decay_value(val))  # type: ignore[arg-type]
+                self._data.masked_fill(slices[0]._data, self._decay_value(val))  # type: ignore[arg-type]
             return
 
-        # --- IntTensor advanced indexing ---
-        if len(int_positions) > 1:
-            raise IndexError("Only one IntTensor index per expression is supported")
-
-        slice_parts = tuple(slice(None) if isinstance(s, IntTensor) else s for s in slices)
+        # Apply plain slices first to get a mutable view
+        slice_parts = tuple(slice(None) if isinstance(s, (BoolTensor, IntTensor)) else s for s in slices)
         view = self._getitem_slices(slice_parts)
 
-        orig_pos, index_tensor = int_positions[0]
-        dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-        axis = orig_pos - dims_dropped
+        # Build selectors for outer indexing
+        selectors = []
+        for orig_pos, idx in advanced:
+            dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+            axis = orig_pos - dims_dropped
+            if isinstance(idx, BoolTensor):
+                selectors.append((axis, idx._data))
+            else:
+                resolved = _resolve_negative_indices(idx, view.shape[axis])
+                selectors.append((axis, resolved._data))
 
-        resolved = _resolve_negative_indices(index_tensor, view.shape[axis])
-        if isinstance(val, Tensor):
-            view._data.index_assign(axis, resolved._data, val._data)  # type: ignore[arg-type]
+        if len(selectors) == 1:
+            axis, sel_data = selectors[0]
+            if isinstance(slices[advanced[0][0]], BoolTensor):
+                if isinstance(val, Tensor):
+                    view._data.axis_assign(axis, sel_data, val._data)  # type: ignore[arg-type]
+                else:
+                    view._data.axis_fill(axis, sel_data, self._decay_value(val))  # type: ignore[arg-type]
+            else:
+                if isinstance(val, Tensor):
+                    view._data.index_assign(axis, sel_data, val._data)  # type: ignore[arg-type]
+                else:
+                    view._data.index_fill(axis, sel_data, self._decay_value(val))  # type: ignore[arg-type]
         else:
-            view._data.index_fill(axis, resolved._data, self._decay_value(val))  # type: ignore[arg-type]
+            if isinstance(val, Tensor):
+                view._data.outer_assign(selectors, val._data)  # type: ignore[arg-type]
+            else:
+                view._data.outer_fill(selectors, self._decay_value(val))  # type: ignore[arg-type]
 
     def _setitem_slices(self, slices, val):
         """Handle setitem with only int/slice components (no BoolTensor)."""

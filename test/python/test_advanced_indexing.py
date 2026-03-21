@@ -192,13 +192,87 @@ class TestIntTensorAsIndex:
 # =============================================================================
 
 
-class TestAdvancedIndexErrors:
-    def test_mix_bool_and_int_raises(self):
-        t = _mpcf(np.zeros((2, 3), dtype=np.float32))
-        with pytest.raises(IndexError, match="Cannot mix"):
-            _ = t[np.array([True, False]), np.array([0, 2])]
+def _assert_outer_index(arr, index):
+    """Assert that mpcf multi-index with outer semantics matches np.ix_."""
+    arr = np.asarray(arr, dtype=np.float32)
+    t = _mpcf(arr)
+    result = np.asarray(t[index])
+    # Build np.ix_ equivalent: convert slices to full ranges, pass bool/int arrays through
+    ix_args = []
+    for i, idx in enumerate(index if isinstance(index, tuple) else (index,)):
+        if isinstance(idx, slice):
+            ix_args.append(np.arange(*idx.indices(arr.shape[i])))
+        elif hasattr(idx, 'dtype') and idx.dtype == np.bool_:
+            ix_args.append(idx)
+        else:
+            ix_args.append(np.asarray(idx))
+    expected = arr[np.ix_(*ix_args)]
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == expected.shape
 
-    def test_multiple_int_index_raises(self):
-        t = _mpcf(np.arange(24, dtype=np.float32).reshape(2, 3, 4))
-        with pytest.raises(IndexError, match="Only one"):
-            _ = t[np.array([0]), :, np.array([1])]
+
+class TestMultipleIntIndices:
+    def test_2d_outer(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_outer_index(arr, (np.array([0, 2]), np.array([1, 3])))
+
+    def test_3d_outer(self):
+        arr = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+        _assert_outer_index(arr, (np.array([0]), slice(None), np.array([1, 3])))
+
+    def test_2d_with_slice(self):
+        arr = np.arange(20, dtype=np.float32).reshape(4, 5)
+        _assert_outer_index(arr, (np.array([1, 3]), slice(1, 4)))
+
+
+class TestMixedBoolIntIndices:
+    def test_bool_rows_int_cols(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_outer_index(arr, (np.array([True, False, True]), np.array([0, 3])))
+
+    def test_int_rows_bool_cols(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_outer_index(arr, (np.array([0, 2]), np.array([False, True, True, False])))
+
+    def test_3d_mixed(self):
+        arr = np.arange(60, dtype=np.float32).reshape(3, 4, 5)
+        _assert_outer_index(arr, (np.array([True, False, True]), slice(None), np.array([0, 2, 4])))
+
+
+# =============================================================================
+# Setitem with multiple / mixed indices
+# =============================================================================
+
+
+def _assert_outer_setitem_scalar(arr, index, fill_value):
+    """Assert that mpcf outer setitem with scalar matches np.ix_."""
+    arr = np.asarray(arr, dtype=np.float32)
+    t = _mpcf(arr.copy())
+    np_arr = arr.copy()
+    t[index] = fill_value
+    ix_args = []
+    for i, idx in enumerate(index if isinstance(index, tuple) else (index,)):
+        if isinstance(idx, slice):
+            ix_args.append(np.arange(*idx.indices(arr.shape[i])))
+        elif hasattr(idx, 'dtype') and idx.dtype == np.bool_:
+            ix_args.append(idx)
+        else:
+            ix_args.append(np.asarray(idx))
+    np_arr[np.ix_(*ix_args)] = fill_value
+    np.testing.assert_array_equal(np.asarray(t), np_arr)
+
+
+class TestOuterSetitem:
+    def test_multi_int_scalar_fill(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_outer_setitem_scalar(arr, (np.array([0, 2]), np.array([1, 3])), -1.0)
+
+    def test_mixed_bool_int_scalar_fill(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        _assert_outer_setitem_scalar(
+            arr, (np.array([True, False, True]), np.array([0, 3])), -1.0)
+
+    def test_3d_mixed_scalar_fill(self):
+        arr = np.arange(60, dtype=np.float32).reshape(3, 4, 5)
+        _assert_outer_setitem_scalar(
+            arr, (np.array([True, False, True]), slice(None), np.array([0, 2, 4])), 0.0)

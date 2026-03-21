@@ -699,6 +699,118 @@ namespace mpcf
     });
   }
 
+  // ============================================================================
+  // Generalized outer indexing (bool masks and/or int indices)
+  // ============================================================================
+
+  namespace detail
+  {
+    struct ResolvedSelector
+    {
+      size_t axis;
+      std::vector<size_t> indices;  // selected positions along this axis
+    };
+
+    inline std::vector<ResolvedSelector> resolve_selectors(
+      const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+      const std::vector<size_t>& shape)
+    {
+      std::vector<ResolvedSelector> result;
+      result.reserve(selectors.size());
+      for (const auto& [axis, sel] : selectors)
+      {
+        if (axis >= shape.size())
+          throw std::invalid_argument("outer indexing: axis " + std::to_string(axis) +
+            " out of range for tensor with " + std::to_string(shape.size()) + " dimensions");
+
+        ResolvedSelector rs;
+        rs.axis = axis;
+        std::visit([&](const auto& idx_tensor) {
+          using IdxT = std::decay_t<decltype(idx_tensor)>;
+          if (idx_tensor.shape().size() != 1)
+            throw std::invalid_argument("outer indexing: selector must be 1D");
+
+          if constexpr (std::is_same_v<IdxT, Tensor<bool>>)
+          {
+            if (idx_tensor.shape()[0] != shape[axis])
+              throw std::invalid_argument("outer indexing: bool mask length must match axis size");
+            rs.indices = collect_true_indices(idx_tensor);
+          }
+          else
+          {
+            rs.indices.reserve(idx_tensor.shape()[0]);
+            for (size_t i = 0; i < idx_tensor.shape()[0]; ++i)
+              rs.indices.push_back(static_cast<size_t>(idx_tensor({i})));
+          }
+        }, sel);
+        result.push_back(std::move(rs));
+      }
+      return result;
+    }
+  }
+
+  template <typename T>
+  Tensor<T> outer_select(const Tensor<T>& src,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors)
+  {
+    auto resolved = detail::resolve_selectors(selectors, src.shape());
+
+    auto out_shape = src.shape();
+    for (const auto& rs : resolved)
+      out_shape[rs.axis] = rs.indices.size();
+
+    Tensor<T> result(out_shape);
+    walk(result, [&](const std::vector<size_t>& out_idx) {
+      auto src_idx = out_idx;
+      for (const auto& rs : resolved)
+        src_idx[rs.axis] = rs.indices[out_idx[rs.axis]];
+      result(out_idx) = src(src_idx);
+    });
+
+    return result;
+  }
+
+  template <typename T>
+  void outer_fill(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+    const T& value)
+  {
+    auto resolved = detail::resolve_selectors(selectors, dst.shape());
+
+    // Build a fast lookup: for each axis with a selector, a set of selected indices
+    std::vector<std::vector<bool>> axis_selected(dst.shape().size());
+    for (const auto& rs : resolved)
+    {
+      axis_selected[rs.axis].assign(dst.shape()[rs.axis], false);
+      for (size_t idx : rs.indices)
+        axis_selected[rs.axis][idx] = true;
+    }
+
+    walk(dst, [&](const std::vector<size_t>& idx) {
+      for (const auto& rs : resolved)
+      {
+        if (!axis_selected[rs.axis][idx[rs.axis]])
+          return;
+      }
+      dst(idx) = value;
+    });
+  }
+
+  template <typename T>
+  void outer_assign(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+    const Tensor<T>& values)
+  {
+    auto resolved = detail::resolve_selectors(selectors, dst.shape());
+
+    walk(values, [&](const std::vector<size_t>& val_idx) {
+      auto dst_idx = val_idx;
+      for (const auto& rs : resolved)
+        dst_idx[rs.axis] = rs.indices[val_idx[rs.axis]];
+      dst(dst_idx) = values(val_idx);
+    });
+  }
+
   namespace detail
   {
     template <typename I>

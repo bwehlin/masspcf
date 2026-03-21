@@ -207,8 +207,17 @@ Both scalar fill and tensor assignment work with integer array indices::
    X[np.array([1, 3])] = 0.0                       # scalar fill
    X[np.array([0, 2])] = mpcf.FloatTensor(...)      # tensor assign
 
-Limitations
------------
+Multiple index arrays
+---------------------
 
-Only one integer array index is allowed per expression. Mixing boolean and
-integer array indices in the same expression raises ``IndexError``.
+Multiple integer arrays and boolean masks can be combined freely in the same
+expression. Each index selects independently along its own axis (outer
+indexing), consistent with the boolean masking behavior::
+
+   arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+   X = mpcf.FloatTensor(arr)
+   X[np.array([0, 2]), np.array([1, 3])]   # shape (2, 2) — rows 0, 2 × cols 1, 3
+
+Boolean and integer indices can be mixed::
+
+   X[np.array([True, False, True]), np.array([0, 3])]  # shape (2, 2)

@@ -331,6 +331,16 @@ namespace mpcf_py
       mpcf::multi_axis_fill(self, axis_masks, value);
     });
 
+    cls.def("outer_select", [](const TTensor& self, const std::vector<std::pair<size_t, mpcf::AxisSelector>>& selectors) {
+      return mpcf::outer_select(self, selectors);
+    });
+    cls.def("outer_assign", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::AxisSelector>>& selectors, const TTensor& values) {
+      mpcf::outer_assign(self, selectors, values);
+    });
+    cls.def("outer_fill", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::AxisSelector>>& selectors, const T& value) {
+      mpcf::outer_fill(self, selectors, value);
+    });
+
     // Index-based gather/scatter (always use int64 as index type)
     cls.def("index_select", [](const TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices) {
       return mpcf::index_select(self, axis, indices);

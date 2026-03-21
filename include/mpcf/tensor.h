@@ -488,6 +488,38 @@ namespace mpcf
     const Tensor<T>& values);
 
   // ============================================================================
+  // Generalized multi-axis operations (bool masks and/or int indices)
+  // ============================================================================
+
+  /// An axis selector: either a boolean mask or an integer index array.
+  using AxisSelector = std::variant<Tensor<bool>, Tensor<int64_t>>;
+
+  /**
+   * Select along multiple axes using any mix of bool masks and int index arrays
+   * (outer indexing). Each pair is (axis, selector).
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> outer_select(const Tensor<T>& src,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors);
+
+  /**
+   * Fill dst with a scalar at positions selected by outer indexing.
+   */
+  template <typename T>
+  void outer_fill(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+    const T& value);
+
+  /**
+   * Assign values into dst at positions selected by outer indexing.
+   * values.shape() must match the outer_select output shape.
+   */
+  template <typename T>
+  void outer_assign(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, AxisSelector>>& selectors,
+    const Tensor<T>& values);
+
+  // ============================================================================
   // Index-based gather/scatter operations
   // ============================================================================
 
