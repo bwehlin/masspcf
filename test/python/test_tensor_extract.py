@@ -223,3 +223,69 @@ def test_negative_step_empty_result():
     expected = np_arr[1:4:-1]
     assert result.shape == expected.shape
     np.testing.assert_array_equal(result, expected)
+
+
+def test_negative_stride_copy():
+    np_arr = np.arange(12, dtype=np.float64).reshape(3, 4)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1, ::-1]
+    c = rev.copy()
+    np.testing.assert_array_equal(np.asarray(c), np_arr[::-1, ::-1])
+    # Mutating the copy must not affect the original
+    c[0, 0] = -99.0
+    assert t[0, 0] == np_arr[0, 0]
+
+
+def test_negative_stride_arithmetic():
+    np_arr = np.arange(6, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1]
+    result = np.asarray(rev + mpcf.FloatTensor(np.ones(6)))
+    np.testing.assert_array_equal(result, np_arr[::-1] + 1.0)
+
+
+def test_negative_stride_scalar_arithmetic():
+    np_arr = np.arange(6, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1]
+    np.testing.assert_array_equal(np.asarray(rev * 2.0), np_arr[::-1] * 2.0)
+    np.testing.assert_array_equal(np.asarray(rev + 10.0), np_arr[::-1] + 10.0)
+
+
+def test_negative_stride_broadcast():
+    np_arr = np.arange(12, dtype=np.float64).reshape(3, 4)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1, :]
+    bias = mpcf.FloatTensor(np.array([10, 20, 30, 40], dtype=np.float64))
+    result = np.asarray(rev + bias)
+    np.testing.assert_array_equal(result, np_arr[::-1, :] + np.array([10, 20, 30, 40]))
+
+
+def test_negative_stride_bool_mask():
+    np_arr = np.arange(6, dtype=np.float32)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1]
+    mask = mpcf.BoolTensor(np.array([True, False, True, False, True, False]))
+    result = np.asarray(rev[mask])
+    expected = np_arr[::-1][np.array([True, False, True, False, True, False])]
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_negative_stride_save_load(tmp_path):
+    np_arr = np.arange(12, dtype=np.float64).reshape(3, 4)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1, ::-1]
+    path = tmp_path / "rev.mpcf"
+    mpcf.save(rev, str(path))
+    loaded = mpcf.load(str(path))
+    np.testing.assert_array_equal(np.asarray(loaded), np_arr[::-1, ::-1])
+
+
+def test_negative_stride_comparison():
+    np_arr = np.arange(5, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1]
+    threshold = mpcf.FloatTensor(np.full(5, 2.0))
+    result = np.asarray(rev > threshold)
+    expected = np_arr[::-1] > 2.0
+    np.testing.assert_array_equal(result, expected)
