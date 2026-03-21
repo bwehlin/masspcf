@@ -281,6 +281,36 @@ def test_negative_stride_save_load(tmp_path):
     np.testing.assert_array_equal(np.asarray(loaded), np_arr[::-1, ::-1])
 
 
+def test_negative_stride_then_slice():
+    np_arr = np.arange(20, dtype=np.float64).reshape(4, 5)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1, :]
+    result = np.asarray(rev[1:3, 2:4])
+    np.testing.assert_array_equal(result, np_arr[::-1][1:3, 2:4])
+
+
+def test_negative_stride_then_positive_step():
+    np_arr = np.arange(20, dtype=np.float64).reshape(4, 5)
+    t = mpcf.FloatTensor(np_arr)
+    rev = t[::-1, :]
+    result = np.asarray(rev[::2, :])
+    np.testing.assert_array_equal(result, np_arr[::-1][::2])
+
+
+def test_double_reverse():
+    np_arr = np.arange(20, dtype=np.float64).reshape(4, 5)
+    t = mpcf.FloatTensor(np_arr)
+    result = np.asarray(t[::-1, :][::-1, :])
+    np.testing.assert_array_equal(result, np_arr)
+
+
+def test_negative_stride_then_negative_stride():
+    np_arr = np.arange(20, dtype=np.float64).reshape(4, 5)
+    t = mpcf.FloatTensor(np_arr)
+    result = np.asarray(t[::-1, :][::-1, ::-1])
+    np.testing.assert_array_equal(result, np_arr[:, ::-1])
+
+
 def test_negative_stride_comparison():
     np_arr = np.arange(5, dtype=np.float64)
     t = mpcf.FloatTensor(np_arr)
