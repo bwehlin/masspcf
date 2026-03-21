@@ -148,3 +148,21 @@ def zeros(shape: ShapeLike, dtype: Dtype = pcf32):
         return SymmetricMatrixTensor(cpp.SymmetricMatrix64Tensor(shape))
     else:
         raise NotImplementedError("This dtype has not been implemented.")
+
+
+def concatenate(tensors, axis=0):
+    """Concatenate tensors along an existing axis (outer indexing)."""
+    if not tensors:
+        raise ValueError("need at least one tensor to concatenate")
+    cpp_tensors = [t._data for t in tensors]
+    result = type(cpp_tensors[0]).concatenate(cpp_tensors, axis)
+    return tensors[0]._to_py_tensor(result)
+
+
+def stack(tensors, axis=0):
+    """Stack tensors along a new axis. All tensors must have the same shape."""
+    if not tensors:
+        raise ValueError("need at least one tensor to stack")
+    cpp_tensors = [t._data for t in tensors]
+    result = type(cpp_tensors[0]).stack(cpp_tensors, axis)
+    return tensors[0]._to_py_tensor(result)

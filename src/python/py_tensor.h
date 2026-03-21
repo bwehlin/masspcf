@@ -247,6 +247,12 @@ namespace mpcf_py
       .def("squeeze", [](const TTensor& self) { return self.squeeze(); })
       .def("squeeze", [](const TTensor& self, size_t axis) { return self.squeeze(axis); }, pybind11::arg("axis"))
       .def("expand_dims", &TTensor::expand_dims, pybind11::arg("axis"))
+      .def_static("concatenate", [](const std::vector<TTensor>& tensors, size_t axis) {
+        return mpcf::concatenate(tensors, axis);
+      }, pybind11::arg("tensors"), pybind11::arg("axis") = 0)
+      .def_static("stack", [](const std::vector<TTensor>& tensors, ptrdiff_t axis) {
+        return mpcf::stack(tensors, axis);
+      }, pybind11::arg("tensors"), pybind11::arg("axis") = 0)
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 

@@ -520,6 +520,24 @@ namespace mpcf
     const Tensor<T>& values);
 
   // ============================================================================
+  // Joining operations
+  // ============================================================================
+
+  /**
+   * Concatenate tensors along an existing axis.
+   * All tensors must have the same shape except along the join axis.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> concatenate(const std::vector<Tensor<T>>& tensors, size_t axis);
+
+  /**
+   * Stack tensors along a new axis.
+   * All tensors must have the same shape. Supports negative axis.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> stack(const std::vector<Tensor<T>>& tensors, ptrdiff_t axis);
+
+  // ============================================================================
   // Index-based gather/scatter operations
   // ============================================================================
 

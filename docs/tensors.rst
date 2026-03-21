@@ -121,3 +121,22 @@ position (negative indexing supported)::
    Y.expand_dims(-1)   # shape (6, 1)
 
 Expand dims also returns a view.
+
+
+Joining tensors
+===============
+
+``concatenate`` joins tensors along an existing axis::
+
+   A = mpcf.FloatTensor(np.array([[1, 2], [3, 4]], dtype=np.float32))  # (2, 2)
+   B = mpcf.FloatTensor(np.array([[5, 6]], dtype=np.float32))          # (1, 2)
+   mpcf.concatenate((A, B), axis=0)   # (3, 2)
+
+All tensors must have the same shape except along the join axis.
+
+``stack`` joins tensors along a new axis (all shapes must match)::
+
+   X = mpcf.FloatTensor(np.array([1, 2, 3], dtype=np.float32))  # (3,)
+   Y = mpcf.FloatTensor(np.array([4, 5, 6], dtype=np.float32))  # (3,)
+   mpcf.stack((X, Y), axis=0)    # (2, 3)
+   mpcf.stack((X, Y), axis=1)    # (3, 2)

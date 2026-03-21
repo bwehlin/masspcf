@@ -811,6 +811,87 @@ namespace mpcf
     });
   }
 
+  // ============================================================================
+  // Joining operations
+  // ============================================================================
+
+  template <typename T>
+  Tensor<T> concatenate(const std::vector<Tensor<T>>& tensors, size_t axis)
+  {
+    if (tensors.empty())
+      throw std::invalid_argument("concatenate: need at least one tensor");
+
+    auto ndim = tensors[0].shape().size();
+    if (axis >= ndim)
+      throw std::invalid_argument("concatenate: axis " + std::to_string(axis) +
+        " out of range for " + std::to_string(ndim) + "-D tensor");
+
+    // Validate shapes match on all axes except the join axis
+    for (size_t t = 1; t < tensors.size(); ++t)
+    {
+      if (tensors[t].shape().size() != ndim)
+        throw std::invalid_argument("concatenate: all tensors must have the same number of dimensions");
+      for (size_t d = 0; d < ndim; ++d)
+      {
+        if (d != axis && tensors[t].shape()[d] != tensors[0].shape()[d])
+          throw std::invalid_argument("concatenate: shape mismatch on dimension " + std::to_string(d));
+      }
+    }
+
+    // Compute output shape
+    auto out_shape = tensors[0].shape();
+    out_shape[axis] = 0;
+    for (const auto& t : tensors)
+      out_shape[axis] += t.shape()[axis];
+
+    Tensor<T> result(out_shape);
+
+    // Copy each tensor's data into the result
+    size_t offset = 0;
+    for (const auto& src : tensors)
+    {
+      auto src_axis_size = src.shape()[axis];
+      walk(src, [&](const std::vector<size_t>& src_idx) {
+        auto dst_idx = src_idx;
+        dst_idx[axis] += offset;
+        result(dst_idx) = src(src_idx);
+      });
+      offset += src_axis_size;
+    }
+
+    return result;
+  }
+
+  template <typename T>
+  Tensor<T> stack(const std::vector<Tensor<T>>& tensors, ptrdiff_t axis)
+  {
+    if (tensors.empty())
+      throw std::invalid_argument("stack: need at least one tensor");
+
+    auto ndim = static_cast<ptrdiff_t>(tensors[0].shape().size());
+
+    // Resolve negative axis; valid range for new axis is [-(ndim+1), ndim]
+    if (axis < 0)
+      axis += ndim + 1;
+    if (axis < 0 || axis > ndim)
+      throw std::invalid_argument("stack: axis out of range");
+
+    // Validate all shapes match
+    for (size_t t = 1; t < tensors.size(); ++t)
+    {
+      if (tensors[t].shape() != tensors[0].shape())
+        throw std::invalid_argument("stack: all tensors must have the same shape");
+    }
+
+    // expand_dims each tensor, then concatenate along the new axis
+    std::vector<Tensor<T>> expanded;
+    expanded.reserve(tensors.size());
+    for (const auto& t : tensors)
+      expanded.push_back(t.expand_dims(axis));
+
+    return concatenate(expanded, static_cast<size_t>(axis));
+  }
+
   namespace detail
   {
     template <typename I>
