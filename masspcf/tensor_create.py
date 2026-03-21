@@ -18,6 +18,7 @@ from .tensor import (
     BoolTensor,
     FloatTensor,
     IntPcfTensor,
+    IntTensor,
     PcfTensor,
     PointCloudTensor,
 )
@@ -31,6 +32,8 @@ from .typing import (
     distmat64,
     float32,
     float64,
+    int32,
+    int64,
     pcf32,
     pcf32i,
     pcf64,
@@ -39,6 +42,8 @@ from .typing import (
     pcloud64,
     symmat32,
     symmat64,
+    uint32,
+    uint64,
 )
 
 cpp_p = cpp.persistence
@@ -83,6 +88,10 @@ def zeros(shape: ShapeLike, dtype: Dtype = pcf32):
             pcf64i,
             float32,
             float64,
+            int32,
+            int64,
+            uint32,
+            uint64,
             boolean,
             pcloud32,
             pcloud64,
@@ -109,6 +118,14 @@ def zeros(shape: ShapeLike, dtype: Dtype = pcf32):
         return FloatTensor(cpp.Float32Tensor(shape, 0.0))
     elif dtype == float64:
         return FloatTensor(cpp.Float64Tensor(shape, 0.0))
+    elif dtype == int32:
+        return IntTensor(cpp.Int32Tensor(shape, 0))
+    elif dtype == int64:
+        return IntTensor(cpp.Int64Tensor(shape, 0))
+    elif dtype == uint32:
+        return IntTensor(cpp.Uint32Tensor(shape, 0))
+    elif dtype == uint64:
+        return IntTensor(cpp.Uint64Tensor(shape, 0))
     elif dtype == pcloud32:
         return PointCloudTensor(cpp.PointCloud32Tensor(shape))
     elif dtype == pcloud64:

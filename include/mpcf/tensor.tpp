@@ -622,6 +622,93 @@ namespace mpcf
     });
   }
 
+  namespace detail
+  {
+    template <typename I>
+    void validate_axis_indices(size_t axis, size_t ndim, const Tensor<I>& indices, size_t axis_size)
+    {
+      if (axis >= ndim)
+      {
+        throw std::invalid_argument(
+          "axis " + std::to_string(axis) +
+          " out of range for tensor with " + std::to_string(ndim) + " dimensions");
+      }
+      if (indices.shape().size() != 1)
+      {
+        throw std::invalid_argument("indices must be 1D");
+      }
+      for (size_t i = 0; i < indices.shape()[0]; ++i)
+      {
+        auto idx = static_cast<size_t>(indices({i}));
+        if (idx >= axis_size)
+        {
+          throw std::out_of_range(
+            "index " + std::to_string(indices({i})) +
+            " is out of bounds for axis with size " + std::to_string(axis_size));
+        }
+      }
+    }
+  }
+
+  template <typename T, typename I>
+  Tensor<T> index_select(const Tensor<T>& src, size_t axis, const Tensor<I>& indices)
+  {
+    detail::validate_axis_indices(axis, src.shape().size(), indices, src.shape()[axis]);
+
+    auto out_shape = src.shape();
+    out_shape[axis] = indices.shape()[0];
+
+    if (indices.shape()[0] == 0)
+    {
+      return Tensor<T>(out_shape);
+    }
+
+    Tensor<T> result(out_shape);
+    walk(result, [&](const std::vector<size_t>& out_idx) {
+      auto src_idx = out_idx;
+      src_idx[axis] = static_cast<size_t>(indices({out_idx[axis]}));
+      result(out_idx) = src(src_idx);
+    });
+
+    return result;
+  }
+
+  template <typename T, typename I>
+  void index_assign(Tensor<T>& dst, size_t axis, const Tensor<I>& indices, const Tensor<T>& values)
+  {
+    detail::validate_axis_indices(axis, dst.shape().size(), indices, dst.shape()[axis]);
+
+    auto expected_shape = dst.shape();
+    expected_shape[axis] = indices.shape()[0];
+    if (values.shape() != expected_shape)
+    {
+      throw std::invalid_argument(
+        "index_assign: values shape does not match expected shape");
+    }
+
+    walk(values, [&](const std::vector<size_t>& val_idx) {
+      auto dst_idx = val_idx;
+      dst_idx[axis] = static_cast<size_t>(indices({val_idx[axis]}));
+      dst(dst_idx) = values(val_idx);
+    });
+  }
+
+  template <typename T, typename I>
+  void index_fill(Tensor<T>& dst, size_t axis, const Tensor<I>& indices, const T& value)
+  {
+    detail::validate_axis_indices(axis, dst.shape().size(), indices, dst.shape()[axis]);
+
+    for (size_t i = 0; i < indices.shape()[0]; ++i)
+    {
+      auto target = static_cast<size_t>(indices({i}));
+      // Walk over all positions along the other axes
+      walk(dst, [&](const std::vector<size_t>& idx) {
+        if (idx[axis] == target)
+          dst(idx) = value;
+      });
+    }
+  }
+
   template <typename T>
   [[nodiscard]] size_t Tensor<T>::size() const noexcept
   {

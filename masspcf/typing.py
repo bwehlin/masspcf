@@ -32,6 +32,14 @@ class int64:
     pass
 
 
+class uint32:
+    pass
+
+
+class uint64:
+    pass
+
+
 class pcf32:
     pass
 
@@ -87,7 +95,7 @@ class boolean:
 Dtype = type[
     pcf32 | pcf64 | pcf32i | pcf64i
     | float32 | float64
-    | int32 | int64
+    | int32 | int64 | uint32 | uint64
     | pcloud32 | pcloud64
     | barcode32 | barcode64
     | symmat32 | symmat64
@@ -100,6 +108,8 @@ _MPCF_TO_NP = {
     float64: np.float64,
     int32: np.int32,
     int64: np.int64,
+    uint32: np.uint32,
+    uint64: np.uint64,
 }
 
 _NP_TO_MPCF = {
@@ -107,6 +117,8 @@ _NP_TO_MPCF = {
     np.float64: float64,
     np.int32: int32,
     np.int64: int64,
+    np.uint32: uint32,
+    np.uint64: uint64,
 }
 
 

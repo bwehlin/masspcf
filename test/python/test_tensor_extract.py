@@ -1,193 +1,179 @@
+import copy
+
 import numpy as np
+import pytest
 from utils import np_strides_in_items
 
 import masspcf as mpcf
 
 
-def test_extract_element():
-    X = mpcf.zeros((2, 3), dtype=mpcf.float64)
-
-    print(X.strides)
-
-    assert X[1, 0] == 0.0
-
-    X[0, 1] = 2.0
-
-    assert X[0, 1] == 2.0
+_NUMERIC_TYPES = [
+    pytest.param(mpcf.FloatTensor, np.float64, id="float64"),
+    pytest.param(mpcf.FloatTensor, np.float32, id="float32"),
+    pytest.param(mpcf.IntTensor, np.int32, id="int32"),
+    pytest.param(mpcf.IntTensor, np.int64, id="int64"),
+]
 
 
-def test_extract_element1d():
-    X = mpcf.zeros((2), dtype=mpcf.float64)
-    X[1] = 2.0
+def _populate(np_arr):
+    """Fill an array with unique values based on index: 100*i + 10*j + k ..."""
+    it = np.nditer(np_arr, flags=['multi_index'], op_flags=['writeonly'])
+    while not it.finished:
+        idx = it.multi_index
+        val = sum(v * 10 ** (len(idx) - 1 - i) for i, v in enumerate(idx))
+        it[0] = val
+        it.iternext()
+    return np_arr
 
-    assert X[0] == 0.0
-    assert X[1] == 2.0
+
+def _assert_extract(np_arr, index, TensorType=mpcf.FloatTensor):
+    """Assert that mpcf slicing matches numpy slicing."""
+    t = TensorType(np_arr)
+    result = np.asarray(t[index]) if not isinstance(t[index], (int, float)) else t[index]
+    expected = np_arr[index]
+    if isinstance(expected, np.ndarray):
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == expected.shape
+    else:
+        assert result == expected
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestScalarIndexing:
+    def test_extract_element(self, TensorType, np_dtype):
+        np_arr = np.array([[0, 0, 0], [0, 0, 0]], dtype=np_dtype)
+        np_arr[0, 1] = 2
+        t = TensorType(np_arr)
+        assert t[1, 0] == np_arr[1, 0]
+        assert t[0, 1] == np_arr[0, 1]
+
+    def test_extract_element1d(self, TensorType, np_dtype):
+        np_arr = np.array([0, 2], dtype=np_dtype)
+        t = TensorType(np_arr)
+        assert t[0] == np_arr[0]
+        assert t[1] == np_arr[1]
+
+    def test_slice_getitem(self, TensorType, np_dtype):
+        np_arr = np.array([10, 20, 30, 40], dtype=np_dtype)
+        t = TensorType(np_arr)
+        s = t[1:3]
+        assert isinstance(s, TensorType)
+        np.testing.assert_array_equal(np.asarray(s), np_arr[1:3])
+
+    def test_2d_indexing(self, TensorType, np_dtype):
+        np_arr = np.array([[1, 2, 3], [4, 5, 6]], dtype=np_dtype)
+        t = TensorType(np_arr)
+        assert t[0, 1] == np_arr[0, 1]
+        assert t[1, 2] == np_arr[1, 2]
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestCopy:
+    def test_copy(self, TensorType, np_dtype):
+        arr = np.array([1, 2, 3], dtype=np_dtype)
+        t = TensorType(arr)
+        t2 = t.copy()
+        assert isinstance(t2, TensorType)
+        np.testing.assert_array_equal(np.asarray(t2), arr)
+        # Mutating the copy must not affect the original
+        t2[0] = 99
+        assert t[0] == 1
+
+    def test_deepcopy(self, TensorType, np_dtype):
+        arr = np.array([1, 2, 3], dtype=np_dtype)
+        t = TensorType(arr)
+        t2 = copy.deepcopy(t)
+        assert isinstance(t2, TensorType)
+        np.testing.assert_array_equal(np.asarray(t2), arr)
+        # Mutating the deep copy must not affect the original
+        t2[0] = 99
+        assert t[0] == 1
+
+
+# --- Float-specific stride and multi-dim extract tests ---
 
 
 def test_extract_subtensor():
-    X = mpcf.zeros((3, 4, 5), dtype=mpcf.float64)
+    np_arr = _populate(np.zeros((3, 4, 5), dtype=np.float64))
+    t = mpcf.FloatTensor(np_arr)
 
-    for i in range(3):
-        for j in range(4):
-            for k in range(5):
-                X[i, j, k] = 100 * i + 10 * j + k
+    np_sub = np_arr[:, 1:3, 2:4]
+    sub = t[:, 1:3, 2:4]
 
-    Y = X[:, 1:3, 2:4]
+    assert sub.shape == np_sub.shape
 
-    assert Y.shape == mpcf.Shape((3, 2, 2))
-
-    assert Y[0, 0, 0] == X[0, 1, 2]
-    assert Y[0, 0, 1] == X[0, 1, 3]
-
-    assert Y[0, 1, 0] == X[0, 2, 2]
-    assert Y[0, 1, 1] == X[0, 2, 3]
-
-    assert Y[1, 0, 0] == X[1, 1, 2]
-    assert Y[1, 0, 1] == X[1, 1, 3]
-
-    assert Y[1, 1, 0] == X[1, 2, 2]
-    assert Y[1, 1, 1] == X[1, 2, 3]
-
-    assert Y[2, 0, 0] == X[2, 1, 2]
-    assert Y[2, 0, 1] == X[2, 1, 3]
-
-    assert Y[2, 1, 0] == X[2, 2, 2]
-    assert Y[2, 1, 1] == X[2, 2, 3]
+    for i in range(sub.shape[0]):
+        for j in range(sub.shape[1]):
+            for k in range(sub.shape[2]):
+                assert sub[i, j, k] == np_sub[i, j, k]
 
 
 def test_extract1d_with_step():
-    X = mpcf.zeros((6), dtype=mpcf.float64)
+    np_arr = np.arange(6, dtype=np.float64)
+    t = mpcf.FloatTensor(np_arr)
 
-    for i in range(X.shape[0]):
-        X[i] = i
+    np_view = np_arr[0:5:2]
+    view = t[0:5:2]
 
-    Y = X[0:5:2]  # start:stop:step
-
-    Xnp = np.zeros(6)
-    Ynp = Xnp[0:5:2]
-
-    assert Y.shape == Ynp.shape
-    assert Y[0] == 0
-    assert Y[1] == 2
-    assert Y[2] == 4
+    assert view.shape == np_view.shape
+    np.testing.assert_array_equal(np.asarray(view), np_view)
 
 
 def test_extract_with_step():
-    X = mpcf.zeros((3, 9, 2), dtype=mpcf.float64)
+    np_arr = _populate(np.zeros((3, 9, 2), dtype=np.float64))
+    t = mpcf.FloatTensor(np_arr)
 
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            for k in range(X.shape[2]):
-                X[i, j, k] = 100 * i + 10 * j + k
+    np_view = np_arr[:, 0:7:2, :]
+    view = t[:, 0:7:2, :]
 
-    Y = X[:, 0:7:2, :]  # start:stop:step
+    assert view.shape == np_view.shape
+    assert view.strides == np_strides_in_items(np_view)
 
-    Xnp = np.zeros((3, 9, 2))
-    Ynp = Xnp[:, 0:7:2, :]
-
-    assert Y.shape == Ynp.shape  # (3, 4 ,2)
-    assert Y.strides == np_strides_in_items(Ynp)
-
-    print(Y.shape)
-
-    assert Y[0, 0, 0] == X[0, 0, 0]
-    assert Y[0, 0, 1] == X[0, 0, 1]
-
-    assert Y[0, 1, 0] == X[0, 2, 0]
-    assert Y[0, 1, 1] == X[0, 2, 1]
-
-    assert Y[0, 2, 0] == X[0, 4, 0]
-    assert Y[0, 2, 1] == X[0, 4, 1]
-
-    assert Y[0, 3, 0] == X[0, 6, 0]
-    assert Y[0, 3, 1] == X[0, 6, 1]
-
-    assert Y[1, 0, 0] == X[1, 0, 0]
-    assert Y[1, 0, 1] == X[1, 0, 1]
-
-    assert Y[1, 1, 0] == X[1, 2, 0]
-    assert Y[1, 1, 1] == X[1, 2, 1]
-
-    assert Y[1, 2, 0] == X[1, 4, 0]
-    assert Y[1, 2, 1] == X[1, 4, 1]
-
-    assert Y[1, 3, 0] == X[1, 6, 0]
-    assert Y[1, 3, 1] == X[1, 6, 1]
-
-    assert Y[2, 0, 0] == X[2, 0, 0]
-    assert Y[2, 0, 1] == X[2, 0, 1]
-
-    assert Y[2, 1, 0] == X[2, 2, 0]
-    assert Y[2, 1, 1] == X[2, 2, 1]
-
-    assert Y[2, 2, 0] == X[2, 4, 0]
-    assert Y[2, 2, 1] == X[2, 4, 1]
-
-    assert Y[2, 3, 0] == X[2, 6, 0]
-    assert Y[2, 3, 1] == X[2, 6, 1]
+    for i in range(view.shape[0]):
+        for j in range(view.shape[1]):
+            for k in range(view.shape[2]):
+                assert view[i, j, k] == np_view[i, j, k]
 
 
 def test_extract_with_offsets():
-    X = mpcf.zeros((7, 9, 5), dtype=mpcf.float64)
+    np_arr = _populate(np.zeros((7, 9, 5), dtype=np.float64))
+    t = mpcf.FloatTensor(np_arr)
 
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            for k in range(X.shape[2]):
-                X[i, j, k] = 100 * i + 10 * j + k
+    np_view = np_arr[1::3, 3:7:2, 2:5]
+    view = t[1::3, 3:7:2, 2:5]
 
-    Y = X[1::3, 3:7:2, 2:5]  # start:stop:step
+    assert view.shape == np_view.shape
+    assert view.strides == np_strides_in_items(np_view)
 
-    assert Y.shape == mpcf.Shape((2, 2, 3))
-    assert Y.strides == [135, 10, 1]
-    assert Y.offset == 62
-
-    assert Y[1, 1, 0] == X[4, 5, 2]
+    for i in range(view.shape[0]):
+        for j in range(view.shape[1]):
+            for k in range(view.shape[2]):
+                assert view[i, j, k] == np_view[i, j, k]
 
 
 def test_recursive_extract():
-    X = mpcf.zeros((9, 8, 7, 6), dtype=mpcf.float64)
-    Xnp = np.zeros((9, 8, 7, 6), dtype=np.float64)
+    np_arr = _populate(np.zeros((9, 8, 7, 6), dtype=np.float64))
+    t = mpcf.FloatTensor(np_arr)
 
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            for k in range(X.shape[2]):
-                for l in range(X.shape[3]):
-                    X[i, j, k, l] = 1000 * i + 100 * j + 10 * k + l
-                    Xnp[i, j, k, l] = 1000 * i + 100 * j + 10 * k + l
+    np_v0 = np_arr[4:9:2, ::3, 2:5, 1:3:2]
+    v0 = t[4:9:2, ::3, 2:5, 1:3:2]
 
-    Y0 = X[4:9:2, ::3, 2:5, 1:3:2]
-    Y0np = Xnp[4:9:2, ::3, 2:5, 1:3:2]
+    assert v0.shape == np_v0.shape
+    assert v0.strides == np_strides_in_items(np_v0)
 
-    assert Y0.shape == Y0np.shape
-    assert Y0.strides == np_strides_in_items(Y0np)
+    for i in range(v0.shape[0]):
+        for j in range(v0.shape[1]):
+            for k in range(v0.shape[2]):
+                for l in range(v0.shape[3]):
+                    assert v0[i, j, k, l] == np_v0[i, j, k, l]
 
-    for i in range(Y0.shape[0]):
-        for j in range(Y0.shape[1]):
-            for k in range(Y0.shape[2]):
-                for l in range(Y0.shape[3]):
-                    assert Y0[i, j, k, l] == Y0np[i, j, k, l]
+    np_v1 = np_v0[1:3, :, :2, 0]
+    v1 = v0[1:3, :, :2, 0]
 
-    Y1 = Y0[1:3, :, :2, 0]
-    Y1np = Y0np[1:3, :, :2, 0]
+    assert v1.shape == np_v1.shape
+    assert v1.strides == np_strides_in_items(np_v1)
 
-    assert Y1.shape == Y1np.shape
-
-    assert Y1.strides == np_strides_in_items(Y1np)
-
-    assert Y1[0, 0, 0] == 6021
-    assert Y1[0, 0, 1] == 6031
-
-    assert Y1[0, 1, 0] == 6321
-    assert Y1[0, 1, 1] == 6331
-
-    assert Y1[0, 2, 0] == 6621
-    assert Y1[0, 2, 1] == 6631
-
-    assert Y1[1, 0, 0] == 8021
-    assert Y1[1, 0, 1] == 8031
-
-    assert Y1[1, 1, 0] == 8321
-    assert Y1[1, 1, 1] == 8331
-
-    assert Y1[1, 2, 0] == 8621
-    assert Y1[1, 2, 1] == 8631
+    for i in range(v1.shape[0]):
+        for j in range(v1.shape[1]):
+            for k in range(v1.shape[2]):
+                assert v1[i, j, k] == np_v1[i, j, k]

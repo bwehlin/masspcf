@@ -27,6 +27,7 @@ from .tensor import (
     BoolTensor,
     FloatTensor,
     IntPcfTensor,
+    IntTensor,
     PcfTensor,
     PointCloudTensor,
 )
@@ -49,4 +50,6 @@ from .typing import (
     pcloud64,
     symmat32,
     symmat64,
+    uint32,
+    uint64,
 )

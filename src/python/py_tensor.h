@@ -317,6 +317,17 @@ namespace mpcf_py
       mpcf::axis_fill(self, axis, mask, value);
     });
 
+    // Index-based gather/scatter (always use int64 as index type)
+    cls.def("index_select", [](const TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices) {
+      return mpcf::index_select(self, axis, indices);
+    });
+    cls.def("index_assign", [](TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices, const TTensor& values) {
+      mpcf::index_assign(self, axis, indices, values);
+    });
+    cls.def("index_fill", [](TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices, const T& value) {
+      mpcf::index_fill(self, axis, indices, value);
+    });
+
     using Tv = scalar_of_t<T>;
     using Tt = time_of_t<T>;
 

@@ -59,88 +59,86 @@ def test_bool_tensor_bool_multi_element_raises():
         bool(a == b)
 
 
-# --- Elementwise comparisons ---
+# --- Elementwise comparisons (parameterized across float and int) ---
 
 
-def test_eq_elementwise():
-    np_a = np.array([1.0, 2.0, 3.0])
-    np_b = np.array([1.0, 9.0, 3.0])
-    result = mpcf.FloatTensor(np_a) == mpcf.FloatTensor(np_b)
+_NUMERIC_TYPES = [
+    pytest.param(mpcf.FloatTensor, np.float64, id="float64"),
+    pytest.param(mpcf.FloatTensor, np.float32, id="float32"),
+    pytest.param(mpcf.IntTensor, np.int32, id="int32"),
+    pytest.param(mpcf.IntTensor, np.int64, id="int64"),
+]
+
+
+def _assert_comparison(np_a, np_b, op, TensorType=mpcf.FloatTensor):
+    """Assert that a comparison op on tensors matches numpy."""
+    result = op(TensorType(np_a), TensorType(np_b))
+    expected = op(np_a, np_b)
     assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), np_a == np_b)
+    npt.assert_array_equal(np.asarray(result), expected)
 
 
-def test_ne_elementwise():
-    np_a = np.array([1.0, 2.0, 3.0])
-    np_b = np.array([1.0, 9.0, 3.0])
-    result = mpcf.FloatTensor(np_a) != mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), np_a != np_b)
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestElementwiseComparison:
+    def test_eq(self, TensorType, np_dtype):
+        np_a = np.array([1, 2, 3], dtype=np_dtype)
+        np_b = np.array([1, 9, 3], dtype=np_dtype)
+        _assert_comparison(np_a, np_b, lambda x, y: x == y, TensorType)
 
+    def test_ne(self, TensorType, np_dtype):
+        np_a = np.array([1, 2, 3], dtype=np_dtype)
+        np_b = np.array([1, 9, 3], dtype=np_dtype)
+        _assert_comparison(np_a, np_b, lambda x, y: x != y, TensorType)
 
-def test_lt_elementwise():
-    np_a = np.array([1.0, 5.0, 3.0])
-    np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.FloatTensor(np_a) < mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), np_a < np_b)
+    def test_lt(self, TensorType, np_dtype):
+        np_a = np.array([1, 5, 3], dtype=np_dtype)
+        np_b = np.array([2, 4, 3], dtype=np_dtype)
+        _assert_comparison(np_a, np_b, lambda x, y: x < y, TensorType)
 
+    def test_le(self, TensorType, np_dtype):
+        np_a = np.array([1, 5, 3], dtype=np_dtype)
+        np_b = np.array([2, 4, 3], dtype=np_dtype)
+        _assert_comparison(np_a, np_b, lambda x, y: x <= y, TensorType)
 
-def test_le_elementwise():
-    np_a = np.array([1.0, 5.0, 3.0])
-    np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.FloatTensor(np_a) <= mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), np_a <= np_b)
+    def test_gt(self, TensorType, np_dtype):
+        np_a = np.array([1, 5, 3], dtype=np_dtype)
+        np_b = np.array([2, 4, 3], dtype=np_dtype)
+        _assert_comparison(np_a, np_b, lambda x, y: x > y, TensorType)
 
-
-def test_gt_elementwise():
-    np_a = np.array([1.0, 5.0, 3.0])
-    np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.FloatTensor(np_a) > mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), np_a > np_b)
-
-
-def test_ge_elementwise():
-    np_a = np.array([1.0, 5.0, 3.0])
-    np_b = np.array([2.0, 4.0, 3.0])
-    result = mpcf.FloatTensor(np_a) >= mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), np_a >= np_b)
+    def test_ge(self, TensorType, np_dtype):
+        np_a = np.array([1, 5, 3], dtype=np_dtype)
+        np_b = np.array([2, 4, 3], dtype=np_dtype)
+        _assert_comparison(np_a, np_b, lambda x, y: x >= y, TensorType)
 
 
 # --- Broadcasting comparisons ---
 
 
-def test_eq_broadcast_row():
-    np_a = np.array([[1.0, 2.0], [3.0, 4.0]])
-    np_b = np.array([1.0, 4.0])
-    expected = np_a == np_b
-    result = mpcf.FloatTensor(np_a) == mpcf.FloatTensor(np_b)
+def _assert_broadcast_comparison(np_a, np_b, op):
+    """Assert that a broadcasting comparison on FloatTensors matches numpy."""
+    result = op(mpcf.FloatTensor(np_a), mpcf.FloatTensor(np_b))
+    expected = op(np_a, np_b)
     assert isinstance(result, mpcf.BoolTensor)
     assert result.shape == expected.shape
     npt.assert_array_equal(np.asarray(result), expected)
+
+
+def test_eq_broadcast_row():
+    np_a = np.array([[1.0, 2.0], [3.0, 4.0]])
+    np_b = np.array([1.0, 4.0])
+    _assert_broadcast_comparison(np_a, np_b, lambda x, y: x == y)
 
 
 def test_lt_broadcast_col():
     np_a = np.array([[1.0, 2.0], [3.0, 4.0]])
     np_b = np.array([[2.0], [3.0]])
-    expected = np_a < np_b
-    result = mpcf.FloatTensor(np_a) < mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    assert result.shape == expected.shape
-    npt.assert_array_equal(np.asarray(result), expected)
+    _assert_broadcast_comparison(np_a, np_b, lambda x, y: x < y)
 
 
 def test_ge_broadcast_scalar_tensor():
     np_a = np.array([1.0, 2.0, 3.0])
     np_b = np.array([2.0])
-    expected = np_a >= np_b
-    result = mpcf.FloatTensor(np_a) >= mpcf.FloatTensor(np_b)
-    assert isinstance(result, mpcf.BoolTensor)
-    assert result.shape == expected.shape
-    npt.assert_array_equal(np.asarray(result), expected)
+    _assert_broadcast_comparison(np_a, np_b, lambda x, y: x >= y)
 
 
 # --- array_equal ---
@@ -185,7 +183,7 @@ def test_pcf_tensor_eq():
     b = a.copy()
     result = a == b
     assert isinstance(result, mpcf.BoolTensor)
-    npt.assert_array_equal(np.asarray(result), [True, True, True])
+    npt.assert_array_equal(np.asarray(result), np.array([True, True, True]))
 
 
 def test_pcf_tensor_array_equal():

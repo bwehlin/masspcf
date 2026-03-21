@@ -431,6 +431,32 @@ namespace mpcf
   template <typename T>
   void axis_fill(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const T& value);
 
+  // ============================================================================
+  // Index-based gather/scatter operations
+  // ============================================================================
+
+  /**
+   * Gather elements from src along a single axis using integer indices.
+   * indices must be 1D. Returns a tensor with shape[axis] == indices.size().
+   */
+  template <typename T, typename I>
+  [[nodiscard]] Tensor<T> index_select(const Tensor<T>& src, size_t axis, const Tensor<I>& indices);
+
+  /**
+   * Scatter values into dst along a single axis at integer indices.
+   * indices must be 1D. values.shape() must match the shape that
+   * index_select(dst, axis, indices) would produce.
+   */
+  template <typename T, typename I>
+  void index_assign(Tensor<T>& dst, size_t axis, const Tensor<I>& indices, const Tensor<T>& values);
+
+  /**
+   * Fill dst with a scalar value along a single axis at integer indices.
+   * indices must be 1D.
+   */
+  template <typename T, typename I>
+  void index_fill(Tensor<T>& dst, size_t axis, const Tensor<I>& indices, const T& value);
+
 }
 
 #include "tensor.tpp"

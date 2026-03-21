@@ -19,7 +19,23 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor
 from .pcf import Pcf
-from .typing import _validate_dtype, boolean, float32, float64, pcf32, pcf32i, pcf64, pcf64i, pcloud32, pcloud64
+from .typing import (
+    _NP_TO_MPCF,
+    _validate_dtype,
+    boolean,
+    float32,
+    float64,
+    int32,
+    int64,
+    pcf32,
+    pcf32i,
+    pcf64,
+    pcf64i,
+    pcloud32,
+    pcloud64,
+    uint32,
+    uint64,
+)
 
 _FLOAT_CPP_TO_DTYPE = {
     cpp.Float32Tensor: float32,
@@ -101,6 +117,85 @@ class FloatTensor(NumericTensor):
 
     def _to_py_tensor(self, data):
         return FloatTensor(data)
+
+    def __repr__(self):
+        return np.asarray(self).__repr__()
+
+    def __str__(self):
+        return np.asarray(self).__str__()
+
+
+_INT_CPP_TO_DTYPE = {
+    cpp.Int32Tensor: int32,
+    cpp.Int64Tensor: int64,
+    cpp.Uint32Tensor: uint32,
+    cpp.Uint64Tensor: uint64,
+}
+
+
+class IntTensor(NumericTensor):
+    def __init__(self, data, dtype=None):
+        super().__init__()
+
+        if isinstance(data, IntTensor):
+            data = data._data
+        elif isinstance(data, np.ndarray):
+            if dtype is None:
+                dtype = _NP_TO_MPCF.get(data.dtype.type, int64)
+            convert = {
+                int32: lambda d: cpp.ndarray_to_tensor_i32(np.asarray(d, dtype=np.int32)),
+                int64: lambda d: cpp.ndarray_to_tensor_i64(np.asarray(d, dtype=np.int64)),
+                uint32: lambda d: cpp.ndarray_to_tensor_u32(np.asarray(d, dtype=np.uint32)),
+                uint64: lambda d: cpp.ndarray_to_tensor_u64(np.asarray(d, dtype=np.uint64)),
+            }
+            data = convert[dtype](data)
+        elif not isinstance(data, tuple(_INT_CPP_TO_DTYPE.keys())):
+            raise TypeError(f"Cannot create IntTensor from {type(data)}")
+
+        self._data = data
+        self.dtype = _INT_CPP_TO_DTYPE[type(self._data)]
+
+    def _to_py_tensor(self, data):
+        return IntTensor(data)
+
+    def _as_float64(self):
+        """Convert to float64 FloatTensor, matching NumPy int division promotion."""
+        return FloatTensor(np.asarray(self).astype(np.float64))
+
+    def __truediv__(self, rhs):
+        if isinstance(rhs, IntTensor):
+            return self._as_float64() / rhs._as_float64()
+        return self._as_float64() / rhs
+
+    def __rtruediv__(self, lhs):
+        if isinstance(lhs, IntTensor):
+            return lhs._as_float64() / self._as_float64()
+        return lhs / self._as_float64()
+
+    def __itruediv__(self, rhs):
+        raise TypeError(
+            "In-place true division is not supported for IntTensor "
+            "(result is float). Use `x = x / y` instead."
+        )
+
+    def __floordiv__(self, rhs):
+        rhs_arr = np.asarray(rhs) if isinstance(rhs, IntTensor) else rhs
+        return IntTensor(np.asarray(self) // rhs_arr)
+
+    def __rfloordiv__(self, lhs):
+        return IntTensor(lhs // np.asarray(self))
+
+    def __ifloordiv__(self, rhs):
+        rhs_arr = np.asarray(rhs) if isinstance(rhs, IntTensor) else rhs
+        result = np.asarray(self) // rhs_arr
+        self._data = IntTensor(result)._data
+        self.dtype = _INT_CPP_TO_DTYPE[type(self._data)]
+        return self
+
+    def __neg__(self):
+        if self.dtype in (uint32, uint64):
+            raise TypeError(f"Negation is not supported for unsigned dtype {self.dtype.__name__}")
+        return super().__neg__()
 
     def __repr__(self):
         return np.asarray(self).__repr__()
