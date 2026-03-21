@@ -828,6 +828,71 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T> Tensor<T>::reshape(const std::vector<ptrdiff_t>& new_shape) const
+  {
+    auto total = get_total_size();
+
+    // Resolve -1 dimension
+    std::vector<size_t> resolved(new_shape.size());
+    ptrdiff_t infer_idx = -1;
+    size_t known_product = 1;
+    for (size_t i = 0; i < new_shape.size(); ++i)
+    {
+      if (new_shape[i] == -1)
+      {
+        if (infer_idx >= 0)
+          throw std::invalid_argument("Only one dimension can be inferred (-1)");
+        infer_idx = static_cast<ptrdiff_t>(i);
+      }
+      else if (new_shape[i] < 0)
+      {
+        throw std::invalid_argument("Invalid dimension size: " + std::to_string(new_shape[i]));
+      }
+      else
+      {
+        resolved[i] = static_cast<size_t>(new_shape[i]);
+        known_product *= resolved[i];
+      }
+    }
+
+    if (infer_idx >= 0)
+    {
+      if (known_product == 0 || total % known_product != 0)
+        throw std::invalid_argument("Cannot infer dimension: total size " +
+          std::to_string(total) + " is not divisible by " + std::to_string(known_product));
+      resolved[infer_idx] = total / known_product;
+    }
+
+    // Validate total size
+    size_t new_total = 1;
+    for (auto d : resolved) new_total *= d;
+    if (new_total != total)
+      throw std::invalid_argument("Cannot reshape tensor of size " +
+        std::to_string(total) + " into shape " + shape_to_string(resolved));
+
+    // Use contiguous source (copy if needed)
+    Tensor<T> src = m_isContiguous ? *this : copy();
+
+    Tensor<T> ret;
+    ret.m_data = src.m_data;
+    ret.m_offset = src.m_offset;
+    ret.m_shape = resolved;
+    ret.m_isContiguous = true;
+    ret.m_viewType = ViewType::Base;
+
+    // Compute row-major strides
+    ret.m_strides.resize(resolved.size());
+    if (!resolved.empty())
+    {
+      ret.m_strides.back() = 1;
+      for (auto i = static_cast<ptrdiff_t>(resolved.size()) - 2; i >= 0; --i)
+        ret.m_strides[i] = ret.m_strides[i + 1] * static_cast<ptrdiff_t>(resolved[i + 1]);
+    }
+
+    return ret;
+  }
+
+  template <typename T>
   template <typename UnaryFunc>
 #ifndef __CUDACC__
   requires std::invocable<UnaryFunc, std::vector<size_t>>

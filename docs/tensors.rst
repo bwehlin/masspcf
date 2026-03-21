@@ -136,6 +136,16 @@ To collapse all dimensions into one::
 
    flat = X.flatten()  # shape (200,)
 
+To change the shape without changing the data, use ``reshape``. One dimension
+may be ``-1`` to infer its size::
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32))
+   X.reshape((3, 4))     # shape (3, 4)
+   X.reshape((2, -1))    # shape (2, 6) — inferred
+
+For contiguous tensors, ``reshape`` returns a view (shared data). For
+non-contiguous tensors (e.g. from slicing with a step), it copies first.
+
 
 Arithmetic
 ==========

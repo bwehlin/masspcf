@@ -206,6 +206,13 @@ namespace mpcf
     Tensor flatten() const;
 
     /**
+     * Return a tensor with the given shape, sharing data when contiguous.
+     * One dimension may be -1 to infer its size from the total element count.
+     * If the tensor is not contiguous, a contiguous copy is made first.
+     */
+    [[nodiscard]] Tensor reshape(const std::vector<ptrdiff_t>& new_shape) const;
+
+    /**
      * Make a deep copy of the tensor. The new tensor will be a contiguous version of the original tensor.
      * @return Deep copy of the tensor
      */

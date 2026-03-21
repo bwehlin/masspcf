@@ -354,6 +354,9 @@ class Tensor(ABC):
     def flatten(self):
         return self._to_py_tensor(self._data.flatten())
 
+    def reshape(self, shape):
+        return self._to_py_tensor(self._data.reshape(list(shape)))
+
     @property
     def shape(self) -> Shape:
         return self._data.shape
