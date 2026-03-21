@@ -1,0 +1,214 @@
+====================
+Indexing and Masking
+====================
+
+Tensors support NumPy-style indexing. The behavior depends on whether the index uses integers or slices.
+
+Single-element access
+---------------------
+
+Indexing with all integers returns the element at that position::
+
+   X = mpcf.zeros((10, 5))
+   f = X[3, 2]   # returns a Pcf object
+
+For a ``PcfTensor``, the returned element is a :py:class:`~masspcf.Pcf`. For a ``FloatTensor``, it is a Python float. For a ``PointCloudTensor``, it is a ``FloatTensor`` (representing the point cloud as a numeric array).
+
+Slicing
+-------
+
+Using slices returns a tensor (view)::
+
+   X = mpcf.zeros((10, 5, 4))
+
+   row = X[3, :, :]          # shape (5, 4)
+   sub = X[2:8, 1:, 2]       # shape (6, 4)
+   every_other = X[::2, :, :]  # shape (5, 5, 4)
+
+Negative steps are supported for reversing or striding backwards::
+
+   Y = mpcf.FloatTensor(np.array([1, 2, 3, 4, 5], dtype=np.float32))
+   Y[::-1]       # [5, 4, 3, 2, 1]
+   Y[::-2]       # [5, 3, 1]
+   Y[3:0:-1]     # [4, 3, 2]
+
+Views share the underlying data with the original tensor, so no data is copied.
+
+Assignment
+----------
+
+Tensors support assignment with the same indexing syntax::
+
+   from masspcf.random import noisy_sin, noisy_cos
+
+   A = mpcf.zeros((2, 10))
+
+   # Assign noisy sin functions into the first row
+   A[0, :] = noisy_sin((10,), n_points=100)
+
+   # Assign noisy cos functions into the second row
+   A[1, :] = noisy_cos((10,), n_points=15)
+
+Individual elements can also be assigned::
+
+   f = mpcf.Pcf([[0, 1.0], [1, 2.0], [3, 0.0]])
+   A[0, 0] = f
+
+
+Boolean masking
+===============
+
+A ``BoolTensor`` can be used as an index to select elements where the mask is
+``True``. Comparison operators return ``BoolTensor`` objects, so the result of
+a comparison can be used directly as a mask.
+
+Full-shape masking
+------------------
+
+When a ``BoolTensor`` has the same shape as the tensor it indexes, the result
+is a flat 1-D tensor of the elements where the mask is ``True``::
+
+   import numpy as np
+
+   X = mpcf.FloatTensor(np.array([[1, 2, 3],
+                                     [4, 5, 6]], dtype=np.float32))
+   mask = mpcf.BoolTensor(np.array([[True,  False, True],
+                                     [False, True,  False]]))
+
+   X[mask]   # FloatTensor: [1, 3, 5]
+
+This behaves the same as NumPy::
+
+   arr = np.array([[1, 2, 3], [4, 5, 6]])
+   arr[np.array([[True, False, True], [False, True, False]])]
+   # array([1, 3, 5])
+
+Assignment with a full-shape mask is also supported::
+
+   X[mask] = 0.0          # scalar fill: set masked positions to 0
+   X[mask] = some_tensor   # tensor assign: must have the right number of elements
+
+Axis masking
+------------
+
+A 1-D ``BoolTensor`` can be used at a specific axis position alongside slices
+and integer indices. This selects along that axis where the mask is ``True``,
+preserving other dimensions::
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+
+   col_mask = mpcf.BoolTensor(np.array([True, False, True, False]))
+   X[:, col_mask]       # shape (3, 2) — selects columns 0 and 2
+
+   row_mask = mpcf.BoolTensor(np.array([False, True, True]))
+   X[row_mask, :]       # shape (2, 4) — selects rows 1 and 2
+
+This works with slices too::
+
+   Y = mpcf.FloatTensor(np.arange(60, dtype=np.float32).reshape(3, 4, 5))
+
+   mask = mpcf.BoolTensor(np.array([True, False, True, False]))
+   Y[:, mask, 1:4]      # shape (3, 2, 3)
+
+Multiple masks can be used in the same expression. Each mask selects
+independently along its own axis (outer indexing)::
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+
+   row_mask = np.array([True, False, True])
+   col_mask = np.array([False, True, True, False])
+   X[row_mask, col_mask]   # shape (2, 2) — rows 0, 2 × columns 1, 2
+
+Assignment with multiple masks is also supported::
+
+   X[row_mask, col_mask] = -1.0   # fill selected submatrix with -1
+
+Creating BoolTensors
+--------------------
+
+``BoolTensor`` can be created from NumPy arrays or from comparison operators::
+
+   # From a NumPy array
+   mask = mpcf.BoolTensor(np.array([True, False, True]))
+
+   # From a comparison
+   X = mpcf.FloatTensor(np.array([1, 2, 3, 4, 5], dtype=np.float32))
+   threshold = mpcf.FloatTensor(np.full(5, 3.0, dtype=np.float32))
+   mask = X > threshold   # BoolTensor: [False, False, False, True, True]
+
+.. _masking-numpy-differences:
+
+Differences from NumPy
+----------------------
+
+Axis masking follows **outer indexing** semantics: each mask independently
+selects along its own axis. This matches what most users expect and is the
+behavior described in `NEP 21 <https://numpy.org/neps/nep-0021-advanced-indexing.html>`_.
+
+When multiple boolean masks appear in the same expression, masspcf treats them
+as an outer product (each mask filters its axis independently). To get the same
+result in NumPy, use ``np.ix_``::
+
+   # masspcf
+   X[row_mask, col_mask]
+
+   # NumPy equivalent
+   arr[np.ix_(row_mask, col_mask)]
+
+In NumPy, ``arr[row_mask, col_mask]`` instead pairs elements (like ``zip``),
+which requires both masks to have the same number of ``True`` values.
+
+Similarly, when an integer index and a boolean mask appear together, masspcf
+applies them left-to-right without reordering dimensions, while NumPy may
+reorder axes.
+
+For expressions with a single mask and slices (the common case), masspcf and
+NumPy produce identical results.
+
+
+Advanced indexing
+=================
+
+An integer array (NumPy ``ndarray`` or ``IntTensor``) can be used as an index to
+gather elements along an axis, just like
+`NumPy advanced indexing <https://numpy.org/doc/stable/user/basics.indexing.html#advanced-indexing>`_.
+
+Gathering
+---------
+
+Pass an integer array to select elements in a given order. Duplicates and
+negative indices are supported::
+
+   import numpy as np
+   import masspcf as mpcf
+
+   X = mpcf.FloatTensor(np.array([10, 20, 30, 40, 50], dtype=np.float32))
+   X[np.array([2, 0, 4])]    # [30, 10, 50]
+   X[np.array([1, 1, 2, 0])] # [20, 20, 30, 10]  — duplicates allowed
+   X[np.array([-1, -2])]     # [50, 40]           — negative indices
+
+For multi-dimensional tensors, one axis can use an integer array while the
+others use slices::
+
+   A = mpcf.FloatTensor(np.array([[1, 2, 3, 4],
+                                   [5, 6, 7, 8]], dtype=np.float32))
+   A[:, np.array([1, 3])]    # columns 1 and 3 → shape (2, 2)
+
+An ``IntTensor`` can be used in place of a NumPy integer array::
+
+   idx = mpcf.IntTensor(np.array([4, 1, 0]))
+   X[idx]    # [50, 20, 10]
+
+Assignment with integer indices
+-------------------------------
+
+Both scalar fill and tensor assignment work with integer array indices::
+
+   X[np.array([1, 3])] = 0.0                       # scalar fill
+   X[np.array([0, 2])] = mpcf.FloatTensor(...)      # tensor assign
+
+Limitations
+-----------
+
+Only one integer array index is allowed per expression. Mixing boolean and
+integer array indices in the same expression raises ``IndexError``.

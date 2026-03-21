@@ -6,6 +6,9 @@ User guide
 
    concepts
    tensors
+   indexing
+   arithmetic
+   evaluation
    plotting
    saving
    distances
