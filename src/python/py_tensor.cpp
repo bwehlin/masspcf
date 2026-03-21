@@ -85,6 +85,51 @@ namespace
     m.def("slice_index", [](ptrdiff_t idx){ return mpcf::index(idx); });
     m.def("slice_range", [](std::optional<ptrdiff_t> start, std::optional<ptrdiff_t> stop, std::optional<ptrdiff_t> step){ return mpcf::range(start, stop, step); });
 
+    // tensor_cast bindings — each pair registered as a module-level function
+    auto tc = [&m]<typename To, typename From>(const char* name) {
+      m.def(name, [](const mpcf::Tensor<From>& src) { return mpcf::tensor_cast<To>(src); });
+    };
+
+    // Float precision
+    tc.template operator()<mpcf::float64_t, mpcf::float32_t>("cast_f32_f64");
+    tc.template operator()<mpcf::float32_t, mpcf::float64_t>("cast_f64_f32");
+    // Int precision
+    tc.template operator()<mpcf::int64_t, mpcf::int32_t>("cast_i32_i64");
+    tc.template operator()<mpcf::int32_t, mpcf::int64_t>("cast_i64_i32");
+    tc.template operator()<uint64_t, uint32_t>("cast_u32_u64");
+    tc.template operator()<uint32_t, uint64_t>("cast_u64_u32");
+    // Float <-> Int
+    tc.template operator()<mpcf::int32_t, mpcf::float64_t>("cast_f64_i32");
+    tc.template operator()<mpcf::int64_t, mpcf::float64_t>("cast_f64_i64");
+    tc.template operator()<mpcf::int32_t, mpcf::float32_t>("cast_f32_i32");
+    tc.template operator()<mpcf::int64_t, mpcf::float32_t>("cast_f32_i64");
+    tc.template operator()<mpcf::float32_t, mpcf::int32_t>("cast_i32_f32");
+    tc.template operator()<mpcf::float64_t, mpcf::int32_t>("cast_i32_f64");
+    tc.template operator()<mpcf::float32_t, mpcf::int64_t>("cast_i64_f32");
+    tc.template operator()<mpcf::float64_t, mpcf::int64_t>("cast_i64_f64");
+    // Int <-> UInt
+    tc.template operator()<uint32_t, mpcf::int32_t>("cast_i32_u32");
+    tc.template operator()<uint64_t, mpcf::int32_t>("cast_i32_u64");
+    tc.template operator()<uint32_t, mpcf::int64_t>("cast_i64_u32");
+    tc.template operator()<uint64_t, mpcf::int64_t>("cast_i64_u64");
+    tc.template operator()<mpcf::int32_t, uint32_t>("cast_u32_i32");
+    tc.template operator()<mpcf::int64_t, uint32_t>("cast_u32_i64");
+    tc.template operator()<mpcf::int32_t, uint64_t>("cast_u64_i32");
+    tc.template operator()<mpcf::int64_t, uint64_t>("cast_u64_i64");
+    // PCF precision
+    tc.template operator()<mpcf::Pcf_f64, mpcf::Pcf_f32>("cast_pcf32_pcf64");
+    tc.template operator()<mpcf::Pcf_f32, mpcf::Pcf_f64>("cast_pcf64_pcf32");
+    tc.template operator()<mpcf::Pcf_i64, mpcf::Pcf_i32>("cast_pcf32i_pcf64i");
+    tc.template operator()<mpcf::Pcf_i32, mpcf::Pcf_i64>("cast_pcf64i_pcf32i");
+
+    // PointCloud precision: Tensor<Tensor<float>> <-> Tensor<Tensor<double>>
+    m.def("cast_pcloud32_pcloud64", [](const mpcf::Tensor<mpcf::PointCloud<mpcf::float32_t>>& src) {
+      return mpcf::pcloud_cast<mpcf::float64_t>(src);
+    });
+    m.def("cast_pcloud64_pcloud32", [](const mpcf::Tensor<mpcf::PointCloud<mpcf::float64_t>>& src) {
+      return mpcf::pcloud_cast<mpcf::float32_t>(src);
+    });
+
   }
 
 }

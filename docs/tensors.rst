@@ -123,6 +123,25 @@ position (negative indexing supported)::
 Expand dims also returns a view.
 
 
+Type casting
+============
+
+``astype`` converts a tensor to a different dtype. Same-family precision changes
+(e.g. float32 to float64) and numeric cross-family casts (e.g. int to float)
+are supported::
+
+   X = mpcf.FloatTensor(np.array([1.5, 2.5, 3.5], dtype=np.float32))
+   X.astype(mpcf.float64)    # FloatTensor, float64
+   X.astype(mpcf.int32)      # IntTensor, int32 (truncates)
+
+PCF and point cloud tensors support precision changes within their family::
+
+   F = mpcf.zeros((5,), dtype=mpcf.pcf32)
+   F.astype(mpcf.pcf64)      # PcfTensor, pcf64
+
+``astype`` always returns a new tensor (copy).
+
+
 Joining tensors
 ===============
 

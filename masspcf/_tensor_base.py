@@ -336,6 +336,35 @@ class Tensor(ABC):
     def expand_dims(self, axis):
         return self._to_py_tensor(self._data.expand_dims(axis))
 
+    # Implementation: looks up a C++ cast function by naming convention:
+    # cpp.cast_{src_tag}_{dst_tag}. To add a new cast:
+    #   1. Ensure the C++ target type is constructible from the source
+    #      (add a converting constructor if needed).
+    #   2. Add a tensor_cast binding in py_tensor.cpp named cast_{src}_{dst}.
+    #   3. Add entries to _DTYPE_TAG and _DTYPE_TO_WRAPPER in typing.py
+    #      if the dtype is new.
+    def astype(self, dtype):
+        """Return a new tensor with elements cast to the given dtype.
+
+        Supported casts are same-family precision changes (e.g. float32 → float64,
+        pcf32 → pcf64) and numeric cross-family (e.g. float → int).
+        """
+        if dtype == self.dtype:
+            return self.copy()
+        from . import _mpcf_cpp as cpp
+        from .typing import _DTYPE_TAG, _DTYPE_TO_WRAPPER, _init_dtype_wrappers
+        _init_dtype_wrappers()
+        src_tag = _DTYPE_TAG.get(self.dtype)
+        dst_tag = _DTYPE_TAG.get(dtype)
+        if src_tag is None or dst_tag is None:
+            raise TypeError(
+                f"Cannot cast from {self.dtype.__name__} to {dtype.__name__}")
+        cast_fn = getattr(cpp, f"cast_{src_tag}_{dst_tag}", None)
+        if cast_fn is None:
+            raise TypeError(
+                f"Cannot cast from {self.dtype.__name__} to {dtype.__name__}")
+        return _DTYPE_TO_WRAPPER[dtype](cast_fn(self._data))
+
     @property
     def shape(self) -> Shape:
         return self._data.shape

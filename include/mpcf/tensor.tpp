@@ -107,7 +107,7 @@ namespace mpcf
 
   template <typename T>
   template <typename U>
-  requires std::is_convertible_v<U, T>
+  requires std::is_constructible_v<T, U>
   void Tensor<T>::assign_from(const Tensor<U>& rhs)
   {
     auto target = shape();
@@ -121,7 +121,7 @@ namespace mpcf
 
     auto rhs_view = rhs.broadcast_to(target);
     walk([this, &rhs_view](const std::vector<size_t>& idx){
-      (*this)(idx) = rhs_view(idx);
+      (*this)(idx) = T(rhs_view(idx));
     });
   }
 
@@ -809,6 +809,32 @@ namespace mpcf
         dst_idx[rs.axis] = rs.indices[val_idx[rs.axis]];
       dst(dst_idx) = values(val_idx);
     });
+  }
+
+  // ============================================================================
+  // Type casting
+  // ============================================================================
+
+  template <typename T, typename U>
+  requires std::is_constructible_v<T, U>
+  Tensor<T> tensor_cast(const Tensor<U>& src)
+  {
+    Tensor<T> result(src.shape());
+    walk(src, [&](const std::vector<size_t>& idx) {
+      result(idx) = T(src(idx));
+    });
+    return result;
+  }
+
+  template <typename T, typename U>
+  requires std::is_constructible_v<T, U>
+  Tensor<Tensor<T>> pcloud_cast(const Tensor<Tensor<U>>& src)
+  {
+    Tensor<Tensor<T>> result(src.shape());
+    walk(src, [&](const std::vector<size_t>& idx) {
+      result(idx) = tensor_cast<T>(src(idx));
+    });
+    return result;
   }
 
   // ============================================================================

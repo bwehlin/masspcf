@@ -229,3 +229,79 @@ class TestExpandDims:
         t = TensorType(np.arange(6, dtype=np_dtype))
         with pytest.raises((ValueError, RuntimeError)):
             t.expand_dims(3)
+
+
+# --- astype ---
+
+
+def _assert_astype(tensor, target_dtype, expected_type):
+    """Assert that astype produces the right type/dtype and preserves shape."""
+    result = tensor.astype(target_dtype)
+    assert isinstance(result, expected_type)
+    assert result.dtype == target_dtype
+    assert result.shape == tensor.shape
+
+
+# Numeric precision changes
+_NUMERIC_ASTYPE_CASES = [
+    pytest.param(mpcf.float32, mpcf.float64, mpcf.FloatTensor, id="f32→f64"),
+    pytest.param(mpcf.float64, mpcf.float32, mpcf.FloatTensor, id="f64→f32"),
+    pytest.param(mpcf.int32, mpcf.int64, mpcf.IntTensor, id="i32→i64"),
+    pytest.param(mpcf.int64, mpcf.int32, mpcf.IntTensor, id="i64→i32"),
+    pytest.param(mpcf.uint32, mpcf.uint64, mpcf.IntTensor, id="u32→u64"),
+    pytest.param(mpcf.int32, mpcf.uint32, mpcf.IntTensor, id="i32→u32"),
+]
+
+# Cross-family numeric changes
+_CROSS_FAMILY_CASES = [
+    pytest.param(mpcf.float64, mpcf.int32, mpcf.IntTensor, id="f64→i32"),
+    pytest.param(mpcf.int32, mpcf.float64, mpcf.FloatTensor, id="i32→f64"),
+]
+
+
+@pytest.mark.parametrize("src_dtype, target_dtype, expected_type", _NUMERIC_ASTYPE_CASES + _CROSS_FAMILY_CASES)
+def test_astype_numeric(src_dtype, target_dtype, expected_type):
+    t = mpcf.zeros((3, 4), dtype=src_dtype)
+    _assert_astype(t, target_dtype, expected_type)
+
+
+# PCF precision changes
+_PCF_ASTYPE_CASES = [
+    pytest.param(mpcf.pcf32, mpcf.pcf64, mpcf.PcfTensor, id="pcf32→pcf64"),
+    pytest.param(mpcf.pcf64, mpcf.pcf32, mpcf.PcfTensor, id="pcf64→pcf32"),
+    pytest.param(mpcf.pcf32i, mpcf.pcf64i, mpcf.IntPcfTensor, id="pcf32i→pcf64i"),
+    pytest.param(mpcf.pcf64i, mpcf.pcf32i, mpcf.IntPcfTensor, id="pcf64i→pcf32i"),
+]
+
+
+@pytest.mark.parametrize("src_dtype, target_dtype, expected_type", _PCF_ASTYPE_CASES)
+def test_astype_pcf(src_dtype, target_dtype, expected_type):
+    t = mpcf.zeros((3,), dtype=src_dtype)
+    _assert_astype(t, target_dtype, expected_type)
+
+
+# Point cloud precision changes
+def test_astype_pcloud32_to_64():
+    t = mpcf.zeros((3,), dtype=mpcf.pcloud32)
+    _assert_astype(t, mpcf.pcloud64, mpcf.PointCloudTensor)
+
+
+def test_astype_pcloud64_to_32():
+    t = mpcf.zeros((3,), dtype=mpcf.pcloud64)
+    _assert_astype(t, mpcf.pcloud32, mpcf.PointCloudTensor)
+
+
+# Same dtype always copies
+def test_astype_same_dtype_copies():
+    arr = np.array([1.0, 2.0, 3.0])
+    t = mpcf.FloatTensor(arr)
+    t2 = t.astype(mpcf.float64)
+    t2[0] = 99.0
+    assert t[0] == 1.0
+
+
+# Cross-family errors
+def test_astype_float_to_pcf_raises():
+    t = mpcf.FloatTensor(np.array([1.0, 2.0], dtype=np.float32))
+    with pytest.raises((ValueError, TypeError)):
+        t.astype(mpcf.pcf32)

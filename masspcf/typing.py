@@ -140,3 +140,33 @@ def _assert_valid_dtype(dtype, valid_dtypes):
 def _validate_dtype(dtype, valid_dtypes):
     _assert_valid_dtype(dtype, valid_dtypes)
     return dtype
+
+
+# Short tags used to look up C++ cast functions by naming convention:
+# cpp.cast_{src_tag}_{dst_tag}
+_DTYPE_TAG = {
+    float32: "f32", float64: "f64",
+    int32: "i32", int64: "i64",
+    uint32: "u32", uint64: "u64",
+    pcf32: "pcf32", pcf64: "pcf64",
+    pcf32i: "pcf32i", pcf64i: "pcf64i",
+    pcloud32: "pcloud32", pcloud64: "pcloud64",
+}
+
+
+# Populated lazily to avoid circular imports (tensor.py -> typing.py)
+_DTYPE_TO_WRAPPER = {}
+
+
+def _init_dtype_wrappers():
+    if _DTYPE_TO_WRAPPER:
+        return
+    from .tensor import FloatTensor, IntTensor, PcfTensor, IntPcfTensor, PointCloudTensor
+    _DTYPE_TO_WRAPPER.update({
+        float32: FloatTensor, float64: FloatTensor,
+        int32: IntTensor, int64: IntTensor,
+        uint32: IntTensor, uint64: IntTensor,
+        pcf32: PcfTensor, pcf64: PcfTensor,
+        pcf32i: IntPcfTensor, pcf64i: IntPcfTensor,
+        pcloud32: PointCloudTensor, pcloud64: PointCloudTensor,
+    })

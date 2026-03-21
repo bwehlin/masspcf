@@ -44,6 +44,15 @@ namespace mpcf::ph
         : m_bars(std::move(bars))
     { }
 
+    /// Converting constructor: convert from a Barcode with different precision.
+    template <typename U>
+    explicit Barcode(const Barcode<U>& other)
+    {
+      m_bars.reserve(other.bars().size());
+      for (const auto& bar : other.bars())
+        m_bars.emplace_back(static_cast<T>(bar.birth), static_cast<T>(bar.death));
+    }
+
     Barcode& operator=(const std::vector<PersistencePair<T>>& bars)
     {
       m_bars = bars;

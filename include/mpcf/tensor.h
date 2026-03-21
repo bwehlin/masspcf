@@ -99,7 +99,7 @@ namespace mpcf
     bool operator!=(const Tensor<U>& rhs) const;
 
     template <typename U>
-    requires std::is_convertible_v<U, T>
+    requires std::is_constructible_v<T, U>
     void assign_from(const Tensor<U>& rhs);
 
     template <typename U>
@@ -518,6 +518,26 @@ namespace mpcf
   void outer_assign(Tensor<T>& dst,
     const std::vector<std::pair<size_t, AxisSelector>>& selectors,
     const Tensor<T>& values);
+
+  // ============================================================================
+  // Type casting
+  // ============================================================================
+
+  /**
+   * Create a new tensor of type Tensor<T> by converting each element from Tensor<U>.
+   * Requires T to be constructible from U.
+   */
+  template <typename T, typename U>
+  requires std::is_constructible_v<T, U>
+  [[nodiscard]] Tensor<T> tensor_cast(const Tensor<U>& src);
+
+  /**
+   * Cast a tensor of point clouds (Tensor<Tensor<U>>) to a different precision
+   * (Tensor<Tensor<T>>), converting each inner tensor's elements.
+   */
+  template <typename T, typename U>
+  requires std::is_constructible_v<T, U>
+  [[nodiscard]] Tensor<Tensor<T>> pcloud_cast(const Tensor<Tensor<U>>& src);
 
   // ============================================================================
   // Joining operations

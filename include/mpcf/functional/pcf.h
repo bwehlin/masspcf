@@ -56,6 +56,16 @@ namespace mpcf
 
     }
 
+    /// Converting constructor: convert from a Pcf with different precision.
+    template <typename Ut, typename Uv>
+    explicit Pcf(const Pcf<Ut, Uv>& other)
+    {
+      m_points.reserve(other.size());
+      for (size_t i = 0; i < other.size(); ++i)
+        m_points.emplace_back(static_cast<Tt>(other.points()[i].t),
+                              static_cast<Tv>(other.points()[i].v));
+    }
+
     Pcf(std::initializer_list<std::pair<Tt, Tv>> pts)
       requires (!FloatType<Tt> || !FloatType<Tv>)
     {
