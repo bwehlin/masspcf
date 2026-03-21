@@ -942,6 +942,32 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T> Tensor<T>::expand_dims(ptrdiff_t axis) const
+  {
+    auto ndim = static_cast<ptrdiff_t>(m_shape.size());
+    // Resolve negative axis; valid range is [-(ndim+1), ndim]
+    if (axis < 0)
+      axis += ndim + 1;
+    if (axis < 0 || axis > ndim)
+      throw std::invalid_argument("expand_dims: axis " + std::to_string(axis) +
+        " out of range for tensor with " + std::to_string(ndim) + " dimensions");
+
+    auto pos = static_cast<size_t>(axis);
+
+    Tensor<T> ret;
+    ret.m_data = m_data;
+    ret.m_offset = m_offset;
+    ret.m_isContiguous = m_isContiguous;
+    ret.m_viewType = ViewType::Base;
+    ret.m_shape = m_shape;
+    ret.m_strides = m_strides;
+    ret.m_shape.insert(ret.m_shape.begin() + pos, 1);
+    ret.m_strides.insert(ret.m_strides.begin() + pos, pos < m_strides.size() ? m_strides[pos] : 1);
+
+    return ret;
+  }
+
+  template <typename T>
   Tensor<T> Tensor<T>::transpose(const std::vector<size_t>& axes) const
   {
     auto ndim = m_shape.size();

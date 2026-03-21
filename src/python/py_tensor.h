@@ -246,6 +246,7 @@ namespace mpcf_py
       .def("transpose", &TTensor::transpose, pybind11::arg("axes") = std::vector<size_t>{})
       .def("squeeze", [](const TTensor& self) { return self.squeeze(); })
       .def("squeeze", [](const TTensor& self, size_t axis) { return self.squeeze(axis); }, pybind11::arg("axis"))
+      .def("expand_dims", &TTensor::expand_dims, pybind11::arg("axis"))
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 

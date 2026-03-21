@@ -168,6 +168,15 @@ of them; with an axis argument it removes only that one::
 Squeeze always returns a view. Squeezing an axis whose size is not 1 raises
 ``ValueError``.
 
+The inverse operation, ``expand_dims``, inserts a size-1 dimension at the given
+position (negative indexing supported)::
+
+   Y = mpcf.FloatTensor(np.arange(6, dtype=np.float32))
+   Y.expand_dims(0)    # shape (1, 6)
+   Y.expand_dims(-1)   # shape (6, 1)
+
+Expand dims also returns a view.
+
 
 Arithmetic
 ==========

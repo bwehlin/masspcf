@@ -228,6 +228,12 @@ namespace mpcf
     [[nodiscard]] Tensor squeeze(size_t axis) const;
 
     /**
+     * Insert a size-1 dimension at the given axis position. Supports negative
+     * indexing. Returns a view.
+     */
+    [[nodiscard]] Tensor expand_dims(ptrdiff_t axis) const;
+
+    /**
      * Make a deep copy of the tensor. The new tensor will be a contiguous version of the original tensor.
      * @return Deep copy of the tensor
      */

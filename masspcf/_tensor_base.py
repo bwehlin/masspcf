@@ -369,6 +369,9 @@ class Tensor(ABC):
             return self._to_py_tensor(self._data.squeeze())
         return self._to_py_tensor(self._data.squeeze(axis))
 
+    def expand_dims(self, axis):
+        return self._to_py_tensor(self._data.expand_dims(axis))
+
     @property
     def shape(self) -> Shape:
         return self._data.shape

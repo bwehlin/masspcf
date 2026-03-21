@@ -184,3 +184,48 @@ class TestSqueeze:
         t = TensorType(np.arange(12, dtype=np_dtype).reshape(3, 4))
         with pytest.raises((ValueError, RuntimeError)):
             t.squeeze(0)
+
+
+# --- expand_dims ---
+
+
+def _assert_expand_dims(np_arr, axis, TensorType):
+    """Assert that mpcf expand_dims matches NumPy."""
+    t = TensorType(np_arr)
+    result = np.asarray(t.expand_dims(axis))
+    expected = np.expand_dims(np_arr, axis)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == expected.shape
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestExpandDims:
+    def test_expand_first(self, TensorType, np_dtype):
+        _assert_expand_dims(np.arange(6, dtype=np_dtype), 0, TensorType)
+
+    def test_expand_last(self, TensorType, np_dtype):
+        _assert_expand_dims(np.arange(6, dtype=np_dtype), -1, TensorType)
+
+    def test_expand_middle(self, TensorType, np_dtype):
+        _assert_expand_dims(np.arange(12, dtype=np_dtype).reshape(3, 4), 1, TensorType)
+
+    def test_expand_2d_first(self, TensorType, np_dtype):
+        _assert_expand_dims(np.arange(12, dtype=np_dtype).reshape(3, 4), 0, TensorType)
+
+    def test_expand_2d_last(self, TensorType, np_dtype):
+        _assert_expand_dims(np.arange(12, dtype=np_dtype).reshape(3, 4), 2, TensorType)
+
+    def test_expand_negative_axis(self, TensorType, np_dtype):
+        _assert_expand_dims(np.arange(12, dtype=np_dtype).reshape(3, 4), -2, TensorType)
+
+    def test_expand_is_view(self, TensorType, np_dtype):
+        np_arr = np.arange(6, dtype=np_dtype)
+        t = TensorType(np_arr)
+        expanded = t.expand_dims(0)
+        expanded[0, 0] = 99
+        assert t[0] == 99
+
+    def test_expand_out_of_range_raises(self, TensorType, np_dtype):
+        t = TensorType(np.arange(6, dtype=np_dtype))
+        with pytest.raises((ValueError, RuntimeError)):
+            t.expand_dims(3)
