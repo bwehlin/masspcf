@@ -29,10 +29,10 @@ namespace mpcf
     // Compute strides
     if (!m_shape.empty())
     {
-      m_strides = m_shape;
-
-      std::partial_sum(m_shape.rbegin(), std::prev(m_shape.rend()), std::next(m_strides.rbegin()), std::multiplies<>());
+      m_strides.resize(m_shape.size());
       m_strides.back() = 1;
+      for (auto i = static_cast<ptrdiff_t>(m_shape.size()) - 2; i >= 0; --i)
+        m_strides[i] = m_strides[i + 1] * static_cast<ptrdiff_t>(m_shape[i + 1]);
     }
   }
 
@@ -823,7 +823,7 @@ namespace mpcf
 
     ret.m_viewType = ViewType::Flattened;
     ret.m_shape = { get_total_size() };
-    ret.m_strides = { 0_uz };
+    ret.m_strides = { ptrdiff_t{0} };
     return ret;
   }
 
@@ -996,15 +996,17 @@ namespace mpcf
   }
 
   template <typename T>
-  size_t Tensor<T>::index_to_data_index(const std::vector<size_t>& index) const
+  ptrdiff_t Tensor<T>::index_to_data_index(const std::vector<size_t>& index) const
   {
-    size_t ret = 0_uz;
+    ptrdiff_t ret = 0;
     switch (m_viewType)
     {
     case ViewType::Base:
-      ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), 0_uz);
+      ret = std::inner_product(index.begin(), index.end(), m_strides.begin(), ptrdiff_t{0},
+        std::plus<>(), [](size_t idx, ptrdiff_t stride) -> ptrdiff_t {
+          return static_cast<ptrdiff_t>(idx) * stride;
+        });
       ret += m_offset;
-      //std::cout << "Translated " <<  " -> " << ret << std::endl;
       return ret;
     case ViewType::Flattened:
       if (index.size() != 1_uz)
@@ -1014,7 +1016,7 @@ namespace mpcf
 
       if (m_isContiguous)
       {
-        return m_offset + index[0];
+        return m_offset + static_cast<ptrdiff_t>(index[0]);
       }
 
       return ret;

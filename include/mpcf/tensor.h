@@ -173,8 +173,8 @@ namespace mpcf
     Tensor& operator*=(const Tensor& rhs);
     Tensor& operator/=(const Tensor& rhs);
 
-    [[nodiscard]] const std::vector<size_t>& strides() const noexcept { return m_strides; }
-    [[nodiscard]] size_t stride(size_t idx) const noexcept { return m_strides[idx]; }
+    [[nodiscard]] const std::vector<ptrdiff_t>& strides() const noexcept { return m_strides; }
+    [[nodiscard]] ptrdiff_t stride(size_t idx) const noexcept { return m_strides[idx]; }
     [[nodiscard]] const std::vector<size_t>& shape() const noexcept { return m_shape; }
     [[nodiscard]] size_t shape(size_t dim) const noexcept { return m_shape[dim]; }
     [[nodiscard]] size_t rank() const noexcept { return m_shape.size(); }
@@ -187,7 +187,7 @@ namespace mpcf
 
     [[nodiscard]] bool is_contiguous() const noexcept { return m_isContiguous; }
 
-    [[nodiscard]] size_t offset() const noexcept { return m_offset; }
+    [[nodiscard]] ptrdiff_t offset() const noexcept { return m_offset; }
     [[nodiscard]] value_type* data() const noexcept { return m_data.get() + m_offset; }
 
     template <typename SliceVector>
@@ -277,14 +277,14 @@ namespace mpcf
 
     [[nodiscard]] size_t get_total_size() const;
 
-    [[nodiscard]] size_t index_to_data_index(const std::vector<size_t>& index) const;
+    [[nodiscard]] ptrdiff_t index_to_data_index(const std::vector<size_t>& index) const;
     [[nodiscard]] const T& index_to_ref(const std::vector<size_t>& index) const;
     [[nodiscard]] T& index_to_ref(const std::vector<size_t>& index);
 
-    std::vector<size_t> m_strides;
+    std::vector<ptrdiff_t> m_strides;
     std::vector<size_t> m_shape;
     std::shared_ptr<value_type[]> m_data;
-    size_t m_offset = 0ul;
+    ptrdiff_t m_offset = 0;
 
     ViewType m_viewType = ViewType::Base;
     bool m_isContiguous = true;
@@ -306,7 +306,8 @@ namespace mpcf
   requires CanDivideTo<T, U, T>
   [[nodiscard]] Tensor<T> operator/(const U& u, const Tensor<T>& t);
 
-  inline std::string shape_to_string(const std::vector<size_t>& shape)
+  template <typename IntT>
+  inline std::string shape_to_string(const std::vector<IntT>& shape)
   {
     std::stringstream ss;
     ss << "(";
@@ -322,7 +323,8 @@ namespace mpcf
     return ss.str();
   }
 
-  inline std::string index_to_string(const std::vector<size_t>& idx)
+  template <typename IntT>
+  inline std::string index_to_string(const std::vector<IntT>& idx)
   {
     if (idx.size() == 1)
     {
