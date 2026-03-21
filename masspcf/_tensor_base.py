@@ -17,8 +17,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Union
 
-import numpy as np
-
 from . import _mpcf_cpp as cpp
 
 Shape = cpp.Shape
@@ -463,19 +461,6 @@ class ArithmeticTensorMixin:
 
     def __itruediv__(self, rhs):
         self._data /= self._decay_operand(rhs)
-        return self
-
-    def __floordiv__(self, rhs):
-        rhs_arr = np.asarray(rhs) if isinstance(rhs, Tensor) else rhs
-        return self._to_py_tensor(np.asarray(self) // rhs_arr)
-
-    def __rfloordiv__(self, lhs):
-        return self._to_py_tensor(lhs // np.asarray(self))
-
-    def __ifloordiv__(self, rhs):
-        rhs_arr = np.asarray(rhs) if isinstance(rhs, Tensor) else rhs
-        new = self._to_py_tensor(np.asarray(self) // rhs_arr)
-        self._data = new._data
         return self
 
     def __pow__(self, exponent):

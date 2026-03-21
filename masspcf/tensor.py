@@ -92,6 +92,19 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
             return np.array_equal(np.asarray(self), other)
         return super().array_equal(other)
 
+    def __floordiv__(self, rhs):
+        rhs_arr = np.asarray(rhs) if isinstance(rhs, NumericTensor) else rhs
+        return self._to_py_tensor(np.asarray(self) // rhs_arr)
+
+    def __rfloordiv__(self, lhs):
+        return self._to_py_tensor(lhs // np.asarray(self))
+
+    def __ifloordiv__(self, rhs):
+        rhs_arr = np.asarray(rhs) if isinstance(rhs, NumericTensor) else rhs
+        new = self._to_py_tensor(np.asarray(self) // rhs_arr)
+        self._data = new._data
+        return self
+
 
 class FloatTensor(NumericTensor):
     def __init__(self, data: cpp.Float32Tensor | cpp.Float64Tensor | FloatTensor | np.ndarray, dtype=None):

@@ -133,9 +133,10 @@ To collapse all dimensions into one::
 Arithmetic
 ==========
 
-Numeric and PCF tensors support the standard arithmetic operators ``+``, ``-``,
-``*``, ``/``, ``**``, unary ``-``, and their in-place counterparts ``+=``,
-``-=``, ``*=``, ``/=``, ``**=``.
+All tensor types with arithmetic support ``+``, ``-``, ``*``, ``/``, ``**``,
+unary ``-``, and their in-place counterparts ``+=``, ``-=``, ``*=``, ``/=``,
+``**=``. Numeric tensors (``FloatTensor``, ``IntTensor``) additionally support
+floor division ``//`` and ``//=``.
 
 Scalar arithmetic
 -----------------
@@ -178,6 +179,29 @@ numeric and PCF tensors::
 
 A ``RuntimeWarning`` is emitted if the result contains NaN or infinity (e.g.
 raising a negative value to a fractional power).
+
+Division
+--------
+
+For ``FloatTensor``, ``/`` performs true division as expected::
+
+   X = mpcf.FloatTensor(np.array([10.0, 21.0, 35.0]))
+   X / 4.0   # [2.5, 5.25, 8.75]
+
+For ``IntTensor``, ``/`` returns a ``FloatTensor`` (float64), matching NumPy::
+
+   A = mpcf.IntTensor(np.array([10, 21, 35]))
+   A / 4      # FloatTensor: [2.5, 5.25, 8.75]
+
+Floor division (``//``) rounds down to the nearest integer (e.g. ``7 // 2 = 3``
+and ``-7 // 2 = -4``). It is available on ``FloatTensor`` and ``IntTensor``,
+matching NumPy::
+
+   X = mpcf.FloatTensor(np.array([10.5, -7.3, 21.0]))
+   X // 3.0   # [3.0, -3.0, 7.0]
+
+   A = mpcf.IntTensor(np.array([10, -7, 21]))
+   A // 3     # IntTensor: [3, -3, 7]
 
 Tensor-tensor arithmetic (broadcasting)
 ----------------------------------------
@@ -428,6 +452,54 @@ masspcf applies indices left-to-right without reordering.
 
 For expressions that only use slices and masks (the common case), masspcf and
 NumPy produce identical results.
+
+
+Advanced indexing
+=================
+
+An integer array (NumPy ``ndarray`` or ``IntTensor``) can be used as an index to
+gather elements along an axis, just like
+`NumPy advanced indexing <https://numpy.org/doc/stable/user/basics.indexing.html#advanced-indexing>`_.
+
+Gathering
+---------
+
+Pass an integer array to select elements in a given order. Duplicates and
+negative indices are supported::
+
+   import numpy as np
+   import masspcf as mpcf
+
+   X = mpcf.FloatTensor(np.array([10, 20, 30, 40, 50], dtype=np.float32))
+   X[np.array([2, 0, 4])]    # [30, 10, 50]
+   X[np.array([1, 1, 2, 0])] # [20, 20, 30, 10]  — duplicates allowed
+   X[np.array([-1, -2])]     # [50, 40]           — negative indices
+
+For multi-dimensional tensors, one axis can use an integer array while the
+others use slices::
+
+   A = mpcf.FloatTensor(np.array([[1, 2, 3, 4],
+                                   [5, 6, 7, 8]], dtype=np.float32))
+   A[:, np.array([1, 3])]    # columns 1 and 3 → shape (2, 2)
+
+An ``IntTensor`` can be used in place of a NumPy integer array::
+
+   idx = mpcf.IntTensor(np.array([4, 1, 0]))
+   X[idx]    # [50, 20, 10]
+
+Assignment with integer indices
+-------------------------------
+
+Both scalar fill and tensor assignment work with integer array indices::
+
+   X[np.array([1, 3])] = 0.0                       # scalar fill
+   X[np.array([0, 2])] = mpcf.FloatTensor(...)      # tensor assign
+
+Limitations
+-----------
+
+Only one integer array index is allowed per expression. Mixing boolean and
+integer array indices in the same expression raises ``IndexError``.
 
 
 Evaluation
