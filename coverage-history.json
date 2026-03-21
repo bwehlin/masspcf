@@ -372,6 +372,15 @@
     "cpp": 87.6,
     "py": 82.0,
     "cuda": 89.1,
+    "release_tag": "v0.4.0b10"
+  },
+  {
+    "utc_iso": "2026-03-21T21:41:15Z",
+    "sha": "3ed00c3",
+    "detail_path": "reports/2026-03-21_21-41-15_3ed00c3/report.html",
+    "cpp": 86.0,
+    "py": 84.0,
+    "cuda": 89.1,
     "release_tag": null
   }
 ]
