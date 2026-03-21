@@ -221,3 +221,8 @@ indexing), consistent with the boolean masking behavior::
 Boolean and integer indices can be mixed::
 
    X[np.array([True, False, True]), np.array([0, 3])]  # shape (2, 2)
+
+Assignment works with any combination of indices::
+
+   X[np.array([0, 2]), np.array([1, 3])] = -1.0        # scalar fill
+   X[np.array([True, False, True]), np.array([0, 3])] = some_tensor  # tensor assign
