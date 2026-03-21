@@ -431,6 +431,32 @@ namespace mpcf
   template <typename T>
   void axis_fill(Tensor<T>& dst, size_t axis, const Tensor<bool>& mask, const T& value);
 
+  /**
+   * Select along multiple axes where each mask is true (outer indexing).
+   * Each pair is (axis, mask). Masks are applied independently per axis.
+   */
+  template <typename T>
+  [[nodiscard]] Tensor<T> multi_axis_select(const Tensor<T>& src,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks);
+
+  /**
+   * Fill dst with a scalar value at positions where all masks are true (outer indexing).
+   * Each pair is (axis, mask). A position is filled if mask_i[idx[axis_i]] is true for every i.
+   */
+  template <typename T>
+  void multi_axis_fill(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+    const T& value);
+
+  /**
+   * Assign values into dst at positions where all masks are true (outer indexing).
+   * Each pair is (axis, mask). values.shape() must match the multi_axis_select output shape.
+   */
+  template <typename T>
+  void multi_axis_assign(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+    const Tensor<T>& values);
+
   // ============================================================================
   // Index-based gather/scatter operations
   // ============================================================================

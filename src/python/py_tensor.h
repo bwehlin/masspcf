@@ -316,6 +316,15 @@ namespace mpcf_py
     cls.def("axis_fill", [](TTensor& self, size_t axis, const mpcf::Tensor<bool>& mask, const T& value) {
       mpcf::axis_fill(self, axis, mask, value);
     });
+    cls.def("multi_axis_select", [](const TTensor& self, const std::vector<std::pair<size_t, mpcf::Tensor<bool>>>& axis_masks) {
+      return mpcf::multi_axis_select(self, axis_masks);
+    });
+    cls.def("multi_axis_assign", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::Tensor<bool>>>& axis_masks, const TTensor& values) {
+      mpcf::multi_axis_assign(self, axis_masks, values);
+    });
+    cls.def("multi_axis_fill", [](TTensor& self, const std::vector<std::pair<size_t, mpcf::Tensor<bool>>>& axis_masks, const T& value) {
+      mpcf::multi_axis_fill(self, axis_masks, value);
+    });
 
     // Index-based gather/scatter (always use int64 as index type)
     cls.def("index_select", [](const TTensor& self, size_t axis, const mpcf::Tensor<mpcf::int64_t>& indices) {

@@ -624,6 +624,83 @@ namespace mpcf
 
   namespace detail
   {
+    struct AxisMaskInfo
+    {
+      size_t axis;
+      std::vector<size_t> true_indices;
+    };
+
+    inline std::vector<AxisMaskInfo> prepare_axis_masks(
+      const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+      const std::vector<size_t>& shape)
+    {
+      std::vector<AxisMaskInfo> infos;
+      infos.reserve(axis_masks.size());
+      for (const auto& [axis, mask] : axis_masks)
+      {
+        validate_axis_mask(axis, shape.size(), mask, shape[axis]);
+        infos.push_back({axis, collect_true_indices(mask)});
+      }
+      return infos;
+    }
+  }
+
+  template <typename T>
+  Tensor<T> multi_axis_select(const Tensor<T>& src,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks)
+  {
+    auto infos = detail::prepare_axis_masks(axis_masks, src.shape());
+
+    auto out_shape = src.shape();
+    for (const auto& info : infos)
+      out_shape[info.axis] = info.true_indices.size();
+
+    Tensor<T> result(out_shape);
+    walk(result, [&](const std::vector<size_t>& out_idx) {
+      auto src_idx = out_idx;
+      for (const auto& info : infos)
+        src_idx[info.axis] = info.true_indices[out_idx[info.axis]];
+      result(out_idx) = src(src_idx);
+    });
+
+    return result;
+  }
+
+  template <typename T>
+  void multi_axis_fill(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+    const T& value)
+  {
+    for (const auto& [axis, mask] : axis_masks)
+      detail::validate_axis_mask(axis, dst.shape().size(), mask, dst.shape()[axis]);
+
+    walk(dst, [&](const std::vector<size_t>& idx) {
+      for (const auto& [axis, mask] : axis_masks)
+      {
+        if (!mask({idx[axis]}))
+          return;
+      }
+      dst(idx) = value;
+    });
+  }
+
+  template <typename T>
+  void multi_axis_assign(Tensor<T>& dst,
+    const std::vector<std::pair<size_t, Tensor<bool>>>& axis_masks,
+    const Tensor<T>& values)
+  {
+    auto infos = detail::prepare_axis_masks(axis_masks, dst.shape());
+
+    walk(values, [&](const std::vector<size_t>& val_idx) {
+      auto dst_idx = val_idx;
+      for (const auto& info : infos)
+        dst_idx[info.axis] = info.true_indices[val_idx[info.axis]];
+      dst(dst_idx) = values(val_idx);
+    });
+  }
+
+  namespace detail
+  {
     template <typename I>
     void validate_axis_indices(size_t axis, size_t ndim, const Tensor<I>& indices, size_t axis_size)
     {

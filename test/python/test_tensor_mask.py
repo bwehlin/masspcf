@@ -311,10 +311,25 @@ class TestMixedBoolSliceGetitem:
         with pytest.raises(ValueError):
             t[slice(None), np.array([True, False])]
 
-    def test_multiple_masks_raises(self):
-        t = _mpcf(np.zeros((3, 4, 5), dtype=np.float32))
-        with pytest.raises(IndexError):
-            t[np.array([True, False, True]), slice(None), np.array([True, True, False, True, False])]
+    def test_multiple_masks_2d(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        t = _mpcf(arr)
+        row_mask = np.array([True, False, True])
+        col_mask = np.array([False, True, True, False])
+        result = np.asarray(t[row_mask, col_mask])
+        expected = arr[np.ix_(row_mask, col_mask)]
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == expected.shape
+
+    def test_multiple_masks_3d(self):
+        arr = np.arange(60, dtype=np.float32).reshape(3, 4, 5)
+        t = _mpcf(arr)
+        mask0 = np.array([True, False, True])
+        mask2 = np.array([True, True, False, True, False])
+        result = np.asarray(t[mask0, :, mask2])
+        expected = arr[np.ix_(mask0, np.ones(4, dtype=bool), mask2)]
+        np.testing.assert_array_equal(result, expected)
+        assert result.shape == expected.shape
 
 
 # =============================================================================
@@ -376,7 +391,12 @@ class TestMixedBoolSliceSetitem:
         with pytest.raises(ValueError):
             t[slice(None), np.array([True, False])] = -1.0
 
-    def test_multiple_masks_raises(self):
-        t = _mpcf(np.zeros((3, 4, 5), dtype=np.float32))
-        with pytest.raises(IndexError):
-            t[np.array([True, False, True]), slice(None), np.array([True, True, False, True, False])] = 0.0
+    def test_multiple_masks_scalar_fill(self):
+        arr = np.arange(12, dtype=np.float32).reshape(3, 4)
+        row_mask = np.array([True, False, True])
+        col_mask = np.array([False, True, True, False])
+        t = _mpcf(arr.copy())
+        np_arr = arr.copy()
+        t[row_mask, col_mask] = -1.0
+        np_arr[np.ix_(row_mask, col_mask)] = -1.0
+        np.testing.assert_array_equal(np.asarray(t), np_arr)

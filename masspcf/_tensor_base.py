@@ -114,20 +114,21 @@ class Tensor(ABC):
             if len(slices) == 1 and isinstance(slices[0], BoolTensor):
                 return self._to_py_tensor(self._data.masked_select(slices[0]._data))  # type: ignore[arg-type]
 
-            # Multiple BoolTensors not yet supported
-            if len(bool_positions) > 1:
-                raise IndexError("Only one BoolTensor mask per indexing expression is supported")
-
-            # Mixed indexing: decompose into slices + axis selection
+            # Apply slices first, then apply bool masks (outer indexing)
             slice_parts = tuple(slice(None) if isinstance(s, BoolTensor) else s for s in slices)
             result = self._getitem_slices(slice_parts)
 
-            orig_pos = bool_positions[0][0]
-            bool_tensor = bool_positions[0][1]
-            dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-            axis = orig_pos - dims_dropped
+            if len(bool_positions) == 1:
+                orig_pos, bool_tensor = bool_positions[0]
+                dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+                axis = orig_pos - dims_dropped
+                return self._to_py_tensor(result._data.axis_select(axis, bool_tensor._data))  # type: ignore[arg-type]
 
-            return self._to_py_tensor(result._data.axis_select(axis, bool_tensor._data))  # type: ignore[arg-type]
+            axis_masks = []
+            for orig_pos, bool_tensor in bool_positions:
+                dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+                axis_masks.append((orig_pos - dims_dropped, bool_tensor._data))
+            return self._to_py_tensor(result._data.multi_axis_select(axis_masks))
 
         # --- IntTensor advanced indexing ---
         if len(int_positions) > 1:
@@ -193,23 +194,29 @@ class Tensor(ABC):
                     self._data.masked_fill(slices[0]._data, self._decay_value(val))  # type: ignore[arg-type]
                 return
 
-            # Multiple BoolTensors not yet supported
-            if len(bool_positions) > 1:
-                raise IndexError("Only one BoolTensor mask per indexing expression is supported")
-
-            # Mixed indexing: apply slices first to get a mutable view, then axis op
+            # Mixed indexing: apply slices first to get a mutable view, then axis ops
             slice_parts = tuple(slice(None) if isinstance(s, BoolTensor) else s for s in slices)
             view = self._getitem_slices(slice_parts)
 
-            orig_pos = bool_positions[0][0]
-            bool_tensor = bool_positions[0][1]
-            dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
-            axis = orig_pos - dims_dropped
+            def _build_axis_masks(positions):
+                masks = []
+                for orig_pos, bt in positions:
+                    dims_dropped = sum(1 for j in range(orig_pos) if isinstance(slices[j], int))
+                    masks.append((orig_pos - dims_dropped, bt._data))
+                return masks
 
-            if isinstance(val, Tensor):
-                view._data.axis_assign(axis, bool_tensor._data, val._data)  # type: ignore[arg-type]
+            if len(bool_positions) == 1:
+                axis, mask_data = _build_axis_masks(bool_positions)[0]
+                if isinstance(val, Tensor):
+                    view._data.axis_assign(axis, mask_data, val._data)  # type: ignore[arg-type]
+                else:
+                    view._data.axis_fill(axis, mask_data, self._decay_value(val))  # type: ignore[arg-type]
             else:
-                view._data.axis_fill(axis, bool_tensor._data, self._decay_value(val))  # type: ignore[arg-type]
+                axis_masks = _build_axis_masks(bool_positions)
+                if isinstance(val, Tensor):
+                    view._data.multi_axis_assign(axis_masks, val._data)  # type: ignore[arg-type]
+                else:
+                    view._data.multi_axis_fill(axis_masks, self._decay_value(val))  # type: ignore[arg-type]
             return
 
         # --- IntTensor advanced indexing ---

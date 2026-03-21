@@ -417,6 +417,19 @@ This works with slices too::
    mask = mpcf.BoolTensor(np.array([True, False, True, False]))
    Y[:, mask, 1:4]      # shape (3, 2, 3)
 
+Multiple masks can be used in the same expression. Each mask selects
+independently along its own axis (outer indexing)::
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+
+   row_mask = np.array([True, False, True])
+   col_mask = np.array([False, True, True, False])
+   X[row_mask, col_mask]   # shape (2, 2) — rows 0, 2 × columns 1, 2
+
+Assignment with multiple masks is also supported::
+
+   X[row_mask, col_mask] = -1.0   # fill selected submatrix with -1
+
 Creating BoolTensors
 --------------------
 
@@ -435,22 +448,28 @@ Creating BoolTensors
 Differences from NumPy
 ----------------------
 
-Axis masking follows **outer indexing** semantics: each index independently
+Axis masking follows **outer indexing** semantics: each mask independently
 selects along its own axis. This matches what most users expect and is the
 behavior described in `NEP 21 <https://numpy.org/neps/nep-0021-advanced-indexing.html>`_.
 
-In practice, the only case where this differs from NumPy is when an integer
-index and a boolean mask appear in the same indexing expression. Consider a
-3-D tensor ``X`` of shape ``(2, 3, 4)`` and a boolean mask of length 4:
+When multiple boolean masks appear in the same expression, masspcf treats them
+as an outer product (each mask filters its axis independently). To get the same
+result in NumPy, use ``np.ix_``::
 
-- ``X[0, :, mask]`` first selects index 0 along the first axis (giving a
-  ``(3, 4)`` result), then applies the mask along the last axis.
-- In NumPy, ``arr[0, :, mask]`` instead reorders dimensions so that the mask
-  axis comes first, giving a different shape.
+   # masspcf
+   X[row_mask, col_mask]
 
-masspcf applies indices left-to-right without reordering.
+   # NumPy equivalent
+   arr[np.ix_(row_mask, col_mask)]
 
-For expressions that only use slices and masks (the common case), masspcf and
+In NumPy, ``arr[row_mask, col_mask]`` instead pairs elements (like ``zip``),
+which requires both masks to have the same number of ``True`` values.
+
+Similarly, when an integer index and a boolean mask appear together, masspcf
+applies them left-to-right without reordering dimensions, while NumPy may
+reorder axes.
+
+For expressions with a single mask and slices (the common case), masspcf and
 NumPy produce identical results.
 
 
