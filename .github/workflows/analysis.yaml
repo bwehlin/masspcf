@@ -435,6 +435,9 @@ jobs:
           path: gh-pages-branch
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Ensure .nojekyll exists
+        run: touch gh-pages-branch/.nojekyll
+
       - name: Update report history and generate index
         run: |
           # Fetch tags only (avoids noisy branch output)

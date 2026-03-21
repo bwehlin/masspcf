@@ -83,3 +83,40 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG"
           git push origin "$TAG"
+
+  refresh_reports:
+    name: Refresh gh-pages with release tag
+    runs-on: ubuntu-24.04
+    needs: publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: gh-pages-branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Regenerate index with tag map
+        run: |
+          git fetch --tags --no-recurse-submodules
+          TAG_MAP=$(git tag --list | while read tag; do
+            sha=$(git rev-list -n1 "$tag" 2>/dev/null | cut -c1-7)
+            [ -n "$sha" ] && echo "${sha}=${tag}"
+          done | tr '\n' ' ')
+          echo "Tag map: $TAG_MAP"
+          python3 .github/scripts/generate_coverage_index.py gh-pages-branch --tag-map $TAG_MAP
+
+      - name: Commit and push to gh-pages
+        run: |
+          cd gh-pages-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "reports: tag release for ${{ github.sha }}"
+          git push
