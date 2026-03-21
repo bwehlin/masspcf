@@ -243,6 +243,7 @@ namespace mpcf_py
       .def("copy", &TTensor::copy)
       .def("flatten", &TTensor::flatten)
       .def("reshape", &TTensor::reshape)
+      .def("transpose", &TTensor::transpose, pybind11::arg("axes") = std::vector<size_t>{})
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 

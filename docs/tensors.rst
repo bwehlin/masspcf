@@ -146,6 +146,18 @@ may be ``-1`` to infer its size::
 For contiguous tensors, ``reshape`` returns a view (shared data). For
 non-contiguous tensors (e.g. from slicing with a step), it copies first.
 
+To reverse the order of axes, use the ``.T`` property. For finer control,
+``transpose`` accepts an explicit axis permutation::
+
+   A = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+   A.T              # shape (4, 3)
+   A.transpose((1, 0))  # same as .T for 2-D
+
+   B = mpcf.FloatTensor(np.arange(24, dtype=np.float32).reshape(2, 3, 4))
+   B.transpose((2, 0, 1))  # shape (4, 2, 3)
+
+Transpose always returns a view.
+
 
 Arithmetic
 ==========

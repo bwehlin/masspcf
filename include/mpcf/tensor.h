@@ -213,6 +213,11 @@ namespace mpcf
     [[nodiscard]] Tensor reshape(const std::vector<ptrdiff_t>& new_shape) const;
 
     /**
+     * Return a view with axes permuted. If axes is empty, reverses all axes (like NumPy .T).
+     */
+    [[nodiscard]] Tensor transpose(const std::vector<size_t>& axes = {}) const;
+
+    /**
      * Make a deep copy of the tensor. The new tensor will be a contiguous version of the original tensor.
      * @return Deep copy of the tensor
      */

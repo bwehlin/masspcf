@@ -893,6 +893,51 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T> Tensor<T>::transpose(const std::vector<size_t>& axes) const
+  {
+    auto ndim = m_shape.size();
+
+    std::vector<size_t> perm;
+    if (axes.empty())
+    {
+      perm.resize(ndim);
+      std::iota(perm.rbegin(), perm.rend(), 0_uz);
+    }
+    else
+    {
+      if (axes.size() != ndim)
+        throw std::invalid_argument("transpose: axes must have length " +
+          std::to_string(ndim) + ", got " + std::to_string(axes.size()));
+
+      std::vector<bool> seen(ndim, false);
+      for (auto a : axes)
+      {
+        if (a >= ndim)
+          throw std::invalid_argument("transpose: axis " + std::to_string(a) + " out of range");
+        if (seen[a])
+          throw std::invalid_argument("transpose: repeated axis " + std::to_string(a));
+        seen[a] = true;
+      }
+      perm = axes;
+    }
+
+    Tensor<T> ret;
+    ret.m_data = m_data;
+    ret.m_offset = m_offset;
+    ret.m_shape.resize(ndim);
+    ret.m_strides.resize(ndim);
+    for (size_t i = 0; i < ndim; ++i)
+    {
+      ret.m_shape[i] = m_shape[perm[i]];
+      ret.m_strides[i] = m_strides[perm[i]];
+    }
+    ret.m_isContiguous = false;
+    ret.m_viewType = ViewType::Base;
+
+    return ret;
+  }
+
+  template <typename T>
   template <typename UnaryFunc>
 #ifndef __CUDACC__
   requires std::invocable<UnaryFunc, std::vector<size_t>>

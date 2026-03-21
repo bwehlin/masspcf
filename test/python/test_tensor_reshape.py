@@ -81,3 +81,63 @@ class TestReshape:
         t = TensorType(np.arange(12, dtype=np_dtype))
         with pytest.raises(ValueError):
             t.reshape((-1, -1))
+
+
+# --- transpose ---
+
+
+def _assert_transpose(np_arr, axes, TensorType):
+    """Assert that mpcf transpose matches NumPy."""
+    t = TensorType(np_arr)
+    if axes is None:
+        result = np.asarray(t.T)
+        expected = np_arr.T
+    else:
+        result = np.asarray(t.transpose(axes))
+        expected = np_arr.transpose(axes)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == expected.shape
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestTranspose:
+    def test_2d_T(self, TensorType, np_dtype):
+        _assert_transpose(np.arange(12, dtype=np_dtype).reshape(3, 4), None, TensorType)
+
+    def test_2d_transpose_axes(self, TensorType, np_dtype):
+        _assert_transpose(np.arange(12, dtype=np_dtype).reshape(3, 4), (1, 0), TensorType)
+
+    def test_3d_transpose_default(self, TensorType, np_dtype):
+        _assert_transpose(np.arange(24, dtype=np_dtype).reshape(2, 3, 4), None, TensorType)
+
+    def test_3d_transpose_axes(self, TensorType, np_dtype):
+        _assert_transpose(np.arange(24, dtype=np_dtype).reshape(2, 3, 4), (2, 0, 1), TensorType)
+
+    def test_1d_T_is_noop(self, TensorType, np_dtype):
+        np_arr = np.arange(5, dtype=np_dtype)
+        t = TensorType(np_arr)
+        np.testing.assert_array_equal(np.asarray(t.T), np_arr)
+
+    def test_transpose_is_view(self, TensorType, np_dtype):
+        np_arr = np.arange(12, dtype=np_dtype).reshape(3, 4)
+        t = TensorType(np_arr)
+        tr = t.T
+        tr[0, 0] = 99
+        assert t[0, 0] == 99
+
+    def test_transpose_then_slice(self, TensorType, np_dtype):
+        np_arr = np.arange(12, dtype=np_dtype).reshape(3, 4)
+        t = TensorType(np_arr)
+        result = np.asarray(t.T[1:3, :])
+        expected = np_arr.T[1:3, :]
+        np.testing.assert_array_equal(result, expected)
+
+    def test_wrong_number_of_axes_raises(self, TensorType, np_dtype):
+        t = TensorType(np.arange(12, dtype=np_dtype).reshape(3, 4))
+        with pytest.raises((ValueError, RuntimeError)):
+            t.transpose((0,))
+
+    def test_repeated_axis_raises(self, TensorType, np_dtype):
+        t = TensorType(np.arange(24, dtype=np_dtype).reshape(2, 3, 4))
+        with pytest.raises((ValueError, RuntimeError)):
+            t.transpose((2, 2, 0))

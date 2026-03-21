@@ -357,6 +357,13 @@ class Tensor(ABC):
     def reshape(self, shape):
         return self._to_py_tensor(self._data.reshape(list(shape)))
 
+    def transpose(self, axes=None):
+        return self._to_py_tensor(self._data.transpose(list(axes) if axes else []))
+
+    @property
+    def T(self):
+        return self.transpose()
+
     @property
     def shape(self) -> Shape:
         return self._data.shape
