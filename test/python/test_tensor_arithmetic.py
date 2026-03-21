@@ -134,6 +134,40 @@ class TestFloatDivision:
         _assert_scalar_op(a, np.float32(2.0), lambda x, y: x / y)
 
 
+# --- Floor division ---
+
+
+_FLOAT_TYPES = [
+    pytest.param(mpcf.FloatTensor, np.float64, id="float64"),
+    pytest.param(mpcf.FloatTensor, np.float32, id="float32"),
+]
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _FLOAT_TYPES)
+class TestFloatFloorDiv:
+    def test_floordiv_scalar(self, TensorType, np_dtype):
+        a = np.array([10.5, -7.3, 21.0], dtype=np_dtype)
+        result = np.asarray(TensorType(a) // np_dtype(3))
+        npt.assert_array_almost_equal(result, a // np_dtype(3))
+
+    def test_floordiv_tensor(self, TensorType, np_dtype):
+        a = np.array([10.5, -7.3, 21.0], dtype=np_dtype)
+        b = np.array([3.0, 2.0, 4.0], dtype=np_dtype)
+        result = np.asarray(TensorType(a) // TensorType(b))
+        npt.assert_array_almost_equal(result, a // b)
+
+    def test_rfloordiv_scalar(self, TensorType, np_dtype):
+        a = np.array([3.0, 7.0, 4.0], dtype=np_dtype)
+        result = np.asarray(np_dtype(10) // TensorType(a))
+        npt.assert_array_almost_equal(result, np_dtype(10) // a)
+
+    def test_ifloordiv_scalar(self, TensorType, np_dtype):
+        a = np.array([10.5, -7.3, 21.0], dtype=np_dtype)
+        t = TensorType(a.copy())
+        t //= np_dtype(3)
+        npt.assert_array_almost_equal(np.asarray(t), a // np_dtype(3))
+
+
 # --- PCF tensors (parametrized across all PCF dtypes) ---
 
 

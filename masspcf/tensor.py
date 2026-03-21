@@ -178,20 +178,6 @@ class IntTensor(NumericTensor):
             "(result is float). Use `x = x / y` instead."
         )
 
-    def __floordiv__(self, rhs):
-        rhs_arr = np.asarray(rhs) if isinstance(rhs, IntTensor) else rhs
-        return IntTensor(np.asarray(self) // rhs_arr)
-
-    def __rfloordiv__(self, lhs):
-        return IntTensor(lhs // np.asarray(self))
-
-    def __ifloordiv__(self, rhs):
-        rhs_arr = np.asarray(rhs) if isinstance(rhs, IntTensor) else rhs
-        result = np.asarray(self) // rhs_arr
-        self._data = IntTensor(result)._data
-        self.dtype = _INT_CPP_TO_DTYPE[type(self._data)]
-        return self
-
     def __neg__(self):
         if self.dtype in (uint32, uint64):
             raise TypeError(f"Negation is not supported for unsigned dtype {self.dtype.__name__}")
