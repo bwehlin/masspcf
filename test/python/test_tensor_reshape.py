@@ -143,6 +143,56 @@ class TestTranspose:
             t.transpose((2, 2, 0))
 
 
+# --- swapaxes ---
+
+
+def _assert_swapaxes(np_arr, axis1, axis2, TensorType):
+    """Assert that mpcf swapaxes matches NumPy."""
+    t = TensorType(np_arr)
+    result = np.asarray(t.swapaxes(axis1, axis2))
+    expected = np_arr.swapaxes(axis1, axis2)
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == expected.shape
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestSwapaxes:
+    def test_2d(self, TensorType, np_dtype):
+        _assert_swapaxes(np.arange(12, dtype=np_dtype).reshape(3, 4), 0, 1, TensorType)
+
+    def test_3d_01(self, TensorType, np_dtype):
+        _assert_swapaxes(np.arange(24, dtype=np_dtype).reshape(2, 3, 4), 0, 1, TensorType)
+
+    def test_3d_02(self, TensorType, np_dtype):
+        _assert_swapaxes(np.arange(24, dtype=np_dtype).reshape(2, 3, 4), 0, 2, TensorType)
+
+    def test_3d_12(self, TensorType, np_dtype):
+        _assert_swapaxes(np.arange(24, dtype=np_dtype).reshape(2, 3, 4), 1, 2, TensorType)
+
+    def test_same_axis(self, TensorType, np_dtype):
+        _assert_swapaxes(np.arange(12, dtype=np_dtype).reshape(3, 4), 0, 0, TensorType)
+
+    def test_negative_axes(self, TensorType, np_dtype):
+        _assert_swapaxes(np.arange(24, dtype=np_dtype).reshape(2, 3, 4), -1, -3, TensorType)
+
+    def test_is_view(self, TensorType, np_dtype):
+        np_arr = np.arange(12, dtype=np_dtype).reshape(3, 4)
+        t = TensorType(np_arr)
+        swapped = t.swapaxes(0, 1)
+        swapped[0, 0] = 99
+        assert t[0, 0] == 99
+
+    def test_out_of_range_raises(self, TensorType, np_dtype):
+        t = TensorType(np.arange(12, dtype=np_dtype).reshape(3, 4))
+        with pytest.raises((ValueError, RuntimeError, IndexError)):
+            t.swapaxes(0, 3)
+
+    def test_negative_out_of_range_raises(self, TensorType, np_dtype):
+        t = TensorType(np.arange(12, dtype=np_dtype).reshape(3, 4))
+        with pytest.raises((ValueError, RuntimeError, IndexError)):
+            t.swapaxes(-3, 0)
+
+
 # --- squeeze ---
 
 

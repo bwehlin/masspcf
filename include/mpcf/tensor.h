@@ -218,6 +218,11 @@ namespace mpcf
     [[nodiscard]] Tensor transpose(const std::vector<size_t>& axes = {}) const;
 
     /**
+     * Return a view with two axes swapped.
+     */
+    [[nodiscard]] Tensor swapaxes(size_t axis1, size_t axis2) const;
+
+    /**
      * Remove all size-1 dimensions. Returns a view.
      */
     [[nodiscard]] Tensor squeeze() const;

@@ -1232,6 +1232,20 @@ namespace mpcf
   }
 
   template <typename T>
+  Tensor<T> Tensor<T>::swapaxes(size_t axis1, size_t axis2) const
+  {
+    auto ndim = m_shape.size();
+    if (axis1 >= ndim || axis2 >= ndim)
+      throw std::invalid_argument("swapaxes: axis out of range for tensor with " +
+        std::to_string(ndim) + " dimensions");
+
+    std::vector<size_t> perm(ndim);
+    std::iota(perm.begin(), perm.end(), 0_uz);
+    std::swap(perm[axis1], perm[axis2]);
+    return transpose(perm);
+  }
+
+  template <typename T>
   template <typename UnaryFunc>
 #ifndef __CUDACC__
   requires std::invocable<UnaryFunc, std::vector<size_t>>

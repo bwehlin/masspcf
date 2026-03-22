@@ -106,6 +106,12 @@ To reverse the order of axes, use the ``.T`` property. For finer control,
 
 Transpose always returns a view.
 
+To swap exactly two axes, use ``swapaxes``::
+
+   C = mpcf.FloatTensor(np.arange(24, dtype=np.float32).reshape(2, 3, 4))
+   C.swapaxes(0, 2)     # shape (4, 3, 2)
+   C.swapaxes(-1, -3)   # same — negative indices count from the last axis
+
 To remove size-1 dimensions, use ``squeeze``. With no argument it removes all
 of them; with an axis argument it removes only that one::
 

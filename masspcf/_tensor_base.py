@@ -337,6 +337,17 @@ class Tensor(ABC):
     def T(self):
         return self.transpose()
 
+    def swapaxes(self, axis1, axis2):
+        n = self.ndim
+        if axis1 < 0:
+            axis1 += n
+        if axis2 < 0:
+            axis2 += n
+        if not (0 <= axis1 < n and 0 <= axis2 < n):
+            raise IndexError(
+                f"swapaxes: axis out of range for tensor with {n} dimensions")
+        return self._to_py_tensor(self._data.swapaxes(axis1, axis2))
+
     def squeeze(self, axis=None):
         if axis is None:
             return self._to_py_tensor(self._data.squeeze())
