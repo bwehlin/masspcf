@@ -185,6 +185,10 @@ def split(tensor, indices_or_sections, axis=0):
     -------
     list of Tensor
         A list of tensor views sharing data with the original.
+
+    See Also
+    --------
+    array_split : Split allowing uneven divisions.
     """
     cpp_data = tensor._data
     if isinstance(indices_or_sections, int):
@@ -214,6 +218,10 @@ def array_split(tensor, indices_or_sections, axis=0):
     -------
     list of Tensor
         A list of tensor views sharing data with the original.
+
+    See Also
+    --------
+    split : Split requiring equal divisions.
     """
     cpp_data = tensor._data
     if isinstance(indices_or_sections, int):
