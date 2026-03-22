@@ -64,3 +64,35 @@ class TestSplitIndices:
         parts = mpcf.split(t, [3], axis=0)
         parts[0][0] = 99
         assert t[0] == 99
+
+
+def _assert_array_split(np_arr, n_sections, axis, TensorType):
+    """Assert that mpcf.array_split matches np.array_split."""
+    t = TensorType(np_arr)
+    mpcf_parts = mpcf.array_split(t, n_sections, axis=axis)
+    np_parts = np.array_split(np_arr, n_sections, axis=axis)
+    assert len(mpcf_parts) == len(np_parts)
+    for mpcf_part, np_part in zip(mpcf_parts, np_parts):
+        np.testing.assert_array_equal(np.asarray(mpcf_part), np_part)
+        assert mpcf_part.shape == tuple(np_part.shape)
+
+
+@pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
+class TestArraySplit:
+    def test_even(self, TensorType, np_dtype):
+        _assert_array_split(np.arange(12, dtype=np_dtype), 3, 0, TensorType)
+
+    def test_uneven(self, TensorType, np_dtype):
+        _assert_array_split(np.arange(9, dtype=np_dtype), 4, 0, TensorType)
+
+    def test_more_sections_than_elements(self, TensorType, np_dtype):
+        _assert_array_split(np.arange(3, dtype=np_dtype), 5, 0, TensorType)
+
+    def test_2d_axis0(self, TensorType, np_dtype):
+        _assert_array_split(np.arange(15, dtype=np_dtype).reshape(5, 3), 3, 0, TensorType)
+
+    def test_2d_axis1(self, TensorType, np_dtype):
+        _assert_array_split(np.arange(15, dtype=np_dtype).reshape(3, 5), 3, 1, TensorType)
+
+    def test_single_section(self, TensorType, np_dtype):
+        _assert_array_split(np.arange(7, dtype=np_dtype), 1, 0, TensorType)

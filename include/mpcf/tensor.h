@@ -575,6 +575,14 @@ namespace mpcf
   [[nodiscard]] std::vector<Tensor<T>> split(const Tensor<T>& tensor,
     size_t n_sections, size_t axis);
 
+  /**
+   * Split a tensor into n_sections parts, allowing uneven splits.
+   * The first (axis_size % n_sections) parts get one extra element.
+   */
+  template <typename T>
+  [[nodiscard]] std::vector<Tensor<T>> array_split(const Tensor<T>& tensor,
+    size_t n_sections, size_t axis);
+
   // ============================================================================
   // Index-based gather/scatter operations
   // ============================================================================

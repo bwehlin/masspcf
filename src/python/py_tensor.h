@@ -260,6 +260,9 @@ namespace mpcf_py
       .def_static("split_indices", [](const TTensor& tensor, const std::vector<size_t>& indices, size_t axis) {
         return mpcf::split(tensor, indices, axis);
       }, pybind11::arg("tensor"), pybind11::arg("indices"), pybind11::arg("axis") = 0)
+      .def_static("array_split", [](const TTensor& tensor, size_t n_sections, size_t axis) {
+        return mpcf::array_split(tensor, n_sections, axis);
+      }, pybind11::arg("tensor"), pybind11::arg("n_sections"), pybind11::arg("axis") = 0)
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
 

@@ -31,7 +31,7 @@ from .tensor import (
     PcfTensor,
     PointCloudTensor,
 )
-from .tensor_create import concatenate, split, stack, zeros
+from .tensor_create import array_split, concatenate, split, stack, zeros
 from .typing import (
     barcode32,
     barcode64,

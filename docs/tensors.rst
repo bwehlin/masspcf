@@ -188,6 +188,12 @@ The returned parts are views sharing data with the original tensor. An equal
 split raises ``ValueError`` if the axis size is not divisible by the number of
 sections.
 
+``array_split`` works the same way but allows uneven divisions — the first
+sections get one extra element when the size is not evenly divisible::
+
+   Y = mpcf.FloatTensor(np.arange(9, dtype=np.float32))
+   parts = mpcf.array_split(Y, 4)   # sizes: 3, 2, 2, 2
+
 
 Iterating
 =========

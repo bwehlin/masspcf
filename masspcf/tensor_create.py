@@ -192,3 +192,32 @@ def split(tensor, indices_or_sections, axis=0):
     else:
         parts = type(cpp_data).split_indices(cpp_data, list(indices_or_sections), axis)
     return [tensor._to_py_tensor(p) for p in parts]
+
+
+def array_split(tensor, indices_or_sections, axis=0):
+    """Split a tensor into sub-tensors, allowing uneven splits.
+
+    Like ``split``, but when *indices_or_sections* is an integer and the axis
+    size is not evenly divisible, the first sections are one element larger.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tensor to split.
+    indices_or_sections : int or list of int
+        If an int, the tensor is split into that many parts (uneven allowed).
+        If a list, it gives the indices where splits occur (same as ``split``).
+    axis : int
+        The axis along which to split (default 0).
+
+    Returns
+    -------
+    list of Tensor
+        A list of tensor views sharing data with the original.
+    """
+    cpp_data = tensor._data
+    if isinstance(indices_or_sections, int):
+        parts = type(cpp_data).array_split(cpp_data, indices_or_sections, axis)
+    else:
+        parts = type(cpp_data).split_indices(cpp_data, list(indices_or_sections), axis)
+    return [tensor._to_py_tensor(p) for p in parts]

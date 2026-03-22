@@ -979,6 +979,33 @@ namespace mpcf
     return split(tensor, split_points, axis);
   }
 
+  template <typename T>
+  std::vector<Tensor<T>> array_split(const Tensor<T>& tensor,
+    size_t n_sections, size_t axis)
+  {
+    auto ndim = tensor.shape().size();
+    if (axis >= ndim)
+      throw std::invalid_argument("array_split: axis " + std::to_string(axis) +
+        " out of range for " + std::to_string(ndim) + "-D tensor");
+    if (n_sections == 0)
+      throw std::invalid_argument("array_split: number of sections must be > 0");
+
+    auto axis_size = tensor.shape()[axis];
+    auto base_size = axis_size / n_sections;
+    auto remainder = axis_size % n_sections;
+
+    std::vector<size_t> split_points;
+    split_points.reserve(n_sections - 1);
+    size_t pos = 0;
+    for (size_t i = 0; i + 1 < n_sections; ++i)
+    {
+      pos += base_size + (i < remainder ? 1 : 0);
+      split_points.push_back(pos);
+    }
+
+    return split(tensor, split_points, axis);
+  }
+
   namespace detail
   {
     template <typename I>
