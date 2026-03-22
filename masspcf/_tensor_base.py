@@ -127,7 +127,12 @@ class Tensor(ABC):
     def _getitem_slices(self, slices):
         """Handle indexing with only int/slice components (no BoolTensor)."""
         if len(slices) == 1 and isinstance(slices[0], int):
-            return self._represent_element(self._data._get_element(slices[0]))
+            if len(self.shape) == 1:
+                return self._represent_element(self._data._get_element(slices[0]))
+            # Multi-dim: single int selects along axis 0 → return a sub-tensor
+            idx = slices[0]
+            s = _pyslice_to_slice(slice(idx, idx + 1 if idx != -1 else None))
+            return self._to_py_tensor(self._data[[s]]).squeeze(0)
         if len(slices) == 1 and isinstance(slices[0], slice):
             return self._to_py_tensor(self._data[[_pyslice_to_slice(slices[0])]])
         if all(isinstance(s, int) for s in slices):
@@ -212,6 +217,10 @@ class Tensor(ABC):
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
             self._data[real_slices] = val._data
+
+    def __iter__(self):
+        for i in range(self.shape[0]):
+            yield self[i]
 
     def __eq__(self, rhs):
         if not isinstance(rhs, Tensor):

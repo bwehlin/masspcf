@@ -159,3 +159,27 @@ All tensors must have the same shape except along the join axis.
    Y = mpcf.FloatTensor(np.array([4, 5, 6], dtype=np.float32))  # (3,)
    mpcf.stack((X, Y), axis=0)    # (2, 3)
    mpcf.stack((X, Y), axis=1)    # (3, 2)
+
+
+Iterating
+=========
+
+Iterating over a tensor yields sub-tensors along the first axis, just like
+NumPy::
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(3, 4))
+   for row in X:
+       print(row.shape)   # (4,)
+
+For a 1-D tensor, iteration yields scalar elements.
+
+This also enables ``list()``, ``tuple()``, and unpacking::
+
+   a, b, c = X   # three rows
+
+Nested iteration works as expected::
+
+   Y = mpcf.FloatTensor(np.arange(24, dtype=np.float32).reshape(2, 3, 4))
+   for matrix in Y:          # shape (3, 4)
+       for row in matrix:    # shape (4,)
+           print(row)
