@@ -166,3 +166,29 @@ def stack(tensors, axis=0):
     cpp_tensors = [t._data for t in tensors]
     result = type(cpp_tensors[0]).stack(cpp_tensors, axis)
     return tensors[0]._to_py_tensor(result)
+
+
+def split(tensor, indices_or_sections, axis=0):
+    """Split a tensor into sub-tensors along an axis.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tensor to split.
+    indices_or_sections : int or list of int
+        If an int, the tensor is split into that many equal parts.
+        If a list, it gives the indices where splits occur.
+    axis : int
+        The axis along which to split (default 0).
+
+    Returns
+    -------
+    list of Tensor
+        A list of tensor views sharing data with the original.
+    """
+    cpp_data = tensor._data
+    if isinstance(indices_or_sections, int):
+        parts = type(cpp_data).split_sections(cpp_data, indices_or_sections, axis)
+    else:
+        parts = type(cpp_data).split_indices(cpp_data, list(indices_or_sections), axis)
+    return [tensor._to_py_tensor(p) for p in parts]

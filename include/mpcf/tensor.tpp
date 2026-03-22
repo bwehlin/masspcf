@@ -918,6 +918,67 @@ namespace mpcf
     return concatenate(expanded, static_cast<size_t>(axis));
   }
 
+  template <typename T>
+  std::vector<Tensor<T>> split(const Tensor<T>& tensor,
+    const std::vector<size_t>& split_points, size_t axis)
+  {
+    auto ndim = tensor.shape().size();
+    if (axis >= ndim)
+      throw std::invalid_argument("split: axis " + std::to_string(axis) +
+        " out of range for " + std::to_string(ndim) + "-D tensor");
+
+    auto axis_size = tensor.shape()[axis];
+
+    // Build slice boundaries: [0, sp0, sp1, ..., axis_size]
+    std::vector<size_t> boundaries;
+    boundaries.reserve(split_points.size() + 2);
+    boundaries.push_back(0);
+    for (auto sp : split_points)
+    {
+      if (sp > axis_size)
+        sp = axis_size;
+      boundaries.push_back(sp);
+    }
+    boundaries.push_back(axis_size);
+
+    std::vector<Tensor<T>> result;
+    result.reserve(boundaries.size() - 1);
+    for (size_t i = 0; i + 1 < boundaries.size(); ++i)
+    {
+      std::vector<Slice> slices(ndim, all());
+      slices[axis] = range(
+        static_cast<ptrdiff_t>(boundaries[i]),
+        static_cast<ptrdiff_t>(boundaries[i + 1]),
+        std::nullopt);
+      result.push_back(tensor[slices]);
+    }
+    return result;
+  }
+
+  template <typename T>
+  std::vector<Tensor<T>> split(const Tensor<T>& tensor,
+    size_t n_sections, size_t axis)
+  {
+    auto ndim = tensor.shape().size();
+    if (axis >= ndim)
+      throw std::invalid_argument("split: axis " + std::to_string(axis) +
+        " out of range for " + std::to_string(ndim) + "-D tensor");
+
+    auto axis_size = tensor.shape()[axis];
+    if (axis_size % n_sections != 0)
+      throw std::invalid_argument("split: tensor of size " +
+        std::to_string(axis_size) + " along axis " + std::to_string(axis) +
+        " cannot be evenly split into " + std::to_string(n_sections) + " sections");
+
+    auto section_size = axis_size / n_sections;
+    std::vector<size_t> split_points;
+    split_points.reserve(n_sections - 1);
+    for (size_t i = 1; i < n_sections; ++i)
+      split_points.push_back(i * section_size);
+
+    return split(tensor, split_points, axis);
+  }
+
   namespace detail
   {
     template <typename I>

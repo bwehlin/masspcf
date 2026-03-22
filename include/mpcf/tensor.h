@@ -562,6 +562,19 @@ namespace mpcf
   template <typename T>
   [[nodiscard]] Tensor<T> stack(const std::vector<Tensor<T>>& tensors, ptrdiff_t axis);
 
+  /**
+   * Split a tensor into sub-tensors along an axis.
+   * indices_or_sections is either a single count (equal splits) or
+   * a list of split points (like NumPy). Returns views.
+   */
+  template <typename T>
+  [[nodiscard]] std::vector<Tensor<T>> split(const Tensor<T>& tensor,
+    const std::vector<size_t>& split_points, size_t axis);
+
+  template <typename T>
+  [[nodiscard]] std::vector<Tensor<T>> split(const Tensor<T>& tensor,
+    size_t n_sections, size_t axis);
+
   // ============================================================================
   // Index-based gather/scatter operations
   // ============================================================================

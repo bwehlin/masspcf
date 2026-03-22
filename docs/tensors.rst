@@ -170,6 +170,25 @@ All tensors must have the same shape except along the join axis.
    mpcf.stack((X, Y), axis=1)    # (3, 2)
 
 
+Splitting tensors
+=================
+
+``split`` divides a tensor into parts along an axis. Pass an integer for equal
+splits, or a list of indices for custom split points::
+
+   X = mpcf.FloatTensor(np.arange(12, dtype=np.float32).reshape(4, 3))
+
+   # Equal split: 4 rows into 2 parts of 2 rows each
+   a, b = mpcf.split(X, 2, axis=0)       # each shape (2, 3)
+
+   # Index split: split at rows 1 and 3
+   p, q, r = mpcf.split(X, [1, 3], axis=0)  # shapes (1,3), (2,3), (1,3)
+
+The returned parts are views sharing data with the original tensor. An equal
+split raises ``ValueError`` if the axis size is not divisible by the number of
+sections.
+
+
 Iterating
 =========
 
