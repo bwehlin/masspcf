@@ -67,11 +67,14 @@ The enumeration array can be multidimensional. If it has shape ``(n1, n2, ..., n
 Shape and copying
 =================
 
-Every tensor has a :py:attr:`shape` property::
+Every tensor has a :py:attr:`shape` property, along with ``ndim``, ``size``,
+and ``len()`` — matching the NumPy interface::
 
    X = mpcf.zeros((10, 5, 4))
    X.shape        # (10, 5, 4)
-   X[3, :, :].shape  # (5, 4)
+   X.ndim         # 3
+   X.size         # 200
+   len(X)         # 10  (first axis)
 
 To create an independent copy (not a view)::
 

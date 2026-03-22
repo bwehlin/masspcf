@@ -379,6 +379,21 @@ class Tensor(ABC):
         return self._data.shape
 
     @property
+    def ndim(self) -> int:
+        return len(self._data.shape)
+
+    @property
+    def size(self) -> int:
+        s = self._data.shape
+        result = 1
+        for i in range(len(s)):
+            result *= s[i]
+        return result
+
+    def __len__(self) -> int:
+        return self._data.shape[0]
+
+    @property
     def strides(self):
         return self._data.strides
 
