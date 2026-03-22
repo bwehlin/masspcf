@@ -23,6 +23,12 @@ Shape = cpp.Shape
 
 ShapeLike = Shape | tuple[int, ...]
 
+
+def _unpickle_tensor(data: bytes):
+    import io as _io
+    from .io import _load
+    return _load(_io.BytesIO(data))
+
 CppTensor = Union[
     cpp.Float32Tensor,
     cpp.Float64Tensor,
@@ -38,6 +44,64 @@ CppTensor = Union[
     cpp.PointCloud64Tensor,
     cpp.BoolTensor,
 ]
+
+
+def _infer_shape_and_flatten(data):
+    """Walk a nested list/tuple structure and return (shape, flat_elements).
+
+    Recursion stops at any element that is not a list or tuple.
+    Validates that the structure is rectangular.
+    """
+    shape: list[int] = []
+
+    def _probe(obj, depth):
+        if not isinstance(obj, (list, tuple)):
+            return
+        if depth == len(shape):
+            shape.append(len(obj))
+        elif shape[depth] != len(obj):
+            raise ValueError(
+                f"Ragged nested list: expected length {shape[depth]} at depth {depth}, got {len(obj)}"
+            )
+        if obj:
+            _probe(obj[0], depth + 1)
+
+    _probe(data, 0)
+
+    flat: list = []
+
+    def _collect(obj, depth):
+        if depth == len(shape):
+            flat.append(obj)
+        else:
+            for item in obj:
+                _collect(item, depth + 1)
+
+    _collect(data, 0)
+    return tuple(shape), flat
+
+
+def _tensor_from_nested(data, elem_to_tensor, default_ctor=None):
+    """Build a C++ tensor from a nested list/tuple of elements with ``._data``.
+
+    *elem_to_tensor* maps C++ element type to C++ tensor constructor,
+    e.g. ``{cpp.Pcf_f32_f32: cpp.Pcf32Tensor}``.
+    *default_ctor* is used when the list is empty (no element to infer from).
+    """
+    shape, flat = _infer_shape_and_flatten(data)
+    if not flat:
+        if default_ctor is None:
+            default_ctor = next(iter(elem_to_tensor.values()))
+        return default_ctor(cpp.Shape(list(shape or (0,))))
+    tensor_ctor = elem_to_tensor.get(type(flat[0]._data))
+    if tensor_ctor is None:
+        raise TypeError(f"Unsupported element type {type(flat[0])}")
+    t = tensor_ctor(cpp.Shape([len(flat)]))
+    for i, elem in enumerate(flat):
+        t._set_element([i], elem._data)
+    if shape != (len(flat),):
+        t = t.reshape(list(shape))
+    return t
 
 
 def _pyslice_to_slice(s):
@@ -264,6 +328,13 @@ class Tensor(ABC):
             True if the tensors are elementwise equal, False otherwise.
         """
         return self._data.array_equal(rhs._data)
+
+    def __reduce__(self):
+        import io as _io
+        from .io import _save, _load
+        buf = _io.BytesIO()
+        _save(self, buf)
+        return _unpickle_tensor, (buf.getvalue(),)
 
     def __deepcopy__(self, memodict=None):
         return self._to_py_tensor(self._data.copy())

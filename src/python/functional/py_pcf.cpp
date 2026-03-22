@@ -14,20 +14,20 @@
 * limitations under the License.
 */
 
-#include "py_pcf.h"
-#include "../py_future.h"
+#include "py_pcf.hpp"
+#include "../py_future.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include <mpcf/functional/pcf.h>
-#include "../pypcf_support.h"
-#include <mpcf/algorithm.h>
-#include <mpcf/executor.h>
-#include <mpcf/task.h>
+#include <mpcf/functional/pcf.hpp>
+#include "../pypcf_support.hpp"
+#include <mpcf/algorithm.hpp>
+#include <mpcf/executor.hpp>
+#include <mpcf/task.hpp>
 
-#include "../py_np_support.h"
-#include "../py_settings.h"
+#include "../py_np_support.hpp"
+#include "../py_settings.hpp"
 
 #include <iostream>
 

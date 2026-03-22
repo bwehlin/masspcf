@@ -177,7 +177,18 @@ There are several concrete tensor types, each corresponding to a dtype:
      - ``boolean``
      - Boolean values (returned by comparison operators)
 
-In most cases, you do not need to construct these classes directly -- use :py:func:`~masspcf.zeros` or functions like :py:func:`~masspcf.random.noisy_sin` that return the appropriate tensor type automatically.
+You can construct tensor types directly from Python lists::
+
+   # Numeric tensors
+   X = mpcf.FloatTensor([1.0, 2.0, 3.0])
+   Y = mpcf.IntTensor([[1, 2], [3, 4]])
+
+   # Non-numeric tensors from lists of elements
+   f = mpcf.Pcf([[0, 1.0], [1, 2.0]])
+   g = mpcf.Pcf([[0, 3.0], [2, 4.0]])
+   T = mpcf.PcfTensor([f, g])
+
+You can also use :py:func:`~masspcf.zeros` or functions like :py:func:`~masspcf.random.noisy_sin` that return the appropriate tensor type automatically. See :doc:`tensors` for all construction methods.
 
 
 Evaluation

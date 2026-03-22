@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pymodule_persistence.h"
+#include "pymodule_persistence.hpp"
 
-#include "py_barcode.h"
-#include "py_barcode_summary.h"
-#include "py_persistence_pair.h"
-#include "py_ripser.h"
+#include "py_barcode.hpp"
+#include "py_barcode_summary.hpp"
+#include "py_persistence_pair.hpp"
+#include "py_ripser.hpp"
 
 namespace py = pybind11;
 

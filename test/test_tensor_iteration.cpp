@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/tensor.h>
+#include <mpcf/tensor.hpp>
 
 static_assert(std::random_access_iterator<mpcf::Tensor1dValueIterator<mpcf::Tensor<double>>>);
 

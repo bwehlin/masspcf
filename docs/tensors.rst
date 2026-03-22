@@ -40,6 +40,34 @@ For quick experimentation, :py:mod:`masspcf.random` provides functions that gene
 
 These functions return ``PcfTensor`` by default. Pass ``dtype=mpcf.pcf64`` for 64-bit.
 
+From lists
+----------
+
+All tensor types can be constructed directly from Python lists or tuples::
+
+   import masspcf as mpcf
+
+   # Numeric tensors — same as wrapping in np.array()
+   X = mpcf.FloatTensor([1.0, 2.0, 3.0])
+   Y = mpcf.IntTensor([[1, 2], [3, 4]])
+   Z = mpcf.BoolTensor([True, False, True])
+
+For non-numeric tensors, nested lists define the shape::
+
+   f = mpcf.Pcf([[0, 1.0], [1, 2.0]])
+   g = mpcf.Pcf([[0, 3.0], [2, 4.0]])
+
+   # 1-D tensor
+   t = mpcf.PcfTensor([f, g])             # shape (2,)
+
+   # 2-D tensor from nested lists
+   t2 = mpcf.PcfTensor([[f, g], [g, f]])  # shape (2, 2)
+
+This works the same way for ``IntPcfTensor`` and ``BarcodeTensor``.
+The precision (32- or 64-bit) is inferred from the elements.
+An empty list produces a shape ``(0,)`` tensor.
+
+
 From serialized NumPy data
 ---------------------------
 

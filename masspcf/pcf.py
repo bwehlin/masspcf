@@ -289,6 +289,14 @@ class Pcf:
             arr = arr.astype(dtype, copy=False)
         return arr
 
+    def __reduce__(self):
+        import io as _io
+        from .io import _save_object, _load_object
+        buf = _io.BytesIO()
+        _save_object(self, buf)
+        from .io import _unpickle_object
+        return _unpickle_object, (buf.getvalue(),)
+
     def __eq__(self, other):
         return np.array_equal(self.__array__(), np.asarray(other))
 

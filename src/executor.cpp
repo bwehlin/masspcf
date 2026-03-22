@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#include <mpcf/executor.h>
+#include <mpcf/executor.hpp>
 #include <taskflow/taskflow.hpp>
 
 #include <stdexcept>

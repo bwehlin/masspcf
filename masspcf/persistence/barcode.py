@@ -82,6 +82,13 @@ class Barcode:
             arr = arr.astype(dtype, copy=False)
         return arr
 
+    def __reduce__(self):
+        import io as _io
+        from ..io import _save_object, _unpickle_object
+        buf = _io.BytesIO()
+        _save_object(self, buf)
+        return _unpickle_object, (buf.getvalue(),)
+
     def is_isomorphic_to(self, bc: Barcode):
         """Check whether two barcodes are isomorphic (same multiset of bars)."""
         return self._data.is_isomorphic_to(bc._data)

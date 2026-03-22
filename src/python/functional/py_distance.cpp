@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "py_distance.h"
+#include "py_distance.hpp"
 
-#include "tensor.h"
-#include "functional/pcf.h"
-#include "task.h"
+#include "tensor.hpp"
+#include "functional/pcf.hpp"
+#include "task.hpp"
 #include "functional/operations.cuh"
-#include "algorithms/functional/matrix_integrate.h"
-#include "../py_async_support.h"
-#include "../py_settings.h"
+#include "algorithms/functional/matrix_integrate.hpp"
+#include "../py_async_support.hpp"
+#include "../py_settings.hpp"
 
 #ifdef BUILD_WITH_CUDA
-#include <mpcf/cuda/cuda_matrix_integrate_api.h>
+#include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
 #endif
 
 #include <memory>

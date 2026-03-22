@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/special_tensors.h>
+#include <mpcf/special_tensors.hpp>
 
-#include "mpcf/tensor_to_string.h"
+#include "mpcf/tensor_to_string.hpp"
 
 TEST(SpecialTensors, MappingTensor2x3x2)
 {

@@ -1,4 +1,4 @@
-#include "bench_reduction.h"
+#include "bench_reduction.hpp"
 
 #include <iostream>
 #include <random>

@@ -14,12 +14,16 @@
 
 import masspcf._mpcf_cpp as cpp
 
+from .persistence.barcode import Barcode
 from .persistence.ph_tensor import BarcodeTensor
-from .distance_matrix import DistanceMatrixTensor
-from .symmetric_matrix import SymmetricMatrixTensor
+from .distance_matrix import DistanceMatrix, DistanceMatrixTensor
+from .symmetric_matrix import SymmetricMatrix, SymmetricMatrixTensor
+from .pcf import Pcf
 from .tensor import (
+    BoolTensor,
     FloatTensor,
     IntPcfTensor,
+    IntTensor,
     PcfTensor,
     PointCloudTensor,
     Tensor,
@@ -27,10 +31,13 @@ from .tensor import (
 from .typing import (
     barcode32,
     barcode64,
+    boolean,
     distmat32,
     distmat64,
     float32,
     float64,
+    int32,
+    int64,
     pcf32,
     pcf32i,
     pcf64,
@@ -39,6 +46,8 @@ from .typing import (
     pcloud64,
     symmat32,
     symmat64,
+    uint32,
+    uint64,
 )
 
 
@@ -46,6 +55,11 @@ def _save(item: Tensor, file):
     _SAVE_DISPATCH = {
         float32: cpp.IoOps.save_float32_tensor,
         float64: cpp.IoOps.save_float64_tensor,
+        int32: cpp.IoOps.save_int32_tensor,
+        int64: cpp.IoOps.save_int64_tensor,
+        uint32: cpp.IoOps.save_uint32_tensor,
+        uint64: cpp.IoOps.save_uint64_tensor,
+        boolean: cpp.IoOps.save_bool_tensor,
         pcf32: cpp.IoOps.save_pcf32_tensor,
         pcf64: cpp.IoOps.save_pcf64_tensor,
         pcf32i: cpp.IoOps.save_pcf32i_tensor,
@@ -72,6 +86,11 @@ def _load(file):
     _LOAD_DISPATCH = {
         cpp.Float32Tensor: FloatTensor,
         cpp.Float64Tensor: FloatTensor,
+        cpp.Int32Tensor: IntTensor,
+        cpp.Int64Tensor: IntTensor,
+        cpp.Uint32Tensor: IntTensor,
+        cpp.Uint64Tensor: IntTensor,
+        cpp.BoolTensor: BoolTensor,
         cpp.Pcf32Tensor: PcfTensor,
         cpp.Pcf64Tensor: PcfTensor,
         cpp.Pcf32iTensor: IntPcfTensor,
@@ -93,29 +112,93 @@ def _load(file):
     return ctor(cpp_tensor)
 
 
-def save(item: Tensor, file):
-    """Save a tensor to a file in masspcf's binary format.
+_OBJECT_SAVE_DISPATCH = None
 
-    All tensor types are supported.
+
+def _init_object_save_dispatch():
+    global _OBJECT_SAVE_DISPATCH
+    if _OBJECT_SAVE_DISPATCH is not None:
+        return
+    cpp_p = cpp.persistence
+    _OBJECT_SAVE_DISPATCH = {
+        cpp.Pcf_f32_f32: cpp.IoOps.save_pcf32_object,
+        cpp.Pcf_f64_f64: cpp.IoOps.save_pcf64_object,
+        cpp.Pcf_i32_i32: cpp.IoOps.save_pcf32i_object,
+        cpp.Pcf_i64_i64: cpp.IoOps.save_pcf64i_object,
+        cpp_p.Barcode32: cpp.IoOps.save_barcode32_object,
+        cpp_p.Barcode64: cpp.IoOps.save_barcode64_object,
+        cpp.SymmetricMatrix_f32: cpp.IoOps.save_symmetric_matrix32_object,
+        cpp.SymmetricMatrix_f64: cpp.IoOps.save_symmetric_matrix64_object,
+        cpp.DistanceMatrix_f32: cpp.IoOps.save_distance_matrix32_object,
+        cpp.DistanceMatrix_f64: cpp.IoOps.save_distance_matrix64_object,
+    }
+
+
+_OBJECT_LOAD_DISPATCH = None
+
+
+def _init_object_load_dispatch():
+    global _OBJECT_LOAD_DISPATCH
+    if _OBJECT_LOAD_DISPATCH is not None:
+        return
+    cpp_p = cpp.persistence
+    _OBJECT_LOAD_DISPATCH = {
+        cpp.Pcf_f32_f32: Pcf,
+        cpp.Pcf_f64_f64: Pcf,
+        cpp.Pcf_i32_i32: Pcf,
+        cpp.Pcf_i64_i64: Pcf,
+        cpp_p.Barcode32: Barcode,
+        cpp_p.Barcode64: Barcode,
+        cpp.SymmetricMatrix_f32: SymmetricMatrix,
+        cpp.SymmetricMatrix_f64: SymmetricMatrix,
+        cpp.DistanceMatrix_f32: DistanceMatrix,
+        cpp.DistanceMatrix_f64: DistanceMatrix,
+    }
+
+
+def _save_object(item, file):
+    _init_object_save_dispatch()
+    fn = _OBJECT_SAVE_DISPATCH.get(type(item._data))
+    if fn is None:
+        raise TypeError(f"Unsupported object type {type(item._data)}")
+    fn(item._data, file)
+
+
+def _load_object(file):
+    _init_object_load_dispatch()
+    cpp_obj = cpp.IoOps.load_object_from_file(file)
+    ctor = _OBJECT_LOAD_DISPATCH.get(type(cpp_obj))
+    if ctor is None:
+        raise TypeError(f"File contains unsupported object of type {type(cpp_obj)}")
+    return ctor(cpp_obj)
+
+
+def save(item, file):
+    """Save a tensor or object to a file in masspcf's binary format.
+
+    All tensor types and standalone objects (Pcf, Barcode, DistanceMatrix,
+    SymmetricMatrix) are supported.
 
     Parameters
     ----------
-    item : Tensor
-        The tensor to save.
+    item : Tensor or Pcf or Barcode or DistanceMatrix or SymmetricMatrix
+        The item to save.
     file : str or file-like
         A file path or an open file object in binary write mode.
     """
+    is_object = isinstance(item, (Pcf, Barcode, DistanceMatrix, SymmetricMatrix))
+    save_fn = _save_object if is_object else _save
     if isinstance(file, str):
         with open(file, "wb") as f:
-            _save(item, f)
+            save_fn(item, f)
     else:
-        _save(item, file)
+        save_fn(item, file)
 
 
-def load(file) -> Tensor:
-    """Load a tensor from a file in masspcf's binary format.
+def load(file):
+    """Load a tensor or object from a file in masspcf's binary format.
 
-    The returned tensor will have the same type and dtype as what was saved.
+    The returned item will have the same type and dtype as what was saved.
 
     Parameters
     ----------
@@ -124,11 +207,31 @@ def load(file) -> Tensor:
 
     Returns
     -------
-    Tensor
-        The loaded tensor.
+    Tensor or Pcf or Barcode or DistanceMatrix or SymmetricMatrix
+        The loaded item.
     """
     if isinstance(file, str):
         with open(file, "rb") as f:
-            return _load(f)
+            return _load_any(f)
     else:
-        return _load(file)
+        return _load_any(file)
+
+
+def _unpickle_object(data: bytes):
+    import io as _io
+    return _load_object(_io.BytesIO(data))
+
+
+def _load_any(file):
+    """Try loading as tensor first, then as object."""
+    import io as _io
+
+    # We need to peek at the format type to decide tensor vs object.
+    # Read into a buffer so we can try both paths.
+    data = file.read()
+    buf = _io.BytesIO(data)
+    try:
+        return _load(buf)
+    except RuntimeError:
+        buf.seek(0)
+        return _load_object(buf)

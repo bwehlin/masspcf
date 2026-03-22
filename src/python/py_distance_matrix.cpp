@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "py_distance_matrix.h"
-#include "py_tensor.h"
+#include "py_distance_matrix.hpp"
+#include "py_tensor.hpp"
 
 namespace mpcf_py
 {

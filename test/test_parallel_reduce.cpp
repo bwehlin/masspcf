@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/functional/pcf.h>
-#include <mpcf/algorithms/functional/reduce.h>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/algorithms/functional/reduce.hpp>
 
 namespace
 {

@@ -14,8 +14,8 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/io.h>
-#include <mpcf/tensor.h>
+#include <mpcf/io.hpp>
+#include <mpcf/tensor.hpp>
 
 #include <sstream>
 #include <stdexcept>

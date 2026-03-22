@@ -21,7 +21,7 @@
 #include <string>
 #include <algorithm>
 
-#include <mpcf/algorithms/subdivide.h>
+#include <mpcf/algorithms/subdivide.hpp>
 
 namespace mpcf::internal
 {

@@ -18,7 +18,7 @@
 // and provides concrete (non-template) factory functions that the rest
 // of the project can call without requiring NVCC.
 
-#include <mpcf/cuda/cuda_matrix_integrate_api.h>
+#include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
 #include <mpcf/cuda/cuda_matrix_integrate.cuh>
 #include <mpcf/functional/operations.cuh>
 

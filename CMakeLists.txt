@@ -78,7 +78,7 @@ if (WIN32)
     message(STATUS "!!! Python libs dir added to linker path: ${_PY_BASE_PREFIX}/libs")
 
     # For free-threaded Python (e.g. cp314t), the import library is named
-    # python314t.lib, but Python's own pyconfig.h emits:
+    # python314t.lib, but Python's own pyconfig.hpp emits:
     #   #pragma comment(lib, "python314.lib")
     # which causes LNK1104.  Create a copy with the expected name in the
     # build directory and add that directory to the linker search path.
@@ -328,42 +328,42 @@ SET(MPCF_LIB_SOURCES_CUDA
 )
 
 SET(MPCF_HEADER_FILES
-    config.h
-    concepts.h
-    version.h
-    functional/pcf.h
-    functional/point.h
-    functional/rectangle.h
+    config.hpp
+    concepts.hpp
+    version.hpp
+    functional/pcf.hpp
+    functional/point.hpp
+    functional/rectangle.hpp
     functional/operations.cuh
-    platform.h
-    random.h
-    task.h
-    tensor.h tensor.tpp
-    tensor_to_string.h
-    special_tensors.h
-    executor.h
-    point_cloud.h
-    io.h
-    io/io_stream.h
-    io/io_stream_base.h
-    io/barcode_io.h
-    io/pcf_io.h
-    io/point_io.h
-    io/point_cloud_io.h
-    io/tensor_io.h
-    algorithm.h
-    algorithms/functional/iterate_rectangles.h
-    algorithms/functional/reduce.h
-    algorithms/functional/matrix_integrate.h
-    algorithms/functional/matrix_reduce.h
-    algorithms/subdivide.h
-    algorithms/functional/apply_functional.h
+    platform.hpp
+    random.hpp
+    task.hpp
+    tensor.hpp tensor.tpp
+    tensor_to_string.hpp
+    special_tensors.hpp
+    executor.hpp
+    point_cloud.hpp
+    io.hpp
+    io/io_stream.hpp
+    io/io_stream_base.hpp
+    io/barcode_io.hpp
+    io/pcf_io.hpp
+    io/point_io.hpp
+    io/point_cloud_io.hpp
+    io/tensor_io.hpp
+    algorithm.hpp
+    algorithms/functional/iterate_rectangles.hpp
+    algorithms/functional/reduce.hpp
+    algorithms/functional/matrix_integrate.hpp
+    algorithms/functional/matrix_reduce.hpp
+    algorithms/subdivide.hpp
+    algorithms/functional/apply_functional.hpp
     block_matrix_support.cuh
-    persistence/barcode.h
-    persistence/compute_persistence.h
-    persistence/persistence_pair.h
-    persistence/stable_rank.h
-    persistence/ripser/ripser.h)
+    persistence/barcode.hpp
+    persistence/compute_persistence.hpp
+    persistence/persistence_pair.hpp
+    persistence/stable_rank.hpp
+    persistence/ripser/ripser.hpp)
 
 SET(MPCF_SRC_FILES
     executor.cpp
@@ -378,32 +378,32 @@ SET(MPCF_LIB_SOURCES
 )
 
 SET(MPCF_PY_PERSISTENCE_SOURCES
-    py_barcode.h py_barcode.cpp
-    py_barcode_summary.h py_barcode_summary.cpp
-    py_persistence_pair.h py_persistence_pair.cpp
-    py_ripser.h py_ripser.cpp
-    pymodule_persistence.h pymodule_persistence.cpp
+    py_barcode.hpp py_barcode.cpp
+    py_barcode_summary.hpp py_barcode_summary.cpp
+    py_persistence_pair.hpp py_persistence_pair.cpp
+    py_ripser.hpp py_ripser.cpp
+    pymodule_persistence.hpp pymodule_persistence.cpp
 )
 
 list(TRANSFORM MPCF_PY_PERSISTENCE_SOURCES PREPEND "persistence/")
 
 SET(MPCF_PY_SOURCES
-    pybind.h
+    pybind.hpp
     pymodule.cpp
-    functional/py_random.h functional/py_random.cpp
-    pypcf_support.h
-    py_np_support.h
-    py_future.h
-    functional/py_pcf.h functional/py_pcf.cpp
-    py_np_tensor_convert.h py_np_tensor_convert.cpp
-    functional/py_make_from_serial_content.h functional/py_make_from_serial_content.cpp
-    functional/py_distance.h functional/py_distance.cpp
-    functional/py_norms.h functional/py_norms.cpp
-    functional/py_reductions.h functional/py_reductions.cpp
-    py_tensor.h py_tensor.cpp
-    py_io.h py_io.cpp
-    py_symmetric_matrix.h py_symmetric_matrix.cpp
-    py_distance_matrix.h py_distance_matrix.cpp
+    functional/py_random.hpp functional/py_random.cpp
+    pypcf_support.hpp
+    py_np_support.hpp
+    py_future.hpp
+    functional/py_pcf.hpp functional/py_pcf.cpp
+    py_np_tensor_convert.hpp py_np_tensor_convert.cpp
+    functional/py_make_from_serial_content.hpp functional/py_make_from_serial_content.cpp
+    functional/py_distance.hpp functional/py_distance.cpp
+    functional/py_norms.hpp functional/py_norms.cpp
+    functional/py_reductions.hpp functional/py_reductions.cpp
+    py_tensor.hpp py_tensor.cpp
+    py_io.hpp py_io.cpp
+    py_symmetric_matrix.hpp py_symmetric_matrix.cpp
+    py_distance_matrix.hpp py_distance_matrix.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}
 )
 
@@ -704,8 +704,8 @@ if (BUILD_BENCHMARKS)
 
   add_executable(mpcf_bench
       benchmarking/bench.cpp
-      benchmarking/benchmark.h
-      benchmarking/bench_reduction.h benchmarking/bench_reduction.cpp
+      benchmarking/benchmark.hpp
+      benchmarking/bench_reduction.hpp benchmarking/bench_reduction.cpp
   )
 
   set_target_properties(mpcf_bench PROPERTIES

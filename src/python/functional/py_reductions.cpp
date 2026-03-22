@@ -14,11 +14,11 @@
 * limitations under the License.
 */
 
-#include "py_reductions.h"
+#include "py_reductions.hpp"
 
-#include <mpcf/functional/pcf.h>
-#include <mpcf/tensor.h>
-#include <mpcf/algorithms/functional/matrix_reduce.h>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/tensor.hpp>
+#include <mpcf/algorithms/functional/matrix_reduce.hpp>
 
 #include <stdexcept>
 #include <algorithm>

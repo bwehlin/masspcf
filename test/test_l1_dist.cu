@@ -16,13 +16,13 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/functional/pcf.h>
-#include <mpcf/task.h>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/task.hpp>
 #include <mpcf/functional/operations.cuh>
-#include <mpcf/algorithms/functional/matrix_integrate.h>
+#include <mpcf/algorithms/functional/matrix_integrate.hpp>
 
 #ifdef BUILD_WITH_CUDA
-#include <mpcf/cuda/cuda_matrix_integrate_api.h>
+#include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
 #endif
 
 #include <vector>

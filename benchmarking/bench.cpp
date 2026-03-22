@@ -8,7 +8,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "bench_reduction.h"
+#include "bench_reduction.hpp"
 
 namespace
 {

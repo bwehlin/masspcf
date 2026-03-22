@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "config.h"
-#include "py_persistence_pair.h"
-#include <mpcf/persistence/persistence_pair.h>
+#include "config.hpp"
+#include "py_persistence_pair.hpp"
+#include <mpcf/persistence/persistence_pair.hpp>
 
 namespace py = pybind11;
 

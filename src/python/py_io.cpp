@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "py_io.h"
+#include "py_io.hpp"
 
 #include <string_view>
 
-#include <mpcf/tensor.h>
-#include <mpcf/io.h>
+#include <mpcf/tensor.hpp>
+#include <mpcf/io.hpp>
 
 #include <pybind11/stl.h>
 
@@ -42,6 +42,21 @@ namespace
       std::istream is(&buf);
       return mpcf::read_any_tensor(is);
     }
+
+    template <typename T>
+    static void save_object_to_file(const T& obj, py::object file)
+    {
+      mpcf_py::PythonOStreamBuf buf(file);
+      std::ostream os(&buf);
+      mpcf::write_object(obj, os);
+    }
+
+    static mpcf::io::detail::StreamableObject load_object_from_file(py::object file)
+    {
+      mpcf_py::PythonIStreamBuf buf(file);
+      std::istream is(&buf);
+      return mpcf::read_any_object(is);
+    }
   };
 
 }
@@ -54,6 +69,12 @@ namespace mpcf_py
     py::class_<IoOps>(m, "IoOps")
         .def_static("save_float32_tensor",       &IoOps::save_tensor_to_file<mpcf::float32_t>)
         .def_static("save_float64_tensor",       &IoOps::save_tensor_to_file<mpcf::float64_t>)
+
+        .def_static("save_int32_tensor",         &IoOps::save_tensor_to_file<mpcf::int32_t>)
+        .def_static("save_int64_tensor",         &IoOps::save_tensor_to_file<mpcf::int64_t>)
+        .def_static("save_uint32_tensor",        &IoOps::save_tensor_to_file<mpcf::uint32_t>)
+        .def_static("save_uint64_tensor",        &IoOps::save_tensor_to_file<mpcf::uint64_t>)
+        .def_static("save_bool_tensor",          &IoOps::save_tensor_to_file<bool>)
 
         .def_static("save_pcf32_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>)
         .def_static("save_pcf64_tensor",         &IoOps::save_tensor_to_file<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>)
@@ -74,6 +95,22 @@ namespace mpcf_py
         .def_static("save_distance_matrix64_tensor", &IoOps::save_tensor_to_file<mpcf::DistanceMatrix<mpcf::float64_t>>)
 
         .def_static("load_tensor_from_file", &IoOps::load_tensor_from_file)
+
+        .def_static("save_pcf32_object",         &IoOps::save_object_to_file<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>)
+        .def_static("save_pcf64_object",         &IoOps::save_object_to_file<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>)
+        .def_static("save_pcf32i_object",        &IoOps::save_object_to_file<mpcf::Pcf<mpcf::int32_t, mpcf::int32_t>>)
+        .def_static("save_pcf64i_object",        &IoOps::save_object_to_file<mpcf::Pcf<mpcf::int64_t, mpcf::int64_t>>)
+
+        .def_static("save_barcode32_object",     &IoOps::save_object_to_file<mpcf::ph::Barcode<mpcf::float32_t>>)
+        .def_static("save_barcode64_object",     &IoOps::save_object_to_file<mpcf::ph::Barcode<mpcf::float64_t>>)
+
+        .def_static("save_symmetric_matrix32_object", &IoOps::save_object_to_file<mpcf::SymmetricMatrix<mpcf::float32_t>>)
+        .def_static("save_symmetric_matrix64_object", &IoOps::save_object_to_file<mpcf::SymmetricMatrix<mpcf::float64_t>>)
+
+        .def_static("save_distance_matrix32_object", &IoOps::save_object_to_file<mpcf::DistanceMatrix<mpcf::float32_t>>)
+        .def_static("save_distance_matrix64_object", &IoOps::save_object_to_file<mpcf::DistanceMatrix<mpcf::float64_t>>)
+
+        .def_static("load_object_from_file", &IoOps::load_object_from_file)
 
         ;
   }

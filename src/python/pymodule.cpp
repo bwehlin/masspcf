@@ -14,31 +14,31 @@
 * limitations under the License.
 */
 
-#include "pybind.h"
+#include "pybind.hpp"
 
-#include <mpcf/executor.h>
-#include <mpcf/task.h>
+#include <mpcf/executor.hpp>
+#include <mpcf/task.hpp>
 
-#include "py_future.h"
-#include "functional/py_pcf.h"
-#include "py_io.h"
-#include "functional/py_make_from_serial_content.h"
-#include "functional/py_norms.h"
-#include "py_tensor.h"
-#include "functional/py_reductions.h"
-#include "functional/py_distance.h"
-#include "functional/py_random.h"
-#include "py_np_tensor_convert.h"
-#include "py_symmetric_matrix.h"
-#include "py_distance_matrix.h"
+#include "py_future.hpp"
+#include "functional/py_pcf.hpp"
+#include "py_io.hpp"
+#include "functional/py_make_from_serial_content.hpp"
+#include "functional/py_norms.hpp"
+#include "py_tensor.hpp"
+#include "functional/py_reductions.hpp"
+#include "functional/py_distance.hpp"
+#include "functional/py_random.hpp"
+#include "py_np_tensor_convert.hpp"
+#include "py_symmetric_matrix.hpp"
+#include "py_distance_matrix.hpp"
 
-#include "persistence/pymodule_persistence.h"
+#include "persistence/pymodule_persistence.hpp"
 
 #ifdef BUILD_WITH_CUDA
-#include <mpcf/cuda/cuda_matrix_integrate_api.h>
+#include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
 #endif
 
-#include "py_settings.h"
+#include "py_settings.hpp"
 
 namespace py = pybind11;
 

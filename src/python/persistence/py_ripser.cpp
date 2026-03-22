@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "py_ripser.h"
-#include "../py_async_support.h"
+#include "py_ripser.hpp"
+#include "../py_async_support.hpp"
 
-#include <mpcf/tensor.h>
-#include <mpcf/distance_matrix.h>
-#include <mpcf/persistence/barcode.h>
-#include <mpcf/persistence/compute_persistence.h>
+#include <mpcf/tensor.hpp>
+#include <mpcf/distance_matrix.hpp>
+#include <mpcf/persistence/barcode.hpp>
+#include <mpcf/persistence/compute_persistence.hpp>
 
 namespace py = pybind11;
 

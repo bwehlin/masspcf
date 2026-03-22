@@ -1,8 +1,27 @@
 # 0.4.0
 
-* The `NdArray` class has been replaced with `Tensor`. The new version is purpose-built for **masspcf**. This means we are dropping the dependency on **xtensor** and **xtl**. The main reason for this change is so to make development more flexible and efficient. On the **Python** side, things should work the same as in previous versions (please report any inconsistencies/bugs related to the switch!).
+Major rewrite of the core data structures and significant expansion of the API.
+
+## New features
+
+* **Tensor type system** — `NdArray` replaced with a family of purpose-built tensor classes: `PcfTensor`, `IntPcfTensor`, `FloatTensor`, `IntTensor`, `BoolTensor`, `PointCloudTensor`, `DistanceMatrixTensor`, `SymmetricMatrixTensor`, `BarcodeTensor`. Each has a corresponding `dtype` sentinel.
+* **NumPy-like tensor operations** — `reshape`, `transpose`/`.T`, `squeeze`, `expand_dims`, `swapaxes`, `concatenate`, `stack`, `split`, `array_split`, `astype`, iteration, `ndim`, `size`, `len()`.
+* **Advanced indexing** — slicing with negative strides, multi-axis boolean masking, mixed integer+boolean indexing, broadcasting assignment.
+* **Arithmetic** — element-wise `+`, `-`, `*`, `/`, `//`, `**`, unary `-` on numeric tensors; broadcasting support.
+* **Persistence module** — `compute_persistent_homology` (Ripser), `Barcode`, `BarcodeTensor`, and barcode summaries: `barcode_to_stable_rank`, `barcode_to_betti_curve`, `barcode_to_accumulated_persistence`.
+* **`DistanceMatrix` and `SymmetricMatrix`** — dedicated types with I/O support.
+* **Tensor I/O** — `save`/`load` for all tensor types; `from_serial_content` for in-memory deserialization.
+* **PCF evaluation** — evaluate PCFs at given time points.
+* **Plotting** — built-in plotting for barcodes (matplotlib).
 
 ## Breaking changes
 
-* `Pcf`s can now be constructed from `numpy.array`s only of size `n x 2` (used to support also `2 x n`). This is to avoid ambiguities with `2x2` arrays.
-* The `dtype`s `mpcf.float32` and `mpcf.float64` have been replaced by `mpcf.pcf32` and `mpcf.pcf64`, respectively. Users that rely on the old `dtype`s may see deprecation warnings, and the `dtype`s may be removed in a future release. This change is to support tensors of different types, including numeric types (see `mpcf.f32` and `mpcf.f64`). 
+* `NdArray` replaced with `Tensor` classes (dropped **xtensor**/**xtl** dependencies).
+* `Pcf` construction now only accepts `n x 2` arrays (not `2 x n`) to avoid ambiguity with `2x2` arrays.
+* I/O format bumped to version 2.
+* Requires C++20 (was C++17). Minimum Python version is 3.10.
+
+## Infrastructure
+
+* CUDA backend reworked: auto-detection, pip-installed CUDA toolkit support (`nvidia.cu12`/`nvidia.cu13`), version-specific modules.
+* Wheels built for Linux (x86_64, aarch64), macOS (x86_64, arm64), and Windows (x86_64).

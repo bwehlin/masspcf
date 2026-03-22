@@ -15,7 +15,7 @@
 import numpy as np
 
 from .. import _mpcf_cpp as cpp
-from .._tensor_base import Tensor
+from .._tensor_base import Tensor, _tensor_from_nested
 from ..typing import barcode32, barcode64
 from .barcode import Barcode
 
@@ -32,6 +32,11 @@ class BarcodeTensor(Tensor):
         super().__init__()
         if isinstance(data, BarcodeTensor):
             data = data._data
+        elif isinstance(data, (list, tuple)):
+            data = _tensor_from_nested(data, {
+                cpp_p.Barcode32: cpp_p.Barcode32Tensor,
+                cpp_p.Barcode64: cpp_p.Barcode64Tensor,
+            })
         elif not isinstance(data, (cpp_p.Barcode32Tensor, cpp_p.Barcode64Tensor)):
             raise TypeError(f"Cannot create BarcodeTensor from {type(data)}")
         self._data = data

@@ -14,7 +14,7 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/tensor.h>
+#include <mpcf/tensor.hpp>
 
 // Minimal C++ smoke tests for masked operations.
 // Full coverage lives in test/python/test_tensor_mask.py.

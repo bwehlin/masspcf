@@ -91,6 +91,13 @@ class SymmetricMatrix:
         """Return the full n×n symmetric matrix as a numpy array."""
         return self._data.to_dense()
 
+    def __reduce__(self):
+        import io as _io
+        from .io import _save_object, _unpickle_object
+        buf = _io.BytesIO()
+        _save_object(self, buf)
+        return _unpickle_object, (buf.getvalue(),)
+
     def __repr__(self):
         return repr(self._data)
 

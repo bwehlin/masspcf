@@ -14,13 +14,13 @@
 * limitations under the License.
 */
 
-#include "py_random.h"
+#include "py_random.hpp"
 
-#include <mpcf/random.h>
+#include <mpcf/random.hpp>
 
 #include <pybind11/numpy.h>
 
-#include "../py_np_support.h"
+#include "../py_np_support.hpp"
 
 #define _USE_MATH_DEFINES
 #include <math.h>

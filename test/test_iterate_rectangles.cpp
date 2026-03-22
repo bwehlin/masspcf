@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/functional/pcf.h>
-#include <mpcf/algorithms/functional/iterate_rectangles.h>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/algorithms/functional/iterate_rectangles.hpp>
 
 #include <vector>
 

@@ -14,13 +14,13 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/tensor.h>
-#include <mpcf/functional/pcf.h>
-#include <mpcf/persistence/barcode.h>
-#include <mpcf/persistence/persistence_pair.h>
-#include <mpcf/persistence/stable_rank.h>
-#include <mpcf/task.h>
-#include <mpcf/executor.h>
+#include <mpcf/tensor.hpp>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/persistence/barcode.hpp>
+#include <mpcf/persistence/persistence_pair.hpp>
+#include <mpcf/persistence/stable_rank.hpp>
+#include <mpcf/task.hpp>
+#include <mpcf/executor.hpp>
 
 #include <sstream>
 

@@ -20,6 +20,29 @@ You can also pass an open file object in binary write mode::
    with open('my_pcfs.mpcf', 'wb') as f:
        mpcf.save(X, f)
 
+Pickle support
+==============
+
+All tensor types and standalone objects (``Pcf``, ``Barcode``, ``DistanceMatrix``,
+``SymmetricMatrix``) support Python's ``pickle`` protocol. This means they work
+with ``pickle.dumps``/``pickle.loads``, ``copy.deepcopy``, and multiprocessing::
+
+   import pickle
+
+   data = pickle.dumps(X)
+   X_restored = pickle.loads(data)
+
+Pickling uses masspcf's binary format internally, so it is efficient and
+preserves dtype and shape.
+
+.. note::
+
+   Many masspcf operations (distance matrices, reductions, etc.) are already
+   parallelized internally using multithreading and GPU acceleration. Layering
+   Python ``multiprocessing`` on top will most likely *decrease* performance in
+   these cases due to process overhead and memory duplication.
+
+
 Loading
 =======
 

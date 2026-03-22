@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "config.h"
-#include "py_barcode.h"
-#include "../py_tensor.h"
-#include "../py_np_support.h"
+#include "config.hpp"
+#include "py_barcode.hpp"
+#include "../py_tensor.hpp"
+#include "../py_np_support.hpp"
 
-#include <mpcf/persistence/barcode.h>
+#include <mpcf/persistence/barcode.hpp>
 
 #include <pybind11/numpy.h>
 

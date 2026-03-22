@@ -14,7 +14,7 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/tensor.h>
+#include <mpcf/tensor.hpp>
 
 namespace
 {

@@ -20,9 +20,9 @@
 
 #include <cuda_runtime.h>
 
-#include "../task.h"
-#include "../functional/pcf.h"
-#include "../executor.h"
+#include "../task.hpp"
+#include "../functional/pcf.hpp"
+#include "../executor.hpp"
 #include "../functional/operations.cuh"
 #include "../block_matrix_support.cuh"
 

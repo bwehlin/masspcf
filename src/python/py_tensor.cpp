@@ -14,10 +14,10 @@
 * limitations under the License.
 */
 
-#include "py_tensor.h"
+#include "py_tensor.hpp"
 
-#include <mpcf/tensor.h>
-#include <mpcf/functional/pcf.h>
+#include <mpcf/tensor.hpp>
+#include <mpcf/functional/pcf.hpp>
 
 #include <sstream>
 

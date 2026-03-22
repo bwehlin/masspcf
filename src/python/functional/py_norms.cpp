@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "py_distance.h"
+#include "py_distance.hpp"
 
-#include "tensor.h"
-#include "functional/pcf.h"
-#include "task.h"
-#include "../py_async_support.h"
-#include "../py_np_support.h"
-#include "algorithms/functional/apply_functional.h"
+#include "tensor.hpp"
+#include "functional/pcf.hpp"
+#include "task.hpp"
+#include "../py_async_support.hpp"
+#include "../py_np_support.hpp"
+#include "algorithms/functional/apply_functional.hpp"
 
 #include <memory>
 

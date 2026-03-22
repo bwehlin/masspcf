@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "py_barcode_summary.h"
+#include "py_barcode_summary.hpp"
 
-#include "../py_async_support.h"
+#include "../py_async_support.hpp"
 
-#include <mpcf/functional/pcf.h>
-#include <mpcf/tensor.h>
-#include <mpcf/persistence/barcode.h>
-#include <mpcf/persistence/accumulated_persistence.h>
-#include <mpcf/persistence/stable_rank.h>
-#include <mpcf/persistence/betti_curve.h>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/tensor.hpp>
+#include <mpcf/persistence/barcode.hpp>
+#include <mpcf/persistence/accumulated_persistence.hpp>
+#include <mpcf/persistence/stable_rank.hpp>
+#include <mpcf/persistence/betti_curve.hpp>
 
 namespace py = pybind11;
 

@@ -14,12 +14,12 @@
 * limitations under the License.
 */
 
-#include <mpcf/tensor.h>
-#include <mpcf/functional/pcf.h>
+#include <mpcf/tensor.hpp>
+#include <mpcf/functional/pcf.hpp>
 
-#include "py_make_from_serial_content.h"
-#include "../py_tensor.h"
-#include "../py_np_support.h"
+#include "py_make_from_serial_content.hpp"
+#include "../py_tensor.hpp"
+#include "../py_np_support.hpp"
 
 #include <pybind11/numpy.h>
 

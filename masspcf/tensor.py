@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import _mpcf_cpp as cpp
-from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor
+from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor, _tensor_from_nested
 from .pcf import Pcf
 from .typing import (
     _NP_TO_MPCF,
@@ -107,8 +107,10 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
 
 
 class FloatTensor(NumericTensor):
-    def __init__(self, data: cpp.Float32Tensor | cpp.Float64Tensor | FloatTensor | np.ndarray, dtype=None):
+    def __init__(self, data: cpp.Float32Tensor | cpp.Float64Tensor | FloatTensor | np.ndarray | list | tuple, dtype=None):
         super().__init__()
+        if isinstance(data, (list, tuple)):
+            data = np.asarray(data)
 
         if isinstance(data, FloatTensor):
             data = data._data
@@ -147,8 +149,10 @@ _INT_CPP_TO_DTYPE = {
 
 
 class IntTensor(NumericTensor):
-    def __init__(self, data, dtype=None):
+    def __init__(self, data: cpp.Int32Tensor | cpp.Int64Tensor | cpp.Uint32Tensor | cpp.Uint64Tensor | IntTensor | np.ndarray | list | tuple, dtype=None):
         super().__init__()
+        if isinstance(data, (list, tuple)):
+            data = np.asarray(data)
 
         if isinstance(data, IntTensor):
             data = data._data
@@ -218,10 +222,15 @@ class _PcfTensorBase(Tensor, ArithmeticTensorMixin, FunctionTensorMixin):
 
 
 class PcfTensor(_PcfTensorBase):
-    def __init__(self, data: cpp.Pcf32Tensor | cpp.Pcf64Tensor):
+    def __init__(self, data):
         super().__init__()
         if isinstance(data, PcfTensor):
             data = data._data
+        elif isinstance(data, (list, tuple)):
+            data = _tensor_from_nested(data, {
+                cpp.Pcf_f32_f32: cpp.Pcf32Tensor,
+                cpp.Pcf_f64_f64: cpp.Pcf64Tensor,
+            })
         elif not isinstance(data, (cpp.Pcf32Tensor, cpp.Pcf64Tensor)):
             raise TypeError(f"Cannot create PcfTensor from {type(data)}")
         self._data = data
@@ -232,10 +241,15 @@ class PcfTensor(_PcfTensorBase):
 
 
 class IntPcfTensor(_PcfTensorBase):
-    def __init__(self, data: cpp.Pcf32iTensor | cpp.Pcf64iTensor):
+    def __init__(self, data):
         super().__init__()
         if isinstance(data, IntPcfTensor):
             data = data._data
+        elif isinstance(data, (list, tuple)):
+            data = _tensor_from_nested(data, {
+                cpp.Pcf_i32_i32: cpp.Pcf32iTensor,
+                cpp.Pcf_i64_i64: cpp.Pcf64iTensor,
+            })
         elif not isinstance(data, (cpp.Pcf32iTensor, cpp.Pcf64iTensor)):
             raise TypeError(f"Cannot create IntPcfTensor from {type(data)}")
         self._data = data
@@ -273,10 +287,17 @@ class PointCloudTensor(Tensor):
 class BoolTensor(Tensor):
     """Tensor of boolean values, typically produced by elementwise comparisons."""
 
-    def __init__(self, data: cpp.BoolTensor | np.ndarray):
+    def __init__(self, data: cpp.BoolTensor | BoolTensor | np.ndarray | list | tuple):
         super().__init__()
-        if isinstance(data, np.ndarray):
+        if isinstance(data, (list, tuple)):
+            data = np.asarray(data)
+
+        if isinstance(data, BoolTensor):
+            data = data._data
+        elif isinstance(data, np.ndarray):
             data = cpp.ndarray_to_bool_tensor(np.asarray(data, dtype=np.bool_))
+        elif not isinstance(data, cpp.BoolTensor):
+            raise TypeError(f"Cannot create BoolTensor from {type(data)}")
         self._data = data
         self.dtype = boolean
 

@@ -16,9 +16,9 @@
 // Created by bjorn on 2/25/2026.
 //
 
-#include "py_np_tensor_convert.h"
+#include "py_np_tensor_convert.hpp"
 
-#include <mpcf/tensor.h>
+#include <mpcf/tensor.hpp>
 
 #include <pybind11/numpy.h>
 

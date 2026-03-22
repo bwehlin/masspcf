@@ -14,10 +14,10 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/tensor.h>
-#include <mpcf/io/tensor_io.h>
-#include <mpcf/functional/pcf.h>
-#include <mpcf/persistence/barcode.h>
+#include <mpcf/tensor.hpp>
+#include <mpcf/io/tensor_io.hpp>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/persistence/barcode.hpp>
 
 #include <sstream>
 #include <cstring>

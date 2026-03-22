@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <mpcf/functional/pcf.h>
-#include <mpcf/algorithms/functional/apply_functional.h>
+#include <mpcf/functional/pcf.hpp>
+#include <mpcf/algorithms/functional/apply_functional.hpp>
 
 #include <vector>
 #include <memory>

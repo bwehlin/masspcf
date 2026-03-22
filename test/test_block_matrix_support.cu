@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/block_matrix_support.cuh>
-#include <mpcf/algorithms/subdivide.h>
+#include <mpcf/algorithms/subdivide.hpp>
 
 void PrintTo(const dim3& d, std::ostream* os)
 {
