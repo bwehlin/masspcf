@@ -51,8 +51,8 @@ class DistanceMatrix:
         If a DistanceMatrix or C++ distance matrix, wraps it directly.
     dtype : type[float32] | type[float64] | None, optional
         Element precision. ``float32`` stores entries as 32-bit floats,
-        ``float64`` as 64-bit floats. Required when ``n_or_data`` is an int,
-        ignored otherwise.
+        ``float64`` as 64-bit floats. Defaults to ``float64`` when
+        ``n_or_data`` is an int. Ignored otherwise.
     """
 
     def __init__(
@@ -66,7 +66,7 @@ class DistanceMatrix:
             self._data = n_or_data
         elif isinstance(n_or_data, int):
             if dtype is None:
-                raise ValueError("dtype is required when constructing from size")
+                dtype = float64
             if dtype not in _dtype_to_cpp:
                 raise TypeError(f"Unsupported dtype {dtype}; use float32 or float64")
             self._data = _dtype_to_cpp[dtype](n_or_data)
