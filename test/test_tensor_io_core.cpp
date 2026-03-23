@@ -81,7 +81,8 @@ namespace
 
   TEST(TensorIoCore, TensorFormatThrowsOnUnsupportedType)
   {
-    EXPECT_THROW((void)tensorFormat<int>(), std::runtime_error);
+    struct Unsupported {};
+    EXPECT_THROW((void)tensorFormat<Unsupported>(), std::runtime_error);
   }
 
   // ============================================================================
