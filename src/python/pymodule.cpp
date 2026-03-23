@@ -27,6 +27,7 @@
 #include "py_tensor.hpp"
 #include "functional/py_reductions.hpp"
 #include "functional/py_distance.hpp"
+#include "functional/py_inner_product.hpp"
 #include "functional/py_random.hpp"
 #include "py_np_tensor_convert.hpp"
 #include "py_symmetric_matrix.hpp"
@@ -126,6 +127,7 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
 
   mpcf_py::register_reductions(m);
   mpcf_py::register_distance(m);
+  mpcf_py::register_inner_product(m);
   mpcf_py::register_norms(m);
   mpcf_py::register_symmetric_matrix(m);
   mpcf_py::register_distance_matrix(m);

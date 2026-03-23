@@ -398,6 +398,7 @@ SET(MPCF_PY_SOURCES
     py_np_tensor_convert.hpp py_np_tensor_convert.cpp
     functional/py_make_from_serial_content.hpp functional/py_make_from_serial_content.cpp
     functional/py_distance.hpp functional/py_distance.cpp
+    functional/py_inner_product.hpp functional/py_inner_product.cpp
     functional/py_norms.hpp functional/py_norms.cpp
     functional/py_reductions.hpp functional/py_reductions.cpp
     py_tensor.hpp py_tensor.cpp

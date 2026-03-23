@@ -20,6 +20,7 @@
 #include "iterate_rectangles.hpp"
 #include "../../functional/pcf.hpp"
 #include "../../distance_matrix.hpp"
+#include "../../symmetric_matrix.hpp"
 #include "../../executor.hpp"
 #include "../../task.hpp"
 
@@ -189,6 +190,66 @@ namespace mpcf
 
     std::vector<pcf_type> m_fs;
     DistanceMatrix<value_type> m_distmat;
+    TOperation m_op;
+  };
+
+
+  template <typename TOperation, typename PcfFwdIt>
+  class MatrixIntegrateCpuSymMatTask : public mpcf::StoppableTask<void>
+  {
+  public:
+    using pcf_type = typename PcfFwdIt::value_type;
+    using value_type = typename pcf_type::value_type;
+    using time_type = typename pcf_type::time_type;
+
+    MatrixIntegrateCpuSymMatTask(SymmetricMatrix<value_type> symmat, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
+      : m_fs(beginPcfs, endPcfs)
+      , m_symmat(std::move(symmat))
+      , m_op(op)
+    { }
+
+    SymmetricMatrix<value_type>& symmat() { return m_symmat; }
+
+  private:
+    tf::Future<void> run_async(Executor& exec) override
+    {
+      auto sz = m_fs.size();
+      auto totalWork = (sz * (sz + 1)) / 2;
+
+      next_step(totalWork, "Computing kernel matrix.", "integral");
+
+      tf::Taskflow flow;
+      if (m_fs.empty())
+      {
+        return exec.cpu()->run(std::move(flow));
+      }
+
+      flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+        if (stop_requested())
+        {
+          return;
+        }
+        compute_row(i);
+      });
+
+      return exec.cpu()->run(std::move(flow));
+    }
+
+    void compute_row(size_t i)
+    {
+      auto sz = m_fs.size();
+      for (size_t j = i; j < sz; ++j)
+      {
+        auto val = m_op(integrate<time_type, value_type>(m_fs[i], m_fs[j], [this](const Rectangle<time_type, value_type>& rect){
+                                                                return m_op(rect.top, rect.bottom);
+                                                              }, 0, std::numeric_limits<time_type>::max()));
+        m_symmat(i, j) = val;
+      }
+      add_progress(sz - i);
+    }
+
+    std::vector<pcf_type> m_fs;
+    SymmetricMatrix<value_type> m_symmat;
     TOperation m_op;
   };
 

@@ -74,6 +74,26 @@ namespace mpcf_py
         }
         return out;
       })
+      .def_static("from_dense", [](py::array_t<T> dense) {
+        if (dense.ndim() != 2)
+          throw std::invalid_argument("Expected a 2-D array");
+        auto n = static_cast<size_t>(dense.shape(0));
+        if (static_cast<size_t>(dense.shape(1)) != n)
+          throw std::invalid_argument("Expected a square array");
+        auto r = dense.template unchecked<2>();
+        MatT sm(n);
+        for (size_t i = 0; i < n; ++i)
+        {
+          sm(i, i) = r(i, i);
+          for (size_t j = i + 1; j < n; ++j)
+          {
+            if (r(i, j) != r(j, i))
+              throw std::invalid_argument("Matrix must be symmetric");
+            sm(i, j) = r(i, j);
+          }
+        }
+        return sm;
+      })
       .def("__repr__", [suffix](const MatT& self) {
         std::ostringstream oss;
         oss << "SymmetricMatrix" << suffix << "(size=" << self.size() << ")";

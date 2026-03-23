@@ -71,6 +71,26 @@ GPU acceleration
 For large collections of PCFs, ``pdist`` automatically offloads the computation to the GPU when one is available. The number of pairwise integrals grows as :math:`n(n-1)/2`, so GPU acceleration can provide dramatic speedups for large :math:`n`.
 
 
+L2 kernel matrices
+===================
+
+:py:func:`~masspcf.l2_kernel` computes the pairwise :math:`L_2` inner-product (kernel) matrix for a 1-D tensor of PCFs. The result is a :py:class:`~masspcf.SymmetricMatrix` where entry :math:`(i, j)` is
+
+.. math::
+
+   K_{ij} = \langle f_i, f_j \rangle_{L_2}
+          = \int_0^\infty f_i(t) \, f_j(t) \, dt.
+
+::
+
+   K = mpcf.l2_kernel(X)
+   # K[i, j] gives the L2 inner product between X[i] and X[j]
+
+The kernel matrix is symmetric and includes diagonal entries (self inner products). To use it with scikit-learn, convert to a dense NumPy array::
+
+   K_dense = mpcf.l2_kernel(X, verbose=False).to_dense()
+
+
 Distance matrices
 ==================
 

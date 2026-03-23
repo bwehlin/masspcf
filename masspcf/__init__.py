@@ -16,6 +16,7 @@
 from . import random, system
 from ._tensor_base import Shape
 from .distance import pdist
+from .inner_product import l2_kernel
 from .io import load, save
 from .norms import lp_norm
 from .pcf import Pcf

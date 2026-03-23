@@ -1,4 +1,7 @@
-===============
+=====
+About
+=====
+
 Citing masspcf
 ===============
 
@@ -6,9 +9,9 @@ If you use **masspcf** in your research, please use the following BibTeX citatio
 
 
 .. code-block:: text
-    
+
     @misc{masspcf,
-        title={Massively Parallel Computation of Similarity Matrices from Piecewise Constant Invariants}, 
+        title={Massively Parallel Computation of Similarity Matrices from Piecewise Constant Invariants},
         author={Bj\"{o}rn H. Wehlin},
         year={2024},
         eprint={2404.07183},
@@ -18,9 +21,8 @@ If you use **masspcf** in your research, please use the following BibTeX citatio
 
 
 
-===============
 Acknowledgments
-===============
+================
 
 This work was partially supported by the Wallenberg AI, Autonomous Systems and Software
 Program (WASP) funded by the Knut and Alice Wallenberg Foundation.

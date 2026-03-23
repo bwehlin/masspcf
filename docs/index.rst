@@ -2,9 +2,9 @@
 masspcf: A computational package for discrete objects in Python and C++
 =========================================================================================================
 
-*masspcf* is a Python package with its backend written in C++ and CUDA for performing highly scalable computations involving piecewise constant functions (PCFs) and other discrete objects such as point clouds and persistence barcodes. The primary audience is practicioners within Topological Data Analysis (TDA) wanting to do statistical analysis on invariants such as *stable rank*, *Euler characteristic curves*, *Betti curves*, and so on.
+*masspcf* is a Python package with a C++/CUDA backend for GPU-accelerated computations on piecewise constant functions (PCFs) and related discrete objects such as point clouds, persistence barcodes, and distance matrices. The primary audience is practitioners within Topological Data Analysis (TDA) wanting to do statistical analysis on invariants such as *stable rank*, *Euler characteristic curves*, *Betti curves*, and so on.
 
-The basic objects are *numpy*-like (multidimensional) arrays of PCFs, on which we support reductions such as taking averages across a dimension, etc. For 1-D arrays, we compute Lp distance matrices and L2 kernels that can then be used as input for, e.g., clustering, SVMs, and other machine learning algorithms.
+The core data structures are NumPy-like multidimensional tensors supporting slicing, broadcasting, arithmetic, and reductions. Key operations include pairwise :math:`L_p` distance matrices, :math:`L_2` kernels, norms, and persistent homology (via Ripser). The resulting distance matrices and kernels can be used directly with scikit-learn and other machine learning libraries for clustering, classification, and dimensionality reduction.
 
 
 .. toctree::
@@ -12,39 +12,45 @@ The basic objects are *numpy*-like (multidimensional) arrays of PCFs, on which w
 
    installing
    userguide
-   acknowledgments
 
 .. toctree::
    :hidden:
    :caption: Reference:
 
    masspcf
+   changelog
+
+.. toctree::
+   :hidden:
+   :caption: About:
+
+   acknowledgments
 
 .. grid:: 2
 
-   .. grid-item-card:: Getting started
+   .. grid-item-card:: :fas:`rocket` Getting started
       :link: installing
       :link-type: doc
 
       Install masspcf and get up and running quickly.
 
-   .. grid-item-card:: User guide
+   .. grid-item-card:: :fas:`book` User guide
       :link: userguide
       :link-type: doc
 
       In-depth guides on core concepts, tensors, distances, persistence, and GPU acceleration.
 
-   .. grid-item-card:: API reference
+   .. grid-item-card:: :fas:`code` API reference
       :link: masspcf
       :link-type: doc
 
       Detailed descriptions of the Python API.
 
-   .. grid-item-card:: Citing masspcf
+   .. grid-item-card:: :fas:`circle-info` About
       :link: acknowledgments
       :link-type: doc
 
-      How to cite masspcf in your research.
+      Citing masspcf and acknowledgments.
 
 Indices and tables
 ==================

@@ -32,6 +32,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
     "sphinxcontrib.youtube",
+    "myst_parser",
     "nbsphinx",
     "sphinx_design",
 ]

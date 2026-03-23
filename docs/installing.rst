@@ -1,6 +1,6 @@
-=====================
-Installing masspcf
-=====================
+================
+Getting started
+================
 
 Installing using pip
 =====================

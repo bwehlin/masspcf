@@ -85,3 +85,35 @@ def test_pdist_to_dense():
     assert dense[0, 1] == pytest.approx(2 * 5 + 3 * 5)
     assert dense[1, 0] == dense[0, 1]
     assert dense[1, 1] == 0.0
+
+
+def test_from_dense_valid():
+    dense = np.array([[0.0, 1.0, 2.0],
+                       [1.0, 0.0, 3.0],
+                       [2.0, 3.0, 0.0]])
+    dm = DistanceMatrix.from_dense(dense)
+    assert dm.size == 3
+    assert dm[0, 1] == 1.0
+    assert dm[0, 2] == 2.0
+    assert dm[1, 2] == 3.0
+
+
+def test_from_dense_rejects_nonzero_diagonal():
+    dense = np.array([[1.0, 0.0],
+                       [0.0, 0.0]])
+    with pytest.raises(ValueError, match="Diagonal"):
+        DistanceMatrix.from_dense(dense)
+
+
+def test_from_dense_rejects_negative():
+    dense = np.array([[0.0, -1.0],
+                       [-1.0, 0.0]])
+    with pytest.raises(ValueError, match="nonnegative"):
+        DistanceMatrix.from_dense(dense)
+
+
+def test_from_dense_rejects_asymmetric():
+    dense = np.array([[0.0, 1.0],
+                       [2.0, 0.0]])
+    with pytest.raises(ValueError, match="symmetric"):
+        DistanceMatrix.from_dense(dense)
