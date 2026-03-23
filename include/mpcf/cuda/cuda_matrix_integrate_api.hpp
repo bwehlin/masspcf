@@ -42,6 +42,20 @@ namespace mpcf
       const std::vector<Pcf<float64_t, float64_t>>& pcfs,
       float64_t a = 0.0,
       float64_t b = std::numeric_limits<float64_t>::max());
+
+  // L2 inner product — f32
+  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l2_kernel_task(
+      float32_t* out,
+      const std::vector<Pcf<float32_t, float32_t>>& pcfs,
+      float32_t a = 0.f,
+      float32_t b = std::numeric_limits<float32_t>::max());
+
+  // L2 inner product — f64
+  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l2_kernel_task(
+      float64_t* out,
+      const std::vector<Pcf<float64_t, float64_t>>& pcfs,
+      float64_t a = 0.0,
+      float64_t b = std::numeric_limits<float64_t>::max());
 }
 
 #endif

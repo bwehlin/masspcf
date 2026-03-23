@@ -379,6 +379,8 @@ jobs:
           ../build/mpcf_test
 
       - name: Run Python tests
+        env:
+          MPCF_REQUIRE_CUDA: 1
         run: |
           cd test
           python3 -m pytest . -vv
