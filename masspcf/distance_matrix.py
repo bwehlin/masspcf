@@ -100,6 +100,16 @@ class DistanceMatrix:
         _save_object(self, buf)
         return _unpickle_object, (buf.getvalue(),)
 
+    @classmethod
+    def from_dense(cls, array):
+        """Create a DistanceMatrix from a dense n×n numpy array."""
+        if array.dtype == np.float32:
+            return cls(cpp.DistanceMatrix_f32.from_dense(array))
+        elif array.dtype == np.float64:
+            return cls(cpp.DistanceMatrix_f64.from_dense(array))
+        else:
+            raise TypeError(f"Unsupported dtype {array.dtype}")
+
     def __repr__(self):
         return repr(self._data)
 

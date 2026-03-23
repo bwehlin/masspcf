@@ -26,6 +26,9 @@
 #include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
 #endif
 
+#include <mpcf/distance_matrix.hpp>
+
+#include <cstring>
 #include <memory>
 
 #include <pybind11/numpy.h>
@@ -44,16 +47,18 @@ namespace
     using PcfT = mpcf::Pcf<Tt, Tv>;
     using TensorT = mpcf::Tensor<PcfT>;
 
-    static std::unique_ptr<mpcf::StoppableTask<void>> pdist_l1(py::array_t<Tv>& matrix, TensorT fs)
+    static py::tuple pdist_l1(TensorT fs)
     {
       auto op = mpcf::OperationL1Dist<Tt, Tv>();
+      auto n = static_cast<size_t>(fs.shape(0));
 
-      if (matrix.shape(0) == 0)
+      auto distmat = mpcf::DistanceMatrix<Tv>(n);
+
+      if (n == 0)
       {
-        return mpcf_py::execute_empty_task();
+        std::unique_ptr<mpcf::StoppableTask<void>> empty_task = mpcf_py::execute_empty_task();
+        return py::make_tuple(std::move(empty_task), distmat);
       }
-
-      auto* out = matrix.mutable_data(0);
 
       auto begin = mpcf::begin1dValues(fs);
       auto end = mpcf::end1dValues(fs);
@@ -66,11 +71,15 @@ namespace
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
 
+        // CUDA interim path: compute into dense numpy array, convert to DistanceMatrix on Python side
+        py::array_t<Tv> dense({n, n});
+        std::memset(dense.mutable_data(0), 0, n * n * sizeof(Tv));
+
         std::vector<PcfT> pcfs(begin, end);
-        auto task = mpcf::create_cuda_matrix_integrate_l1_task(out, pcfs, Tv(0), std::numeric_limits<Tv>::max());
+        auto task = mpcf::create_cuda_matrix_integrate_l1_task(dense.mutable_data(0), pcfs, Tv(0), std::numeric_limits<Tv>::max());
         task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
-        return task;
+        return py::make_tuple(std::move(task), dense);
       }
 #endif
 
@@ -79,7 +88,8 @@ namespace
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
 
-      return mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuTask<decltype(op), decltype(begin)>>(out, begin, end, op);
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuDistMatTask<decltype(op), decltype(begin)>>(distmat, begin, end, op);
+      return py::make_tuple(std::move(task), distmat);
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)

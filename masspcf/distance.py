@@ -16,18 +16,18 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from .async_task import _run_task
-from .np_support import numpy_type
+from .distance_matrix import DistanceMatrix
 from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
 from .typing import pcf32, pcf64
 
 
-def _get_distance_backend(fs) -> cpp.Distance_f32_f32 | cpp.Distance_f64_f64:
+def _get_distance_backend(fs) -> type[cpp.Distance_f32_f32] | type[cpp.Distance_f64_f64]:
     mapping = {pcf32: cpp.Distance_f32_f32, pcf64: cpp.Distance_f64_f64}
+    backend, _ = _get_backend(fs, mapping)
+    return backend
 
-    return _get_backend(fs, mapping)
 
-
-def pdist(fs: PcfContainerLike, p=1, verbose=True):
+def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
     r"""Compute the pairwise :math:`L_p` distance matrix for a 1-D tensor of PCFs.
 
     For a tensor :math:`(f_0, f_1, \ldots, f_{n-1})`, returns an
@@ -48,8 +48,8 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True):
 
     Returns
     -------
-    numpy.ndarray
-        An :math:`n \times n` distance matrix.
+    DistanceMatrix
+        A compressed symmetric distance matrix.
 
     Raises
     ------
@@ -64,8 +64,11 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True):
     if len(X.shape) != 1:
         raise ValueError("1d tensor expected.")
 
-    backend, fs = _get_distance_backend(fs)
-    matrix = np.zeros((X.shape[0], X.shape[0]), dtype=numpy_type(X))
+    backend = _get_distance_backend(fs)
+    task, dm_or_dense = backend.pdist_l1(X._data)
+    _run_task(lambda: task, verbose=verbose)
 
-    _run_task(lambda: backend.pdist_l1(matrix, X._data), verbose=verbose)
-    return matrix
+    if isinstance(dm_or_dense, np.ndarray):
+        return DistanceMatrix.from_dense(dm_or_dense)
+    else:
+        return DistanceMatrix(dm_or_dense)

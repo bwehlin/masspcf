@@ -26,7 +26,7 @@ For piecewise constant functions, these integrals reduce to finite sums over the
 Pairwise distances
 ==================
 
-:py:func:`~masspcf.pdist` computes the full pairwise :math:`L_p` distance matrix for a 1-D tensor of PCFs. The result is a symmetric :math:`n \times n` NumPy array where entry :math:`(i, j)` is the :math:`L_p` distance between the :math:`i`-th and :math:`j`-th PCF.
+:py:func:`~masspcf.pdist` computes the full pairwise :math:`L_p` distance matrix for a 1-D tensor of PCFs. The result is a :py:class:`~masspcf.DistanceMatrix` — a compressed symmetric matrix where entry :math:`(i, j)` is the :math:`L_p` distance between the :math:`i`-th and :math:`j`-th PCF.
 
 Basic usage
 -----------
@@ -40,7 +40,7 @@ Basic usage
 
    # L1 distance matrix (default)
    D = mpcf.pdist(X)
-   # D.shape is (50, 50)
+   # D.size is 50, D[i, j] gives the distance between X[i] and X[j]
 
 The ``p`` parameter controls which :math:`L_p` distance is computed::
 
@@ -170,7 +170,7 @@ For higher-dimensional tensors, the output shape matches the input::
 Using distances in machine learning
 =====================================
 
-The distance matrices produced by ``pdist`` are standard NumPy arrays, making them easy to use with scikit-learn and other libraries.
+``pdist`` returns a :py:class:`~masspcf.DistanceMatrix`. Call :py:meth:`~masspcf.DistanceMatrix.to_dense` to obtain a standard NumPy array for use with scikit-learn and other libraries.
 
 Clustering
 ----------
@@ -179,7 +179,7 @@ Clustering
 
    from sklearn.cluster import AgglomerativeClustering
 
-   D = mpcf.pdist(X, verbose=False)
+   D = mpcf.pdist(X, verbose=False).to_dense()
 
    clustering = AgglomerativeClustering(
        n_clusters=3,
@@ -195,7 +195,7 @@ Multidimensional scaling
 
    from sklearn.manifold import MDS
 
-   D = mpcf.pdist(X, verbose=False)
+   D = mpcf.pdist(X, verbose=False).to_dense()
 
    mds = MDS(n_components=2, dissimilarity='precomputed')
    coords = mds.fit_transform(D)
@@ -214,7 +214,7 @@ A common approach is to convert a distance matrix into a kernel matrix and use i
    import numpy as np
    from sklearn.svm import SVC
 
-   D = mpcf.pdist(X, verbose=False)
+   D = mpcf.pdist(X, verbose=False).to_dense()
    sigma = np.median(D[D > 0])
    K = np.exp(-D**2 / (2 * sigma**2))
 

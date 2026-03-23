@@ -62,6 +62,15 @@ namespace mpcf_py
         }
         return out;
       })
+      .def_static("from_dense", [](py::array_t<T> dense) {
+        auto n = static_cast<size_t>(dense.shape(0));
+        MatT dm(n);
+        auto r = dense.template unchecked<2>();
+        for (size_t i = 0; i < n; ++i)
+          for (size_t j = i + 1; j < n; ++j)
+            dm(i, j) = r(i, j);
+        return dm;
+      })
       .def("__repr__", [suffix](const MatT& self) {
         std::ostringstream oss;
         oss << "DistanceMatrix" << suffix << "(size=" << self.size() << ")";
