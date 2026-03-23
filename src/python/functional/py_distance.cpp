@@ -29,6 +29,7 @@
 #include <mpcf/distance_matrix.hpp>
 
 #include <cstring>
+#include <functional>
 #include <memory>
 
 #include <pybind11/numpy.h>
@@ -47,11 +48,12 @@ namespace
     using PcfT = mpcf::Pcf<Tt, Tv>;
     using TensorT = mpcf::Tensor<PcfT>;
 
-    static py::tuple pdist_l1(TensorT fs)
-    {
-      auto op = mpcf::OperationL1Dist<Tt, Tv>();
-      auto n = static_cast<size_t>(fs.shape(0));
+    using CudaFactory = std::function<std::unique_ptr<mpcf::StoppableTask<void>>(Tv*, const std::vector<PcfT>&, Tv, Tv)>;
 
+    template <typename TOperation>
+    static py::tuple pdist_impl(TensorT fs, TOperation op, CudaFactory cudaFactory)
+    {
+      auto n = static_cast<size_t>(fs.shape(0));
       auto distmat = mpcf::DistanceMatrix<Tv>(n);
 
       if (n == 0)
@@ -64,19 +66,19 @@ namespace
       auto end = mpcf::end1dValues(fs);
 
 #ifdef BUILD_WITH_CUDA
-      if (!mpcf_py::g_settings.forceCpu && static_cast<size_t>(std::distance(begin, end)) >= mpcf_py::g_settings.cudaThreshold)
+      if (cudaFactory && !mpcf_py::g_settings.forceCpu
+          && static_cast<size_t>(std::distance(begin, end)) >= mpcf_py::g_settings.cudaThreshold)
       {
         if (mpcf_py::g_settings.deviceVerbose)
         {
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
 
-        // CUDA interim path: compute into dense numpy array, convert to DistanceMatrix on Python side
         py::array_t<Tv> dense({n, n});
         std::memset(dense.mutable_data(0), 0, n * n * sizeof(Tv));
 
         std::vector<PcfT> pcfs(begin, end);
-        auto task = mpcf::create_cuda_matrix_integrate_l1_task(dense.mutable_data(0), pcfs, Tv(0), std::numeric_limits<Tv>::max());
+        auto task = cudaFactory(dense.mutable_data(0), pcfs, Tv(0), std::numeric_limits<Tv>::max());
         task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return py::make_tuple(std::move(task), dense);
@@ -88,8 +90,30 @@ namespace
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
 
-      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuDistMatTask<decltype(op), decltype(begin)>>(distmat, begin, end, op);
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuDistMatTask<TOperation, decltype(begin)>>(distmat, begin, end, op);
       return py::make_tuple(std::move(task), distmat);
+    }
+
+    static py::tuple pdist_l1(TensorT fs)
+    {
+      CudaFactory cuda;
+#ifdef BUILD_WITH_CUDA
+      cuda = [](Tv* out, const std::vector<PcfT>& pcfs, Tv a, Tv b) {
+        return mpcf::create_cuda_matrix_integrate_l1_task(out, pcfs, a, b);
+      };
+#endif
+      return pdist_impl(fs, mpcf::OperationL1Dist<Tt, Tv>{}, cuda);
+    }
+
+    static py::tuple pdist_lp(TensorT fs, Tv p)
+    {
+      CudaFactory cuda;
+#ifdef BUILD_WITH_CUDA
+      cuda = [p](Tv* out, const std::vector<PcfT>& pcfs, Tv a, Tv b) {
+        return mpcf::create_cuda_matrix_integrate_lp_task(out, pcfs, p, a, b);
+      };
+#endif
+      return pdist_impl(fs, mpcf::OperationLpDist<Tt, Tv>(p), cuda);
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)
@@ -98,6 +122,7 @@ namespace
 
       cls
           .def_static("pdist_l1", &PyDistanceBindings::pdist_l1)
+          .def_static("pdist_lp", &PyDistanceBindings::pdist_lp)
       ;
 
     }

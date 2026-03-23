@@ -32,28 +32,39 @@ requires_cuda = pytest.mark.skipif(
 
 @pytest.fixture(autouse=True)
 def _force_cuda():
-    """Force the CUDA path by setting threshold to 0, restore after test."""
+    """Force the CUDA path and enable verbose device reporting."""
     cpp.set_cuda_threshold(0)
+    cpp.set_device_verbose(True)
     yield
+    cpp.set_device_verbose(False)
     cpp.set_cuda_threshold(500)
 
 
+def _assert_ran_on_cuda(captured_err_out):
+    """Assert that the captured output indicates CUDA execution."""
+    assert "CUDA" in captured_err_out, (
+        f"Expected CUDA execution but got: {captured_err_out!r}"
+    )
+
+
 @requires_cuda
-def test_pdist_cuda_returns_distance_matrix():
+def test_pdist_cuda_returns_distance_matrix(capfd):
     X = mpcf.zeros((3,))
     D = mpcf.pdist(X)
+    _assert_ran_on_cuda(capfd.readouterr().out)
     assert isinstance(D, DistanceMatrix)
     assert D.size == 3
 
 
 @requires_cuda
-def test_pdist_cuda_correct_values():
+def test_pdist_cuda_correct_values(capfd):
     X = mpcf.zeros((2,), dtype=mpcf.pcf64)
 
     X[0] = mpcf.Pcf(np.array([[0.0, 10.0], [2.0, 5.0], [3.0, 0.0]]))
     X[1] = mpcf.Pcf(np.array([[0.0, 5.0], [6.0, 0.0]]))
 
     D = mpcf.pdist(X)
+    _assert_ran_on_cuda(capfd.readouterr().out)
 
     assert D.size == 2
     assert D[0, 0] == 0.0
@@ -63,13 +74,14 @@ def test_pdist_cuda_correct_values():
 
 
 @requires_cuda
-def test_pdist_cuda_to_dense():
+def test_pdist_cuda_to_dense(capfd):
     X = mpcf.zeros((2,), dtype=mpcf.pcf64)
 
     X[0] = mpcf.Pcf(np.array([[0.0, 10.0], [2.0, 5.0], [3.0, 0.0]]))
     X[1] = mpcf.Pcf(np.array([[0.0, 5.0], [6.0, 0.0]]))
 
     D = mpcf.pdist(X)
+    _assert_ran_on_cuda(capfd.readouterr().out)
     dense = D.to_dense()
 
     assert isinstance(dense, np.ndarray)
@@ -78,21 +90,23 @@ def test_pdist_cuda_to_dense():
 
 
 @requires_cuda
-def test_l2_kernel_cuda_returns_symmetric_matrix():
+def test_l2_kernel_cuda_returns_symmetric_matrix(capfd):
     X = mpcf.zeros((3,))
     K = mpcf.l2_kernel(X)
+    _assert_ran_on_cuda(capfd.readouterr().out)
     assert isinstance(K, SymmetricMatrix)
     assert K.size == 3
 
 
 @requires_cuda
-def test_l2_kernel_cuda_correct_values():
+def test_l2_kernel_cuda_correct_values(capfd):
     X = mpcf.zeros((2,), dtype=mpcf.pcf64)
 
     X[0] = mpcf.Pcf(np.array([[0.0, 4.0], [3.0, 0.0]]))
     X[1] = mpcf.Pcf(np.array([[0.0, 2.0], [3.0, 0.0]]))
 
     K = mpcf.l2_kernel(X)
+    _assert_ran_on_cuda(capfd.readouterr().out)
 
     assert K.size == 2
     assert K[0, 0] == pytest.approx(48.0)
@@ -102,16 +116,32 @@ def test_l2_kernel_cuda_correct_values():
 
 
 @requires_cuda
-def test_l2_kernel_cuda_to_dense():
+def test_l2_kernel_cuda_to_dense(capfd):
     X = mpcf.zeros((2,), dtype=mpcf.pcf64)
 
     X[0] = mpcf.Pcf(np.array([[0.0, 4.0], [3.0, 0.0]]))
     X[1] = mpcf.Pcf(np.array([[0.0, 2.0], [3.0, 0.0]]))
 
     K = mpcf.l2_kernel(X)
+    _assert_ran_on_cuda(capfd.readouterr().out)
     dense = K.to_dense()
 
     assert isinstance(dense, np.ndarray)
     assert dense.shape == (2, 2)
     assert dense[0, 0] == pytest.approx(48.0)
     assert dense[0, 1] == pytest.approx(24.0)
+
+
+@requires_cuda
+def test_pdist_lp_cuda_correct_values(capfd):
+    X = mpcf.zeros((2,), dtype=mpcf.pcf64)
+
+    X[0] = mpcf.Pcf(np.array([[0.0, 4.0], [1.0, 0.0]]))
+    X[1] = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 0.0]]))
+
+    D = mpcf.pdist(X, p=3)
+    _assert_ran_on_cuda(capfd.readouterr().out)
+
+    assert isinstance(D, DistanceMatrix)
+    # ||f - g||_3 = (|4-1|^3 * 1)^(1/3) = 3
+    assert D[0, 1] == pytest.approx(3.0)

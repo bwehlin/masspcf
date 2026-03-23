@@ -65,7 +65,12 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
         raise ValueError("1d tensor expected.")
 
     backend = _get_distance_backend(fs)
-    task, dm_or_dense = backend.pdist_l1(X._data)
+
+    if p == 1:
+        task, dm_or_dense = backend.pdist_l1(X._data)
+    else:
+        task, dm_or_dense = backend.pdist_lp(X._data, float(p))
+
     _run_task(lambda: task, verbose=verbose)
 
     if isinstance(dm_or_dense, np.ndarray):

@@ -48,6 +48,30 @@ namespace mpcf
         *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t{}, a, b);
   }
 
+  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_lp_task(
+      float32_t* out,
+      const std::vector<Pcf<float32_t, float32_t>>& pcfs,
+      float32_t p, float32_t a, float32_t b)
+  {
+    using iter_t = std::vector<Pcf<float32_t, float32_t>>::const_iterator;
+    using op_t = OperationLpDist<float32_t, float32_t>;
+
+    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
+        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t(p), a, b);
+  }
+
+  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_lp_task(
+      float64_t* out,
+      const std::vector<Pcf<float64_t, float64_t>>& pcfs,
+      float64_t p, float64_t a, float64_t b)
+  {
+    using iter_t = std::vector<Pcf<float64_t, float64_t>>::const_iterator;
+    using op_t = OperationLpDist<float64_t, float64_t>;
+
+    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
+        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t(p), a, b);
+  }
+
   std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l2_kernel_task(
       float32_t* out,
       const std::vector<Pcf<float32_t, float32_t>>& pcfs,

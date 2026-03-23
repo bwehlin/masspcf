@@ -17,6 +17,8 @@
 #ifndef MPCF_OPERATIONS_CUH
 #define MPCF_OPERATIONS_CUH
 
+#include <cmath>
+
 #ifdef BUILD_WITH_CUDA
   #include <cuda_runtime.h>
 #else
@@ -35,7 +37,7 @@ namespace mpcf
   {
     __host__ __device__ Tv operator()(Tv t, Tv b) const
     {
-      return abs(t - b);
+      return std::abs(t - b);
     }
     
     __host__ __device__ Tv operator()(Tv x) const
@@ -47,7 +49,7 @@ namespace mpcf
   template <typename Tt, typename Tv>
   struct OperationLpDist
   {
-    Tv p = 2.0;
+    Tv p = 2;
     OperationLpDist() = default;
     explicit OperationLpDist(Tv pv)
       : p(pv)
@@ -55,12 +57,12 @@ namespace mpcf
     
     __host__ __device__ Tv operator()(Tv t, Tv b) const
     {
-      return pow(abs(t - b), p);
+      return std::pow(std::abs(t - b), p);
     }
-    
+
     __host__ __device__ Tv operator()(Tv x) const
     {
-      return pow(x, Tv(1) / p);
+      return std::pow(x, Tv(1) / p);
     }
   };
   

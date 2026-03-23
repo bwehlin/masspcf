@@ -87,6 +87,29 @@ def test_pdist_to_dense():
     assert dense[1, 1] == 0.0
 
 
+def test_pdist_l3_constant_pcfs():
+    X = mpcf.zeros((2,), dtype=mpcf.pcf64)
+
+    # f(t) = 4 on [0, 1), g(t) = 1 on [0, 1)
+    X[0] = mpcf.Pcf(np.array([[0.0, 4.0], [1.0, 0.0]]))
+    X[1] = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 0.0]]))
+
+    D = mpcf.pdist(X, p=3)
+
+    assert isinstance(D, DistanceMatrix)
+    assert D.size == 2
+    # ||f - g||_3 = (integral |4 - 1|^3 dt)^(1/3) = (27)^(1/3) = 3
+    assert D[0, 1] == pytest.approx(3.0)
+    assert D[0, 0] == 0.0
+    assert D[1, 1] == 0.0
+
+
+def test_pdist_lp_returns_distance_matrix():
+    X = mpcf.zeros((3,))
+    D = mpcf.pdist(X, p=3)
+    assert isinstance(D, DistanceMatrix)
+
+
 def test_from_dense_valid():
     dense = np.array([[0.0, 1.0, 2.0],
                        [1.0, 0.0, 3.0],
