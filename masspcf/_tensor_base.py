@@ -275,12 +275,12 @@ class Tensor(ABC):
             self._data._set_element([slices[0]], self._decay_value(val))
         elif len(slices) == 1 and isinstance(slices[0], slice):
             real_slices = [_pyslice_to_slice(slices[0])]
-            self._data[real_slices] = val._data
+            self._data[real_slices] = self._decay_value(val)
         elif all(isinstance(s, int) for s in slices):
             self._data._set_element(slices, self._decay_value(val))
         else:
             real_slices = [_pyslice_to_slice(s) for s in slices]
-            self._data[real_slices] = val._data
+            self._data[real_slices] = self._decay_value(val)
 
     def __iter__(self):
         for i in range(self.shape[0]):
