@@ -18,8 +18,11 @@
 #define MPCF_BLOCK_MATRIX_SUPPORT_CUH
 
 #include <cuda_runtime.h> // dim3
-#include <string>
 #include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <stdexcept>
+#include <string>
 
 #include <mpcf/algorithms/subdivide.hpp>
 
@@ -50,6 +53,34 @@ namespace mpcf::internal
   inline size_t get_row_height_from_boundaries(std::pair<size_t, size_t> boundaries)
   {
     return boundaries.second - boundaries.first + 1;
+  }
+
+  /// Query GPU memory across nGpus devices and return the maximum number of
+  /// elements of size elementSize that can be used for block output buffers.
+  inline size_t get_max_output_elements(size_t nGpus, size_t elementSize)
+  {
+    constexpr float allocationPct = 0.8f;
+    size_t retVal = std::numeric_limits<size_t>::max();
+
+    for (size_t i = 0; i < nGpus; ++i)
+    {
+      auto setErr = cudaSetDevice(static_cast<int>(i));
+      if (setErr != cudaSuccess)
+        throw std::runtime_error(std::string("cudaSetDevice failed: ") + cudaGetErrorString(setErr));
+
+      size_t freeMem, totalMem;
+      auto memErr = cudaMemGetInfo(&freeMem, &totalMem);
+      if (memErr != cudaSuccess)
+        throw std::runtime_error(std::string("cudaMemGetInfo failed: ") + cudaGetErrorString(memErr));
+
+      size_t maxAllocSz = static_cast<size_t>(static_cast<float>(freeMem) * allocationPct);
+      size_t maxN = (maxAllocSz / 2) / elementSize;
+      maxN = (maxN / 1024) * 1024;
+
+      retVal = std::min(retVal, maxN);
+    }
+
+    return retVal;
   }
 
 }

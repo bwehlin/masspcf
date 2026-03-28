@@ -1,0 +1,206 @@
+/*
+* Copyright 2024-2026 Bjorn Wehlin
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+#include <gtest/gtest.h>
+
+#include <mpcf/cuda/cuda_result_writer.hpp>
+
+template <typename T>
+class DistanceMatrixResultWriterTyped : public ::testing::Test {};
+
+using ResultWriterTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(DistanceMatrixResultWriterTyped, ResultWriterTypes);
+
+TYPED_TEST(DistanceMatrixResultWriterTyped, ScatterLowerTriangle)
+{
+  using Tv = TypeParam;
+  mpcf::DistanceMatrix<Tv> dm(4);
+
+  // Block covers rows [2,3], cols [0,1]
+  Tv hostBlock[] = {
+    Tv(10), Tv(20),   // row 2: (2,0)=10, (2,1)=20
+    Tv(30), Tv(40)    // row 3: (3,0)=30, (3,1)=40
+  };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 2;
+  block.rowHeight = 2;
+  block.colStart = 0;
+  block.colWidth = 2;
+
+  mpcf::DistanceMatrixResultWriter<Tv> writer(dm);
+  writer.scatter(hostBlock, block);
+
+  EXPECT_EQ(dm(2, 0), Tv(10));
+  EXPECT_EQ(dm(2, 1), Tv(20));
+  EXPECT_EQ(dm(3, 0), Tv(30));
+  EXPECT_EQ(dm(3, 1), Tv(40));
+  EXPECT_EQ(dm(0, 2), Tv(10));  // symmetric access
+
+  // Untouched
+  EXPECT_EQ(dm(1, 0), Tv(0));
+  EXPECT_EQ(dm(2, 3), Tv(0));
+}
+
+TYPED_TEST(DistanceMatrixResultWriterTyped, DiagonalBlock)
+{
+  using Tv = TypeParam;
+  mpcf::DistanceMatrix<Tv> dm(4);
+
+  // Block on diagonal: rows [1,2], cols [1,2]
+  // Lower triangle: only (2,1) has i > j
+  Tv hostBlock[] = {
+    Tv(0), Tv(50),    // (1,1)=skip, (1,2)=skip(upper)
+    Tv(60), Tv(0)     // (2,1)=60, (2,2)=skip
+  };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 1;
+  block.rowHeight = 2;
+  block.colStart = 1;
+  block.colWidth = 2;
+
+  mpcf::DistanceMatrixResultWriter<Tv> writer(dm);
+  writer.scatter(hostBlock, block);
+
+  EXPECT_EQ(dm(2, 1), Tv(60));
+  EXPECT_EQ(dm(1, 1), Tv(0));
+}
+
+TYPED_TEST(DistanceMatrixResultWriterTyped, NonOverlappingBlocks)
+{
+  using Tv = TypeParam;
+  mpcf::DistanceMatrix<Tv> dm(4);
+  mpcf::DistanceMatrixResultWriter<Tv> writer(dm);
+
+  Tv block1[] = { Tv(1), Tv(2), Tv(3), Tv(4) };
+  mpcf::BlockInfo bi1{.rowStart = 2, .rowHeight = 2, .colStart = 0, .colWidth = 2};
+  writer.scatter(block1, bi1);
+
+  Tv block2[] = { Tv(5) };
+  mpcf::BlockInfo bi2{.rowStart = 1, .rowHeight = 1, .colStart = 0, .colWidth = 1};
+  writer.scatter(block2, bi2);
+
+  EXPECT_EQ(dm(1, 0), Tv(5));
+  EXPECT_EQ(dm(2, 0), Tv(1));
+  EXPECT_EQ(dm(2, 1), Tv(2));
+  EXPECT_EQ(dm(3, 0), Tv(3));
+  EXPECT_EQ(dm(3, 1), Tv(4));
+}
+
+template <typename T>
+class SymmetricMatrixResultWriterTyped : public ::testing::Test {};
+TYPED_TEST_SUITE(SymmetricMatrixResultWriterTyped, ResultWriterTypes);
+
+TYPED_TEST(SymmetricMatrixResultWriterTyped, ScatterWithDiagonal)
+{
+  using Tv = TypeParam;
+  mpcf::SymmetricMatrix<Tv> sm(4);
+
+  // Block covers rows [0,1], cols [0,1]
+  // Lower triangle + diagonal: (0,0), (1,0), (1,1)
+  Tv hostBlock[] = {
+    Tv(10), Tv(20),
+    Tv(30), Tv(40)
+  };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 0;
+  block.rowHeight = 2;
+  block.colStart = 0;
+  block.colWidth = 2;
+
+  mpcf::SymmetricMatrixResultWriter<Tv> writer(sm);
+  writer.scatter(hostBlock, block);
+
+  EXPECT_EQ(sm(0, 0), Tv(10));
+  EXPECT_EQ(sm(1, 0), Tv(30));
+  EXPECT_EQ(sm(0, 1), Tv(30));  // symmetric
+  EXPECT_EQ(sm(1, 1), Tv(40));
+}
+
+TYPED_TEST(SymmetricMatrixResultWriterTyped, OffDiagonalBlock)
+{
+  using Tv = TypeParam;
+  mpcf::SymmetricMatrix<Tv> sm(4);
+
+  // Block covers rows [2,3], cols [0,1] — entirely below diagonal
+  Tv hostBlock[] = { Tv(1), Tv(2), Tv(3), Tv(4) };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 2;
+  block.rowHeight = 2;
+  block.colStart = 0;
+  block.colWidth = 2;
+
+  mpcf::SymmetricMatrixResultWriter<Tv> writer(sm);
+  writer.scatter(hostBlock, block);
+
+  EXPECT_EQ(sm(2, 0), Tv(1));
+  EXPECT_EQ(sm(2, 1), Tv(2));
+  EXPECT_EQ(sm(3, 0), Tv(3));
+  EXPECT_EQ(sm(3, 1), Tv(4));
+  EXPECT_EQ(sm(0, 2), Tv(1));  // symmetric
+}
+
+template <typename T>
+class DenseResultWriterTyped : public ::testing::Test {};
+TYPED_TEST_SUITE(DenseResultWriterTyped, ResultWriterTypes);
+
+TYPED_TEST(DenseResultWriterTyped, ScatterAll)
+{
+  using Tv = TypeParam;
+  mpcf::Tensor<Tv> dense({4, 4}, Tv(0));
+  mpcf::DenseResultWriter<Tv> writer(dense, 4);
+
+  Tv hostBlock[] = { Tv(1), Tv(2), Tv(3), Tv(4) };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 1;
+  block.rowHeight = 2;
+  block.colStart = 2;
+  block.colWidth = 2;
+
+  writer.scatter(hostBlock, block);
+
+  EXPECT_EQ(dense.data()[1 * 4 + 2], Tv(1));
+  EXPECT_EQ(dense.data()[1 * 4 + 3], Tv(2));
+  EXPECT_EQ(dense.data()[2 * 4 + 2], Tv(3));
+  EXPECT_EQ(dense.data()[2 * 4 + 3], Tv(4));
+  EXPECT_EQ(dense.data()[0], Tv(0));
+}
+
+TYPED_TEST(DenseResultWriterTyped, RectangularOutput)
+{
+  using Tv = TypeParam;
+  mpcf::Tensor<Tv> dense({3, 5}, Tv(0));
+  mpcf::DenseResultWriter<Tv> writer(dense, 5);
+
+  Tv hostBlock[] = { Tv(7), Tv(8), Tv(9) };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 1;
+  block.rowHeight = 1;
+  block.colStart = 2;
+  block.colWidth = 3;
+
+  writer.scatter(hostBlock, block);
+
+  EXPECT_EQ(dense.data()[1 * 5 + 2], Tv(7));
+  EXPECT_EQ(dense.data()[1 * 5 + 3], Tv(8));
+  EXPECT_EQ(dense.data()[1 * 5 + 4], Tv(9));
+  EXPECT_EQ(dense.data()[0 * 5 + 2], Tv(0));  // untouched
+}

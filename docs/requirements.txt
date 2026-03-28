@@ -4,6 +4,7 @@ numpy
 tqdm
 matplotlib
 sphinxcontrib-youtube
+sphinxcontrib-mermaid
 myst-parser
 nbsphinx
 breathe

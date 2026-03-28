@@ -28,11 +28,8 @@
 
 #include <mpcf/distance_matrix.hpp>
 
-#include <cstring>
 #include <functional>
 #include <memory>
-
-#include <pybind11/numpy.h>
 
 namespace py = pybind11;
 
@@ -48,7 +45,7 @@ namespace
     using PcfT = mpcf::Pcf<Tt, Tv>;
     using TensorT = mpcf::Tensor<PcfT>;
 
-    using CudaFactory = std::function<std::unique_ptr<mpcf::StoppableTask<void>>(Tv*, const std::vector<PcfT>&, Tv, Tv)>;
+    using CudaFactory = std::function<std::unique_ptr<mpcf::StoppableTask<void>>(mpcf::DistanceMatrix<Tv>&, const std::vector<PcfT>&, Tv, Tv)>;
 
     template <typename TOperation>
     static py::tuple pdist_impl(TensorT fs, TOperation op, CudaFactory cudaFactory)
@@ -74,14 +71,11 @@ namespace
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
 
-        py::array_t<Tv> dense({n, n});
-        std::memset(dense.mutable_data(0), 0, n * n * sizeof(Tv));
-
         std::vector<PcfT> pcfs(begin, end);
-        auto task = cudaFactory(dense.mutable_data(0), pcfs, Tv(0), std::numeric_limits<Tv>::max());
+        auto task = cudaFactory(distmat, pcfs, Tv(0), std::numeric_limits<Tv>::max());
         task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
-        return py::make_tuple(std::move(task), dense);
+        return py::make_tuple(std::move(task), distmat);
       }
 #endif
 
@@ -90,7 +84,7 @@ namespace
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
 
-      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuDistMatTask<TOperation, decltype(begin)>>(distmat, begin, end, op);
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::CpuPairwiseIntegrationTask<TOperation, decltype(begin), mpcf::DistanceMatrix<Tv>, false>>(distmat, begin, end, op);
       return py::make_tuple(std::move(task), distmat);
     }
 
@@ -98,8 +92,8 @@ namespace
     {
       CudaFactory cuda;
 #ifdef BUILD_WITH_CUDA
-      cuda = [](Tv* out, const std::vector<PcfT>& pcfs, Tv a, Tv b) {
-        return mpcf::create_cuda_matrix_integrate_l1_task(out, pcfs, a, b);
+      cuda = [](mpcf::DistanceMatrix<Tv>& out, const std::vector<PcfT>& pcfs, Tv a, Tv b) {
+        return mpcf::create_cuda_block_integrate_l1_task(out, pcfs, a, b);
       };
 #endif
       return pdist_impl(fs, mpcf::OperationL1Dist<Tt, Tv>{}, cuda);
@@ -109,11 +103,89 @@ namespace
     {
       CudaFactory cuda;
 #ifdef BUILD_WITH_CUDA
-      cuda = [p](Tv* out, const std::vector<PcfT>& pcfs, Tv a, Tv b) {
-        return mpcf::create_cuda_matrix_integrate_lp_task(out, pcfs, p, a, b);
+      cuda = [p](mpcf::DistanceMatrix<Tv>& out, const std::vector<PcfT>& pcfs, Tv a, Tv b) {
+        return mpcf::create_cuda_block_integrate_lp_task(out, pcfs, p, a, b);
       };
 #endif
       return pdist_impl(fs, mpcf::OperationLpDist<Tt, Tv>(p), cuda);
+    }
+
+    using CudaCdistFactory = std::function<std::unique_ptr<mpcf::StoppableTask<void>>(
+        mpcf::Tensor<Tv>&, const std::vector<PcfT>&, const std::vector<PcfT>&, Tv, Tv)>;
+
+    template <typename TOperation>
+    static py::tuple cdist_impl(TensorT X, TensorT Y, TOperation op, CudaCdistFactory cudaFactory)
+    {
+      // Build output shape: concatenation of X.shape and Y.shape
+      std::vector<size_t> outShape;
+      for (auto d : X.shape()) outShape.push_back(d);
+      for (auto d : Y.shape()) outShape.push_back(d);
+
+      auto outTensor = mpcf::Tensor<Tv>(outShape, Tv(0));
+
+      auto xBegin = mpcf::begin1dValues(X);
+      auto xEnd = mpcf::end1dValues(X);
+      auto yBegin = mpcf::begin1dValues(Y);
+      auto yEnd = mpcf::end1dValues(Y);
+
+      auto nRows = static_cast<size_t>(std::distance(xBegin, xEnd));
+      auto nCols = static_cast<size_t>(std::distance(yBegin, yEnd));
+
+      if (nRows == 0 || nCols == 0)
+      {
+        std::unique_ptr<mpcf::StoppableTask<void>> empty_task = mpcf_py::execute_empty_task();
+        return py::make_tuple(std::move(empty_task), outTensor);
+      }
+
+#ifdef BUILD_WITH_CUDA
+      if (cudaFactory && !mpcf_py::g_settings.forceCpu
+          && nRows * nCols >= mpcf_py::g_settings.cudaThreshold * mpcf_py::g_settings.cudaThreshold)
+      {
+        if (mpcf_py::g_settings.deviceVerbose)
+        {
+          std::cout << "Cross-distance computation on CUDA device(s)" << std::endl;
+        }
+
+        std::vector<PcfT> rowPcfs(xBegin, xEnd);
+        std::vector<PcfT> colPcfs(yBegin, yEnd);
+        auto task = cudaFactory(outTensor, rowPcfs, colPcfs, Tv(0), std::numeric_limits<Tv>::max());
+        task->set_block_dim(mpcf_py::g_settings.blockDim);
+        task->start_async(mpcf::default_executor());
+        return py::make_tuple(std::move(task), outTensor);
+      }
+#endif
+
+      if (mpcf_py::g_settings.deviceVerbose)
+      {
+        std::cout << "Cross-distance computation on CPU(s)" << std::endl;
+      }
+
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<
+          mpcf::CpuCrossIntegrationTask<TOperation, decltype(xBegin)>>(
+          outTensor, xBegin, xEnd, yBegin, yEnd, op);
+      return py::make_tuple(std::move(task), outTensor);
+    }
+
+    static py::tuple cdist_l1(TensorT X, TensorT Y)
+    {
+      CudaCdistFactory cuda;
+#ifdef BUILD_WITH_CUDA
+      cuda = [](mpcf::Tensor<Tv>& out, const std::vector<PcfT>& rows, const std::vector<PcfT>& cols, Tv a, Tv b) {
+        return mpcf::create_cuda_block_cdist_l1_task(out, rows, cols, a, b);
+      };
+#endif
+      return cdist_impl(X, Y, mpcf::OperationL1Dist<Tt, Tv>{}, cuda);
+    }
+
+    static py::tuple cdist_lp(TensorT X, TensorT Y, Tv p)
+    {
+      CudaCdistFactory cuda;
+#ifdef BUILD_WITH_CUDA
+      cuda = [p](mpcf::Tensor<Tv>& out, const std::vector<PcfT>& rows, const std::vector<PcfT>& cols, Tv a, Tv b) {
+        return mpcf::create_cuda_block_cdist_lp_task(out, rows, cols, p, a, b);
+      };
+#endif
+      return cdist_impl(X, Y, mpcf::OperationLpDist<Tt, Tv>(p), cuda);
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)
@@ -123,6 +195,8 @@ namespace
       cls
           .def_static("pdist_l1", &PyDistanceBindings::pdist_l1)
           .def_static("pdist_lp", &PyDistanceBindings::pdist_lp)
+          .def_static("cdist_l1", &PyDistanceBindings::cdist_l1)
+          .def_static("cdist_lp", &PyDistanceBindings::cdist_lp)
       ;
 
     }
