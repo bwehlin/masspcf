@@ -104,20 +104,6 @@ namespace
       return mpcf::linfinity_norm(f);
     }
 
-    template <typename TOperation, typename PcfFwdIt>
-    static std::unique_ptr<mpcf::StoppableTask<void>> matrix_integrate(py::array_t<Tv>& matrix, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
-    {
-      auto* out = matrix.mutable_data(0);
-
-      if (mpcf_py::g_settings.deviceVerbose)
-      {
-        std::cout << "Integral computation on CPU(s)" << std::endl;
-      }
-
-      auto task = std::make_unique<mpcf::MatrixIntegrateCpuTask<TOperation, PcfFwdIt>>(out, beginPcfs, endPcfs, op);
-      task->start_async(mpcf::default_executor());
-      return task;
-    }
   };
 
   template <typename Tt, typename Tv>

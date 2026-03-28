@@ -28,10 +28,7 @@
 
 #include <mpcf/symmetric_matrix.hpp>
 
-#include <cstring>
 #include <memory>
-
-#include <pybind11/numpy.h>
 
 namespace py = pybind11;
 
@@ -69,14 +66,11 @@ namespace
           std::cout << "Kernel computation on CUDA device(s)" << std::endl;
         }
 
-        py::array_t<Tv> dense({n, n});
-        std::memset(dense.mutable_data(0), 0, n * n * sizeof(Tv));
-
         std::vector<PcfT> pcfs(begin, end);
-        auto task = mpcf::create_cuda_matrix_integrate_l2_kernel_task(dense.mutable_data(0), pcfs, Tv(0), std::numeric_limits<Tv>::max());
+        auto task = mpcf::create_cuda_block_integrate_l2_kernel_task(symmat, pcfs, Tv(0), std::numeric_limits<Tv>::max());
         task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
-        return py::make_tuple(std::move(task), dense);
+        return py::make_tuple(std::move(task), symmat);
       }
 #endif
 
@@ -85,7 +79,7 @@ namespace
         std::cout << "Kernel computation on CPU(s)" << std::endl;
       }
 
-      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::MatrixIntegrateCpuSymMatTask<decltype(op), decltype(begin)>>(symmat, begin, end, op);
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::CpuPairwiseIntegrationTask<decltype(op), decltype(begin), mpcf::SymmetricMatrix<Tv>, true>>(symmat, begin, end, op);
       return py::make_tuple(std::move(task), symmat);
     }
 

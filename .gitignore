@@ -202,3 +202,7 @@ covreport
 sources.txt
 
 gpucov/docs/_build
+test/vgout.txt
+masspcf/_mpcf_cpp_cuda
+masspcf/_mpcf_cpp_cpu
+test/run_vg_pytest.sh

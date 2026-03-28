@@ -14,85 +14,143 @@
 * limitations under the License.
 */
 
-// This file is compiled by NVCC.  It pulls in the full CUDA kernel code
-// and provides concrete (non-template) factory functions that the rest
-// of the project can call without requiring NVCC.
+// This file is compiled by NVCC. It provides concrete (non-template)
+// factory functions for the block-based CUDA integration pipeline.
 
 #include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
-#include <mpcf/cuda/cuda_matrix_integrate.cuh>
+#include <mpcf/cuda/pcf_block_op.cuh>
+#include <mpcf/cuda/cuda_result_writer.hpp>
 #include <mpcf/functional/operations.cuh>
 
 namespace mpcf
 {
-  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l1_task(
-      float32_t* out,
+  // Helper for pdist/l2_kernel factories
+  template <typename Tv, typename OpT, typename WriterT>
+  static std::unique_ptr<StoppableTask<void>> make_pdist_task(
+      WriterT writer,
+      const std::vector<Pcf<Tv, Tv>>& pcfs,
+      OpT op, Tv a, Tv b,
+      TriangleSkipMode skipMode = TriangleSkipMode::LowerTriangleSkipDiag)
+  {
+    using iter_t = typename std::vector<Pcf<Tv, Tv>>::const_iterator;
+    return std::make_unique<CudaPairwiseIntegrationTask<iter_t, OpT, WriterT>>(
+        *default_executor().cuda(), std::move(writer),
+        pcfs.cbegin(), pcfs.cend(), op, a, b, skipMode);
+  }
+
+  // L1 → DistanceMatrix
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_integrate_l1_task(
+      DistanceMatrix<float32_t>& out,
       const std::vector<Pcf<float32_t, float32_t>>& pcfs,
       float32_t a, float32_t b)
-  {
-    using iter_t = std::vector<Pcf<float32_t, float32_t>>::const_iterator;
-    using op_t = OperationL1Dist<float32_t, float32_t>;
+  { return make_pdist_task(DistanceMatrixResultWriter<float32_t>(out), pcfs, OperationL1Dist<float32_t, float32_t>{}, a, b); }
 
-    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
-        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t{}, a, b);
-  }
-
-  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l1_task(
-      float64_t* out,
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_integrate_l1_task(
+      DistanceMatrix<float64_t>& out,
       const std::vector<Pcf<float64_t, float64_t>>& pcfs,
       float64_t a, float64_t b)
-  {
-    using iter_t = std::vector<Pcf<float64_t, float64_t>>::const_iterator;
-    using op_t = OperationL1Dist<float64_t, float64_t>;
+  { return make_pdist_task(DistanceMatrixResultWriter<float64_t>(out), pcfs, OperationL1Dist<float64_t, float64_t>{}, a, b); }
 
-    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
-        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t{}, a, b);
-  }
-
-  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_lp_task(
-      float32_t* out,
+  // Lp → DistanceMatrix
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_integrate_lp_task(
+      DistanceMatrix<float32_t>& out,
       const std::vector<Pcf<float32_t, float32_t>>& pcfs,
       float32_t p, float32_t a, float32_t b)
-  {
-    using iter_t = std::vector<Pcf<float32_t, float32_t>>::const_iterator;
-    using op_t = OperationLpDist<float32_t, float32_t>;
+  { return make_pdist_task(DistanceMatrixResultWriter<float32_t>(out), pcfs, OperationLpDist<float32_t, float32_t>(p), a, b); }
 
-    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
-        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t(p), a, b);
-  }
-
-  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_lp_task(
-      float64_t* out,
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_integrate_lp_task(
+      DistanceMatrix<float64_t>& out,
       const std::vector<Pcf<float64_t, float64_t>>& pcfs,
       float64_t p, float64_t a, float64_t b)
-  {
-    using iter_t = std::vector<Pcf<float64_t, float64_t>>::const_iterator;
-    using op_t = OperationLpDist<float64_t, float64_t>;
+  { return make_pdist_task(DistanceMatrixResultWriter<float64_t>(out), pcfs, OperationLpDist<float64_t, float64_t>(p), a, b); }
 
-    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
-        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t(p), a, b);
-  }
-
-  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l2_kernel_task(
-      float32_t* out,
+  // L2 → SymmetricMatrix
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_integrate_l2_kernel_task(
+      SymmetricMatrix<float32_t>& out,
       const std::vector<Pcf<float32_t, float32_t>>& pcfs,
       float32_t a, float32_t b)
-  {
-    using iter_t = std::vector<Pcf<float32_t, float32_t>>::const_iterator;
-    using op_t = OperationL2InnerProduct<float32_t, float32_t>;
+  { return make_pdist_task(SymmetricMatrixResultWriter<float32_t>(out), pcfs, OperationL2InnerProduct<float32_t, float32_t>{}, a, b, TriangleSkipMode::LowerTriangle); }
 
-    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
-        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t{}, a, b);
-  }
-
-  std::unique_ptr<StoppableTask<void>> create_cuda_matrix_integrate_l2_kernel_task(
-      float64_t* out,
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_integrate_l2_kernel_task(
+      SymmetricMatrix<float64_t>& out,
       const std::vector<Pcf<float64_t, float64_t>>& pcfs,
       float64_t a, float64_t b)
-  {
-    using iter_t = std::vector<Pcf<float64_t, float64_t>>::const_iterator;
-    using op_t = OperationL2InnerProduct<float64_t, float64_t>;
+  { return make_pdist_task(SymmetricMatrixResultWriter<float64_t>(out), pcfs, OperationL2InnerProduct<float64_t, float64_t>{}, a, b, TriangleSkipMode::LowerTriangle); }
 
-    return std::make_unique<MatrixIntegrateCudaTask<iter_t, op_t>>(
-        *default_executor().cuda(), out, pcfs.cbegin(), pcfs.cend(), op_t{}, a, b);
+  // === cdist factories ===
+
+  // Helper for cdist factories
+  template <typename Tv, typename OpT>
+  static std::unique_ptr<StoppableTask<void>> make_cdist_task(
+      Tensor<Tv>& out,
+      const std::vector<Pcf<Tv, Tv>>& rowPcfs,
+      const std::vector<Pcf<Tv, Tv>>& colPcfs,
+      OpT op, Tv a, Tv b)
+  {
+    using iter_t = typename std::vector<Pcf<Tv, Tv>>::const_iterator;
+    using writer_t = DenseResultWriter<Tv>;
+
+    return std::make_unique<CudaCrossIntegrationTask<iter_t, OpT, writer_t>>(
+        *default_executor().cuda(), writer_t(out, colPcfs.size()),
+        rowPcfs.cbegin(), rowPcfs.cend(),
+        colPcfs.cbegin(), colPcfs.cend(),
+        op, a, b);
+  }
+
+  // L1 cdist
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_cdist_l1_task(
+      Tensor<float32_t>& out,
+      const std::vector<Pcf<float32_t, float32_t>>& rowPcfs,
+      const std::vector<Pcf<float32_t, float32_t>>& colPcfs,
+      float32_t a, float32_t b)
+  {
+    return make_cdist_task(out, rowPcfs, colPcfs, OperationL1Dist<float32_t, float32_t>{}, a, b);
+  }
+
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_cdist_l1_task(
+      Tensor<float64_t>& out,
+      const std::vector<Pcf<float64_t, float64_t>>& rowPcfs,
+      const std::vector<Pcf<float64_t, float64_t>>& colPcfs,
+      float64_t a, float64_t b)
+  {
+    return make_cdist_task(out, rowPcfs, colPcfs, OperationL1Dist<float64_t, float64_t>{}, a, b);
+  }
+
+  // Lp cdist
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_cdist_lp_task(
+      Tensor<float32_t>& out,
+      const std::vector<Pcf<float32_t, float32_t>>& rowPcfs,
+      const std::vector<Pcf<float32_t, float32_t>>& colPcfs,
+      float32_t p, float32_t a, float32_t b)
+  {
+    return make_cdist_task(out, rowPcfs, colPcfs, OperationLpDist<float32_t, float32_t>(p), a, b);
+  }
+
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_cdist_lp_task(
+      Tensor<float64_t>& out,
+      const std::vector<Pcf<float64_t, float64_t>>& rowPcfs,
+      const std::vector<Pcf<float64_t, float64_t>>& colPcfs,
+      float64_t p, float64_t a, float64_t b)
+  {
+    return make_cdist_task(out, rowPcfs, colPcfs, OperationLpDist<float64_t, float64_t>(p), a, b);
+  }
+
+  // L2 cross-kernel
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_cdist_l2_kernel_task(
+      Tensor<float32_t>& out,
+      const std::vector<Pcf<float32_t, float32_t>>& rowPcfs,
+      const std::vector<Pcf<float32_t, float32_t>>& colPcfs,
+      float32_t a, float32_t b)
+  {
+    return make_cdist_task(out, rowPcfs, colPcfs, OperationL2InnerProduct<float32_t, float32_t>{}, a, b);
+  }
+
+  std::unique_ptr<StoppableTask<void>> create_cuda_block_cdist_l2_kernel_task(
+      Tensor<float64_t>& out,
+      const std::vector<Pcf<float64_t, float64_t>>& rowPcfs,
+      const std::vector<Pcf<float64_t, float64_t>>& colPcfs,
+      float64_t a, float64_t b)
+  {
+    return make_cdist_task(out, rowPcfs, colPcfs, OperationL2InnerProduct<float64_t, float64_t>{}, a, b);
   }
 }

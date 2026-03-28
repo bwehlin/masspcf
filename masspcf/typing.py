@@ -17,78 +17,97 @@ import numpy as np
 # mpcf type aliases
 
 class float32:
+    """32-bit floating-point scalar dtype."""
     pass
 
 
 class float64:
+    """64-bit floating-point scalar dtype."""
     pass
 
 
 class int32:
+    """32-bit integer scalar dtype."""
     pass
 
 
 class int64:
+    """64-bit integer scalar dtype."""
     pass
 
 
 class uint32:
+    """32-bit unsigned integer scalar dtype."""
     pass
 
 
 class uint64:
+    """64-bit unsigned integer scalar dtype."""
     pass
 
 
 class pcf32:
+    """32-bit piecewise constant function dtype."""
     pass
 
 
 class pcf64:
+    """64-bit piecewise constant function dtype."""
     pass
 
 
 class pcf32i:
+    """32-bit integer piecewise constant function dtype."""
     pass
 
 
 class pcf64i:
+    """64-bit integer piecewise constant function dtype."""
     pass
 
 
 class pcloud32:
+    """32-bit point cloud dtype."""
     pass
 
 
 class pcloud64:
+    """64-bit point cloud dtype."""
     pass
 
 
 class barcode32:
+    """32-bit persistence barcode dtype."""
     pass
 
 
 class barcode64:
+    """64-bit persistence barcode dtype."""
     pass
 
 
 class symmat32:
+    """32-bit symmetric matrix dtype."""
     pass
 
 
 class symmat64:
+    """64-bit symmetric matrix dtype."""
     pass
 
 
 class distmat32:
+    """32-bit distance matrix dtype."""
     pass
 
 
 class distmat64:
+    """64-bit distance matrix dtype."""
     pass
 
 
 class boolean:
+    """Boolean dtype."""
     pass
 
 

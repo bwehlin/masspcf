@@ -21,6 +21,7 @@
 #include "../../functional/pcf.hpp"
 #include "../../distance_matrix.hpp"
 #include "../../symmetric_matrix.hpp"
+#include "../../tensor.hpp"
 #include "../../executor.hpp"
 #include "../../task.hpp"
 
@@ -39,124 +40,41 @@ namespace mpcf
     iterate_rectangles(f.points(), g.points(), [&val, &op](const rect_t& rect) -> void {
       val += (rect.right - rect.left) * op(rect);
     }, a, b);
-    
+
     return val;
   }
-  
-  template <typename Tt, typename Tv, typename RectangleOp>
-  void matrix_integrate(Tv* out, const std::vector<Pcf<Tt, Tv>>& fs, const RectangleOp& op, bool symmetric = false, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
-  {
-    matrix_integrate<Tt, Tv, RectangleOp>(default_executor(), out, fs, op, symmetric, a, b);
-  }
-  
-  
-  template <typename TOperation, typename PcfFwdIt>
-  class MatrixIntegrateCpuTask : public mpcf::StoppableTask<void>
+
+  /// CPU pairwise integration task (pdist / l2_kernel).
+  /// OutputT must support operator()(i, j) = val (DistanceMatrix or SymmetricMatrix).
+  /// When includeDiagonal is false, computes i > j only (DistanceMatrix).
+  /// When includeDiagonal is true, computes i >= j (SymmetricMatrix).
+  template <typename TOperation, typename PcfFwdIt, typename OutputT, bool includeDiagonal>
+  class CpuPairwiseIntegrationTask : public mpcf::StoppableTask<void>
   {
   public:
     using pcf_type = typename PcfFwdIt::value_type;
     using value_type = typename pcf_type::value_type;
     using time_type = typename pcf_type::time_type;
 
-    MatrixIntegrateCpuTask(value_type * out, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
+    CpuPairwiseIntegrationTask(OutputT out, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
       : m_fs(beginPcfs, endPcfs)
-      , m_out(out)
-      , m_op(op)
-    { }
-    
-  private:
-    tf::Future<void> run_async(Executor& exec) override
-    {
-      auto sz = m_fs.size();
-      auto totalWorkPerStep = (sz * (sz - 1)) / 2;
-
-      next_step(totalWorkPerStep, "Computing upper triangle.", "integral");
-
-      tf::Taskflow flow;
-      if (m_fs.empty())
-      {
-        return exec.cpu()->run(std::move(flow));
-      }
-
-      std::vector<tf::Task> tasks;
-      
-      tasks.emplace_back(flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
-        if (stop_requested())
-        {
-          return;
-        }
-        compute_row(i);
-      }));
-
-      
-      tasks.emplace_back(flow.emplace([this, totalWorkPerStep] {
-        next_step(totalWorkPerStep, "Filling in lower triangle.", "element");
-      }));
-
-      tasks.emplace_back(flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
-        if (stop_requested())
-        {
-          return;
-        }
-        symmetrize_row(i);
-      }));
-
-      flow.linearize(tasks);
-
-      return exec.cpu()->run(std::move(flow));
-    }
-    
-    void compute_row(size_t i)
-    {
-      auto sz = m_fs.size();
-      for (size_t j = i; j < sz; ++j)
-      {
-        m_out[i * sz + j] = m_op(integrate<time_type, value_type>(m_fs[i], m_fs[j], [this](const Rectangle<time_type, value_type>& rect){
-                                                                return m_op(rect.top, rect.bottom); 
-                                                              }, 0, std::numeric_limits<time_type>::max()));
-      }
-      add_progress(sz - i - 1);
-    }
-
-    void symmetrize_row(size_t i)
-    {
-      auto sz = m_fs.size();
-      for (size_t j = 0; j < i; ++j)
-      {
-        m_out[i * sz + j] = m_out[j * sz + i];
-      }
-      add_progress(sz - i - 1);
-    }
-    
-    std::vector<pcf_type> m_fs;
-    value_type* m_out;
-    TOperation m_op;
-  };
-
-
-  template <typename TOperation, typename PcfFwdIt>
-  class MatrixIntegrateCpuDistMatTask : public mpcf::StoppableTask<void>
-  {
-  public:
-    using pcf_type = typename PcfFwdIt::value_type;
-    using value_type = typename pcf_type::value_type;
-    using time_type = typename pcf_type::time_type;
-
-    MatrixIntegrateCpuDistMatTask(DistanceMatrix<value_type> distmat, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
-      : m_fs(beginPcfs, endPcfs)
-      , m_distmat(std::move(distmat))
+      , m_out(std::move(out))
       , m_op(op)
     { }
 
-    DistanceMatrix<value_type>& distmat() { return m_distmat; }
+    OutputT& output() { return m_out; }
 
   private:
     tf::Future<void> run_async(Executor& exec) override
     {
       auto sz = m_fs.size();
-      auto totalWork = (sz * (sz - 1)) / 2;
+      size_t totalWork;
+      if constexpr (includeDiagonal)
+        totalWork = (sz * (sz + 1)) / 2;
+      else
+        totalWork = (sz * (sz - 1)) / 2;
 
-      next_step(totalWork, "Computing distance matrix.", "integral");
+      next_step(totalWork, includeDiagonal ? "Computing kernel matrix." : "Computing distance matrix.", "integral");
 
       tf::Taskflow flow;
       if (m_fs.empty())
@@ -178,81 +96,81 @@ namespace mpcf
     void compute_row(size_t i)
     {
       auto sz = m_fs.size();
-      for (size_t j = i + 1; j < sz; ++j)
+      size_t jStart = includeDiagonal ? i : i + 1;
+      for (size_t j = jStart; j < sz; ++j)
       {
         auto val = m_op(integrate<time_type, value_type>(m_fs[i], m_fs[j], [this](const Rectangle<time_type, value_type>& rect){
                                                                 return m_op(rect.top, rect.bottom);
                                                               }, 0, std::numeric_limits<time_type>::max()));
-        m_distmat(i, j) = val;
+        m_out(i, j) = val;
       }
-      add_progress(sz - i - 1);
+      add_progress(sz - jStart);
     }
 
     std::vector<pcf_type> m_fs;
-    DistanceMatrix<value_type> m_distmat;
+    OutputT m_out;
     TOperation m_op;
   };
 
-
+  /// CPU cross-distance integration task (cdist).
+  /// Computes all (i,j) pairs between two separate function sets.
   template <typename TOperation, typename PcfFwdIt>
-  class MatrixIntegrateCpuSymMatTask : public mpcf::StoppableTask<void>
+  class CpuCrossIntegrationTask : public mpcf::StoppableTask<void>
   {
   public:
     using pcf_type = typename PcfFwdIt::value_type;
     using value_type = typename pcf_type::value_type;
     using time_type = typename pcf_type::time_type;
 
-    MatrixIntegrateCpuSymMatTask(SymmetricMatrix<value_type> symmat, PcfFwdIt beginPcfs, PcfFwdIt endPcfs, TOperation op)
-      : m_fs(beginPcfs, endPcfs)
-      , m_symmat(std::move(symmat))
+    CpuCrossIntegrationTask(Tensor<value_type> out,
+                 PcfFwdIt beginRows, PcfFwdIt endRows,
+                 PcfFwdIt beginCols, PcfFwdIt endCols,
+                 TOperation op)
+      : m_rowFs(beginRows, endRows)
+      , m_colFs(beginCols, endCols)
+      , m_out(std::move(out))
       , m_op(op)
     { }
-
-    SymmetricMatrix<value_type>& symmat() { return m_symmat; }
 
   private:
     tf::Future<void> run_async(Executor& exec) override
     {
-      auto sz = m_fs.size();
-      auto totalWork = (sz * (sz + 1)) / 2;
+      auto nRows = m_rowFs.size();
+      auto nCols = m_colFs.size();
 
-      next_step(totalWork, "Computing kernel matrix.", "integral");
+      next_step(nRows * nCols, "Computing cross-distances.", "integral");
 
       tf::Taskflow flow;
-      if (m_fs.empty())
+      if (nRows == 0 || nCols == 0)
       {
         return exec.cpu()->run(std::move(flow));
       }
 
-      flow.for_each_index<size_t, size_t, size_t>(0ul, sz, 1ul, [this](size_t i) {
+      value_type* data = m_out.data();
+      flow.for_each_index<size_t, size_t, size_t>(0ul, nRows, 1ul, [this, data, nCols](size_t i) {
         if (stop_requested())
         {
           return;
         }
-        compute_row(i);
+        for (size_t j = 0; j < nCols; ++j)
+        {
+          data[i * nCols + j] = m_op(integrate<time_type, value_type>(
+              m_rowFs[i], m_colFs[j],
+              [this](const Rectangle<time_type, value_type>& rect) {
+                return m_op(rect.top, rect.bottom);
+              }, 0, std::numeric_limits<time_type>::max()));
+        }
+        add_progress(nCols);
       });
 
       return exec.cpu()->run(std::move(flow));
     }
 
-    void compute_row(size_t i)
-    {
-      auto sz = m_fs.size();
-      for (size_t j = i; j < sz; ++j)
-      {
-        auto val = m_op(integrate<time_type, value_type>(m_fs[i], m_fs[j], [this](const Rectangle<time_type, value_type>& rect){
-                                                                return m_op(rect.top, rect.bottom);
-                                                              }, 0, std::numeric_limits<time_type>::max()));
-        m_symmat(i, j) = val;
-      }
-      add_progress(sz - i);
-    }
-
-    std::vector<pcf_type> m_fs;
-    SymmetricMatrix<value_type> m_symmat;
+    std::vector<pcf_type> m_rowFs;
+    std::vector<pcf_type> m_colFs;
+    Tensor<value_type> m_out;
     TOperation m_op;
   };
-
 
 }
 

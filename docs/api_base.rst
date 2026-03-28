@@ -114,59 +114,7 @@ gpu
 typing
 ------
 
-.. py:class:: pcf32
-
-   32-bit PCF dtype. Use as the ``dtype`` argument when creating tensors of 32-bit piecewise constant functions.
-
-.. py:class:: pcf64
-
-   64-bit PCF dtype. Use as the ``dtype`` argument when creating tensors of 64-bit piecewise constant functions.
-
-.. py:class:: pcf32i
-
-   32-bit integer PCF dtype. Use as the ``dtype`` argument when creating tensors of 32-bit integer piecewise constant functions.
-
-.. py:class:: pcf64i
-
-   64-bit integer PCF dtype. Use as the ``dtype`` argument when creating tensors of 64-bit integer piecewise constant functions.
-
-.. py:class:: float32
-
-   32-bit floating-point scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar float values.
-
-.. py:class:: float64
-
-   64-bit floating-point scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar float values.
-
-.. py:class:: int32
-
-   32-bit integer scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar integer values.
-
-.. py:class:: int64
-
-   64-bit integer scalar dtype. Use as the ``dtype`` argument when creating tensors of scalar integer values.
-
-.. py:class:: pcloud32
-
-   32-bit point cloud dtype. Use as the ``dtype`` argument when creating tensors of 32-bit point clouds.
-
-.. py:class:: pcloud64
-
-   64-bit point cloud dtype. Use as the ``dtype`` argument when creating tensors of 64-bit point clouds.
-
-.. py:class:: barcode32
-
-   32-bit barcode dtype. Use as the ``dtype`` argument when creating tensors of 32-bit persistence barcodes.
-
-.. py:class:: barcode64
-
-   64-bit barcode dtype. Use as the ``dtype`` argument when creating tensors of 64-bit persistence barcodes.
-
-.. py:class:: symmat32
-
-   32-bit symmetric matrix dtype. Use as the ``dtype`` argument when creating tensors of 32-bit symmetric matrices.
-
-.. py:class:: symmat64
-
-   64-bit symmetric matrix dtype. Use as the ``dtype`` argument when creating tensors of 64-bit symmetric matrices.
+.. automodule:: masspcf.typing
+   :members:
+   :undoc-members:
 

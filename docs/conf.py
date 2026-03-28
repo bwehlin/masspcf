@@ -35,6 +35,7 @@ extensions = [
     "myst_parser",
     "nbsphinx",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
 ]
 #'breathe',
 #'exhale']

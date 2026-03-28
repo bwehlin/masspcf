@@ -88,10 +88,16 @@ namespace mpcf
       assertSz(n);
       CHK_CUDA(cudaMemcpy(m_devPtr, src, n * sizeof(T), cudaMemcpyHostToDevice));
     }
-    
+
     void toDevice(const std::vector<T>& src)
     {
       toDevice(src.data(), src.size());
+    }
+
+    void toDeviceAsync(cudaStream_t stream, const T* src, std::size_t n)
+    {
+      assertSz(n);
+      CHK_CUDA(cudaMemcpyAsync(m_devPtr, src, n * sizeof(T), cudaMemcpyHostToDevice, stream));
     }
     
     void toHost(T* dst, size_t nElems = 0ul)
@@ -121,6 +127,11 @@ namespace mpcf
     void clear()
     {
       CHK_CUDA(cudaMemset(m_devPtr, 0, m_sz * sizeof(T)));
+    }
+
+    void clearAsync(cudaStream_t stream)
+    {
+      CHK_CUDA(cudaMemsetAsync(m_devPtr, 0, m_sz * sizeof(T), stream));
     }
     
   private:
