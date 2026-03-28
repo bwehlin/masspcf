@@ -1,5 +1,11 @@
 <div class="chart-section">
   <h2 class="chart-title">Coverage history</h2>
+  <div class="chart-controls">
+    <label class="chart-toggle">
+      <input type="checkbox" id="covChartMainOnly" checked>
+      <span>main only</span>
+    </label>
+  </div>
   <div class="chart-wrap">
     <canvas id="covChart"></canvas>
   </div>
@@ -12,170 +18,189 @@
 </div>
 <script>
 (function() {
-  const DATA = {{data}};
-  if (!DATA.length) return;
+  const ALL_DATA = {{data}};
+  if (!ALL_DATA.length) return;
 
-  const canvas = document.getElementById('covChart');
-  const dpr    = window.devicePixelRatio || 1;
-  const W = canvas.parentElement.clientWidth || 800;
-  const H = 260;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  const canvas   = document.getElementById('covChart');
+  const checkbox = document.getElementById('covChartMainOnly');
 
-  const PAD = { top: 24, right: 32, bottom: 52, left: 48 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top  - PAD.bottom;
+  function render() {
+    const DATA = checkbox.checked
+      ? ALL_DATA.filter(d => d.branch === 'main' || d.release_tag)
+      : ALL_DATA;
+    if (!DATA.length) return;
 
-  // Resolve CSS variables — matched to the existing design system
-  const style   = getComputedStyle(document.documentElement);
-  const cppCol  = style.getPropertyValue('--chart-cpp').trim()     || '#2563eb';
-  const pyCol   = style.getPropertyValue('--chart-py').trim()      || '#16a34a';
-  const cudaCol = style.getPropertyValue('--chart-cuda').trim()    || '#76b900';
-  const gridCol = style.getPropertyValue('--chart-grid').trim()    || '#e2e7ef';
-  const textCol = style.getPropertyValue('--chart-text').trim()    || '#6b7280';
-  const relCol  = style.getPropertyValue('--chart-release').trim() || '#d97706';
-  const bgCol   = style.getPropertyValue('--chart-bg').trim()      || 'transparent';
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.parentElement.clientWidth || 800;
+    const H = 260;
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
 
-  // Y axis: 0-100
-  const Y_MIN = 0, Y_MAX = 100;
-  const xOf = i => PAD.left + (DATA.length === 1 ? cW / 2 : i / (DATA.length - 1) * cW);
-  const yOf = v => PAD.top  + (1 - (v - Y_MIN) / (Y_MAX - Y_MIN)) * cH;
+    const PAD = { top: 24, right: 32, bottom: 52, left: 48 };
+    const cW = W - PAD.left - PAD.right;
+    const cH = H - PAD.top  - PAD.bottom;
 
-  // Background
-  if (bgCol !== 'transparent') {
-    ctx.fillStyle = bgCol;
-    ctx.fillRect(0, 0, W, H);
-  }
+    // Resolve CSS variables — matched to the existing design system
+    const style   = getComputedStyle(document.documentElement);
+    const cppCol  = style.getPropertyValue('--chart-cpp').trim()     || '#2563eb';
+    const pyCol   = style.getPropertyValue('--chart-py').trim()      || '#16a34a';
+    const cudaCol = style.getPropertyValue('--chart-cuda').trim()    || '#76b900';
+    const gridCol = style.getPropertyValue('--chart-grid').trim()    || '#e2e7ef';
+    const textCol = style.getPropertyValue('--chart-text').trim()    || '#6b7280';
+    const relCol  = style.getPropertyValue('--chart-release').trim() || '#d97706';
+    const bgCol   = style.getPropertyValue('--chart-bg').trim()      || 'transparent';
 
-  // Grid lines
-  ctx.strokeStyle = gridCol;
-  ctx.lineWidth = 1;
-  [0, 25, 50, 75, 100].forEach(v => {
-    const y = yOf(v);
-    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
-    ctx.fillStyle = textCol;
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(v + '%', PAD.left - 6, y + 4);
-  });
+    // Y axis: 0-100
+    const Y_MIN = 0, Y_MAX = 100;
+    const xOf = i => PAD.left + (DATA.length === 1 ? cW / 2 : i / (DATA.length - 1) * cW);
+    const yOf = v => PAD.top  + (1 - (v - Y_MIN) / (Y_MAX - Y_MIN)) * cH;
 
-  // Release marker lines
-  DATA.forEach((d, i) => {
-    if (!d.release_tag) return;
-    const x = xOf(i);
-    ctx.save();
-    ctx.strokeStyle = relCol;
-    ctx.setLineDash([4, 3]);
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
-    ctx.restore();
-    // Tag label
-    ctx.save();
-    ctx.fillStyle = relCol;
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.globalAlpha = 0.9;
-    ctx.fillText(d.release_tag, x, PAD.top - 6);
-    ctx.restore();
-  });
+    // Clear
+    ctx.clearRect(0, 0, W, H);
 
-  // Draw a series line + dots
-  function drawSeries(key, color) {
-    const pts = DATA.map((d, i) => d[key] != null ? [xOf(i), yOf(d[key])] : null);
-    // Line segments (skip nulls)
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    let penDown = false;
-    pts.forEach(p => {
-      if (!p) { penDown = false; return; }
-      penDown ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
-      penDown = true;
+    // Background
+    if (bgCol !== 'transparent') {
+      ctx.fillStyle = bgCol;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Grid lines
+    ctx.strokeStyle = gridCol;
+    ctx.lineWidth = 1;
+    [0, 25, 50, 75, 100].forEach(v => {
+      const y = yOf(v);
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+      ctx.fillStyle = textCol;
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(v + '%', PAD.left - 6, y + 4);
     });
-    ctx.stroke();
-    // Dots
-    pts.forEach((p, i) => {
-      if (!p) return;
-      ctx.beginPath();
-      ctx.arc(p[0], p[1], DATA[i].release_tag ? 5 : 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = DATA[i].release_tag ? relCol : color;
-      ctx.fill();
-      ctx.strokeStyle = '#f8f9fb';  /* --bg */
+
+    // Release marker lines
+    DATA.forEach((d, i) => {
+      if (!d.release_tag) return;
+      const x = xOf(i);
+      ctx.save();
+      ctx.strokeStyle = relCol;
+      ctx.setLineDash([4, 3]);
       ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
+      ctx.restore();
+      // Tag label
+      ctx.save();
+      ctx.fillStyle = relCol;
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(d.release_tag, x, PAD.top - 6);
+      ctx.restore();
     });
+
+    // Draw a series line + dots
+    function drawSeries(key, color) {
+      const pts = DATA.map((d, i) => d[key] != null ? [xOf(i), yOf(d[key])] : null);
+      // Line segments (skip nulls)
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let penDown = false;
+      pts.forEach(p => {
+        if (!p) { penDown = false; return; }
+        penDown ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+        penDown = true;
+      });
+      ctx.stroke();
+      // Dots
+      pts.forEach((p, i) => {
+        if (!p) return;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], DATA[i].release_tag ? 5 : 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = DATA[i].release_tag ? relCol : color;
+        ctx.fill();
+        ctx.strokeStyle = '#f8f9fb';  /* --bg */
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+    }
+
+    drawSeries('cpp',  cppCol);
+    drawSeries('py',   pyCol);
+    drawSeries('cuda', cudaCol);
+
+    // X axis labels (dates) — show up to 6, prefer releases
+    ctx.fillStyle = textCol;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    const step = Math.max(1, Math.ceil(DATA.length / 6));
+    DATA.forEach((d, i) => {
+      const showLabel = (i % step === 0) || i === DATA.length - 1 || d.release_tag;
+      if (!showLabel) return;
+      const x = xOf(i);
+      const dateStr = d.utc_iso ? d.utc_iso.slice(0, 10) : d.sha;
+      ctx.save();
+      ctx.translate(x, PAD.top + cH + 14);
+      ctx.rotate(-Math.PI / 5);
+      ctx.fillText(dateStr, 0, 0);
+      ctx.restore();
+    });
+
+    // Tooltip
+    let tooltip = canvas.parentElement.querySelector('.chart-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'chart-tooltip';
+      canvas.parentElement.style.position = 'relative';
+      canvas.parentElement.appendChild(tooltip);
+    }
+    tooltip.style.display = 'none';
+
+    canvas.onmousemove = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      // Find nearest point
+      let best = null, bestDist = 999;
+      DATA.forEach((d, i) => {
+        const dist = Math.abs(xOf(i) - mx);
+        if (dist < bestDist) { bestDist = dist; best = { d, i }; }
+      });
+      if (!best || bestDist > 40) { tooltip.style.display = 'none'; return; }
+      const d = best.d;
+      let html = `<div class="tt-date">${d.utc_iso ? d.utc_iso.slice(0,10) : d.sha}</div>`;
+      if (d.branch) html += `<div class="tt-branch">&#x2387; ${d.branch}</div>`;
+      if (d.release_tag) html += `<div class="tt-release">&#x1f3f7; ${d.release_tag}</div>`;
+      if (d.cpp  != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cppCol}"></span>C++ ${d.cpp.toFixed(1)}%</div>`;
+      if (d.py   != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${pyCol}"></span>Py ${d.py.toFixed(1)}%</div>`;
+      if (d.cuda != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cudaCol}"></span>CUDA ${d.cuda.toFixed(1)}%</div>`;
+      html += `<div class="tt-sha">${d.sha}</div>`;
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      const tx = Math.min(xOf(best.i) + 10, W - 160);
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top  = (PAD.top + 8) + 'px';
+    };
+    canvas.onmouseleave = function() { tooltip.style.display = 'none'; };
+    canvas.style.cursor = 'crosshair';
+
+    // Click to navigate to report
+    canvas.onclick = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      let best = null, bestDist = 999;
+      DATA.forEach((d, i) => {
+        const dist = Math.abs(xOf(i) - mx);
+        if (dist < bestDist) { bestDist = dist; best = d; }
+      });
+      if (best && bestDist < 40 && best.detail_path) window.location.href = best.detail_path;
+    };
   }
 
-  drawSeries('cpp',  cppCol);
-  drawSeries('py',   pyCol);
-  drawSeries('cuda', cudaCol);
-
-  // X axis labels (dates) — show up to 6, prefer releases
-  ctx.fillStyle = textCol;
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
-  const step = Math.max(1, Math.ceil(DATA.length / 6));
-  DATA.forEach((d, i) => {
-    const showLabel = (i % step === 0) || i === DATA.length - 1 || d.release_tag;
-    if (!showLabel) return;
-    const x = xOf(i);
-    const dateStr = d.utc_iso ? d.utc_iso.slice(0, 10) : d.sha;
-    ctx.save();
-    ctx.translate(x, PAD.top + cH + 14);
-    ctx.rotate(-Math.PI / 5);
-    ctx.fillText(dateStr, 0, 0);
-    ctx.restore();
-  });
-
-  // Tooltip
-  const tooltip = document.createElement('div');
-  tooltip.className = 'chart-tooltip';
-  tooltip.style.display = 'none';
-  canvas.parentElement.style.position = 'relative';
-  canvas.parentElement.appendChild(tooltip);
-
-  canvas.addEventListener('mousemove', e => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    // Find nearest point
-    let best = null, bestDist = 999;
-    DATA.forEach((d, i) => {
-      const dist = Math.abs(xOf(i) - mx);
-      if (dist < bestDist) { bestDist = dist; best = { d, i }; }
-    });
-    if (!best || bestDist > 40) { tooltip.style.display = 'none'; return; }
-    const d = best.d;
-    let html = `<div class="tt-date">${d.utc_iso ? d.utc_iso.slice(0,10) : d.sha}</div>`;
-    if (d.release_tag) html += `<div class="tt-release">&#x1f3f7; ${d.release_tag}</div>`;
-    if (d.cpp  != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cppCol}"></span>C++ ${d.cpp.toFixed(1)}%</div>`;
-    if (d.py   != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${pyCol}"></span>Py ${d.py.toFixed(1)}%</div>`;
-    if (d.cuda != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cudaCol}"></span>CUDA ${d.cuda.toFixed(1)}%</div>`;
-    html += `<div class="tt-sha">${d.sha}</div>`;
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-    const tx = Math.min(xOf(best.i) + 10, W - 160);
-    tooltip.style.left = tx + 'px';
-    tooltip.style.top  = (PAD.top + 8) + 'px';
-  });
-  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-  canvas.style.cursor = 'crosshair';
-
-  // Click to navigate to report
-  canvas.addEventListener('click', e => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    let best = null, bestDist = 999;
-    DATA.forEach((d, i) => {
-      const dist = Math.abs(xOf(i) - mx);
-      if (dist < bestDist) { bestDist = dist; best = d; }
-    });
-    if (best && bestDist < 40 && best.detail_path) window.location.href = best.detail_path;
-  });
+  checkbox.addEventListener('change', render);
+  render();
 })();
 </script>

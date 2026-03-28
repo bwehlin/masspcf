@@ -354,6 +354,7 @@ def reconcile_coverage_history(
         record = {
             "utc_iso": entry["utc_iso"],
             "sha": sha,
+            "branch": entry.get("branch"),
             "detail_path": entry.get("detail_path"),
             "cpp": float(cpp.rstrip("%")) if cpp else None,
             "py": float(py.rstrip("%")) if py else None,
