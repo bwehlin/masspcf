@@ -472,11 +472,30 @@ if (BUILD_WITH_CUDA)
   )
 
   if (GPUCOV_FOUND)
+    # Collect all .cuh files from the CUDA and header source lists
+    set(_GPUCOV_FILES)
+    foreach(_src IN LISTS MPCF_LIB_SOURCES_CUDA)
+      if (_src MATCHES "\\.cuh$")
+        list(APPEND _GPUCOV_FILES ${_src})
+      endif ()
+    endforeach()
+    foreach(_src IN LISTS MPCF_HEADER_FILES)
+      if (_src MATCHES "\\.cuh$")
+        list(APPEND _GPUCOV_FILES "include/mpcf/${_src}")
+      endif ()
+    endforeach()
+    # Add the .cu sources from the mpcf_cuda target
+    get_target_property(_CUDA_SRCS mpcf_cuda SOURCES)
+    foreach(_src IN LISTS _CUDA_SRCS)
+      if (_src MATCHES "\\.cu$")
+        list(APPEND _GPUCOV_FILES ${_src})
+      endif ()
+    endforeach()
+    list(REMOVE_DUPLICATES _GPUCOV_FILES)
+
     gpucov_instrument_target(mpcf_cuda
         FILES
-            include/mpcf/cuda/cuda_matrix_integrate.cuh
-            include/mpcf/functional/operations.cuh
-            src/cuda/cuda_matrix_integrate.cu
+            ${_GPUCOV_FILES}
         INCLUDE_PATHS
             "${CMAKE_SOURCE_DIR}/include"
             "${CMAKE_SOURCE_DIR}/3rd/taskflow"

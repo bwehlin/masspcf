@@ -327,6 +327,28 @@ footer {
   margin-bottom: 16px;
 }
 
+.chart-controls {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chart-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .chart-wrap {
   position: relative;
   width: 100%;
@@ -396,6 +418,12 @@ footer {
   font-weight: 600;
   margin-bottom: 4px;
   color: var(--text);
+}
+
+.tt-branch {
+  color: var(--muted);
+  font-size: 10px;
+  margin-bottom: 2px;
 }
 
 .tt-release {
