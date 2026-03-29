@@ -394,7 +394,8 @@ jobs:
             --lcov covreport/cuda/cuda.info \
             --summary covreport/cuda/coverage-summary.json
           genhtml covreport/cuda/cuda.info \
-            --output-directory covreport/cuda/html
+            --output-directory covreport/cuda/html \
+            --branch-coverage --flat
           # Preserve downstream expectation of index.html at the cuda/ level
           cp covreport/cuda/html/index.html covreport/cuda/index.html || true
 

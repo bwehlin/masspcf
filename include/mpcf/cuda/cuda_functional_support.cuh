@@ -21,6 +21,7 @@
 #include "cuda_util.cuh"
 
 #include <cuda_runtime.h>
+#include <iostream>
 
 namespace mpcf::detail
 {
