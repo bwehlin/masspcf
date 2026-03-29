@@ -23,6 +23,24 @@ The :math:`L_p` norm of a single PCF :math:`f` is
 For piecewise constant functions, these integrals reduce to finite sums over the breakpoint intervals, which masspcf evaluates exactly.
 
 
+Distance between two PCFs
+=========================
+
+:py:func:`~masspcf.lp_distance` computes the :math:`L_p` distance between two individual PCFs, returning a scalar.
+
+::
+
+   import masspcf as mpcf
+
+   f = mpcf.Pcf([[0.0, 3.0], [1.0, 0.0]])
+   g = mpcf.Pcf([[0.0, 1.0], [2.0, 0.0]])
+
+   d = mpcf.lp_distance(f, g)        # L1 distance (default)
+   d2 = mpcf.lp_distance(f, g, p=2)  # L2 distance
+
+This is the simplest distance API and is useful for quick comparisons or unit testing. For computing distances between all pairs in a collection, use :py:func:`~masspcf.pdist` or :py:func:`~masspcf.cdist` instead.
+
+
 Pairwise distances
 ==================
 
