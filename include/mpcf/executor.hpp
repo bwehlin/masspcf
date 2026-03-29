@@ -65,20 +65,23 @@ namespace mpcf
       : m_upCpuExec(std::move(other.m_upCpuExec))
       , m_cpuExec(other.m_cpuExec)
       , m_upCudaExec(std::move(other.m_upCudaExec))
-    { }
-    
+    {
+      other.m_cpuExec = nullptr;
+    }
+
     Executor& operator=(Executor&& rhs) noexcept
     {
       if (this == &rhs)
       {
         return *this;
       }
-      
+
       m_upCpuExec = std::move(rhs.m_upCpuExec);
       m_cpuExec = rhs.m_cpuExec;
-      
+      rhs.m_cpuExec = nullptr;
+
       m_upCudaExec = std::move(rhs.m_upCudaExec);
-      
+
       return *this;
     }
     

@@ -34,24 +34,27 @@ namespace mpcf::detail
     explicit CudaCallableFunctionPointer(TDeviceFuncPtr* pf)
     {
       TDeviceFuncPtr hostPtr = nullptr;
-      CHK_CUDA(cudaMalloc((void**)&ptr, sizeof(TDeviceFuncPtr)));
+      CHK_CUDA(cudaMalloc((void**)&m_ptr, sizeof(TDeviceFuncPtr)));
       CHK_CUDA(cudaMemcpyFromSymbol(&hostPtr, *pf, sizeof(TDeviceFuncPtr)));
-      CHK_CUDA(cudaMemcpy(ptr, &hostPtr, sizeof(TDeviceFuncPtr), cudaMemcpyHostToDevice));
+      CHK_CUDA(cudaMemcpy(m_ptr, &hostPtr, sizeof(TDeviceFuncPtr), cudaMemcpyHostToDevice));
     }
-  
+
     ~CudaCallableFunctionPointer()
     {
-      auto success = cudaFree(ptr); // no-op if ptr == nullptr
+      auto success = cudaFree(m_ptr); // no-op if m_ptr == nullptr
       if (success != cudaSuccess)
       {
         std::cerr << "Warning! Unable to free " << sizeof(TDeviceFuncPtr) << " bytes of GPU memory\n";
       }
     }
-    
+
     CudaCallableFunctionPointer(const CudaCallableFunctionPointer&) = delete;
     CudaCallableFunctionPointer& operator=(const CudaCallableFunctionPointer&) = delete;
-  
-    TDeviceFuncPtr* ptr;
+
+    [[nodiscard]] TDeviceFuncPtr* get() const { return m_ptr; }
+
+  private:
+    TDeviceFuncPtr* m_ptr;
   };
 
 }

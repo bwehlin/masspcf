@@ -75,8 +75,8 @@ public:
   {
     std::vector<size_t> s;
     s.resize(m_arr.ndim());
-    std::transform(m_arr.strides(), m_arr.strides() + m_arr.ndim(), [this](pybind11::ssize_t n) {
-      return n / m_arr.itemsize();
+    std::transform(m_arr.strides(), m_arr.strides() + m_arr.ndim(), s.begin(), [this](pybind11::ssize_t n) {
+      return static_cast<size_t>(n / m_arr.itemsize());
     });
     return s;
   }

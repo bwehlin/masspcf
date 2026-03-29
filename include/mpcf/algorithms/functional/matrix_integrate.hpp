@@ -32,11 +32,11 @@
 namespace mpcf
 {
   template <typename Tt, typename Tv, typename PairOp>
-  Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, PairOp op, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
+  Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, PairOp op, Tt a = Tt(0), Tt b = std::numeric_limits<Tt>::max())
   {
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
 
-    Tv val = 0.f;
+    Tv val = Tv(0);
     iterate_rectangles(f.points(), g.points(), [&val, &op](const rect_t& rect) -> void {
       val += (rect.right - rect.left) * op(rect.top, rect.bottom);
     }, a, b);

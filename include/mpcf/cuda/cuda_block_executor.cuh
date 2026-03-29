@@ -185,6 +185,8 @@ namespace mpcf
       size_t pendingBuffer = 0;
 
       GpuBlockStorage() = default;
+      GpuBlockStorage(const GpuBlockStorage&) = delete;
+      GpuBlockStorage& operator=(const GpuBlockStorage&) = delete;
 
       GpuBlockStorage(GpuBlockStorage&& other)
         : opStorage(std::move(other.opStorage))
