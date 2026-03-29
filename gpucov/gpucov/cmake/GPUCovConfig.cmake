@@ -6,6 +6,7 @@
 #       [SOURCE_ROOT <dir>]
 #       [INCLUDE_PATHS <path1> [<path2> ...]]
 #       [EXTRA_ARGS <arg1> [<arg2> ...]]
+#       [CUDA_INCLUDE <path>]
 #   )
 #
 # This function:
@@ -102,8 +103,8 @@ function(gpucov_instrument_target TARGET)
     cmake_parse_arguments(
         _GC                                        # prefix
         ""                                         # options (flags)
-        "SOURCE_ROOT"                              # single-value keywords
-        "FILES;INCLUDE_PATHS;EXTRA_ARGS"  # multi-value keywords
+        "SOURCE_ROOT;CUDA_INCLUDE"                 # single-value keywords
+        "FILES;INCLUDE_PATHS;EXTRA_ARGS"           # multi-value keywords
         ${ARGN}
     )
 
@@ -123,6 +124,10 @@ function(gpucov_instrument_target TARGET)
         --source-root "${_GC_SOURCE_ROOT}"
         --output-dir "${_SHADOW_DIR}"
     )
+
+    if (_GC_CUDA_INCLUDE)
+        list(APPEND _CMD --cuda-include "${_GC_CUDA_INCLUDE}")
+    endif()
 
     if (_GC_INCLUDE_PATHS)
         foreach(_inc ${_GC_INCLUDE_PATHS})

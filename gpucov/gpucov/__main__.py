@@ -27,6 +27,7 @@ def cmd_instrument(args):
         source_root=args.source_root,
         include_paths=include_paths,
         extra_args=extra_args,
+        cuda_include=args.cuda_include,
     )
 
     if result.next_counter_id == 0:
@@ -135,6 +136,10 @@ def main():
     p_inst.add_argument(
         '--extra-args', nargs='*', default=[],
         help='Extra arguments passed to clang parser',
+    )
+    p_inst.add_argument(
+        '--cuda-include',
+        help='Path to CUDA toolkit include directory (uses real headers instead of stubs)',
     )
     p_inst.set_defaults(func=cmd_instrument)
 

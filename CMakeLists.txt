@@ -320,11 +320,16 @@ set(PROJECT_BUILD_DATE ${TODAY})
 configure_file(version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp @ONLY)
 
 SET(MPCF_LIB_SOURCES_CUDA
-    include/mpcf/cuda/cuda_matrix_integrate.cuh
-    include/mpcf/cuda/cuda_util.cuh
+    include/mpcf/cuda/cuda_block_executor.cuh
     include/mpcf/cuda/cuda_device_array.cuh
     include/mpcf/cuda/cuda_functional_support.cuh
+    include/mpcf/cuda/cuda_matrix_integrate.cuh
     include/mpcf/cuda/cuda_matrix_integrate_structs.cuh
+    include/mpcf/cuda/cuda_offset_data_manager.cuh
+    include/mpcf/cuda/cuda_pcf_data_manager.cuh
+    include/mpcf/cuda/cuda_pcf_kernel.cuh
+    include/mpcf/cuda/cuda_util.cuh
+    include/mpcf/cuda/pcf_block_op.cuh
 )
 
 SET(MPCF_HEADER_FILES
@@ -481,7 +486,7 @@ if (BUILD_WITH_CUDA)
     endforeach()
     foreach(_src IN LISTS MPCF_HEADER_FILES)
       if (_src MATCHES "\\.cuh$")
-        list(APPEND _GPUCOV_FILES "include/mpcf/${_src}")
+        list(APPEND _GPUCOV_FILES ${_src})
       endif ()
     endforeach()
     # Add the .cu sources from the mpcf_cuda target
@@ -499,6 +504,8 @@ if (BUILD_WITH_CUDA)
         INCLUDE_PATHS
             "${CMAKE_SOURCE_DIR}/include"
             "${CMAKE_SOURCE_DIR}/3rd/taskflow"
+        CUDA_INCLUDE
+            "${CUDAToolkit_INCLUDE_DIRS}"
     )
   endif ()
 endif ()

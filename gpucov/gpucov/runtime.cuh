@@ -35,12 +35,28 @@ namespace gpucov
 {
     __device__ unsigned int g_counters[GPUCOV_MAX_COUNTERS];
 
-    __host__ __device__ __forceinline__ void hit(unsigned int id)
+    __host__ __device__ __forceinline__ bool hit(unsigned int id)
     {
 #ifdef __CUDA_ARCH__
         if (id < GPUCOV_MAX_COUNTERS)
             atomicAdd(&g_counters[id], 1u);
 #endif
+        return true;
+    }
+
+    __host__ __device__ __forceinline__ bool branch(
+        unsigned int id_true, unsigned int id_false, bool cond)
+    {
+#ifdef __CUDA_ARCH__
+        if (cond) {
+            if (id_true < GPUCOV_MAX_COUNTERS)
+                atomicAdd(&g_counters[id_true], 1u);
+        } else {
+            if (id_false < GPUCOV_MAX_COUNTERS)
+                atomicAdd(&g_counters[id_false], 1u);
+        }
+#endif
+        return cond;
     }
 
     inline void dump(const char* path)
@@ -117,10 +133,13 @@ namespace gpucov
 }
 
 #define GPUCOV_HIT(id) gpucov::hit(id)
+#define GPUCOV_BRANCH(id_true, id_false, cond) \
+    gpucov::branch((id_true), (id_false), static_cast<bool>(cond))
 
 #else // !__CUDACC__
 // Not compiled by NVCC — instrumentation is a no-op.
-#define GPUCOV_HIT(id) ((void)0)
+#define GPUCOV_HIT(id) (true)
+#define GPUCOV_BRANCH(id_true, id_false, cond) (cond)
 #endif // __CUDACC__
 
 #endif // GPUCOV_RUNTIME_CUH
