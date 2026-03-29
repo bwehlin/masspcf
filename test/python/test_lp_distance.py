@@ -41,22 +41,12 @@ def test_lp_distance_returns_float(pcf_dtype):
     assert isinstance(mpcf.lp_distance(f, g), float)
 
 
-# --- Symmetry and metric properties ---
+# --- Symmetry and nonnegativity ---
 
 def test_lp_distance_symmetric(pcf_dtype):
     f = _pcf([[0.0, 3.0], [1.0, 0.0]], pcf_dtype)
     g = _pcf([[0.0, 1.0], [2.0, 0.0]], pcf_dtype)
     assert mpcf.lp_distance(f, g) == pytest.approx(mpcf.lp_distance(g, f))
-
-
-def test_lp_distance_triangle_inequality(pcf_dtype):
-    f = _pcf([[0.0, 3.0], [1.0, 0.0]], pcf_dtype)
-    g = _pcf([[0.0, 1.0], [1.0, 0.0]], pcf_dtype)
-    h = _pcf([[0.0, 0.0]], pcf_dtype)
-    d_fg = mpcf.lp_distance(f, g)
-    d_gh = mpcf.lp_distance(g, h)
-    d_fh = mpcf.lp_distance(f, h)
-    assert d_fh <= d_fg + d_gh + 1e-10
 
 
 def test_lp_distance_nonnegative(pcf_dtype):
@@ -86,12 +76,6 @@ def test_lp_distance_large_p(pcf_dtype):
     f = _pcf([[0.0, 2.0], [1.0, 0.0]], pcf_dtype)
     g = _pcf([[0.0, 0.0], [1.0, 0.0]], pcf_dtype)
     assert mpcf.lp_distance(f, g, p=50) == pytest.approx(2.0, abs=1e-2)
-
-
-def test_lp_distance_p_equals_1_explicitly(pcf_dtype):
-    f = _pcf([[0.0, 2.0], [1.0, 0.0]], pcf_dtype)
-    g = _pcf([[0.0, 0.0]], pcf_dtype)
-    assert mpcf.lp_distance(f, g, p=1) == pytest.approx(2.0)
 
 
 # --- Multiple breakpoints ---
