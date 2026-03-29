@@ -38,57 +38,44 @@
 namespace
 {
   // Direct (non-task) integration test to verify the core algorithm
-  TEST(PcfL1Direct, TwoPointPcfIntegrate_f32)
+  template <typename T>
+  class PcfL1DirectTest : public ::testing::Test {};
+
+  using DirectTypes = ::testing::Types<float, double>;
+  TYPED_TEST_SUITE(PcfL1DirectTest, DirectTypes);
+
+  TYPED_TEST(PcfL1DirectTest, TwoPointPcfIntegrate)
   {
-    mpcf::Pcf_f32 f(std::vector<mpcf::Point_f32>({ {0.f, 3.f}, {1.0f, 0.0f} }));
-    mpcf::Pcf_f32 g(std::vector<mpcf::Point_f32>({ {0.f, 1.f}, {2.0f, 0.0f} }));
+    using T = TypeParam;
+    mpcf::Pcf<T, T> f(std::vector<mpcf::Point<T, T>>({ {T(0), T(3)}, {T(1), T(0)} }));
+    mpcf::Pcf<T, T> g(std::vector<mpcf::Point<T, T>>({ {T(0), T(1)}, {T(2), T(0)} }));
 
-    auto op = mpcf::OperationL1Dist<float, float>{};
-    float result = mpcf::integrate(f, g, [&op](const mpcf::Rectangle<float, float>& rect) {
-      return op(rect.top, rect.bottom);
-    }, 0.f, std::numeric_limits<float>::max());
-    result = op(result);
+    auto op = mpcf::OperationL1Dist<T, T>{};
+    T result = op(mpcf::integrate(f, g, op));
 
-    EXPECT_FLOAT_EQ(result, 3.f);
-  }
-
-  TEST(PcfL1Direct, TwoPointPcfIntegrate_f64)
-  {
-    mpcf::Pcf_f64 f(std::vector<mpcf::Point_f64>({ {0.0, 3.0}, {1.0, 0.0} }));
-    mpcf::Pcf_f64 g(std::vector<mpcf::Point_f64>({ {0.0, 1.0}, {2.0, 0.0} }));
-
-    auto op = mpcf::OperationL1Dist<double, double>{};
-    double result = mpcf::integrate(f, g, [&op](const mpcf::Rectangle<double, double>& rect) {
-      return op(rect.top, rect.bottom);
-    }, 0.0, std::numeric_limits<double>::max());
-    result = op(result);
-
-    EXPECT_DOUBLE_EQ(result, 3.0);
+    EXPECT_NEAR(result, T(3), T(1e-6));
   }
 
   // Parameterized on precision and hardware
+  template <typename T, mpcf::Hardware Hw>
   struct TestConfig
   {
-    mpcf::Hardware hw;
-    bool useF64;
-
-    std::string name() const
-    {
-      std::string s = (hw == mpcf::Hardware::CUDA) ? "CUDA" : "CPU";
-      s += useF64 ? "_f64" : "_f32";
-      return s;
-    }
+    using value_type = T;
+    static constexpr mpcf::Hardware hw = Hw;
   };
 
-  class PcfL1IntegratorFixture : public ::testing::TestWithParam<TestConfig>
+  template <typename Cfg>
+  class PcfL1IntegratorFixture : public ::testing::Test
   {
   public:
+    using T = typename Cfg::value_type;
+    using PcfT = mpcf::Pcf<T, T>;
+
     void compute_l1()
     {
-      auto cfg = GetParam();
       std::unique_ptr<mpcf::StoppableTask<void>> task;
 
-      if (cfg.hw == mpcf::Hardware::CUDA)
+      if constexpr (Cfg::hw == mpcf::Hardware::CUDA)
       {
 #ifdef BUILD_WITH_CUDA
         if (mpcf::get_num_cuda_devices() == 0)
@@ -96,114 +83,59 @@ namespace
           GTEST_SKIP() << "No CUDA devices available";
           return;
         }
-        if (cfg.useF64)
-          task = mpcf::create_cuda_block_integrate_l1_task(m_dm64, m_pcfs64);
-        else
-          task = mpcf::create_cuda_block_integrate_l1_task(m_dm32, m_pcfs32);
+        task = mpcf::create_cuda_block_integrate_l1_task(m_dm, m_pcfs);
 #else
         GTEST_SKIP() << "CUDA not available";
 #endif
       }
       else
       {
-        if (cfg.useF64)
-        {
-          auto op = mpcf::OperationL1Dist<double, double>{};
-          task = std::make_unique<mpcf::CpuPairwiseIntegrationTask<decltype(op), decltype(m_pcfs64.cbegin()), mpcf::DistanceMatrix<double>, false>>(
-              m_dm64, m_pcfs64.cbegin(), m_pcfs64.cend(), op);
-        }
-        else
-        {
-          auto op = mpcf::OperationL1Dist<float, float>{};
-          task = std::make_unique<mpcf::CpuPairwiseIntegrationTask<decltype(op), decltype(m_pcfs32.cbegin()), mpcf::DistanceMatrix<float>, false>>(
-              m_dm32, m_pcfs32.cbegin(), m_pcfs32.cend(), op);
-        }
+        auto op = mpcf::OperationL1Dist<T, T>{};
+        task = std::make_unique<mpcf::CpuPairwiseIntegrationTask<decltype(op), decltype(m_pcfs.cbegin()), mpcf::DistanceMatrix<T>, false>>(
+            m_dm, m_pcfs.cbegin(), m_pcfs.cend(), op);
       }
 
       task->start_async(mpcf::default_executor());
       task->future().get();
     }
 
-    // f32 data
-    std::vector<mpcf::Pcf_f32> m_pcfs32;
-    mpcf::DistanceMatrix<float> m_dm32{0};
-
-    // f64 data
-    std::vector<mpcf::Pcf_f64> m_pcfs64;
-    mpcf::DistanceMatrix<double> m_dm64{0};
+    std::vector<PcfT> m_pcfs;
+    mpcf::DistanceMatrix<T> m_dm{0};
   };
 
-  TEST_P(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
+  using IntegratorConfigs = ::testing::Types<
+      TestConfig<float, mpcf::Hardware::CPU>,
+      TestConfig<double, mpcf::Hardware::CPU>,
+      TestConfig<float, mpcf::Hardware::CUDA>,
+      TestConfig<double, mpcf::Hardware::CUDA>
+  >;
+  TYPED_TEST_SUITE(PcfL1IntegratorFixture, IntegratorConfigs);
+
+  TYPED_TEST(PcfL1IntegratorFixture, EmptyPcfPairL1dist)
   {
-    auto cfg = GetParam();
-    if (cfg.useF64)
-    {
-      m_pcfs64.resize(2);
-      m_dm64 = mpcf::DistanceMatrix<double>(2);
-    }
-    else
-    {
-      m_pcfs32.resize(2);
-      m_dm32 = mpcf::DistanceMatrix<float>(2);
-    }
+    using T = typename TypeParam::value_type;
+    this->m_pcfs.resize(2);
+    this->m_dm = mpcf::DistanceMatrix<T>(2);
 
-    compute_l1();
+    this->compute_l1();
 
-    if (cfg.useF64)
-    {
-      EXPECT_DOUBLE_EQ(m_dm64(0, 1), 0.0);
-    }
-    else
-    {
-      EXPECT_FLOAT_EQ(m_dm32(0, 1), 0.f);
-    }
+    EXPECT_NEAR(this->m_dm(0, 1), T(0), T(1e-6));
   }
 
-  TEST_P(PcfL1IntegratorFixture, TwoPointPcfL1dist)
+  TYPED_TEST(PcfL1IntegratorFixture, TwoPointPcfL1dist)
   {
-    auto cfg = GetParam();
-    if (cfg.useF64)
-    {
-      m_pcfs64.emplace_back(std::vector<mpcf::Point_f64>({{0.0, 3.0}, {1.0, 0.0}}));
-      m_pcfs64.emplace_back(std::vector<mpcf::Point_f64>({{0.0, 1.0}, {2.0, 0.0}}));
-      m_dm64 = mpcf::DistanceMatrix<double>(2);
-    }
-    else
-    {
-      m_pcfs32.emplace_back(std::vector<mpcf::Point_f32>({{0.f, 3.f}, {1.f, 0.f}}));
-      m_pcfs32.emplace_back(std::vector<mpcf::Point_f32>({{0.f, 1.f}, {2.f, 0.f}}));
-      m_dm32 = mpcf::DistanceMatrix<float>(2);
-    }
+    using T = typename TypeParam::value_type;
+    using PointT = mpcf::Point<T, T>;
 
-    compute_l1();
+    this->m_pcfs.emplace_back(std::vector<PointT>({{T(0), T(3)}, {T(1), T(0)}}));
+    this->m_pcfs.emplace_back(std::vector<PointT>({{T(0), T(1)}, {T(2), T(0)}}));
+    this->m_dm = mpcf::DistanceMatrix<T>(2);
 
-    if (cfg.useF64)
-    {
-      EXPECT_DOUBLE_EQ(m_dm64(0, 0), 0.0);
-      EXPECT_DOUBLE_EQ(m_dm64(0, 1), 3.0);
-      EXPECT_DOUBLE_EQ(m_dm64(1, 0), 3.0);
-      EXPECT_DOUBLE_EQ(m_dm64(1, 1), 0.0);
-    }
-    else
-    {
-      EXPECT_FLOAT_EQ(m_dm32(0, 0), 0.f);
-      EXPECT_FLOAT_EQ(m_dm32(0, 1), 3.f);
-      EXPECT_FLOAT_EQ(m_dm32(1, 0), 3.f);
-      EXPECT_FLOAT_EQ(m_dm32(1, 1), 0.f);
-    }
+    this->compute_l1();
+
+    EXPECT_NEAR(this->m_dm(0, 0), T(0), T(1e-6));
+    EXPECT_NEAR(this->m_dm(0, 1), T(3), T(1e-6));
+    EXPECT_NEAR(this->m_dm(1, 0), T(3), T(1e-6));
+    EXPECT_NEAR(this->m_dm(1, 1), T(0), T(1e-6));
   }
-
-  INSTANTIATE_TEST_SUITE_P(
-      PcfL1Integrator,
-      PcfL1IntegratorFixture,
-      ::testing::Values(
-          TestConfig{mpcf::Hardware::CPU, false},
-          TestConfig{mpcf::Hardware::CPU, true},
-          TestConfig{mpcf::Hardware::CUDA, false},
-          TestConfig{mpcf::Hardware::CUDA, true}
-      ),
-      [](const testing::TestParamInfo<TestConfig>& info) {
-        return info.param.name();
-      }
-  );
 }

@@ -166,6 +166,18 @@ namespace
       return py::make_tuple(std::move(task), outTensor);
     }
 
+    static Tv lp_distance_l1(const PcfT& f, const PcfT& g)
+    {
+      mpcf::OperationL1Dist<Tt, Tv> op;
+      return op(mpcf::integrate<Tt, Tv>(f, g, op));
+    }
+
+    static Tv lp_distance_lp(const PcfT& f, const PcfT& g, Tv p)
+    {
+      mpcf::OperationLpDist<Tt, Tv> op(p);
+      return op(mpcf::integrate<Tt, Tv>(f, g, op));
+    }
+
     static py::tuple cdist_l1(TensorT X, TensorT Y)
     {
       CudaCdistFactory cuda;
@@ -195,6 +207,8 @@ namespace
       cls
           .def_static("pdist_l1", &PyDistanceBindings::pdist_l1)
           .def_static("pdist_lp", &PyDistanceBindings::pdist_lp)
+          .def_static("lp_distance_l1", &PyDistanceBindings::lp_distance_l1)
+          .def_static("lp_distance_lp", &PyDistanceBindings::lp_distance_lp)
           .def_static("cdist_l1", &PyDistanceBindings::cdist_l1)
           .def_static("cdist_lp", &PyDistanceBindings::cdist_lp)
       ;

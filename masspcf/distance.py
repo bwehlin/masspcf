@@ -15,14 +15,71 @@
 from . import _mpcf_cpp as cpp
 from .async_task import _run_task
 from .distance_matrix import DistanceMatrix
+from .pcf import Pcf, _has_matching_types
 from .tensor import FloatTensor, PcfContainerLike, _get_backend, _to_tensor_pcf
-from .typing import pcf32, pcf64
+from .typing import float32, float64, pcf32, pcf64
 
 
 def _get_distance_backend(fs) -> type[cpp.Distance_f32_f32] | type[cpp.Distance_f64_f64]:
     mapping = {pcf32: cpp.Distance_f32_f32, pcf64: cpp.Distance_f64_f64}
     backend, _ = _get_backend(fs, mapping)
     return backend
+
+
+_VTYPE_TO_DISTANCE_BACKEND = {
+    float32: cpp.Distance_f32_f32,
+    float64: cpp.Distance_f64_f64,
+}
+
+
+def lp_distance(f: Pcf, g: Pcf, p=1) -> float:
+    r"""Compute the :math:`L_p` distance between two PCFs.
+
+    .. math::
+        \Vert f - g \Vert_p
+        = \left(\int_0^\infty |f(t) - g(t)|^p\, dt\right)^{1/p}
+
+    Parameters
+    ----------
+    f : Pcf
+        First piecewise constant function.
+    g : Pcf
+        Second piecewise constant function.
+    p : float, optional
+        The :math:`p` parameter in the :math:`L_p` distance (must be
+        :math:`\geq 1`), by default 1.
+
+    Returns
+    -------
+    float
+        The :math:`L_p` distance between *f* and *g*.
+
+    Raises
+    ------
+    ValueError
+        If ``p < 1``.
+    TypeError
+        If *f* and *g* have different dtypes, or are integer PCFs.
+    """
+    if p < 1:
+        raise ValueError("p must be >= 1.")
+
+    if not isinstance(f, Pcf) or not isinstance(g, Pcf):
+        raise TypeError("Both f and g must be Pcf objects.")
+
+    if not _has_matching_types(f, g):
+        raise TypeError("f and g must have the same dtype.")
+
+    backend = _VTYPE_TO_DISTANCE_BACKEND.get(f.vtype)
+    if backend is None:
+        raise TypeError(
+            f"lp_distance is not supported for this PCF type (vtype={f.vtype})."
+        )
+
+    if p == 1:
+        return float(backend.lp_distance_l1(f._data, g._data))
+    else:
+        return float(backend.lp_distance_lp(f._data, g._data, float(p)))
 
 
 def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:

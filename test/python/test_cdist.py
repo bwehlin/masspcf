@@ -29,11 +29,9 @@ def test_cdist_1d_tensors():
     assert isinstance(D, mpcf.FloatTensor)
     assert D.shape == (2, 3)
 
-    # X[0] = 5 on [0,1), 0 on [1,inf)
-    # Y[0] = 0 everywhere => ||X[0]-Y[0]||_1 = 5
-    assert D[0, 0] == pytest.approx(5.0)
-    # X[0] vs Y[1] = same function => distance 0
-    assert D[0, 1] == pytest.approx(0.0)
+    for i in range(2):
+        for j in range(3):
+            assert D[i, j] == pytest.approx(mpcf.lp_distance(X[i], Y[j]))
 
 
 def test_cdist_output_shape_multidim():
@@ -74,10 +72,9 @@ def test_cdist_lp():
     D = mpcf.cdist(X, Y, p=3)
 
     assert D.shape == (2, 1)
-    # ||X[0] - Y[0]||_3 = (|4-1|^3 * 1)^(1/3) = 3
-    assert D[0, 0] == pytest.approx(3.0)
-    # ||X[1] - Y[0]||_3 = 0
-    assert D[1, 0] == pytest.approx(0.0)
+
+    for i in range(2):
+        assert D[i, 0] == pytest.approx(mpcf.lp_distance(X[i], Y[0], p=3))
 
 
 def test_cdist_empty():

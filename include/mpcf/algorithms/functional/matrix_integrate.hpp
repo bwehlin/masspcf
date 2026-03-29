@@ -31,14 +31,14 @@
 
 namespace mpcf
 {
-  template <typename Tt, typename Tv, typename RectangleOp>
-  Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, RectangleOp op, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
+  template <typename Tt, typename Tv, typename PairOp>
+  Tv integrate(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g, PairOp op, Tt a = 0.f, Tt b = std::numeric_limits<Tt>::max())
   {
     using rect_t = typename Pcf<Tt, Tv>::rectangle_type;
 
     Tv val = 0.f;
     iterate_rectangles(f.points(), g.points(), [&val, &op](const rect_t& rect) -> void {
-      val += (rect.right - rect.left) * op(rect);
+      val += (rect.right - rect.left) * op(rect.top, rect.bottom);
     }, a, b);
 
     return val;
@@ -99,9 +99,7 @@ namespace mpcf
       size_t jStart = includeDiagonal ? i : i + 1;
       for (size_t j = jStart; j < sz; ++j)
       {
-        auto val = m_op(integrate<time_type, value_type>(m_fs[i], m_fs[j], [this](const Rectangle<time_type, value_type>& rect){
-                                                                return m_op(rect.top, rect.bottom);
-                                                              }, 0, std::numeric_limits<time_type>::max()));
+        auto val = m_op(integrate<time_type, value_type>(m_fs[i], m_fs[j], m_op, 0, std::numeric_limits<time_type>::max()));
         m_out(i, j) = val;
       }
       add_progress(sz - jStart);
@@ -155,10 +153,7 @@ namespace mpcf
         for (size_t j = 0; j < nCols; ++j)
         {
           data[i * nCols + j] = m_op(integrate<time_type, value_type>(
-              m_rowFs[i], m_colFs[j],
-              [this](const Rectangle<time_type, value_type>& rect) {
-                return m_op(rect.top, rect.bottom);
-              }, 0, std::numeric_limits<time_type>::max()));
+              m_rowFs[i], m_colFs[j], m_op, 0, std::numeric_limits<time_type>::max()));
         }
         add_progress(nCols);
       });
