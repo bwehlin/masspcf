@@ -74,21 +74,23 @@ namespace mpcf
     
     size_t work_total() const
     {
-      return m_work_total;
+      return m_work_total.load();
     }
 
     size_t work_step() const
     {
-      return m_work_step;
+      return m_work_step.load();
     }
 
-    const std::string& work_step_desc() const
+    std::string work_step_desc() const
     {
+      std::lock_guard<std::mutex> lock(m_mutex);
       return m_work_step_desc;
     }
-    
-    const std::string& work_step_unit() const
+
+    std::string work_step_unit() const
     {
+      std::lock_guard<std::mutex> lock(m_mutex);
       return m_work_step_unit;
     }
 
@@ -124,10 +126,10 @@ namespace mpcf
     {
       {
         std::lock_guard<std::mutex> lock(m_mutex);
-        ++m_work_step;
+        m_work_step.fetch_add(1);
+        m_work_total.store(n_items);
         m_work_step_desc = desc;
         m_work_step_unit = unit;
-        m_work_total = n_items;
       }
       m_work_completed.store(0);
     }
@@ -140,14 +142,14 @@ namespace mpcf
     tf::Future<RetT> m_future;
     std::atomic_bool m_stop_requested = false;
     
-    size_t m_work_total = 0ul;
-    std::atomic_uint64_t m_work_completed;
+    std::atomic_uint64_t m_work_total{0};
+    std::atomic_uint64_t m_work_completed{0};
 
-    size_t m_work_step = 0ul;
+    std::atomic_uint64_t m_work_step{0};
     std::string m_work_step_desc;
     std::string m_work_step_unit;
 
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::condition_variable m_condition;
 
 #ifdef BUILD_WITH_CUDA

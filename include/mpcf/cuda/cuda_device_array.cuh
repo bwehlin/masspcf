@@ -58,6 +58,14 @@ namespace mpcf
       {
         return *this;
       }
+      if (m_devPtr)
+      {
+        auto rv = cudaFree(m_devPtr);
+        if (rv != cudaSuccess)
+        {
+          std::cout << "Warning! Could not deallocate " << m_sz * sizeof(T) << " byte array stored on GPU";
+        }
+      }
       m_devPtr = rhs.m_devPtr;
       m_sz = rhs.m_sz;
       rhs.m_devPtr = nullptr;
