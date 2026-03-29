@@ -200,6 +200,11 @@ namespace mpcf
     [[nodiscard]] const T& operator()(size_t index) const;
     [[nodiscard]] T& operator()(size_t index);
 
+    /// Flat (linear) element access — treats the tensor as if flattened in
+    /// row-major order.  Works for any tensor, including sliced views.
+    [[nodiscard]] const T& flat(size_t index) const;
+    [[nodiscard]] T& flat(size_t index);
+
     //T& operator()(const std::vector<size_t>& index);
     //const T& operator()(const std::vector<size_t>& index) const;
 
@@ -417,6 +422,9 @@ namespace mpcf
   requires std::invocable<UnaryFunc, std::vector<size_t>>
 #endif
   void walk(const TTensor& tensor, UnaryFunc&& f);
+
+  /// Convert a flat (linear) index to a multi-dimensional index for the given shape.
+  std::vector<size_t> flat_to_multi_index(size_t flat, const std::vector<size_t>& shape);
 
   // ============================================================================
   // Masked operations

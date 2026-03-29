@@ -19,6 +19,8 @@
 #include "task.hpp"
 #include "functional/operations.cuh"
 #include "algorithms/functional/matrix_integrate.hpp"
+
+#include <taskflow/algorithm/for_each.hpp>
 #include "../py_async_support.hpp"
 #include "../py_settings.hpp"
 
@@ -110,28 +112,71 @@ namespace
       return pdist_impl(fs, mpcf::OperationLpDist<Tt, Tv>(p), cuda);
     }
 
+    template <typename TOperation>
+    class CdistTask : public mpcf::StoppableTask<void>
+    {
+    public:
+      CdistTask(TensorT X, TensorT Y, mpcf::Tensor<Tv> out, TOperation op)
+        : m_X(std::move(X)), m_Y(std::move(Y)), m_out(std::move(out)), m_op(op)
+      { }
+
+    private:
+      tf::Future<void> run_async(mpcf::Executor& exec) override
+      {
+        auto xTotal = m_X.size();
+        auto yTotal = m_Y.size();
+        next_step(xTotal * yTotal, "Computing cross-distances.", "integral");
+
+        m_flow.for_each_index<size_t, size_t, size_t>(0ul, xTotal, 1ul, [this, yTotal](size_t xi) {
+          if (stop_requested()) return;
+
+          for (size_t yi = 0; yi < yTotal; ++yi)
+          {
+            m_out.flat(xi * yTotal + yi) =
+                m_op(mpcf::integrate<Tt, Tv>(m_X.flat(xi), m_Y.flat(yi), m_op));
+          }
+
+          add_progress(yTotal);
+        });
+
+        return exec.cpu()->run(std::move(m_flow));
+      }
+
+      TensorT m_X;
+      TensorT m_Y;
+      mpcf::Tensor<Tv> m_out;
+      TOperation m_op;
+      tf::Taskflow m_flow;
+    };
+
     using CudaCdistFactory = std::function<std::unique_ptr<mpcf::StoppableTask<void>>(
         mpcf::Tensor<Tv>&, const std::vector<PcfT>&, const std::vector<PcfT>&, Tv, Tv)>;
+
+    static std::vector<PcfT> collect_all_pcfs(TensorT& tensor)
+    {
+      std::vector<PcfT> pcfs;
+      auto total = tensor.size();
+      pcfs.reserve(total);
+      for (size_t i = 0; i < total; ++i)
+      {
+        pcfs.push_back(tensor.flat(i));
+      }
+      return pcfs;
+    }
 
     template <typename TOperation>
     static py::tuple cdist_impl(TensorT X, TensorT Y, TOperation op, CudaCdistFactory cudaFactory)
     {
-      // Build output shape: concatenation of X.shape and Y.shape
       std::vector<size_t> outShape;
       for (auto d : X.shape()) outShape.push_back(d);
       for (auto d : Y.shape()) outShape.push_back(d);
 
       auto outTensor = mpcf::Tensor<Tv>(outShape, Tv(0));
 
-      auto xBegin = mpcf::begin1dValues(X);
-      auto xEnd = mpcf::end1dValues(X);
-      auto yBegin = mpcf::begin1dValues(Y);
-      auto yEnd = mpcf::end1dValues(Y);
+      auto xTotal = X.size();
+      auto yTotal = Y.size();
 
-      auto nRows = static_cast<size_t>(std::distance(xBegin, xEnd));
-      auto nCols = static_cast<size_t>(std::distance(yBegin, yEnd));
-
-      if (nRows == 0 || nCols == 0)
+      if (xTotal == 0 || yTotal == 0)
       {
         std::unique_ptr<mpcf::StoppableTask<void>> empty_task = mpcf_py::execute_empty_task();
         return py::make_tuple(std::move(empty_task), outTensor);
@@ -139,15 +184,15 @@ namespace
 
 #ifdef BUILD_WITH_CUDA
       if (cudaFactory && !mpcf_py::g_settings.forceCpu
-          && nRows * nCols >= mpcf_py::g_settings.cudaThreshold * mpcf_py::g_settings.cudaThreshold)
+          && xTotal * yTotal >= mpcf_py::g_settings.cudaThreshold * mpcf_py::g_settings.cudaThreshold)
       {
         if (mpcf_py::g_settings.deviceVerbose)
         {
           std::cout << "Cross-distance computation on CUDA device(s)" << std::endl;
         }
 
-        std::vector<PcfT> rowPcfs(xBegin, xEnd);
-        std::vector<PcfT> colPcfs(yBegin, yEnd);
+        auto rowPcfs = collect_all_pcfs(X);
+        auto colPcfs = collect_all_pcfs(Y);
         auto task = cudaFactory(outTensor, rowPcfs, colPcfs, Tv(0), std::numeric_limits<Tv>::max());
         task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
@@ -155,14 +200,8 @@ namespace
       }
 #endif
 
-      if (mpcf_py::g_settings.deviceVerbose)
-      {
-        std::cout << "Cross-distance computation on CPU(s)" << std::endl;
-      }
-
-      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<
-          mpcf::CpuCrossIntegrationTask<TOperation, decltype(xBegin)>>(
-          outTensor, xBegin, xEnd, yBegin, yEnd, op);
+      std::unique_ptr<mpcf::StoppableTask<void>> task =
+          mpcf_py::execute_stoppable_task<CdistTask<TOperation>>(X, Y, outTensor, op);
       return py::make_tuple(std::move(task), outTensor);
     }
 
