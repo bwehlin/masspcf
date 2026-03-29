@@ -106,6 +106,18 @@ namespace mpcf
   }
 
   template <typename T>
+  const T& Tensor<T>::flat(size_t index) const
+  {
+    return index_to_ref(flat_to_multi_index(index, {m_shape.begin(), m_shape.end()}));
+  }
+
+  template <typename T>
+  T& Tensor<T>::flat(size_t index)
+  {
+    return index_to_ref(flat_to_multi_index(index, {m_shape.begin(), m_shape.end()}));
+  }
+
+  template <typename T>
   template <typename U>
   requires std::is_constructible_v<T, U>
   void Tensor<T>::assign_from(const Tensor<U>& rhs)
@@ -1591,5 +1603,17 @@ namespace mpcf
         cur[i] = 0;
       }
     }
+  }
+
+  inline std::vector<size_t> flat_to_multi_index(size_t flat, const std::vector<size_t>& shape)
+  {
+    auto ndim = shape.size();
+    std::vector<size_t> idx(ndim);
+    for (ptrdiff_t i = ndim - 1; i >= 0; --i)
+    {
+      idx[i] = flat % shape[i];
+      flat /= shape[i];
+    }
+    return idx;
   }
 }
