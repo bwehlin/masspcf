@@ -25,16 +25,10 @@
 
 #include "cuda_matrix_integrate_structs.cuh"
 #include "cuda_util.cuh"
+#include "triangle_skip_mode.hpp"
 
 namespace mpcf
 {
-  /// Controls which (i,j) pairs the kernel computes.
-  enum class TriangleSkipMode : int
-  {
-    None = 0,                  ///< Compute all pairs (cdist)
-    LowerTriangleSkipDiag = 1, ///< i > j only (DistanceMatrix)
-    LowerTriangle = 2          ///< i >= j (SymmetricMatrix)
-  };
 
   namespace internal
   {
