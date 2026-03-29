@@ -87,11 +87,11 @@ TYPED_TEST(DistanceMatrixResultWriterTyped, NonOverlappingBlocks)
   mpcf::DistanceMatrixResultWriter<Tv> writer(dm);
 
   Tv block1[] = { Tv(1), Tv(2), Tv(3), Tv(4) };
-  mpcf::BlockInfo bi1{.rowStart = 2, .rowHeight = 2, .colStart = 0, .colWidth = 2};
+  mpcf::BlockInfo bi1{.rowStart = 2, .rowHeight = 2, .colStart = 0, .colWidth = 2, .blockIndex = 0};
   writer.scatter(block1, bi1);
 
   Tv block2[] = { Tv(5) };
-  mpcf::BlockInfo bi2{.rowStart = 1, .rowHeight = 1, .colStart = 0, .colWidth = 1};
+  mpcf::BlockInfo bi2{.rowStart = 1, .rowHeight = 1, .colStart = 0, .colWidth = 1, .blockIndex = 1};
   writer.scatter(block2, bi2);
 
   EXPECT_EQ(dm(1, 0), Tv(5));
@@ -164,7 +164,7 @@ TYPED_TEST(DenseResultWriterTyped, ScatterAll)
 {
   using Tv = TypeParam;
   mpcf::Tensor<Tv> dense({4, 4}, Tv(0));
-  mpcf::DenseResultWriter<Tv> writer(dense, 4);
+  mpcf::DenseResultWriter<Tv> writer(mpcf::DenseMatrixView<Tv>(dense, 4));
 
   Tv hostBlock[] = { Tv(1), Tv(2), Tv(3), Tv(4) };
 
@@ -187,7 +187,7 @@ TYPED_TEST(DenseResultWriterTyped, RectangularOutput)
 {
   using Tv = TypeParam;
   mpcf::Tensor<Tv> dense({3, 5}, Tv(0));
-  mpcf::DenseResultWriter<Tv> writer(dense, 5);
+  mpcf::DenseResultWriter<Tv> writer(mpcf::DenseMatrixView<Tv>(dense, 5));
 
   Tv hostBlock[] = { Tv(7), Tv(8), Tv(9) };
 

@@ -330,6 +330,7 @@ SET(MPCF_LIB_SOURCES_CUDA
     include/mpcf/cuda/cuda_pcf_kernel.cuh
     include/mpcf/cuda/cuda_util.cuh
     include/mpcf/cuda/pcf_block_op.cuh
+    include/mpcf/cuda/triangle_skip_mode.hpp
 )
 
 SET(MPCF_HEADER_FILES

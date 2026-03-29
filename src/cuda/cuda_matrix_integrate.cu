@@ -91,7 +91,7 @@ namespace mpcf
     using writer_t = DenseResultWriter<Tv>;
 
     return std::make_unique<CudaCrossIntegrationTask<iter_t, OpT, writer_t>>(
-        *default_executor().cuda(), writer_t(out, colPcfs.size()),
+        *default_executor().cuda(), writer_t(DenseMatrixView<Tv>(out, colPcfs.size())),
         rowPcfs.cbegin(), rowPcfs.cend(),
         colPcfs.cbegin(), colPcfs.cend(),
         op, a, b);
