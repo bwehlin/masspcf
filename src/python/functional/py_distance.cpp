@@ -18,6 +18,7 @@
 #include "functional/pcf.hpp"
 #include "task.hpp"
 #include "functional/operations.cuh"
+#include "algorithms/functional/lp_distance.hpp"
 #include "algorithms/functional/matrix_integrate.hpp"
 
 #include <taskflow/algorithm/for_each.hpp>
@@ -207,14 +208,12 @@ namespace
 
     static Tv lp_distance_l1(const PcfT& f, const PcfT& g)
     {
-      mpcf::OperationL1Dist<Tt, Tv> op;
-      return op(mpcf::integrate<Tt, Tv>(f, g, op));
+      return mpcf::lp_distance(f, g);
     }
 
     static Tv lp_distance_lp(const PcfT& f, const PcfT& g, Tv p)
     {
-      mpcf::OperationLpDist<Tt, Tv> op(p);
-      return op(mpcf::integrate<Tt, Tv>(f, g, op));
+      return mpcf::lp_distance(f, g, p);
     }
 
     static py::tuple cdist_l1(TensorT X, TensorT Y)

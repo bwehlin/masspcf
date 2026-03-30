@@ -23,6 +23,7 @@
 #include <pybind11/numpy.h>
 
 #include <mpcf/symmetric_matrix.hpp>
+#include <mpcf/tensor.hpp>
 
 #include "py_np_support.hpp"
 
@@ -94,6 +95,9 @@ namespace mpcf_py
         }
         return sm;
       })
+      .def("allclose", [](const MatT& self, const MatT& rhs, double atol, double rtol){
+        return mpcf::allclose(self, rhs, T(atol), T(rtol));
+      }, py::arg("other"), py::arg("atol") = 1e-8, py::arg("rtol") = 1e-5)
       .def("__repr__", [suffix](const MatT& self) {
         std::ostringstream oss;
         oss << "SymmetricMatrix" << suffix << "(size=" << self.size() << ")";

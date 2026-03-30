@@ -22,6 +22,7 @@
 #include <mpcf/tensor.hpp>
 #include <mpcf/task.hpp>
 #include <mpcf/functional/operations.cuh>
+#include <mpcf/algorithms/functional/lp_distance.hpp>
 #include <mpcf/algorithms/functional/matrix_integrate.hpp>
 
 #ifdef BUILD_WITH_CUDA
@@ -92,6 +93,30 @@ namespace
       }
       return PcfT(std::move(points));
     }
+
+    // Run a pairwise integration on CPU and return the result matrix
+    template <typename Op, typename OutputT, bool includeDiagonal>
+    OutputT cpu_pdist(const std::vector<PcfT>& pcfs, Op op)
+    {
+      OutputT out(pcfs.size());
+      auto task = std::make_unique<mpcf::CpuPairwiseIntegrationTask<Op, typename std::vector<PcfT>::const_iterator, OutputT, includeDiagonal>>(
+          out, pcfs.cbegin(), pcfs.cend(), op);
+      task->start_async(mpcf::default_executor());
+      task->future().get();
+      return out;
+    }
+
+    // Run a cross-integration on CPU and return the result tensor
+    template <typename Op>
+    mpcf::Tensor<Tv> cpu_cdist(const std::vector<PcfT>& rowPcfs, const std::vector<PcfT>& colPcfs, Op op)
+    {
+      mpcf::Tensor<Tv> out({rowPcfs.size(), colPcfs.size()}, Tv(0));
+      auto task = std::make_unique<mpcf::CpuCrossIntegrationTask<Op, typename std::vector<PcfT>::const_iterator>>(
+          out, rowPcfs.cbegin(), rowPcfs.cend(), colPcfs.cbegin(), colPcfs.cend(), op);
+      task->start_async(mpcf::default_executor());
+      task->future().get();
+      return out;
+    }
   };
 
   using TestTypes = ::testing::Types<float, double>;
@@ -115,9 +140,10 @@ namespace
     task->start_async(mpcf::default_executor());
     task->future().get();
 
+    auto expected = mpcf::lp_distance(pcfs[0], pcfs[1]);
     EXPECT_NEAR(dm(0, 0), 0, this->tol);
-    EXPECT_NEAR(dm(0, 1), 3, this->tol);
-    EXPECT_NEAR(dm(1, 0), 3, this->tol);
+    EXPECT_NEAR(dm(0, 1), expected, this->tol);
+    EXPECT_NEAR(dm(1, 0), expected, this->tol);
     EXPECT_NEAR(dm(1, 1), 0, this->tol);
   }
 
@@ -149,28 +175,15 @@ namespace
 
     size_t n = pcfs.size();
 
-    // CPU reference
-    mpcf::DistanceMatrix<Tv> cpuDm(n);
-    auto cpuOp = mpcf::OperationL1Dist<Tv, Tv>{};
-    auto cpuTask = std::make_unique<mpcf::CpuPairwiseIntegrationTask<decltype(cpuOp), typename decltype(pcfs)::const_iterator, mpcf::DistanceMatrix<Tv>, false>>(
-        cpuDm, pcfs.cbegin(), pcfs.cend(), cpuOp);
-    cpuTask->start_async(mpcf::default_executor());
-    cpuTask->future().get();
+    auto cpuDm = this->template cpu_pdist<mpcf::OperationL1Dist<Tv, Tv>, mpcf::DistanceMatrix<Tv>, false>(
+        pcfs, mpcf::OperationL1Dist<Tv, Tv>{});
 
-    // GPU
     mpcf::DistanceMatrix<Tv> gpuDm(n);
     auto task = mpcf::create_cuda_block_integrate_l1_task(gpuDm, pcfs);
     task->start_async(mpcf::default_executor());
     task->future().get();
 
-    for (size_t i = 0; i < n; ++i)
-    {
-      for (size_t j = 0; j < n; ++j)
-      {
-        EXPECT_NEAR(gpuDm(i, j), cpuDm(i, j), this->tol)
-          << "Mismatch at (" << i << ", " << j << ")";
-      }
-    }
+    EXPECT_TRUE(mpcf::allclose(gpuDm, cpuDm, Tv(this->tol)));
   }
 
   // ==================== pdist Lp ====================
@@ -186,20 +199,15 @@ namespace
 
     size_t n = 2;
 
-    // CPU reference
-    mpcf::DistanceMatrix<Tv> cpuDm(n);
-    auto cpuOp = mpcf::OperationLpDist<Tv, Tv>(Tv(2));
-    auto cpuTask = std::make_unique<mpcf::CpuPairwiseIntegrationTask<decltype(cpuOp), typename decltype(pcfs)::const_iterator, mpcf::DistanceMatrix<Tv>, false>>(
-        cpuDm, pcfs.cbegin(), pcfs.cend(), cpuOp);
-    cpuTask->start_async(mpcf::default_executor());
-    cpuTask->future().get();
+    auto cpuDm = this->template cpu_pdist<mpcf::OperationLpDist<Tv, Tv>, mpcf::DistanceMatrix<Tv>, false>(
+        pcfs, mpcf::OperationLpDist<Tv, Tv>(Tv(2)));
 
     mpcf::DistanceMatrix<Tv> gpuDm(n);
     auto task = mpcf::create_cuda_block_integrate_lp_task(gpuDm, pcfs, Tv(2));
     task->start_async(mpcf::default_executor());
     task->future().get();
 
-    EXPECT_NEAR(gpuDm(0, 1), cpuDm(0, 1), Tv(1e-4));
+    EXPECT_TRUE(mpcf::allclose(gpuDm, cpuDm, Tv(1e-4)));
   }
 
   // ==================== L2 kernel ====================
@@ -215,28 +223,15 @@ namespace
 
     size_t n = 2;
 
-    // CPU reference
-    mpcf::SymmetricMatrix<Tv> cpuSm(n);
-    auto cpuOp = mpcf::OperationL2InnerProduct<Tv, Tv>{};
-    auto cpuTask = std::make_unique<mpcf::CpuPairwiseIntegrationTask<decltype(cpuOp), typename decltype(pcfs)::const_iterator, mpcf::SymmetricMatrix<Tv>, true>>(
-        cpuSm, pcfs.cbegin(), pcfs.cend(), cpuOp);
-    cpuTask->start_async(mpcf::default_executor());
-    cpuTask->future().get();
+    auto cpuSm = this->template cpu_pdist<mpcf::OperationL2InnerProduct<Tv, Tv>, mpcf::SymmetricMatrix<Tv>, true>(
+        pcfs, mpcf::OperationL2InnerProduct<Tv, Tv>{});
 
-    // GPU
     mpcf::SymmetricMatrix<Tv> gpuSm(n);
     auto task = mpcf::create_cuda_block_integrate_l2_kernel_task(gpuSm, pcfs);
     task->start_async(mpcf::default_executor());
     task->future().get();
 
-    for (size_t i = 0; i < n; ++i)
-    {
-      for (size_t j = i; j < n; ++j)
-      {
-        EXPECT_NEAR(gpuSm(i, j), cpuSm(i, j), this->tol)
-          << "Mismatch at (" << i << ", " << j << ")";
-      }
-    }
+    EXPECT_TRUE(mpcf::allclose(gpuSm, cpuSm, Tv(this->tol)));
   }
 
   // ==================== cdist L1 ====================
@@ -255,30 +250,14 @@ namespace
     colPcfs.push_back(this->make_pcf({{0, 3}, {1, 0}}));
     colPcfs.push_back(this->make_pcf({{0, 1}}));
 
-    size_t nRows = 2, nCols = 3;
+    auto cpuDense = this->cpu_cdist(rowPcfs, colPcfs, mpcf::OperationL1Dist<Tv, Tv>{});
 
-    // CPU reference
-    mpcf::Tensor<Tv> cpuDense({nRows, nCols}, Tv(0));
-    auto cpuOp = mpcf::OperationL1Dist<Tv, Tv>{};
-    auto cpuTask = std::make_unique<mpcf::CpuCrossIntegrationTask<decltype(cpuOp), typename decltype(rowPcfs)::const_iterator>>(
-        cpuDense, rowPcfs.cbegin(), rowPcfs.cend(), colPcfs.cbegin(), colPcfs.cend(), cpuOp);
-    cpuTask->start_async(mpcf::default_executor());
-    cpuTask->future().get();
-
-    // GPU
-    mpcf::Tensor<Tv> out({nRows, nCols}, Tv(0));
+    mpcf::Tensor<Tv> out({rowPcfs.size(), colPcfs.size()}, Tv(0));
     auto task = mpcf::create_cuda_block_cdist_l1_task(out, rowPcfs, colPcfs);
     task->start_async(mpcf::default_executor());
     task->future().get();
 
-    for (size_t i = 0; i < nRows; ++i)
-    {
-      for (size_t j = 0; j < nCols; ++j)
-      {
-        EXPECT_NEAR(out.data()[i * nCols + j], cpuDense.data()[i * nCols + j], this->tol)
-          << "Mismatch at (" << i << ", " << j << ")";
-      }
-    }
+    EXPECT_TRUE(mpcf::allclose(out, cpuDense, Tv(this->tol)));
   }
 
   TYPED_TEST(BlockIntegrateTyped, CdistL1_SameInput_MatchesPdist)
@@ -328,22 +307,14 @@ namespace
     std::vector<PcfT> colPcfs;
     colPcfs.push_back(this->make_pcf({{0, 1}, {1, 0}}));
 
-    size_t nRows = 1, nCols = 1;
+    auto cpuDense = this->cpu_cdist(rowPcfs, colPcfs, mpcf::OperationLpDist<Tv, Tv>(Tv(2)));
 
-    // CPU reference
-    mpcf::Tensor<Tv> cpuDense({nRows, nCols}, Tv(0));
-    auto cpuOp = mpcf::OperationLpDist<Tv, Tv>(Tv(2));
-    auto cpuTask = std::make_unique<mpcf::CpuCrossIntegrationTask<decltype(cpuOp), typename decltype(rowPcfs)::const_iterator>>(
-        cpuDense, rowPcfs.cbegin(), rowPcfs.cend(), colPcfs.cbegin(), colPcfs.cend(), cpuOp);
-    cpuTask->start_async(mpcf::default_executor());
-    cpuTask->future().get();
-
-    mpcf::Tensor<Tv> out({nRows, nCols}, Tv(0));
+    mpcf::Tensor<Tv> out({rowPcfs.size(), colPcfs.size()}, Tv(0));
     auto task = mpcf::create_cuda_block_cdist_lp_task(out, rowPcfs, colPcfs, Tv(2));
     task->start_async(mpcf::default_executor());
     task->future().get();
 
-    EXPECT_NEAR(out.data()[0], cpuDense.data()[0], Tv(1e-4));
+    EXPECT_TRUE(mpcf::allclose(out, cpuDense, Tv(1e-4)));
   }
 
   // ==================== cdist L2 kernel ====================
@@ -360,25 +331,14 @@ namespace
     colPcfs.push_back(this->make_pcf({{0, 2}, {3, 0}}));
     colPcfs.push_back(this->make_pcf({{0, 1}}));
 
-    size_t nRows = 1, nCols = 2;
+    auto cpuDense = this->cpu_cdist(rowPcfs, colPcfs, mpcf::OperationL2InnerProduct<Tv, Tv>{});
 
-    // CPU reference
-    mpcf::Tensor<Tv> cpuDense({nRows, nCols}, Tv(0));
-    auto cpuOp = mpcf::OperationL2InnerProduct<Tv, Tv>{};
-    auto cpuTask = std::make_unique<mpcf::CpuCrossIntegrationTask<decltype(cpuOp), typename decltype(rowPcfs)::const_iterator>>(
-        cpuDense, rowPcfs.cbegin(), rowPcfs.cend(), colPcfs.cbegin(), colPcfs.cend(), cpuOp);
-    cpuTask->start_async(mpcf::default_executor());
-    cpuTask->future().get();
-
-    mpcf::Tensor<Tv> out({nRows, nCols}, Tv(0));
+    mpcf::Tensor<Tv> out({rowPcfs.size(), colPcfs.size()}, Tv(0));
     auto task = mpcf::create_cuda_block_cdist_l2_kernel_task(out, rowPcfs, colPcfs);
     task->start_async(mpcf::default_executor());
     task->future().get();
 
-    for (size_t j = 0; j < nCols; ++j)
-    {
-      EXPECT_NEAR(out.data()[j], cpuDense.data()[j], this->tol) << "Mismatch at col " << j;
-    }
+    EXPECT_TRUE(mpcf::allclose(out, cpuDense, Tv(this->tol)));
   }
 
 #endif // BUILD_WITH_CUDA

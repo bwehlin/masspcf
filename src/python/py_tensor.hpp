@@ -272,6 +272,13 @@ namespace mpcf_py
       cls.def("__neg__", [](const TTensor& self){ return -self; });
     }
 
+    if constexpr (mpcf::FloatType<T>)
+    {
+      cls.def("allclose", [](const TTensor& self, const TTensor& rhs, double atol, double rtol){
+        return mpcf::allclose(self, rhs, T(atol), T(rtol));
+      }, py::arg("other"), py::arg("atol") = 1e-8, py::arg("rtol") = 1e-5);
+    }
+
     // Ordered comparisons (broadcasting, returns BoolTensor)
     if constexpr (mpcf::CanOrder<T>)
     {

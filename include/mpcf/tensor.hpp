@@ -98,6 +98,8 @@ namespace mpcf
     template <typename U> requires std::equality_comparable_with<U, T>
     bool operator!=(const Tensor<U>& rhs) const;
 
+    bool allclose(const Tensor& rhs, T atol = T(1e-8), T rtol = T(1e-5)) const requires FloatType<T>;
+
     template <typename U>
     requires std::is_constructible_v<T, U>
     void assign_from(const Tensor<U>& rhs);
@@ -422,6 +424,28 @@ namespace mpcf
   requires std::invocable<UnaryFunc, std::vector<size_t>>
 #endif
   void walk(const TTensor& tensor, UnaryFunc&& f);
+
+  template <typename T, typename UnaryPred>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryPred, const T&>
+#endif
+  bool any_of(const Tensor<T>& tensor, UnaryPred&& pred);
+
+  template <typename T, typename UnaryPred>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryPred, const T&>
+#endif
+  bool all_of(const Tensor<T>& tensor, UnaryPred&& pred);
+
+  template <FloatType T>
+  bool allclose(const Tensor<T>& a, const Tensor<T>& b, T atol = T(1e-8), T rtol = T(1e-5));
+
+  // Follows the numpy convention: |a - b| <= atol + rtol * |b|
+  template <typename MatT>
+  requires is_compressed_matrix_v<MatT>
+  bool allclose(const MatT& a, const MatT& b,
+                typename MatT::value_type atol = typename MatT::value_type(1e-8),
+                typename MatT::value_type rtol = typename MatT::value_type(1e-5));
 
   /// Convert a flat (linear) index to a multi-dimensional index for the given shape.
   std::vector<size_t> flat_to_multi_index(size_t flat, const std::vector<size_t>& shape);
