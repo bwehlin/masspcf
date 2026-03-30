@@ -54,7 +54,7 @@ namespace mpcf::detail
     [[nodiscard]] TDeviceFuncPtr* get() const { return m_ptr; }
 
   private:
-    TDeviceFuncPtr* m_ptr;
+    TDeviceFuncPtr* m_ptr = nullptr;
   };
 
 }

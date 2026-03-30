@@ -76,8 +76,8 @@ namespace mpcf
         return *this;
       }
 
+      m_cpuExec = rhs.m_cpuExec; // capture before unique_ptr move
       m_upCpuExec = std::move(rhs.m_upCpuExec);
-      m_cpuExec = rhs.m_cpuExec;
       rhs.m_cpuExec = nullptr;
 
       m_upCudaExec = std::move(rhs.m_upCudaExec);
