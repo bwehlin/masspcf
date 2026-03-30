@@ -15,6 +15,10 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/tensor.hpp>
+#include <mpcf/distance_matrix.hpp>
+#include <mpcf/symmetric_matrix.hpp>
+#include <mpcf/distance_matrix.hpp>
+#include <mpcf/symmetric_matrix.hpp>
 
 // ============================================================================
 // Helpers
@@ -634,6 +638,156 @@ namespace
     }
     EXPECT_FALSE(a == b);
     EXPECT_TRUE(a != b);
+  }
+
+// ============================================================================
+// allclose — Tensor
+// ============================================================================
+
+  using FloatTypes = ::testing::Types<float, double>;
+
+  template <typename T>
+  class AllcloseTensorTyped : public ::testing::Test {};
+  TYPED_TEST_SUITE(AllcloseTensorTyped, FloatTypes);
+
+  TYPED_TEST(AllcloseTensorTyped, IdenticalAreClose)
+  {
+    using T = TypeParam;
+    auto a = make_sequential<T>({3, 4});
+    EXPECT_TRUE(mpcf::allclose(a, a));
+  }
+
+  TYPED_TEST(AllcloseTensorTyped, ShapeMismatch)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> a({2, 3}, T(1));
+    mpcf::Tensor<T> b({3, 2}, T(1));
+    EXPECT_FALSE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseTensorTyped, SmallPerturbationWithinTolerance)
+  {
+    using T = TypeParam;
+    auto a = make_sequential<T>({3, 4});
+    auto b = make_sequential<T>({3, 4});
+    b({1, 2}) = b({1, 2}) + T(1e-9);
+    EXPECT_TRUE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseTensorTyped, LargePerturbationOutsideTolerance)
+  {
+    using T = TypeParam;
+    auto a = make_sequential<T>({3, 4});
+    auto b = make_sequential<T>({3, 4});
+    b({2, 0}) = T(999);
+    EXPECT_FALSE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseTensorTyped, CustomAtol)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> a({2, 3}, T(0));
+    mpcf::Tensor<T> b({2, 3}, T(0));
+    b({1, 1}) = T(0.5);
+    EXPECT_FALSE(mpcf::allclose(a, b));
+    EXPECT_TRUE(mpcf::allclose(a, b, T(1)));
+  }
+
+  TYPED_TEST(AllcloseTensorTyped, EmptyTensorsAreClose)
+  {
+    using T = TypeParam;
+    mpcf::Tensor<T> a({0});
+    mpcf::Tensor<T> b({0});
+    EXPECT_TRUE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseTensorTyped, MemberDelegatesToFree)
+  {
+    using T = TypeParam;
+    auto a = make_sequential<T>({2, 3});
+    auto b = make_sequential<T>({2, 3});
+    b({0, 1}) = b({0, 1}) + T(1e-9);
+    EXPECT_EQ(a.allclose(b), mpcf::allclose(a, b));
+  }
+
+// ============================================================================
+// allclose — compressed matrices (DistanceMatrix, SymmetricMatrix)
+// ============================================================================
+
+  template <typename T>
+  struct CompressedMatrixTraits;
+
+  template <typename T>
+  struct CompressedMatrixTraits<mpcf::DistanceMatrix<T>>
+  {
+    using Scalar = T;
+    static mpcf::DistanceMatrix<T> make(size_t n, T init) { return mpcf::DistanceMatrix<T>(n, init); }
+    static void perturb(mpcf::DistanceMatrix<T>& m, T val) { m(0, 1) = val; }
+  };
+
+  template <typename T>
+  struct CompressedMatrixTraits<mpcf::SymmetricMatrix<T>>
+  {
+    using Scalar = T;
+    static mpcf::SymmetricMatrix<T> make(size_t n, T init) { return mpcf::SymmetricMatrix<T>(n, init); }
+    static void perturb(mpcf::SymmetricMatrix<T>& m, T val) { m(0, 1) = val; }
+  };
+
+  using CompressedMatrixTypes = ::testing::Types<
+    mpcf::DistanceMatrix<float>, mpcf::DistanceMatrix<double>,
+    mpcf::SymmetricMatrix<float>, mpcf::SymmetricMatrix<double>>;
+
+  template <typename T>
+  class AllcloseCompressedTyped : public ::testing::Test {};
+  TYPED_TEST_SUITE(AllcloseCompressedTyped, CompressedMatrixTypes);
+
+  TYPED_TEST(AllcloseCompressedTyped, IdenticalAreClose)
+  {
+    using Traits = CompressedMatrixTraits<TypeParam>;
+    using T = typename Traits::Scalar;
+    auto a = Traits::make(3, T(1));
+    auto b = Traits::make(3, T(1));
+    EXPECT_TRUE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseCompressedTyped, SizeMismatch)
+  {
+    using Traits = CompressedMatrixTraits<TypeParam>;
+    using T = typename Traits::Scalar;
+    auto a = Traits::make(3, T(1));
+    auto b = Traits::make(4, T(1));
+    EXPECT_FALSE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseCompressedTyped, SmallPerturbationWithinTolerance)
+  {
+    using Traits = CompressedMatrixTraits<TypeParam>;
+    using T = typename Traits::Scalar;
+    auto a = Traits::make(3, T(1));
+    auto b = Traits::make(3, T(1));
+    Traits::perturb(b, T(1) + T(1e-9));
+    EXPECT_TRUE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseCompressedTyped, LargePerturbationOutsideTolerance)
+  {
+    using Traits = CompressedMatrixTraits<TypeParam>;
+    using T = typename Traits::Scalar;
+    auto a = Traits::make(3, T(1));
+    auto b = Traits::make(3, T(1));
+    Traits::perturb(b, T(5));
+    EXPECT_FALSE(mpcf::allclose(a, b));
+  }
+
+  TYPED_TEST(AllcloseCompressedTyped, CustomAtol)
+  {
+    using Traits = CompressedMatrixTraits<TypeParam>;
+    using T = typename Traits::Scalar;
+    auto a = Traits::make(3, T(0));
+    auto b = Traits::make(3, T(0));
+    Traits::perturb(b, T(0.5));
+    EXPECT_FALSE(mpcf::allclose(a, b));
+    EXPECT_TRUE(mpcf::allclose(a, b, T(1)));
   }
 
 } // namespace

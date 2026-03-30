@@ -18,6 +18,7 @@
 #define MASSPCF_DISTANCE_MATRIX_H
 
 #include "config.hpp"
+#include "concepts.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -153,6 +154,9 @@ namespace mpcf
     std::shared_ptr<T[]> m_data;
     size_t m_size;
   };
+
+  template <typename T>
+  struct is_compressed_matrix<DistanceMatrix<T>> : std::true_type {};
 
 }
 

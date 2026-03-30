@@ -14,6 +14,7 @@
 * limitations under the License.
 */
 
+#include <cmath>
 #include <functional>
 
 namespace mpcf
@@ -1362,9 +1363,7 @@ namespace mpcf
 #endif
   bool Tensor<T>::any_of(UnaryFunc&& f) const
   {
-    return any_of_idx([this, &f](const std::vector<size_t>& idx){
-      return f((*this)(idx));
-    });
+    return mpcf::any_of(*this, std::forward<UnaryFunc>(f));
   }
 
   template <typename T>
@@ -1390,6 +1389,12 @@ namespace mpcf
 
     return match;
 
+  }
+
+  template <typename T>
+  bool Tensor<T>::allclose(const Tensor& rhs, T atol, T rtol) const requires FloatType<T>
+  {
+    return mpcf::allclose(*this, rhs, atol, rtol);
   }
 
   template <typename T>
@@ -1603,6 +1608,67 @@ namespace mpcf
         cur[i] = 0;
       }
     }
+  }
+
+  template <typename T, typename UnaryPred>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryPred, const T&>
+#endif
+  bool any_of(const Tensor<T>& tensor, UnaryPred&& pred)
+  {
+    bool found = false;
+    walk(tensor, [&found, &tensor, &pred](const std::vector<size_t>& idx) {
+      found = pred(tensor(idx));
+      return !found;
+    });
+    return found;
+  }
+
+  template <typename T, typename UnaryPred>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryPred, const T&>
+#endif
+  bool all_of(const Tensor<T>& tensor, UnaryPred&& pred)
+  {
+    bool result = true;
+    walk(tensor, [&result, &tensor, &pred](const std::vector<size_t>& idx) {
+      return (result = pred(tensor(idx)));
+    });
+    return result;
+  }
+
+  // Follows the numpy convention: |a - b| <= atol + rtol * |b|
+  template <FloatType T>
+  bool allclose(const Tensor<T>& a, const Tensor<T>& b, T atol, T rtol)
+  {
+    if (a.shape() != b.shape())
+      return false;
+
+    bool close = true;
+    walk(a, [&close, &a, &b, atol, rtol](const std::vector<size_t>& idx) {
+      auto aval = a(idx);
+      auto bval = b(idx);
+      return (close = (std::abs(aval - bval) <= atol + rtol * std::abs(bval)));
+    });
+    return close;
+  }
+
+  template <typename MatT>
+  requires is_compressed_matrix_v<MatT>
+  bool allclose(const MatT& a, const MatT& b,
+                typename MatT::value_type atol, typename MatT::value_type rtol)
+  {
+    if (a.storage_count() != b.storage_count())
+      return false;
+
+    for (size_t i = 0; i < a.storage_count(); ++i)
+    {
+      auto aval = a.data()[i];
+      auto bval = b.data()[i];
+      if (std::abs(aval - bval) > atol + rtol * std::abs(bval))
+        return false;
+    }
+    return true;
   }
 
   inline std::vector<size_t> flat_to_multi_index(size_t flat, const std::vector<size_t>& shape)

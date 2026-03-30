@@ -121,6 +121,11 @@ namespace mpcf
 
     typename T::value_type;
   };
+  template <typename T>
+  struct is_compressed_matrix : std::false_type {};
+
+  template <typename T>
+  inline constexpr bool is_compressed_matrix_v = is_compressed_matrix<T>::value;
 }
 
 #endif //MASSPCF_CONCEPTS_H
