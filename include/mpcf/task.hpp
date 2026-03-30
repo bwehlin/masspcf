@@ -130,8 +130,8 @@ namespace mpcf
         m_work_total.store(n_items);
         m_work_step_desc = desc;
         m_work_step_unit = unit;
+        m_work_completed.store(0);
       }
-      m_work_completed.store(0);
     }
 
   private:
