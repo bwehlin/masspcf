@@ -51,7 +51,7 @@ namespace
     using CudaFactory = std::function<std::unique_ptr<mpcf::StoppableTask<void>>(mpcf::DistanceMatrix<Tv>&, const std::vector<PcfT>&, Tv, Tv)>;
 
     template <typename TOperation>
-    static py::tuple pdist_impl(TensorT fs, TOperation op, CudaFactory cudaFactory)
+    static py::tuple pdist_impl(TensorT fs, TOperation op, [[maybe_unused]] CudaFactory cudaFactory)
     {
       auto n = static_cast<size_t>(fs.shape(0));
       auto distmat = mpcf::DistanceMatrix<Tv>(n);
@@ -165,7 +165,7 @@ namespace
     }
 
     template <typename TOperation>
-    static py::tuple cdist_impl(TensorT X, TensorT Y, TOperation op, CudaCdistFactory cudaFactory)
+    static py::tuple cdist_impl(TensorT X, TensorT Y, TOperation op, [[maybe_unused]] CudaCdistFactory cudaFactory)
     {
       std::vector<size_t> outShape;
       for (auto d : X.shape()) outShape.push_back(d);

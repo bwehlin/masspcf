@@ -16,9 +16,21 @@
 
 #include <cmath>
 #include <functional>
+#include <type_traits>
+
+#include <taskflow/algorithm/for_each.hpp>
+
+#include "executor.hpp"
 
 namespace mpcf
 {
+  // Forward declaration -- definition below walk()
+  template <IsTensor TTensor, typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  void parallel_walk(const TTensor& tensor, UnaryFunc&& f, Executor& exec);
+
   template <typename T>
   Tensor<T>::Tensor(const std::vector<size_t>& shape, const T& init)
     : m_shape(shape)
@@ -166,7 +178,10 @@ namespace mpcf
   Tensor<T>& Tensor<T>::operator*=(const U& u)
   {
     apply([&u](T& val){
-      val *= u;
+      if constexpr (std::is_same_v<T, bool>)
+        val = val && u;
+      else
+        val *= u;
     });
 
     return *this;
@@ -242,7 +257,10 @@ namespace mpcf
   {
     Tensor<T> ret = t.copy();
     ret.apply([&u](T& val){
-      val = u * val;
+      if constexpr (std::is_same_v<T, bool>)
+        val = u && val;
+      else
+        val = u * val;
     });
     return ret;
   }
@@ -417,7 +435,12 @@ namespace mpcf
 
   template <typename T>
   Tensor<T> Tensor<T>::operator*(const Tensor& rhs) const
-  { return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a * b; }); }
+  {
+    if constexpr (std::is_same_v<T, bool>)
+      return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a && b; });
+    else
+      return detail::broadcast_binop(*this, rhs, [](const T& a, const T& b) -> T { return a * b; });
+  }
 
   template <typename T>
   Tensor<T> Tensor<T>::operator/(const Tensor& rhs) const
@@ -1359,6 +1382,16 @@ namespace mpcf
   template <typename T>
   template <typename UnaryFunc>
 #ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  void Tensor<T>::parallel_walk(UnaryFunc&& f, Executor& exec) const
+  {
+    mpcf::parallel_walk(*this, std::forward<UnaryFunc>(f), exec);
+  }
+
+  template <typename T>
+  template <typename UnaryFunc>
+#ifndef __CUDACC__
   requires std::invocable<UnaryFunc, const T&>
 #endif
   bool Tensor<T>::any_of(UnaryFunc&& f) const
@@ -1608,6 +1641,43 @@ namespace mpcf
         cur[i] = 0;
       }
     }
+  }
+
+  template <IsTensor TTensor, typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  void parallel_walk(const TTensor& tensor, UnaryFunc&& f, Executor& exec)
+  {
+    auto shape_range = tensor.shape();
+    std::vector<size_t> shape(std::begin(shape_range), std::end(shape_range));
+
+    if (shape.empty() || std::any_of(shape.begin(), shape.end(), [](size_t n){ return n == 0; }))
+    {
+      return;
+    }
+
+    auto ndim = shape.size();
+    size_t total = 1;
+    for (auto s : shape)
+      total *= s;
+
+    tf::Taskflow flow;
+    flow.for_each_index<size_t, size_t, size_t>(0ul, total, 1ul, [&f, &shape, ndim](size_t flat) {
+      thread_local std::vector<size_t> idx;
+      idx.resize(ndim);
+
+      size_t rem = flat;
+      for (ptrdiff_t i = ndim - 1; i >= 0; --i)
+      {
+        idx[i] = rem % shape[i];
+        rem /= shape[i];
+      }
+
+      f(idx);
+    });
+
+    exec.cpu()->run(std::move(flow)).wait();
   }
 
   template <typename T, typename UnaryPred>

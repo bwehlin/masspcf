@@ -1,5 +1,5 @@
 /*
-* Copyright 2024 Bjorn Wehlin
+* Copyright 2024-2026 Bjorn Wehlin
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,14 +18,6 @@
 
 #include <mpcf/functional/pcf.hpp>
 #include <mpcf/algorithms/functional/reduce.hpp>
-
-namespace
-{
-  void PrintTo(const mpcf::Pcf_f64& f, std::ostream* os)
-  {
-    *os << f.to_string();
-  } 
-}
 
 TEST(ParallelReduce, AddThreeFunctions)
 {

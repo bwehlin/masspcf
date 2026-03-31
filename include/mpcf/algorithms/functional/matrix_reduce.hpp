@@ -45,9 +45,6 @@ namespace mpcf
       Executor& exec = default_executor())
   {
     auto shape = in.shape();
-
-    std::vector<size_t> inIdx(shape.size(), 0_uz);
-
     auto inDimSize = shape[dim];
 
     shape.erase(shape.begin() + dim);
@@ -58,7 +55,8 @@ namespace mpcf
 
     Tensor<PcfT> ret(shape);
     auto op = std::forward<ReductionF>(reduction);
-    ret.walk([&ret, &in, &inIdx, inDimSize, dim, &op](const std::vector<size_t>& idx){
+    ret.parallel_walk([&ret, &in, inDimSize, dim, &op](const std::vector<size_t>& idx){
+      std::vector<size_t> inIdx(in.shape().size(), 0_uz);
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
       if (inIdx.size() > 1)
@@ -78,7 +76,7 @@ namespace mpcf
       auto & out = ret(idx);
 
       out = reduce(tmp, op);
-    });
+    }, exec);
 
     return ret;
   }
@@ -108,9 +106,6 @@ namespace mpcf
     static_assert(std::invocable<MaxOp, OutValueT, OutValueT>);
 
     auto shape = in.shape();
-
-    std::vector<size_t> inIdx(shape.size(), 0_uz);
-
     auto inDimSize = shape[dim];
 
     shape.erase(shape.begin() + dim);
@@ -120,9 +115,8 @@ namespace mpcf
     }
     OutTensorT ret(shape);
 
-    //tf::Taskflow
-
-    ret.walk([&ret, &in, &inIdx, inDimSize, dim, &f, &maxOp](const std::vector<size_t>& idx){
+    ret.parallel_walk([&ret, &in, inDimSize, dim, &f, &maxOp](const std::vector<size_t>& idx){
+      std::vector<size_t> inIdx(in.shape().size(), 0_uz);
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
       if (inIdx.size() > 1)
@@ -144,7 +138,7 @@ namespace mpcf
       auto init = f(*tmp.begin());
       out =  std::transform_reduce(tmp.begin() + 1, tmp.end(), init, maxOp, f);
 
-    });
+    }, exec);
 
     return ret;
   }

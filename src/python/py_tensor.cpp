@@ -67,7 +67,7 @@ namespace
 
         }
 
-        std::string type_name = pybind11::str(other.get_type().attr("__name__"));
+        std::string type_name = pybind11::str(pybind11::type::handle_of(other).attr("__name__"));
         throw std::runtime_error("Unsupported comparison with object of type " + type_name);
       })
 

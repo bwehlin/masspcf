@@ -33,6 +33,7 @@
 
 namespace mpcf
 {
+  class Executor;
 
   struct SliceAll { };
 
@@ -262,6 +263,16 @@ namespace mpcf
     requires std::invocable<UnaryFunc, std::vector<size_t>>
 #endif
     void walk(UnaryFunc&& f) const;
+
+    /**
+     * Like walk(), but distributes work across threads via the given Executor.
+     * Does not support early termination (bool return).
+     */
+    template <typename UnaryFunc>
+#ifndef __CUDACC__
+    requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+    void parallel_walk(UnaryFunc&& f, Executor& exec) const;
 
     template <typename UnaryPred>
 #ifndef __CUDACC__
