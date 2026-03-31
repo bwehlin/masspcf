@@ -276,7 +276,9 @@ Both are generic over the element type. Function-type-specific flattening (e.g.,
 .. code-block:: cpp
 
    // Generic: OffsetDataManager<ElementT> (base class)
-   manager.init(begin, end, sizeFn, copyFn);
+   // sizeFn:    (const Obj&) -> size_t            -- number of elements
+   // elementFn: (const Obj&, size_t i) -> ElementT -- extract i-th element
+   manager.init(begin, end, sizeFn, elementFn);
 
    // PCF-specific convenience:
    init_pcf_data(manager, pcfBegin, pcfEnd);
@@ -294,6 +296,8 @@ After each block's results are downloaded to the host scratch buffer, they are s
 - **DistanceMatrix**: write only entries where :math:`i > j` (lower triangle, diagonal excluded). Uses compressed storage: ``max(i,j) * (max(i,j)-1) / 2 + min(i,j)``.
 - **SymmetricMatrix**: write entries where :math:`i \geq j` (lower triangle, diagonal included).
 - **Tensor** (dense): write all entries at their row-major position. Used by ``cdist`` -- the output tensor has the concatenated shape ``(*X.shape, *Y.shape)`` and is allocated before the computation begins.
+
+For ``DistanceMatrix`` and ``SymmetricMatrix``, the scatter validates that skipped entries (upper triangle and, for distance matrices, the diagonal) are zero. A non-zero value at a skipped position indicates a bug in the computation and raises ``std::logic_error``.
 
 Since blocks cover non-overlapping regions, scatter operations from different blocks never write to the same output element. No locking is required.
 

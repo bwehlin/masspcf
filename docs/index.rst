@@ -18,14 +18,19 @@ The core data structures are NumPy-like multidimensional tensors supporting slic
    :caption: Reference:
 
    masspcf
-   internals
-   changelog
 
 .. toctree::
    :hidden:
    :caption: About:
 
    acknowledgments
+
+.. toctree::
+   :hidden:
+   :caption: More:
+
+   internals
+   changelog
 
 .. grid:: 2
 
@@ -47,17 +52,23 @@ The core data structures are NumPy-like multidimensional tensors supporting slic
 
       Detailed descriptions of the Python API.
 
+   .. grid-item-card:: :fas:`circle-info` About
+      :link: acknowledgments
+      :link-type: doc
+
+      Citing masspcf, acknowledgments, and licensing.
+
    .. grid-item-card:: :fas:`gears` Internals
       :link: internals
       :link-type: doc
 
       Architecture of the C++/CUDA engine: block execution, double buffering, and extensibility.
 
-   .. grid-item-card:: :fas:`circle-info` About
-      :link: acknowledgments
+   .. grid-item-card:: :fas:`clock-rotate-left` Changelog
+      :link: changelog
       :link-type: doc
 
-      Citing masspcf and acknowledgments.
+      Release history and version notes.
 
 Indices and tables
 ==================

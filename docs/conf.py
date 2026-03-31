@@ -80,6 +80,9 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "pydata_sphinx_theme"
 # html_theme = 'sphinx_rtd_theme'
+html_theme_options = {
+    "header_links_before_dropdown": 4,
+}
 html_static_path = ["_static"]
 html_css_files = ["lightbox.css"]
 html_js_files = ["lightbox.js"]

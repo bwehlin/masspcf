@@ -28,3 +28,6 @@ This work was partially supported by the Wallenberg AI, Autonomous Systems and S
 Program (WASP) funded by the Knut and Alice Wallenberg Foundation.
 
 For more information about WASP, please visit https://wasp-sweden.org.
+
+
+.. include:: ../LICENSE.rst

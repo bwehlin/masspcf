@@ -13,6 +13,10 @@ Major rewrite of the core data structures and significant expansion of the API.
 * **Tensor I/O** — `save`/`load` for all tensor types; `from_serial_content` for in-memory deserialization.
 * **PCF evaluation** — evaluate PCFs at given time points.
 * **Plotting** — built-in plotting for barcodes (matplotlib).
+* **`lp_distance`** — scalar Lp distance between two individual PCFs.
+* **`cdist`** — cross-distance matrices between two collections of PCFs.
+* **`allclose`, `all_of`, `any_of`** — free functions for element-wise tensor comparisons.
+* **`pickle` support** — all tensor types can be pickled and unpickled.
 
 ### Breaking changes
 
@@ -27,3 +31,5 @@ Major rewrite of the core data structures and significant expansion of the API.
 
 * CUDA backend reworked: auto-detection, pip-installed CUDA toolkit support (`nvidia.cu12`/`nvidia.cu13`), version-specific modules.
 * Wheels built for Linux (x86_64, aarch64), macOS (x86_64, arm64), and Windows (x86_64).
+* CUDA matrix integration refactored into modular components.
+* GPU occupancy floor added to block scheduler.
