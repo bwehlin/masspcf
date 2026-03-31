@@ -297,7 +297,7 @@ namespace mpcf
   {
     Tensor<T> ret = t.copy();
     ret.apply([&exponent](T& val){
-      val = mpcf::pow(val, exponent);
+      val = static_cast<T>(mpcf::pow(val, exponent));
     });
     return ret;
   }
@@ -315,7 +315,7 @@ namespace mpcf
   void ipow(Tensor<T>& t, U exponent)
   {
     t.apply([&exponent](T& val){
-      val = mpcf::pow(val, exponent);
+      val = static_cast<T>(mpcf::pow(val, exponent));
     });
   }
 
@@ -569,7 +569,7 @@ namespace mpcf
       std::vector<size_t> indices;
       for (size_t i = 0; i < mask.shape()[0]; ++i)
       {
-        if (mask({i}))
+        if (mask(i))
           indices.push_back(i);
       }
       return indices;
@@ -630,7 +630,7 @@ namespace mpcf
     detail::validate_axis_mask(axis, dst.shape().size(), mask, dst.shape()[axis]);
 
     walk(dst, [&](const std::vector<size_t>& idx) {
-      if (mask({idx[axis]}))
+      if (mask(idx[axis]))
         dst(idx) = value;
     });
   }
@@ -690,7 +690,7 @@ namespace mpcf
     walk(dst, [&](const std::vector<size_t>& idx) {
       for (const auto& [axis, mask] : axis_masks)
       {
-        if (!mask({idx[axis]}))
+        if (!mask(idx[axis]))
           return;
       }
       dst(idx) = value;
@@ -1376,7 +1376,7 @@ namespace mpcf
     bool match = false;
 
     // This could be made more efficient
-    walk([this, &match, &f](const std::vector<size_t>& idx) {
+    walk([&match, &f](const std::vector<size_t>& idx) {
 
       if (f(idx))
       {
@@ -1430,7 +1430,7 @@ namespace mpcf
     size_t i = 0;
     for (auto & slice : sliceVector)
     {
-      std::visit([i, &slice, &ret, &dimsToDrop](auto&& arg) {
+      std::visit([i, &ret, &dimsToDrop](auto&& arg) {
         using argT = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<argT, SliceIndex>)
         {
