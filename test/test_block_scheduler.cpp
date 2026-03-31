@@ -21,6 +21,47 @@
 #include <set>
 #include <utility>
 
+namespace
+{
+  void verify_block_coverage(const mpcf::CudaBlockScheduler::Config& config,
+                              bool checkBudget = true)
+  {
+    mpcf::CudaBlockScheduler scheduler(config);
+    auto const& blocks = scheduler.blocks();
+
+    std::set<std::pair<size_t, size_t>> covered;
+    for (auto const& block : blocks)
+    {
+      if (checkBudget)
+      {
+        EXPECT_LE(block.rowHeight * block.colWidth, config.maxOutputElements)
+          << "Block (" << block.rowStart << "," << block.colStart
+          << ") size " << block.rowHeight << "x" << block.colWidth << " exceeds budget";
+      }
+
+      for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
+      {
+        for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
+        {
+          if (config.triangleMode == mpcf::BlockTriangleMode::LowerTriangle && i < j)
+          {
+            continue;
+          }
+
+          auto [it, inserted] = covered.insert({i, j});
+          EXPECT_TRUE(inserted) << "Duplicate coverage at (" << i << ", " << j << ")";
+        }
+      }
+    }
+
+    size_t expected = (config.triangleMode == mpcf::BlockTriangleMode::LowerTriangle)
+      ? config.nRows * (config.nRows + 1) / 2
+      : config.nRows * config.nCols;
+
+    EXPECT_EQ(covered.size(), expected) << "Incomplete coverage";
+  }
+}
+
 TEST(CudaBlockScheduler, EmptyMatrix)
 {
   mpcf::CudaBlockScheduler scheduler({
@@ -52,74 +93,22 @@ TEST(CudaBlockScheduler, SingleElement)
 
 TEST(CudaBlockScheduler, SmallMatrix_LowerTriangle)
 {
-  mpcf::CudaBlockScheduler scheduler({
+  verify_block_coverage({
     .nRows = 4, .nCols = 4,
     .maxOutputElements = 4,
     .nSplitsHint = 1,
     .triangleMode = mpcf::BlockTriangleMode::LowerTriangle
   });
-
-  auto const& blocks = scheduler.blocks();
-
-  // Verify all lower-triangle (i,j) pairs with i >= j are covered exactly once
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : blocks)
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        if (i >= j)
-        {
-          auto [it, inserted] = covered.insert({i, j});
-          EXPECT_TRUE(inserted) << "Duplicate coverage at (" << i << ", " << j << ")";
-        }
-      }
-    }
-  }
-
-  // Check all lower-triangle pairs are present
-  for (size_t i = 0; i < 4; ++i)
-  {
-    for (size_t j = 0; j <= i; ++j)
-    {
-      EXPECT_TRUE(covered.count({i, j})) << "Missing coverage at (" << i << ", " << j << ")";
-    }
-  }
 }
 
 TEST(CudaBlockScheduler, SmallMatrix_Full)
 {
-  mpcf::CudaBlockScheduler scheduler({
+  verify_block_coverage({
     .nRows = 4, .nCols = 4,
     .maxOutputElements = 4,
     .nSplitsHint = 1,
     .triangleMode = mpcf::BlockTriangleMode::Full
   });
-
-  auto const& blocks = scheduler.blocks();
-
-  // Verify all (i,j) pairs are covered exactly once
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : blocks)
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        auto [it, inserted] = covered.insert({i, j});
-        EXPECT_TRUE(inserted) << "Duplicate coverage at (" << i << ", " << j << ")";
-      }
-    }
-  }
-
-  for (size_t i = 0; i < 4; ++i)
-  {
-    for (size_t j = 0; j < 4; ++j)
-    {
-      EXPECT_TRUE(covered.count({i, j})) << "Missing coverage at (" << i << ", " << j << ")";
-    }
-  }
 }
 
 TEST(CudaBlockScheduler, LowerTriangleHasFewerBlocks)
@@ -143,47 +132,17 @@ TEST(CudaBlockScheduler, LowerTriangleHasFewerBlocks)
 
 TEST(CudaBlockScheduler, LargeMatrixSmallBlocks)
 {
-  mpcf::CudaBlockScheduler scheduler({
+  mpcf::CudaBlockScheduler::Config config = {
     .nRows = 100, .nCols = 100,
     .maxOutputElements = 100,
     .nSplitsHint = 4,
     .triangleMode = mpcf::BlockTriangleMode::LowerTriangle
-  });
+  };
 
-  auto const& blocks = scheduler.blocks();
-  EXPECT_GT(blocks.size(), 1);
+  mpcf::CudaBlockScheduler scheduler(config);
+  EXPECT_GT(scheduler.blocks().size(), 1);
 
-  // Verify no block exceeds budget
-  for (auto const& block : blocks)
-  {
-    EXPECT_LE(block.rowHeight * block.colWidth, 100)
-      << "Block (" << block.rowStart << "," << block.colStart
-      << ") size " << block.rowHeight << "x" << block.colWidth << " exceeds budget";
-  }
-
-  // Verify all lower-triangle pairs covered
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : blocks)
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        if (i >= j)
-        {
-          covered.insert({i, j});
-        }
-      }
-    }
-  }
-
-  for (size_t i = 0; i < 100; ++i)
-  {
-    for (size_t j = 0; j <= i; ++j)
-    {
-      EXPECT_TRUE(covered.count({i, j})) << "Missing coverage at (" << i << ", " << j << ")";
-    }
-  }
+  verify_block_coverage(config);
 }
 
 TEST(CudaBlockScheduler, MaxRowHeightAndColWidth)
@@ -220,66 +179,27 @@ TEST(CudaBlockScheduler, SortedByDescendingWork)
 
 TEST(CudaBlockScheduler, RectangularMatrix_Full)
 {
-  mpcf::CudaBlockScheduler scheduler({
-    .nRows = 3,
-    .nCols = 5,
+  verify_block_coverage({
+    .nRows = 3, .nCols = 5,
     .maxOutputElements = 100,
     .nSplitsHint = 1,
     .triangleMode = mpcf::BlockTriangleMode::Full
   });
-
-  auto const& blocks = scheduler.blocks();
-
-  // Verify all (i,j) pairs in a 3x5 matrix are covered
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : blocks)
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        auto [it, inserted] = covered.insert({i, j});
-        EXPECT_TRUE(inserted) << "Duplicate coverage at (" << i << ", " << j << ")";
-      }
-    }
-  }
-
-  for (size_t i = 0; i < 3; ++i)
-  {
-    for (size_t j = 0; j < 5; ++j)
-    {
-      EXPECT_TRUE(covered.count({i, j})) << "Missing coverage at (" << i << ", " << j << ")";
-    }
-  }
 }
 
 TEST(CudaBlockScheduler, RectangularMatrix_ManyBlocks)
 {
-  mpcf::CudaBlockScheduler scheduler({
-    .nRows = 7,
-    .nCols = 13,
+  mpcf::CudaBlockScheduler::Config config = {
+    .nRows = 7, .nCols = 13,
     .maxOutputElements = 10,
     .nSplitsHint = 1,
     .triangleMode = mpcf::BlockTriangleMode::Full
-  });
+  };
 
-  auto const& blocks = scheduler.blocks();
-  EXPECT_GT(blocks.size(), 1);
+  mpcf::CudaBlockScheduler scheduler(config);
+  EXPECT_GT(scheduler.blocks().size(), 1);
 
-  // Verify complete coverage
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : blocks)
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        covered.insert({i, j});
-      }
-    }
-  }
-
-  EXPECT_EQ(covered.size(), 7 * 13);
+  verify_block_coverage(config);
 }
 
 // --- nSplitsHint > 1 tests ---
@@ -327,36 +247,14 @@ TEST(CudaBlockScheduler, SplitsHint_SmallerMaxDimensions)
 
 TEST(CudaBlockScheduler, SplitsHint_FullCoverage)
 {
-  // Verify complete coverage is maintained with various split hints
   for (size_t nSplits : {2, 4, 8, 16})
   {
-    mpcf::CudaBlockScheduler scheduler({
+    verify_block_coverage({
       .nRows = 15, .nCols = 15,
       .maxOutputElements = 225,
       .nSplitsHint = nSplits,
       .triangleMode = mpcf::BlockTriangleMode::LowerTriangle
     });
-
-    std::set<std::pair<size_t, size_t>> covered;
-    for (auto const& block : scheduler.blocks())
-    {
-      for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-      {
-        for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-        {
-          if (i >= j)
-          {
-            auto [it, inserted] = covered.insert({i, j});
-            EXPECT_TRUE(inserted) << "nSplitsHint=" << nSplits
-              << ": duplicate at (" << i << ", " << j << ")";
-          }
-        }
-      }
-    }
-
-    size_t expected = 15 * (15 + 1) / 2;
-    EXPECT_EQ(covered.size(), expected) << "nSplitsHint=" << nSplits
-      << ": incomplete lower-triangle coverage";
   }
 }
 
@@ -364,60 +262,23 @@ TEST(CudaBlockScheduler, SplitsHint_FullMatrix_Coverage)
 {
   for (size_t nSplits : {2, 4, 8})
   {
-    mpcf::CudaBlockScheduler scheduler({
+    verify_block_coverage({
       .nRows = 10, .nCols = 10,
       .maxOutputElements = 100,
       .nSplitsHint = nSplits,
       .triangleMode = mpcf::BlockTriangleMode::Full
     });
-
-    std::set<std::pair<size_t, size_t>> covered;
-    for (auto const& block : scheduler.blocks())
-    {
-      for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-      {
-        for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-        {
-          auto [it, inserted] = covered.insert({i, j});
-          EXPECT_TRUE(inserted) << "nSplitsHint=" << nSplits
-            << ": duplicate at (" << i << ", " << j << ")";
-        }
-      }
-    }
-
-    EXPECT_EQ(covered.size(), 100) << "nSplitsHint=" << nSplits
-      << ": incomplete full coverage";
   }
 }
 
 TEST(CudaBlockScheduler, SplitsHint_Rectangular_Coverage)
 {
-  mpcf::CudaBlockScheduler scheduler({
+  verify_block_coverage({
     .nRows = 5, .nCols = 20,
     .maxOutputElements = 100,
     .nSplitsHint = 4,
     .triangleMode = mpcf::BlockTriangleMode::Full
   });
-
-  auto const& blocks = scheduler.blocks();
-
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : blocks)
-  {
-    EXPECT_LE(block.rowHeight * block.colWidth, 100)
-      << "Block exceeds maxOutputElements budget";
-
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        auto [it, inserted] = covered.insert({i, j});
-        EXPECT_TRUE(inserted) << "Duplicate at (" << i << ", " << j << ")";
-      }
-    }
-  }
-
-  EXPECT_EQ(covered.size(), 5 * 20);
 }
 
 TEST(CudaBlockScheduler, SplitsHint_StillSorted)
@@ -487,62 +348,33 @@ TEST(CudaBlockScheduler, MinBlockSide_ClampedByMatrixSize)
 
 TEST(CudaBlockScheduler, MinBlockSide_FullCoverage)
 {
-  mpcf::CudaBlockScheduler scheduler({
+  // minBlockSide can force blocks larger than maxOutputElements, so skip budget check
+  verify_block_coverage({
     .nRows = 100, .nCols = 100,
     .maxOutputElements = 1000,
     .nSplitsHint = 100,
     .triangleMode = mpcf::BlockTriangleMode::LowerTriangle,
     .minBlockSide = 40
-  });
-
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : scheduler.blocks())
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        if (i >= j)
-        {
-          auto [it, inserted] = covered.insert({i, j});
-          EXPECT_TRUE(inserted) << "Duplicate at (" << i << ", " << j << ")";
-        }
-      }
-    }
-  }
-
-  size_t expected = 100 * 101 / 2;
-  EXPECT_EQ(covered.size(), expected);
+  }, /*checkBudget=*/false);
 }
 
 TEST(CudaBlockScheduler, MinBlockSide_Rectangular_FullCoverage)
 {
-  mpcf::CudaBlockScheduler scheduler({
+  mpcf::CudaBlockScheduler::Config config = {
     .nRows = 50, .nCols = 200,
     .maxOutputElements = 1000,
     .nSplitsHint = 50,
     .triangleMode = mpcf::BlockTriangleMode::Full,
     .minBlockSide = 30
-  });
+  };
+
+  mpcf::CudaBlockScheduler scheduler(config);
 
   // Blocks should respect the floor (up to maxDim clamping)
   EXPECT_GE(scheduler.max_row_height(), 30);
   EXPECT_GE(scheduler.max_col_width(), 30);
 
-  std::set<std::pair<size_t, size_t>> covered;
-  for (auto const& block : scheduler.blocks())
-  {
-    for (size_t i = block.rowStart; i < block.rowStart + block.rowHeight; ++i)
-    {
-      for (size_t j = block.colStart; j < block.colStart + block.colWidth; ++j)
-      {
-        auto [it, inserted] = covered.insert({i, j});
-        EXPECT_TRUE(inserted) << "Duplicate at (" << i << ", " << j << ")";
-      }
-    }
-  }
-
-  EXPECT_EQ(covered.size(), 50 * 200);
+  verify_block_coverage(config);
 }
 
 TEST(CudaBlockScheduler, MinBlockSide_Zero_HasNoEffect)
