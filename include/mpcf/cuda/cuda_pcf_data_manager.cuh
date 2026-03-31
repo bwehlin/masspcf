@@ -33,13 +33,8 @@ namespace mpcf
 
     manager.init(begin, end,
         [](const auto& f) { return f.points().size(); },
-        [](const auto& f, point_type* dst) {
-          auto const& pts = f.points();
-          for (size_t j = 0; j < pts.size(); ++j)
-          {
-            dst[j].t = pts[j].t;
-            dst[j].v = pts[j].v;
-          }
+        [](const auto& f, size_t i) -> point_type {
+          return { f.points()[i].t, f.points()[i].v };
         });
   }
 }

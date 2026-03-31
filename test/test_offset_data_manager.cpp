@@ -18,7 +18,6 @@
 
 #include <mpcf/cuda/offset_data_manager.hpp>
 
-#include <string>
 #include <vector>
 
 namespace
@@ -48,10 +47,7 @@ TEST(OffsetDataManager, InitThreeObjects)
   mpcf::OffsetDataManager<TestElement> mgr;
   mgr.init(objects.begin(), objects.end(),
       [](const TestObject& o) { return o.elements.size(); },
-      [](const TestObject& o, TestElement* dst) {
-        for (size_t i = 0; i < o.elements.size(); ++i)
-          dst[i] = o.elements[i];
-      });
+      [](const TestObject& o, size_t i) { return o.elements[i]; });
 
   EXPECT_EQ(mgr.num_objects(), 3);
 
@@ -81,7 +77,7 @@ TEST(OffsetDataManager, EmptyInput)
   mpcf::OffsetDataManager<TestElement> mgr;
   mgr.init(objects.begin(), objects.end(),
       [](const TestObject& o) { return o.elements.size(); },
-      [](const TestObject&, TestElement*) {});
+      [](const TestObject& o, size_t i) { return o.elements[i]; });
 
   EXPECT_EQ(mgr.num_objects(), 0);
   EXPECT_EQ(mgr.host_data().offsets.size(), 1);
@@ -96,7 +92,7 @@ TEST(OffsetDataManager, SingleEmptyObject)
   mpcf::OffsetDataManager<TestElement> mgr;
   mgr.init(objects.begin(), objects.end(),
       [](const TestObject& o) { return o.elements.size(); },
-      [](const TestObject&, TestElement*) {});
+      [](const TestObject& o, size_t i) { return o.elements[i]; });
 
   EXPECT_EQ(mgr.num_objects(), 1);
   EXPECT_EQ(mgr.host_data().offsets[0], 0);
@@ -115,9 +111,7 @@ TEST(OffsetDataManager, TotalElementsForRange)
   mpcf::OffsetDataManager<TestElement> mgr;
   mgr.init(objects.begin(), objects.end(),
       [](const TestObject& o) { return o.elements.size(); },
-      [](const TestObject& o, TestElement* dst) {
-        for (size_t i = 0; i < o.elements.size(); ++i) dst[i] = o.elements[i];
-      });
+      [](const TestObject& o, size_t i) { return o.elements[i]; });
 
   EXPECT_EQ(mgr.total_elements_for_range(0, 3), 6);  // all
   EXPECT_EQ(mgr.total_elements_for_range(0, 1), 3);  // first
@@ -138,9 +132,7 @@ TEST(OffsetDataManager, MaxElementsInRange)
   mpcf::OffsetDataManager<TestElement> mgr;
   mgr.init(objects.begin(), objects.end(),
       [](const TestObject& o) { return o.elements.size(); },
-      [](const TestObject& o, TestElement* dst) {
-        for (size_t i = 0; i < o.elements.size(); ++i) dst[i] = o.elements[i];
-      });
+      [](const TestObject& o, size_t i) { return o.elements[i]; });
 
   EXPECT_EQ(mgr.max_elements_in_range(0, 3), 3);
   EXPECT_EQ(mgr.max_elements_in_range(1, 2), 2);
@@ -155,9 +147,7 @@ TEST(OffsetDataManager, WorksWithPrimitiveType)
   mpcf::OffsetDataManager<int> mgr;
   mgr.init(data.begin(), data.end(),
       [](const std::vector<int>& v) { return v.size(); },
-      [](const std::vector<int>& v, int* dst) {
-        for (size_t i = 0; i < v.size(); ++i) dst[i] = v[i];
-      });
+      [](const std::vector<int>& v, size_t i) { return v[i]; });
 
   EXPECT_EQ(mgr.num_objects(), 3);
   EXPECT_EQ(mgr.total_elements_for_range(0, 3), 6);
