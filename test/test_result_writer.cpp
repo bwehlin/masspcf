@@ -63,8 +63,8 @@ TYPED_TEST(DistanceMatrixResultWriterTyped, DiagonalBlock)
   // Block on diagonal: rows [1,2], cols [1,2]
   // Lower triangle: only (2,1) has i > j
   Tv hostBlock[] = {
-    Tv(0), Tv(50),    // (1,1)=skip, (1,2)=skip(upper)
-    Tv(60), Tv(0)     // (2,1)=60, (2,2)=skip
+    Tv(0), Tv(0),     // (1,1)=skip(diag), (1,2)=skip(upper)
+    Tv(60), Tv(0)     // (2,1)=60, (2,2)=skip(diag)
   };
 
   mpcf::BlockInfo block{};
@@ -78,6 +78,27 @@ TYPED_TEST(DistanceMatrixResultWriterTyped, DiagonalBlock)
 
   EXPECT_EQ(dm(2, 1), Tv(60));
   EXPECT_EQ(dm(1, 1), Tv(0));
+}
+
+TYPED_TEST(DistanceMatrixResultWriterTyped, ThrowsOnNonZeroSkippedEntry)
+{
+  using Tv = TypeParam;
+  mpcf::DistanceMatrix<Tv> dm(4);
+
+  // (1,2) is upper triangle and nonzero — should throw
+  Tv hostBlock[] = {
+    Tv(0), Tv(50),
+    Tv(60), Tv(0)
+  };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 1;
+  block.rowHeight = 2;
+  block.colStart = 1;
+  block.colWidth = 2;
+
+  mpcf::DistanceMatrixResultWriter<Tv> writer(dm);
+  EXPECT_THROW(writer.scatter(hostBlock, block), std::logic_error);
 }
 
 TYPED_TEST(DistanceMatrixResultWriterTyped, NonOverlappingBlocks)
@@ -113,7 +134,7 @@ TYPED_TEST(SymmetricMatrixResultWriterTyped, ScatterWithDiagonal)
   // Block covers rows [0,1], cols [0,1]
   // Lower triangle + diagonal: (0,0), (1,0), (1,1)
   Tv hostBlock[] = {
-    Tv(10), Tv(20),
+    Tv(10), Tv(0),
     Tv(30), Tv(40)
   };
 
@@ -130,6 +151,27 @@ TYPED_TEST(SymmetricMatrixResultWriterTyped, ScatterWithDiagonal)
   EXPECT_EQ(sm(1, 0), Tv(30));
   EXPECT_EQ(sm(0, 1), Tv(30));  // symmetric
   EXPECT_EQ(sm(1, 1), Tv(40));
+}
+
+TYPED_TEST(SymmetricMatrixResultWriterTyped, ThrowsOnNonZeroSkippedEntry)
+{
+  using Tv = TypeParam;
+  mpcf::SymmetricMatrix<Tv> sm(4);
+
+  // (0,1) is upper triangle and nonzero — should throw
+  Tv hostBlock[] = {
+    Tv(10), Tv(20),
+    Tv(30), Tv(40)
+  };
+
+  mpcf::BlockInfo block{};
+  block.rowStart = 0;
+  block.rowHeight = 2;
+  block.colStart = 0;
+  block.colWidth = 2;
+
+  mpcf::SymmetricMatrixResultWriter<Tv> writer(sm);
+  EXPECT_THROW(writer.scatter(hostBlock, block), std::logic_error);
 }
 
 TYPED_TEST(SymmetricMatrixResultWriterTyped, OffDiagonalBlock)

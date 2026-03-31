@@ -24,6 +24,7 @@
 #include "triangle_skip_mode.hpp"
 
 #include <cstddef>
+#include <stdexcept>
 
 namespace mpcf
 {
@@ -77,11 +78,31 @@ namespace mpcf
           size_t jGlobal = block.colStart + jLocal;
           if constexpr (Mode == TriangleSkipMode::LowerTriangleSkipDiag)
           {
-            if (iGlobal <= jGlobal) continue;
+            if (iGlobal <= jGlobal)
+            {
+              Tv val = hostBlock[iLocal * block.colWidth + jLocal];
+              if (val != Tv(0))
+              {
+                throw std::logic_error(
+                  "Non-zero value at skipped position (" + std::to_string(iGlobal)
+                  + ", " + std::to_string(jGlobal) + ") in distance matrix scatter");
+              }
+              continue;
+            }
           }
           else if constexpr (Mode == TriangleSkipMode::LowerTriangle)
           {
-            if (iGlobal < jGlobal) continue;
+            if (iGlobal < jGlobal)
+            {
+              Tv val = hostBlock[iLocal * block.colWidth + jLocal];
+              if (val != Tv(0))
+              {
+                throw std::logic_error(
+                  "Non-zero value at skipped position (" + std::to_string(iGlobal)
+                  + ", " + std::to_string(jGlobal) + ") in symmetric matrix scatter");
+              }
+              continue;
+            }
           }
           m_mat(iGlobal, jGlobal) = hostBlock[iLocal * block.colWidth + jLocal];
         }
