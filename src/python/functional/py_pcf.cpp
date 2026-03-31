@@ -27,7 +27,6 @@
 #include <mpcf/task.hpp>
 
 #include "../py_np_support.hpp"
-#include "../py_settings.hpp"
 
 #include <iostream>
 

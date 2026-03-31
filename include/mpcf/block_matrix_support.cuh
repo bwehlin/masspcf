@@ -55,6 +55,31 @@ namespace mpcf::internal
     return boundaries.second - boundaries.first + 1;
   }
 
+  /// Query the minimum SM count across nGpus devices and derive a minimum
+  /// block side length that ensures reasonable GPU occupancy.
+  /// Targets ~50% max occupancy (smCount * 1024 threads).
+  inline size_t get_min_block_side(size_t nGpus)
+  {
+    int minSmCount = std::numeric_limits<int>::max();
+
+    for (size_t i = 0; i < nGpus; ++i)
+    {
+      auto setErr = cudaSetDevice(static_cast<int>(i));
+      if (setErr != cudaSuccess)
+        throw std::runtime_error(std::string("cudaSetDevice failed: ") + cudaGetErrorString(setErr));
+
+      int smCount = 0;
+      auto attrErr = cudaDeviceGetAttribute(&smCount, cudaDevAttrMultiProcessorCount, static_cast<int>(i));
+      if (attrErr != cudaSuccess)
+        throw std::runtime_error(std::string("cudaDeviceGetAttribute failed: ") + cudaGetErrorString(attrErr));
+
+      minSmCount = std::min(minSmCount, smCount);
+    }
+
+    size_t targetThreads = static_cast<size_t>(minSmCount) * 1024;
+    return static_cast<size_t>(std::sqrt(static_cast<double>(targetThreads)));
+  }
+
   /// Query GPU memory across nGpus devices and return the maximum number of
   /// elements of size elementSize that can be used for block output buffers.
   inline size_t get_max_output_elements(size_t nGpus, size_t elementSize)

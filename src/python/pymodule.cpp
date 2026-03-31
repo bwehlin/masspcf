@@ -36,15 +36,13 @@
 #include "persistence/pymodule_persistence.hpp"
 
 #ifdef BUILD_WITH_CUDA
+#include <cuda_runtime.h>
 #include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
 #endif
 
-#include "py_settings.hpp"
+#include <mpcf/settings.hpp>
 
 namespace py = pybind11;
-
-
-mpcf_py::Settings mpcf_py::g_settings;
 
 namespace
 {
@@ -97,11 +95,15 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
     .def(py::init<>())
     .def("wait_for", &mpcf_py::Future<void>::wait_for);
 
-  m.def("force_cpu", [](bool on){ mpcf_py::g_settings.forceCpu = on; });
-  m.def("set_cuda_threshold", [](size_t n){ mpcf_py::g_settings.cudaThreshold = n; });
-  m.def("set_device_verbose", [](bool on){ mpcf_py::g_settings.deviceVerbose = on; });
+  m.def("force_cpu", [](bool on){ mpcf::settings().forceCpu = on; });
+  m.def("set_cuda_threshold", [](size_t n){ mpcf::settings().cudaThreshold = n; });
+  m.def("set_device_verbose", [](bool on){ mpcf::settings().deviceVerbose = on; });
+  m.def("set_block_dim", [](unsigned int x, unsigned int y) {
+    mpcf::settings().blockDimX = x;
+    mpcf::settings().blockDimY = y;
+  });
+  m.def("set_min_block_side", [](size_t n){ mpcf::settings().minBlockSide = n; });
 #ifdef BUILD_WITH_CUDA
-  m.def("set_block_dim", [](unsigned int x, unsigned int y) { mpcf_py::g_settings.blockDim = dim3(x, y, 1); });
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
 #endif
   m.def("get_ngpus", &getNumGpus);

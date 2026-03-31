@@ -25,10 +25,6 @@
 
 #include "executor.hpp"
 
-#ifdef BUILD_WITH_CUDA
-#include <cuda_runtime.h>
-#endif
-
 namespace mpcf
 {
   template <typename RetT>
@@ -104,18 +100,6 @@ namespace mpcf
       m_future.wait();
     }
 
-#ifdef BUILD_WITH_CUDA
-    void set_block_dim(const dim3& blockDim)
-    {
-      m_blockDim = blockDim;
-    }
-
-    const dim3& get_block_dim() const
-    {
-      return m_blockDim;
-    }
-#endif
-
   protected:
     void add_progress(size_t n_items)
     {
@@ -151,10 +135,6 @@ namespace mpcf
 
     mutable std::mutex m_mutex;
     std::condition_variable m_condition;
-
-#ifdef BUILD_WITH_CUDA
-    dim3 m_blockDim = dim3(32, 1, 1);
-#endif
   };
 
   template <typename RetT = void>

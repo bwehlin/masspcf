@@ -20,7 +20,7 @@
 #include "functional/operations.cuh"
 #include "algorithms/functional/matrix_integrate.hpp"
 #include "../py_async_support.hpp"
-#include "../py_settings.hpp"
+#include <mpcf/settings.hpp>
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
@@ -59,22 +59,21 @@ namespace
       auto end = mpcf::end1dValues(fs);
 
 #ifdef BUILD_WITH_CUDA
-      if (!mpcf_py::g_settings.forceCpu && static_cast<size_t>(std::distance(begin, end)) >= mpcf_py::g_settings.cudaThreshold)
+      if (!mpcf::settings().forceCpu && static_cast<size_t>(std::distance(begin, end)) >= mpcf::settings().cudaThreshold)
       {
-        if (mpcf_py::g_settings.deviceVerbose)
+        if (mpcf::settings().deviceVerbose)
         {
           std::cout << "Kernel computation on CUDA device(s)" << std::endl;
         }
 
         std::vector<PcfT> pcfs(begin, end);
         auto task = mpcf::create_cuda_block_integrate_l2_kernel_task(symmat, pcfs, Tv(0), std::numeric_limits<Tv>::max());
-        task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return py::make_tuple(std::move(task), symmat);
       }
 #endif
 
-      if (mpcf_py::g_settings.deviceVerbose)
+      if (mpcf::settings().deviceVerbose)
       {
         std::cout << "Kernel computation on CPU(s)" << std::endl;
       }

@@ -52,6 +52,7 @@ namespace mpcf
       size_t maxOutputElements;
       size_t nSplitsHint;
       BlockTriangleMode triangleMode = BlockTriangleMode::Full;
+      size_t minBlockSide = 0;  ///< Minimum block side length for GPU occupancy. 0 = no floor.
     };
 
     explicit CudaBlockScheduler(const Config& config)
@@ -76,7 +77,8 @@ namespace mpcf
       }
 
       auto blockSide = compute_block_side(config.maxOutputElements, config.nSplitsHint,
-                                          std::max(config.nRows, config.nCols));
+                                          std::max(config.nRows, config.nCols),
+                                          config.minBlockSide);
       auto rowBands = subdivide(blockSide, config.nRows);
       auto colBands = subdivide(blockSide, config.nCols);
 
@@ -110,11 +112,16 @@ namespace mpcf
       sort_by_descending_work();
     }
 
-    static size_t compute_block_side(size_t maxOutputElements, size_t nSplitsHint, size_t maxDim)
+    static size_t compute_block_side(size_t maxOutputElements, size_t nSplitsHint,
+                                     size_t maxDim, size_t minBlockSide)
     {
       size_t elementsPerBlock = maxOutputElements / std::max<size_t>(nSplitsHint, 1);
       size_t side = static_cast<size_t>(std::sqrt(static_cast<double>(elementsPerBlock)));
       side = std::max<size_t>(side, 1);
+      if (minBlockSide > 0)
+      {
+        side = std::max(side, minBlockSide);
+      }
       side = std::min(side, maxDim);
       return side;
     }
