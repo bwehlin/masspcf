@@ -29,6 +29,8 @@
 
 #include <iostream>
 
+#include <taskflow/core/taskflow.hpp>
+
 #include "config.hpp"
 
 namespace mpcf
@@ -273,6 +275,15 @@ namespace mpcf
     requires std::invocable<UnaryFunc, std::vector<size_t>>
 #endif
     void parallel_walk(UnaryFunc&& f, Executor& exec) const;
+
+    /**
+     * Like parallel_walk(), but returns a tf::Future instead of blocking.
+     */
+    template <typename UnaryFunc>
+#ifndef __CUDACC__
+    requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+    tf::Future<void> parallel_walk_async(UnaryFunc&& f, Executor& exec) const;
 
     template <typename UnaryPred>
 #ifndef __CUDACC__

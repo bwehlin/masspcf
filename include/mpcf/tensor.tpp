@@ -24,7 +24,13 @@
 
 namespace mpcf
 {
-  // Forward declaration -- definition below walk()
+  // Forward declarations -- definitions below walk()
+  template <IsTensor TTensor, typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  tf::Future<void> parallel_walk_async(const TTensor& tensor, UnaryFunc&& f, Executor& exec);
+
   template <IsTensor TTensor, typename UnaryFunc>
 #ifndef __CUDACC__
   requires std::invocable<UnaryFunc, std::vector<size_t>>
@@ -1392,6 +1398,16 @@ namespace mpcf
   template <typename T>
   template <typename UnaryFunc>
 #ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  tf::Future<void> Tensor<T>::parallel_walk_async(UnaryFunc&& f, Executor& exec) const
+  {
+    return mpcf::parallel_walk_async(*this, std::forward<UnaryFunc>(f), exec);
+  }
+
+  template <typename T>
+  template <typename UnaryFunc>
+#ifndef __CUDACC__
   requires std::invocable<UnaryFunc, const T&>
 #endif
   bool Tensor<T>::any_of(UnaryFunc&& f) const
@@ -1647,14 +1663,15 @@ namespace mpcf
 #ifndef __CUDACC__
   requires std::invocable<UnaryFunc, std::vector<size_t>>
 #endif
-  void parallel_walk(const TTensor& tensor, UnaryFunc&& f, Executor& exec)
+  tf::Future<void> parallel_walk_async(const TTensor& tensor, UnaryFunc&& f, Executor& exec)
   {
     auto shape_range = tensor.shape();
     std::vector<size_t> shape(std::begin(shape_range), std::end(shape_range));
 
     if (shape.empty() || std::any_of(shape.begin(), shape.end(), [](size_t n){ return n == 0; }))
     {
-      return;
+      tf::Taskflow flow;
+      return exec.cpu()->run(std::move(flow));
     }
 
     auto ndim = shape.size();
@@ -1663,7 +1680,7 @@ namespace mpcf
       total *= s;
 
     tf::Taskflow flow;
-    flow.for_each_index<size_t, size_t, size_t>(0ul, total, 1ul, [&f, &shape, ndim](size_t flat) {
+    flow.for_each_index<size_t, size_t, size_t>(0ul, total, 1ul, [f, shape, ndim](size_t flat) {
       thread_local std::vector<size_t> idx;
       idx.resize(ndim);
 
@@ -1677,7 +1694,16 @@ namespace mpcf
       f(idx);
     });
 
-    exec.cpu()->run(std::move(flow)).wait();
+    return exec.cpu()->run(std::move(flow));
+  }
+
+  template <IsTensor TTensor, typename UnaryFunc>
+#ifndef __CUDACC__
+  requires std::invocable<UnaryFunc, std::vector<size_t>>
+#endif
+  void parallel_walk(const TTensor& tensor, UnaryFunc&& f, Executor& exec)
+  {
+    parallel_walk_async(tensor, std::forward<UnaryFunc>(f), exec).wait();
   }
 
   template <typename T, typename UnaryPred>

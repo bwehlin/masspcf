@@ -153,32 +153,26 @@ namespace mpcf::ph
   private:
     tf::Future<void> run_async(Executor& exec) override
     {
-      tf::Taskflow flow;
-
       auto shape = m_input.shape();
       shape.emplace_back(m_maxDim + 1);
       m_ret = Tensor<Barcode<T>>(shape);
 
       next_step(m_input.size(), "Computing persistence", "pointcloud");
 
-      m_ret.walk([this, &flow](const std::vector<size_t>& index) {
-        if (index.back() != 0)
-        {
+      return m_input.parallel_walk_async([this](const std::vector<size_t>& index) {
+        if (stop_requested())
           return;
-        }
 
-        flow.emplace([this, index] {
-          if (stop_requested())
-            return;
-          if constexpr (std::is_same_v<ElemT, PointCloud<T>>)
-            detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, index, m_reducedHomology);
-          else
-            detail::compute_persistence_distmat_single_impl(m_input, m_ret, m_maxDim, index, m_reducedHomology);
-          add_progress(1);
-        });
-      });
+        thread_local std::vector<size_t> retIdx;
+        retIdx.assign(index.begin(), index.end());
+        retIdx.push_back(0);
 
-      return exec.cpu()->run(std::move(flow));
+        if constexpr (std::is_same_v<ElemT, PointCloud<T>>)
+          detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
+        else
+          detail::compute_persistence_distmat_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
+        add_progress(1);
+      }, exec);
     }
 
     const Tensor<ElemT>& m_input;
