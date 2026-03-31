@@ -88,5 +88,22 @@ def set_device_verbose(on: bool):
     cpp.set_device_verbose(on)
 
 
+def set_min_block_side(n: int):
+    """Set the minimum block side length for the CUDA block scheduler.
+
+    This controls the minimum number of threads per GPU kernel launch, ensuring
+    good GPU occupancy. A value of 0 (the default) auto-detects from the GPU
+    hardware (SM count), targeting ~50% max occupancy.
+
+    This is an advanced option that should only be modified by expert users.
+
+    Parameters
+    ----------
+    n : int
+      Minimum block side length. 0 = auto-detect from GPU hardware.
+    """
+    cpp.set_min_block_side(n)
+
+
 def build_type():
     return cpp._build_type()

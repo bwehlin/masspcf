@@ -369,7 +369,8 @@ SET(MPCF_HEADER_FILES
     persistence/compute_persistence.hpp
     persistence/persistence_pair.hpp
     persistence/stable_rank.hpp
-    persistence/ripser/ripser.hpp)
+    persistence/ripser/ripser.hpp
+    settings.hpp)
 
 SET(MPCF_SRC_FILES
     executor.cpp

@@ -25,6 +25,7 @@
 
 #include "../task.hpp"
 #include "../executor.hpp"
+#include "../settings.hpp"
 #include "../functional/operations.cuh"
 #include "../block_matrix_support.cuh"
 #include "cuda_block_executor.cuh"
@@ -171,23 +172,27 @@ namespace mpcf
     {
       init_pcf_data(m_dataManager, m_fs.begin(), m_fs.end());
 
+      auto& s = mpcf::settings();
       auto n = m_fs.size();
       auto nGpus = m_cudaThreads.num_workers();
       size_t maxOutputElements = internal::get_max_output_elements(nGpus, sizeof(value_type));
+      size_t minSide = s.minBlockSide > 0 ? s.minBlockSide : internal::get_min_block_side(nGpus);
 
       CudaBlockScheduler scheduler({
         .nRows = n, .nCols = n,
         .maxOutputElements = maxOutputElements,
         .nSplitsHint = nGpus * 32,
-        .triangleMode = BlockTriangleMode::LowerTriangle
+        .triangleMode = BlockTriangleMode::LowerTriangle,
+        .minBlockSide = minSide
       });
 
       next_step(n * (n - 1) / 2, m_stepDescription, m_stepUnit);
 
       using block_op_t = PcfBlockOp<time_type, value_type, ComboOp>;
 
+      dim3 blockDim(s.blockDimX, s.blockDimY, 1);
       tf::Taskflow flow;
-      flow.emplace([this, scheduler = std::move(scheduler)] {
+      flow.emplace([this, scheduler = std::move(scheduler), blockDim] {
         block_op_t blockOp(m_dataManager, m_dataManager, m_op, m_a, m_b, m_skipMode);
 
         CudaBlockPipeline<value_type, block_op_t, ResultWriter> pipeline(
@@ -195,7 +200,7 @@ namespace mpcf
             [this](size_t n) { add_progress(n); });
 
         if (stop_requested()) return;
-        pipeline.execute(get_block_dim());
+        pipeline.execute(blockDim);
       });
 
       return exec.cpu()->run(std::move(flow));
@@ -248,24 +253,28 @@ namespace mpcf
       init_pcf_data(m_rowDataManager, m_rowFs.begin(), m_rowFs.end());
       init_pcf_data(m_colDataManager, m_colFs.begin(), m_colFs.end());
 
+      auto& s = mpcf::settings();
       auto nRows = m_rowFs.size();
       auto nCols = m_colFs.size();
       auto nGpus = m_cudaThreads.num_workers();
       size_t maxOutputElements = internal::get_max_output_elements(nGpus, sizeof(value_type));
+      size_t minSide = s.minBlockSide > 0 ? s.minBlockSide : internal::get_min_block_side(nGpus);
 
       CudaBlockScheduler scheduler({
         .nRows = nRows, .nCols = nCols,
         .maxOutputElements = maxOutputElements,
         .nSplitsHint = nGpus * 32,
-        .triangleMode = BlockTriangleMode::Full
+        .triangleMode = BlockTriangleMode::Full,
+        .minBlockSide = minSide
       });
 
       next_step(nRows * nCols, m_stepDescription, m_stepUnit);
 
       using block_op_t = PcfBlockOp<time_type, value_type, ComboOp>;
 
+      dim3 blockDim(s.blockDimX, s.blockDimY, 1);
       tf::Taskflow flow;
-      flow.emplace([this, scheduler = std::move(scheduler)] {
+      flow.emplace([this, scheduler = std::move(scheduler), blockDim] {
         block_op_t blockOp(m_rowDataManager, m_colDataManager, m_op, m_a, m_b, TriangleSkipMode::None);
 
         CudaBlockPipeline<value_type, block_op_t, ResultWriter> pipeline(
@@ -273,7 +282,7 @@ namespace mpcf
             [this](size_t n) { add_progress(n); });
 
         if (stop_requested()) return;
-        pipeline.execute(get_block_dim());
+        pipeline.execute(blockDim);
       });
 
       return exec.cpu()->run(std::move(flow));

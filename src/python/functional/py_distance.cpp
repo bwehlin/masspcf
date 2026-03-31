@@ -23,7 +23,7 @@
 
 #include <taskflow/algorithm/for_each.hpp>
 #include "../py_async_support.hpp"
-#include "../py_settings.hpp"
+#include <mpcf/settings.hpp>
 
 #ifdef BUILD_WITH_CUDA
 #include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
@@ -66,23 +66,22 @@ namespace
       auto end = mpcf::end1dValues(fs);
 
 #ifdef BUILD_WITH_CUDA
-      if (cudaFactory && !mpcf_py::g_settings.forceCpu
-          && static_cast<size_t>(std::distance(begin, end)) >= mpcf_py::g_settings.cudaThreshold)
+      if (cudaFactory && !mpcf::settings().forceCpu
+          && static_cast<size_t>(std::distance(begin, end)) >= mpcf::settings().cudaThreshold)
       {
-        if (mpcf_py::g_settings.deviceVerbose)
+        if (mpcf::settings().deviceVerbose)
         {
           std::cout << "Integral computation on CUDA device(s)" << std::endl;
         }
 
         std::vector<PcfT> pcfs(begin, end);
         auto task = cudaFactory(distmat, pcfs, Tv(0), std::numeric_limits<Tv>::max());
-        task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return py::make_tuple(std::move(task), distmat);
       }
 #endif
 
-      if (mpcf_py::g_settings.deviceVerbose)
+      if (mpcf::settings().deviceVerbose)
       {
         std::cout << "Integral computation on CPU(s)" << std::endl;
       }
@@ -184,10 +183,10 @@ namespace
       }
 
 #ifdef BUILD_WITH_CUDA
-      if (cudaFactory && !mpcf_py::g_settings.forceCpu
-          && xTotal * yTotal >= mpcf_py::g_settings.cudaThreshold * mpcf_py::g_settings.cudaThreshold)
+      if (cudaFactory && !mpcf::settings().forceCpu
+          && xTotal * yTotal >= mpcf::settings().cudaThreshold * mpcf::settings().cudaThreshold)
       {
-        if (mpcf_py::g_settings.deviceVerbose)
+        if (mpcf::settings().deviceVerbose)
         {
           std::cout << "Cross-distance computation on CUDA device(s)" << std::endl;
         }
@@ -195,7 +194,6 @@ namespace
         auto rowPcfs = collect_all_pcfs(X);
         auto colPcfs = collect_all_pcfs(Y);
         auto task = cudaFactory(outTensor, rowPcfs, colPcfs, Tv(0), std::numeric_limits<Tv>::max());
-        task->set_block_dim(mpcf_py::g_settings.blockDim);
         task->start_async(mpcf::default_executor());
         return py::make_tuple(std::move(task), outTensor);
       }

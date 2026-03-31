@@ -70,15 +70,41 @@ The ``CudaBlockScheduler`` partitions an ``nRows x nCols`` matrix into 2D blocks
 - **LowerTriangle** -- for symmetric operations (``pdist``, ``l2_kernel``) where ``nRows == nCols``. Blocks entirely above the diagonal are skipped.
 - **Full** -- for cross-distance operations (``cdist``) where every ``(i, j)`` pair is computed. The matrix may be rectangular (``nRows != nCols``).
 
-**LowerTriangle** example (``pdist``, 9 functions, block side length 3):
 
-The 9x9 pairwise matrix is divided into 3x3 blocks. Each letter represents one block. Blocks that lie entirely above the diagonal are skipped.
+Algorithm
+----------
+
+The scheduler computes a block decomposition in three steps:
+
+**Step 1: Compute block side length.** The block side determines how large each block can be. It is derived from ``maxOutputElements`` (the GPU memory budget, in number of output scalars) and ``nSplitsHint`` (how many blocks we want the budget to be divided into):
 
 .. code-block:: text
 
+   elementsPerBlock = maxOutputElements / nSplitsHint
+   blockSide        = floor(sqrt(elementsPerBlock))
+   blockSide        = clamp(blockSide, 1, max(nRows, nCols))
+
+The square root targets roughly square blocks, which is a good default for 2D CUDA grids.
+
+**Step 2: Subdivide rows and columns into bands.** The ``subdivide(blockSide, n)`` function chops a range ``[0, n)`` into consecutive bands of length ``blockSide``, with the last band absorbing the remainder:
+
+.. code-block:: text
+
+   subdivide(3, 10)  ->  [0,2], [3,5], [6,8], [9,9]
+   subdivide(4, 8)   ->  [0,3], [4,7]
+   subdivide(5, 3)   ->  [0,2]
+
+Row bands and column bands are computed independently: ``rowBands = subdivide(blockSide, nRows)``, ``colBands = subdivide(blockSide, nCols)``. This means rectangular matrices are handled naturally -- the row and column band counts can differ.
+
+**Step 3: Form the block grid and filter.** Every ``(rowBand, colBand)`` pair becomes a candidate block. In **Full** mode, all candidates are kept. In **LowerTriangle** mode, a block is discarded if its entire column range lies above the diagonal (i.e., ``colBand.first > rowBand.last``):
+
+.. code-block:: text
+
+   LowerTriangle, 9x9, blockSide=3:
+
             col 0-2   col 3-5   col 6-8
            +---------+---------+---------+
-   row 0-2 |    A    |    -    |    -    |
+   row 0-2 |    A    |    -    |    -    |    colBand [3,5].first > rowBand [0,2].last -> skip
            +---------+---------+---------+
    row 3-5 |    B    |    C    |    -    |
            +---------+---------+---------+
@@ -104,15 +130,52 @@ The matrix is rectangular, so all blocks are computed.
 
    A = 2x2 block, B = 2x1 block
 
-The block side length is computed from available GPU memory (via ``get_max_output_elements`` in ``block_matrix_support.cuh``):
+Finally, blocks are sorted by descending work (``rowHeight * colWidth``) for better load balancing when distributing across GPUs.
+
+
+Memory budget and nSplitsHint
+------------------------------
+
+``maxOutputElements`` comes from the available GPU memory (via ``get_max_output_elements`` in ``block_matrix_support.cuh``):
 
 .. code-block:: text
 
    maxOutputElements = (free GPU RAM * 0.8) / 2 / sizeof(T)
-   elementsPerBlock  = maxOutputElements / nSplitsHint
-   blockSide         = floor(sqrt(elementsPerBlock))
 
-The factor of 2 reserves half of GPU memory for the output buffer and half for function data. Each block stores its output in a ``rowHeight x colWidth`` device buffer. Blocks are sorted by descending work estimate for load balancing across GPUs.
+The factor of 2 reserves half of GPU memory for the output buffer and half for function data.
+
+``nSplitsHint`` controls how many blocks the memory budget is split into. A larger hint produces smaller blocks, which matters for two reasons:
+
+1. **Multi-GPU load balancing.** With only one or two large blocks, some GPUs sit idle while others finish. More blocks means work can be distributed more evenly.
+2. **Pipeline overlap.** The double-buffered pipeline (see below) overlaps computation with data transfer. Smaller blocks allow the pipeline to start transferring results sooner.
+
+In production, the hint is set to ``nGpus * 32`` -- enough blocks to keep all GPUs busy with a comfortable margin for uneven block sizes. For single-GPU or testing scenarios, ``nSplitsHint = 1`` uses the full memory budget as one block (unless the matrix is larger, in which case ``subdivide`` still produces multiple blocks).
+
+
+Minimum block side (GPU occupancy floor)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A high ``nSplitsHint`` can produce very small blocks, leading to poor GPU occupancy -- each kernel launch has too few threads to keep the SMs busy. To prevent this, ``Config::minBlockSide`` sets a floor on the block side length. The block side is clamped: ``side = max(side, minBlockSide)``, then capped at the matrix dimension as usual.
+
+In production, ``minBlockSide`` is derived from the GPU hardware via ``get_min_block_side(nGpus)`` (in ``block_matrix_support.cuh``), which queries ``cudaDevAttrMultiProcessorCount`` across all devices and targets ~50% max occupancy:
+
+.. code-block:: text
+
+   smCount       = min SM count across GPUs
+   targetThreads = smCount * 1024
+   minBlockSide  = floor(sqrt(targetThreads))
+
+For example, an A100 with 108 SMs gives ``minBlockSide = floor(sqrt(108 * 1024)) = 332``, ensuring each kernel launch has at least ~110K threads -- enough to keep the GPU busy even for compute-bound PCF integration kernels.
+
+When the floor kicks in, the scheduler produces fewer blocks than ``nSplitsHint`` requested. This is the right tradeoff: slightly uneven multi-GPU distribution is much cheaper than underutilizing all GPUs on every kernel launch.
+
+``minBlockSide`` is optional and defaults to 0 (no floor), which preserves the original behavior for tests and non-GPU use.
+
+
+Higher-rank tensors
+--------------------
+
+For ``cdist(X, Y)`` where X and Y are tensors with rank > 1, the scheduler still operates on a 2D grid. The inputs are flattened: ``nRows = product(X.shape)``, ``nCols = product(Y.shape)``. The output tensor is created with the concatenated shape ``(*X.shape, *Y.shape)`` but its underlying storage is a flat contiguous buffer. Since the 2D row-major indexing ``i * nCols + j`` produces the same layout as the multi-dimensional shape, the scheduler does not need to be aware of batch dimensions.
 
 
 Triangle skip modes
