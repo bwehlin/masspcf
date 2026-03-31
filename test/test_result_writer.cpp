@@ -206,7 +206,8 @@ TYPED_TEST(DenseResultWriterTyped, ScatterAll)
 {
   using Tv = TypeParam;
   mpcf::Tensor<Tv> dense({4, 4}, Tv(0));
-  mpcf::DenseResultWriter<Tv> writer(mpcf::DenseMatrixView<Tv>(dense, 4));
+  mpcf::DenseMatrixView<Tv> view(dense, 4);
+  mpcf::DenseResultWriter<Tv> writer(view);
 
   Tv hostBlock[] = { Tv(1), Tv(2), Tv(3), Tv(4) };
 
@@ -218,18 +219,19 @@ TYPED_TEST(DenseResultWriterTyped, ScatterAll)
 
   writer.scatter(hostBlock, block);
 
-  EXPECT_EQ(dense.data()[1 * 4 + 2], Tv(1));
-  EXPECT_EQ(dense.data()[1 * 4 + 3], Tv(2));
-  EXPECT_EQ(dense.data()[2 * 4 + 2], Tv(3));
-  EXPECT_EQ(dense.data()[2 * 4 + 3], Tv(4));
-  EXPECT_EQ(dense.data()[0], Tv(0));
+  EXPECT_EQ(view(1, 2), Tv(1));
+  EXPECT_EQ(view(1, 3), Tv(2));
+  EXPECT_EQ(view(2, 2), Tv(3));
+  EXPECT_EQ(view(2, 3), Tv(4));
+  EXPECT_EQ(view(0, 0), Tv(0));
 }
 
 TYPED_TEST(DenseResultWriterTyped, RectangularOutput)
 {
   using Tv = TypeParam;
   mpcf::Tensor<Tv> dense({3, 5}, Tv(0));
-  mpcf::DenseResultWriter<Tv> writer(mpcf::DenseMatrixView<Tv>(dense, 5));
+  mpcf::DenseMatrixView<Tv> view(dense, 5);
+  mpcf::DenseResultWriter<Tv> writer(view);
 
   Tv hostBlock[] = { Tv(7), Tv(8), Tv(9) };
 
@@ -241,8 +243,8 @@ TYPED_TEST(DenseResultWriterTyped, RectangularOutput)
 
   writer.scatter(hostBlock, block);
 
-  EXPECT_EQ(dense.data()[1 * 5 + 2], Tv(7));
-  EXPECT_EQ(dense.data()[1 * 5 + 3], Tv(8));
-  EXPECT_EQ(dense.data()[1 * 5 + 4], Tv(9));
-  EXPECT_EQ(dense.data()[0 * 5 + 2], Tv(0));  // untouched
+  EXPECT_EQ(view(1, 2), Tv(7));
+  EXPECT_EQ(view(1, 3), Tv(8));
+  EXPECT_EQ(view(1, 4), Tv(9));
+  EXPECT_EQ(view(0, 2), Tv(0));  // untouched
 }
