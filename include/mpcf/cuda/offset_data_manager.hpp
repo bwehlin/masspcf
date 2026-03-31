@@ -53,10 +53,10 @@ namespace mpcf
     /// @param begin, end   Forward iterators over the source objects.
     /// @param sizeFn       Callable: (const Obj&) -> size_t.
     ///                     Returns the number of elements for one object.
-    /// @param copyFn       Callable: (const Obj&, ElementT* dst) -> void.
-    ///                     Copies elements for one object into dst.
-    template <typename FwdIt, typename SizeFn, typename CopyFn>
-    void init(FwdIt begin, FwdIt end, SizeFn sizeFn, CopyFn copyFn)
+    /// @param elementFn    Callable: (const Obj&, size_t i) -> ElementT.
+    ///                     Returns the i-th element for one object.
+    template <typename FwdIt, typename SizeFn, typename ElementFn>
+    void init(FwdIt begin, FwdIt end, SizeFn sizeFn, ElementFn elementFn)
     {
       m_nObjects = static_cast<size_t>(std::distance(begin, end));
       m_hostData.offsets.resize(m_nObjects + 1);
@@ -74,8 +74,12 @@ namespace mpcf
       i = 0;
       for (auto it = begin; it != end; ++it)
       {
+        size_t n = sizeFn(*it);
         auto coffs = m_hostData.offsets[i++];
-        copyFn(*it, m_hostData.elements.data() + coffs);
+        for (size_t j = 0; j < n; ++j)
+        {
+          m_hostData.elements[coffs + j] = elementFn(*it, j);
+        }
       }
     }
 
