@@ -1670,6 +1670,7 @@ namespace mpcf
 
     if (shape.empty() || std::any_of(shape.begin(), shape.end(), [](size_t n){ return n == 0; }))
     {
+      // No work to do; submit an empty flow to get an already-resolved future.
       tf::Taskflow flow;
       return exec.cpu()->run(std::move(flow));
     }
@@ -1680,7 +1681,7 @@ namespace mpcf
       total *= s;
 
     tf::Taskflow flow;
-    flow.for_each_index<size_t, size_t, size_t>(0ul, total, 1ul, [f, shape, ndim](size_t flat) {
+    flow.for_each_index<size_t, size_t, size_t>(0ul, total, 1ul, [f, shape = std::move(shape), ndim](size_t flat) {
       thread_local std::vector<size_t> idx;
       idx.resize(ndim);
 

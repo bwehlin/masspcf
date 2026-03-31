@@ -164,8 +164,9 @@ namespace mpcf::ph
           return;
 
         thread_local std::vector<size_t> retIdx;
-        retIdx.assign(index.begin(), index.end());
-        retIdx.push_back(0);
+        retIdx.resize(index.size() + 1);
+        std::copy(index.begin(), index.end(), retIdx.begin());
+        retIdx.back() = 0;
 
         if constexpr (std::is_same_v<ElemT, PointCloud<T>>)
           detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
