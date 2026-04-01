@@ -7,12 +7,28 @@ import masspcf as mpcf
 import masspcf.persistence as mpers
 
 
+# --- Empty point cloud ---
+
+
+def test_empty_point_cloud():
+    """An empty point cloud should produce zero bars in all dimensions."""
+    X = np.zeros((0, 2), dtype=np.float64)
+    bcs = mpers.compute_persistent_homology(X, maxDim=1, verbose=False)
+    assert len(bcs[0]) == 0
+    assert len(bcs[1]) == 0
+
+
+def test_empty_point_cloud_reduced():
+    """Reduced homology of an empty point cloud should be trivial."""
+    X = np.zeros((0, 2), dtype=np.float64)
+    bcs = mpers.compute_persistent_homology(X, maxDim=1, reduced=True, verbose=False)
+    assert len(bcs[0]) == 0
+    assert len(bcs[1]) == 0
+
+
 # --- Single point ---
-# NOTE: Ripser segfaults on single-point inputs. These tests document the
-# expected behavior and are marked xfail until the upstream issue is fixed.
 
 
-@pytest.mark.xfail(reason="Ripser segfaults on single-point input", run=False)
 def test_single_point_has_one_h0_bar():
     """A single point should produce exactly one H0 bar [0, inf) (unreduced)."""
     X = np.array([[1.0, 2.0]])  # 1 point in R^2
@@ -28,7 +44,6 @@ def test_single_point_has_one_h0_bar():
     assert len(h1) == 0
 
 
-@pytest.mark.xfail(reason="Ripser segfaults on single-point input", run=False)
 def test_single_point_reduced_has_no_bars():
     """Reduced homology of a single point should be trivial."""
     X = np.array([[0.0, 0.0]])
@@ -63,7 +78,6 @@ def test_two_points_h0():
 # --- All identical points ---
 
 
-@pytest.mark.xfail(reason="Ripser may segfault on degenerate (all-zero distance) inputs", run=False)
 def test_identical_points():
     """All identical points: distances are 0, so all merge at scale 0."""
     X = np.array([[1.0, 1.0]] * 5)
@@ -128,7 +142,6 @@ def test_persistence_f32_and_f64_give_isomorphic_barcodes():
 # --- PointCloudTensor with single point per cloud ---
 
 
-@pytest.mark.xfail(reason="Ripser segfaults on single-point input", run=False)
 def test_pcloud_tensor_single_point_per_cloud():
     """Each point cloud has 1 point: trivial topology."""
     X = mpcf.zeros((3,), dtype=mpcf.pcloud64)

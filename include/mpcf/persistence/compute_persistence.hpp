@@ -38,6 +38,27 @@ namespace mpcf::ph
     template <typename DistMatT, typename T>
     void run_ripser(const DistMatT& distanceMatrix, size_t n, Tensor<Barcode<T>>& ret, size_t maxDim, const std::vector<size_t>& index, bool reducedHomology)
     {
+      // A single point has no pairwise distances, so ripser's compressed
+      // distance matrix would be empty and init_rows() would dereference
+      // invalid memory.  Handle this trivially: one essential H0 bar
+      // (unreduced) or nothing (reduced), and empty bars in higher dims.
+      if (n <= 1)
+      {
+        for (auto i = 0_uz; i < maxDim + 1; ++i)
+        {
+          auto retIdx = index;
+          retIdx.back() = i;
+
+          std::vector<PersistencePair<T>> bars;
+          if (i == 0 && !reducedHomology && n == 1)
+          {
+            bars.emplace_back(T{0}, std::numeric_limits<T>::infinity());
+          }
+          ret(retIdx) = std::move(bars);
+        }
+        return;
+      }
+
       rips::value_t threshold = std::numeric_limits<rips::value_t>::infinity();
       for (auto i = 0_uz; i < n; ++i)
       {
