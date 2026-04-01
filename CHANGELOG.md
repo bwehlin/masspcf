@@ -17,6 +17,8 @@ Major rewrite of the core data structures and significant expansion of the API.
 * **`cdist`** — cross-distance matrices between two collections of PCFs.
 * **`allclose`, `all_of`, `any_of`** — free functions for element-wise tensor comparisons.
 * **`pickle` support** — all tensor types can be pickled and unpickled.
+* **Deterministic random generation** — seedable `Generator` for reproducible output across threads.
+* **`point_process` submodule** — `sample_poisson` for sampling spatial Poisson point processes.
 
 ### Breaking changes
 
