@@ -2,64 +2,27 @@
 Random Generation
 =================
 
-The :py:mod:`masspcf.random` module generates tensors of noisy trigonometric
-PCFs, useful for quick experimentation and testing. Results are fully
-deterministic when seeded, regardless of thread count or execution order.
+masspcf provides deterministic random generation that is reproducible
+regardless of thread count or execution order. All random generation functions
+accept an optional :py:class:`~masspcf.random.Generator` for explicit seed
+control.
 
 
-Generating noisy PCFs
-=====================
+Generators
+==========
 
-:py:func:`~masspcf.random.noisy_sin` and :py:func:`~masspcf.random.noisy_cos`
-create tensors of piecewise constant functions that approximate
-:math:`\sin(2\pi t)` and :math:`\cos(2\pi t)` with additive Gaussian noise::
+A :py:class:`~masspcf.random.Generator` holds a seed used to derive
+independent, deterministic random streams for each tensor element::
 
    import masspcf as mpcf
 
-   # 200 noisy sin(2*pi*t) functions, each with 100 breakpoints
-   sines = mpcf.random.noisy_sin((200,), n_points=100)
+   gen = mpcf.random.Generator(seed=42)
 
-   # 2-D: 10 x 50 noisy cosine functions
-   cosines = mpcf.random.noisy_cos((10, 50), n_points=30)
+Pass a generator to any function that produces random output::
 
-Each breakpoint :math:`t_i` is drawn uniformly from :math:`[0, 1]` and sorted,
-with the first breakpoint fixed at :math:`t = 0`. The value at each breakpoint
-is :math:`f(t_i) + \varepsilon_i` where :math:`\varepsilon_i \sim \mathcal{N}(0, 0.1)`.
-The last value is always set to zero.
+   X = mpcf.random.noisy_sin((10, 20), generator=gen)
 
-Pass ``dtype=mpcf.pcf64`` for 64-bit precision (the default is ``pcf32``).
-
-
-Seeding for reproducibility
-===========================
-
-Global seed
------------
-
-:py:func:`~masspcf.random.seed` seeds the global random number generator.
-Subsequent calls with the same seed produce identical output::
-
-   mpcf.random.seed(42)
-   A = mpcf.random.noisy_sin((10, 20))
-
-   mpcf.random.seed(42)
-   B = mpcf.random.noisy_sin((10, 20))
-   # A and B are identical
-
-User-provided generators
-------------------------
-
-For finer control, create a :py:class:`~masspcf.random.Generator` and pass it
-to any generation function. This avoids mutating global state and makes it easy
-to produce independent reproducible streams::
-
-   gen1 = mpcf.random.Generator(seed=42)
-   gen2 = mpcf.random.Generator(seed=99)
-
-   A = mpcf.random.noisy_sin((10, 20), generator=gen1)
-   B = mpcf.random.noisy_cos((10, 20), generator=gen2)
-
-Two generators created with the same seed always produce the same sequence::
+Two generators with the same seed always produce the same result::
 
    gen_a = mpcf.random.Generator(seed=123)
    gen_b = mpcf.random.Generator(seed=123)
@@ -68,15 +31,45 @@ Two generators created with the same seed always produce the same sequence::
    Y = mpcf.random.noisy_sin((5, 10), generator=gen_b)
    # X and Y are identical
 
-A generator can be re-seeded::
+A generator can be re-seeded with :py:meth:`~masspcf.random.Generator.seed`::
 
-   gen = mpcf.random.Generator(seed=42)
-   gen.seed(99)  # change the seed
+   gen.seed(99)
 
-Creating a ``Generator`` without a seed uses a non-deterministic seed from the
+Creating a generator without a seed uses a non-deterministic seed from the
 operating system::
 
    gen = mpcf.random.Generator()  # non-deterministic
+
+Global seed
+-----------
+
+For convenience, :py:func:`~masspcf.random.seed` seeds a global generator
+used when no explicit generator is passed::
+
+   mpcf.random.seed(42)
+   A = mpcf.random.noisy_sin((10, 20))
+
+   mpcf.random.seed(42)
+   B = mpcf.random.noisy_sin((10, 20))
+   # A and B are identical
+
+
+Noisy trigonometric PCFs
+========================
+
+:py:func:`~masspcf.random.noisy_sin` and :py:func:`~masspcf.random.noisy_cos`
+create tensors of piecewise constant functions that approximate
+:math:`\sin(2\pi t)` and :math:`\cos(2\pi t)` with additive Gaussian noise::
+
+   sines = mpcf.random.noisy_sin((200,), n_points=100)
+   cosines = mpcf.random.noisy_cos((10, 50), n_points=30)
+
+Each breakpoint :math:`t_i` is drawn uniformly from :math:`[0, 1]` and sorted,
+with the first breakpoint fixed at :math:`t = 0`. The value at each breakpoint
+is :math:`f(t_i) + \varepsilon_i` where :math:`\varepsilon_i \sim \mathcal{N}(0, 0.1)`.
+The last value is always set to zero.
+
+Pass ``dtype=mpcf.pcf64`` for 64-bit precision (the default is ``pcf32``).
 
 
 How determinism works

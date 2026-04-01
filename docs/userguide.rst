@@ -14,5 +14,6 @@ User guide
    saving
    distances
    persistence
+   point_processes
    gpu
    tutorials

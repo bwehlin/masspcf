@@ -394,6 +394,13 @@ SET(MPCF_PY_PERSISTENCE_SOURCES
 
 list(TRANSFORM MPCF_PY_PERSISTENCE_SOURCES PREPEND "persistence/")
 
+SET(MPCF_PY_POINT_PROCESS_SOURCES
+    py_poisson.hpp py_poisson.cpp
+    pymodule_point_process.hpp pymodule_point_process.cpp
+)
+
+list(TRANSFORM MPCF_PY_POINT_PROCESS_SOURCES PREPEND "point_process/")
+
 SET(MPCF_PY_SOURCES
     pybind.hpp
     pymodule.cpp
@@ -413,6 +420,7 @@ SET(MPCF_PY_SOURCES
     py_symmetric_matrix.hpp py_symmetric_matrix.cpp
     py_distance_matrix.hpp py_distance_matrix.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}
+    ${MPCF_PY_POINT_PROCESS_SOURCES}
 )
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")
@@ -429,6 +437,8 @@ source_group("IO"                       REGULAR_EXPRESSION "(include/mpcf/io[./]
 source_group("IO/Bindings"             REGULAR_EXPRESSION "src/python/py_io\\.(h|cpp)")
 source_group("Persistence"             REGULAR_EXPRESSION "include/mpcf/persistence/.*")
 source_group("Persistence/Bindings"    REGULAR_EXPRESSION "src/python/persistence/.*")
+source_group("PointProcess"            REGULAR_EXPRESSION "include/mpcf/point_process/.*")
+source_group("PointProcess/Bindings"   REGULAR_EXPRESSION "src/python/point_process/.*")
 source_group("CUDA"                    REGULAR_EXPRESSION "(include/mpcf/cuda/.*|src/cuda/.*)")
 source_group("Tensor"                  REGULAR_EXPRESSION "include/mpcf/tensor[^/]*")
 source_group("Tensor/Bindings"         REGULAR_EXPRESSION "src/python/py_(np_tensor_convert|tensor)\\.(h|cpp)")

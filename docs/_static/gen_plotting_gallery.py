@@ -291,6 +291,29 @@ def plot_apf_max_death(color1="steelblue", color2="orangered"):
 # -- docs snippet end apf_max_death --
 
 
+# -- docs snippet start poisson_samples --
+def plot_poisson_samples(color="steelblue"):
+    from masspcf.point_process import sample_poisson
+    import masspcf as mpcf
+
+    gen = mpcf.random.Generator(seed=42)
+    X = sample_poisson((3,), dim=2, rate=50.0, generator=gen)
+
+    fig, axes = plt.subplots(1, 3, figsize=(9, 3))
+    for i, ax in enumerate(axes):
+        pc = np.asarray(X[i])
+        ax.scatter(pc[:, 0], pc[:, 1], s=8, color=color, alpha=0.7)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_aspect("equal")
+        ax.set_title(f"Sample {i + 1} ({pc.shape[0]} points)")
+        ax.set_xlabel("$x_1$")
+        ax.set_ylabel("$x_2$")
+    fig.tight_layout()
+    return fig
+# -- docs snippet end poisson_samples --
+
+
 # -- Generate light and dark variants --
 def _save_themed(plot_func, style, bg_color, fg_color, line_color, outfile):
     with plt.style.context(style), \
@@ -326,6 +349,7 @@ if __name__ == "__main__":
         ("gallery_betti_pipeline", lambda: plot_betti_pipeline("steelblue", "orangered")),
         ("gallery_apf", lambda: plot_apf_example("steelblue", "orangered")),
         ("gallery_apf_max_death", lambda: plot_apf_max_death("steelblue", "orangered")),
+        ("gallery_poisson_samples", lambda: plot_poisson_samples("steelblue")),
     ]
     gallery_dark = [
         ("gallery_single_pcf", lambda: plot_single_pcf()),
@@ -337,6 +361,7 @@ if __name__ == "__main__":
         ("gallery_betti_pipeline", lambda: plot_betti_pipeline("#5dade2", "#ff6b6b")),
         ("gallery_apf", lambda: plot_apf_example("#5dade2", "#ff6b6b")),
         ("gallery_apf_max_death", lambda: plot_apf_max_death("#5dade2", "#ff6b6b")),
+        ("gallery_poisson_samples", lambda: plot_poisson_samples("#5dade2")),
     ]
     for (name, func), (_, func_dark) in zip(gallery, gallery_dark):
         _save_themed(func, *LIGHT, HERE / f"{name}_light.png")
