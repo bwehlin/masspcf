@@ -61,7 +61,7 @@ def test_point_cloud_to_persistence_to_stable_rank():
     assert dm.size == n_clouds
     dense = dm.to_dense()
     # Basic metric properties
-    assert np.all(dense >= -1e-10)
+    assert np.all(dense >= 0)
     npt.assert_allclose(np.diag(dense), 0.0, atol=1e-10)
     npt.assert_allclose(dense, dense.T, atol=1e-10)
 
@@ -76,7 +76,7 @@ def test_cdist_between_two_groups():
     D = mpcf.cdist(X, Y, p=2, verbose=False)
     assert D.shape == (4, 3)
     dense = np.asarray(D)
-    assert np.all(dense >= -1e-10)
+    assert np.all(dense >= 0)
 
 
 def test_pcf_arithmetic_then_distance():
