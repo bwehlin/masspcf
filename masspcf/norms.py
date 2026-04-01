@@ -66,5 +66,8 @@ def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
     backend, fs = _get_norms_backend(fs)
     out = np.zeros(X.shape, dtype=numpy_type(X))
 
-    _run_task(lambda: backend.lpnorm_l1(out, X._data), verbose=verbose)
+    if p == 1:
+        _run_task(lambda: backend.lpnorm_l1(out, X._data), verbose=verbose)
+    else:
+        _run_task(lambda: backend.lpnorm_lp(out, X._data, float(p)), verbose=verbose)
     return out
