@@ -254,37 +254,6 @@ namespace mpcf
      */
     Tensor copy() const;
 
-    /**
-     * Visit every element of the tensor in an "odometer" fashion (`[0,0,0], [0,0,1], ..., [0,0,n-1], [0, 1, 0], ..., [k-1,m-1,n-1]` for shape `(k,m,n)`)
-     * and invoke a function at each index.
-     * @tparam UnaryFunc Function object of type `std::vector<size_t>` -> `void` or `bool`
-     * @param f The function object to invoke at each index. If `f` returns a `bool`, `walk` stops on `f` returning `false`. All other return types/values are ignored.
-     */
-    template <typename UnaryFunc>
-#ifndef __CUDACC__
-    requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-    void walk(UnaryFunc&& f) const;
-
-    /**
-     * Like walk(), but distributes work across threads via the given Executor.
-     * Does not support early termination (bool return).
-     */
-    template <typename UnaryFunc>
-#ifndef __CUDACC__
-    requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-    void parallel_walk(UnaryFunc&& f, Executor& exec) const;
-
-    /**
-     * Like parallel_walk(), but returns a tf::Future instead of blocking.
-     */
-    template <typename UnaryFunc>
-#ifndef __CUDACC__
-    requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-    tf::Future<void> parallel_walk_async(UnaryFunc&& f, Executor& exec) const;
-
     template <typename UnaryPred>
 #ifndef __CUDACC__
     requires std::invocable<UnaryPred, const T&>
@@ -436,16 +405,6 @@ namespace mpcf
 
   template <ArithmeticType T>
   using PointCloud = Tensor<T>;
-
-  /**
-   * Visit every index of any IsTensor in row-major order, invoking f(idx) at each.
-   * If f returns bool, walking stops when f returns false.
-   */
-  template <IsTensor TTensor, typename UnaryFunc>
-#ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  void walk(const TTensor& tensor, UnaryFunc&& f);
 
   template <typename T, typename UnaryPred>
 #ifndef __CUDACC__

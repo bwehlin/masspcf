@@ -18,34 +18,33 @@
 #define MPCF_RANDOM_H
 
 #include "functional/pcf.hpp"
+#include "tensor.hpp"
+#include "walk.hpp"
 
+#include <algorithm>
 #include <vector>
 #include <random>
-
-#include "tensor.hpp"
 
 namespace mpcf
 {
 
   template <typename Tt, typename Tv, typename F>
-  void noisy_function(Tensor<Pcf<Tt, Tv>>& out, size_t nPoints, F func, Tv noise = 0.1)
+  void noisy_function(Tensor<Pcf<Tt, Tv>>& out, size_t nPoints, F func,
+                      Tv noise = 0.1, const DefaultRandomGenerator& gen = default_generator())
   {
     using PcfT = Pcf<Tt, Tv>;
     using PointT = typename PcfT::point_type;
 
-    // TODO: unified random generator with seeding and thread-consistency
+    mpcf::walk(out, gen, [nPoints, noise, &func, &out](const std::vector<size_t>& idx, auto& engine) {
 
-    std::mt19937_64 gen;
-    std::uniform_real_distribution<Tt> tDist(static_cast<Tt>(0.), static_cast<Tt>(1.));
-    std::normal_distribution<Tv> vDist(static_cast<Tv>(0.), noise);
+      std::uniform_real_distribution<Tt> tDist(static_cast<Tt>(0.), static_cast<Tt>(1.));
+      std::normal_distribution<Tv> vDist(static_cast<Tv>(0.), noise);
 
-    std::vector<Tt> randomTs(nPoints, static_cast<Tt>(0.));
-    std::vector<Tv> randomNoises(nPoints, static_cast<Tt>(0.));
+      std::vector<Tt> randomTs(nPoints);
+      std::vector<Tv> randomNoises(nPoints);
 
-    out.apply([&gen, &tDist, &vDist, &randomTs, &randomNoises, &func](PcfT& f) {
-
-      std::generate(randomTs.begin(), randomTs.end(), [&gen, &tDist]{ return tDist(gen); });
-      std::generate(randomNoises.begin(), randomNoises.end(), [&gen, &vDist]{ return vDist(gen); });
+      std::generate(randomTs.begin(), randomTs.end(), [&engine, &tDist]{ return tDist(engine); });
+      std::generate(randomNoises.begin(), randomNoises.end(), [&engine, &vDist]{ return vDist(engine); });
 
       std::sort(randomTs.begin(), randomTs.end());
       randomTs.front() = 0.;
@@ -60,7 +59,7 @@ namespace mpcf
 
       pts.back().v = 0.;
 
-      f = PcfT(std::move(pts));
+      out(idx) = PcfT(std::move(pts));
     });
   }
 

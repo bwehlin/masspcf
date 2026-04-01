@@ -34,7 +34,7 @@ namespace
     auto arr_itemsize = arr.itemsize();
 
     mpcf::Tensor<TensorValueT> t(std::vector<size_t>(arr.shape(), arr.shape() + arr.ndim()));
-    t.walk([&t, arr_data, arr_strides, arr_itemsize](const std::vector<size_t>& idx) {
+    mpcf::walk(t, [&t, arr_data, arr_strides, arr_itemsize](const std::vector<size_t>& idx) {
 
       auto arr_idx = std::inner_product(idx.begin(), idx.end(), arr_strides, 0_z);
       arr_idx /= arr_itemsize;

@@ -17,6 +17,7 @@
 #include <../include/mpcf/io/io_stream.hpp>
 #include <mpcf/io.hpp>
 #include <mpcf/tensor.hpp>
+#include <mpcf/walk.hpp>
 
 #include <sstream>
 #include <iostream>
@@ -27,7 +28,7 @@ namespace mpcf
   void PrintTo(const mpcf::Tensor<T>& tensor, std::ostream* os)
   {
     *os << "Tensor[\n";
-    tensor.walk([&tensor, os](const std::vector<size_t>& index)
+    mpcf::walk(tensor, [&tensor, os](const std::vector<size_t>& index)
     {
 
       *os << "  " << index_to_string(index) << ": ";
@@ -142,7 +143,7 @@ namespace
 
     TensorT tensor({ 2, 3, 4 });
 
-    tensor.walk([&tensor](const std::vector<size_t>& idx) {
+    mpcf::walk(tensor, [&tensor](const std::vector<size_t>& idx) {
       tensor(idx) = 100 * idx[0] + 10 * idx[1] + idx[2];
     });
 
@@ -240,7 +241,7 @@ namespace
 
     TensorT tensor({ 2, 3 });
 
-    tensor.walk([&tensor](const std::vector<size_t>& idx) {
+    mpcf::walk(tensor, [&tensor](const std::vector<size_t>& idx) {
       std::vector<typename PcfT::point_type> pts;
       pts.emplace_back(TypeParam(0), static_cast<TypeParam>(idx[0] * 10 + idx[1]));
       tensor(idx) = PcfT(std::move(pts));
@@ -265,7 +266,7 @@ namespace
     using TensorT = mpcf::Tensor<TypeParam>;
 
     TensorT tensor({ 3, 4 });
-    tensor.walk([&tensor](const std::vector<size_t>& idx) {
+    mpcf::walk(tensor, [&tensor](const std::vector<size_t>& idx) {
       tensor(idx) = static_cast<TypeParam>(idx[0] * 10 + idx[1]);
     });
 
@@ -329,7 +330,7 @@ namespace
 
     // Create a 4x4 tensor and take a slice to get a non-contiguous view
     TensorT tensor({ 4, 4 });
-    tensor.walk([&tensor](const std::vector<size_t>& idx) {
+    mpcf::walk(tensor, [&tensor](const std::vector<size_t>& idx) {
       tensor(idx) = static_cast<TypeParam>(idx[0] * 10 + idx[1]);
     });
 

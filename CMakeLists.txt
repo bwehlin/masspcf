@@ -650,6 +650,7 @@ if (BUILD_TESTER)
       test/test_block_scheduler.cpp
       test/test_result_writer.cpp
       test/test_offset_data_manager.cpp
+      test/test_walk_random.cpp
   )
 
   if (BUILD_CUDA_TESTER)

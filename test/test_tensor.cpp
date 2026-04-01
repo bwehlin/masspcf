@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/tensor.hpp>
+#include <mpcf/walk.hpp>
 #include <mpcf/distance_matrix.hpp>
 #include <mpcf/symmetric_matrix.hpp>
 #include <mpcf/distance_matrix.hpp>
@@ -32,7 +33,7 @@ namespace
   {
     mpcf::Tensor<T> t(shape);
     size_t n = 0;
-    t.walk([&t, &n](const std::vector<size_t>& idx)
+    mpcf::walk(t, [&t, &n](const std::vector<size_t>& idx)
     {
       t(idx) = static_cast<T>(n++);
     });
@@ -58,7 +59,7 @@ namespace
     using T = TypeParam;
     mpcf::Tensor<T> t({ 2, 3 });
     t = T(7);
-    t.walk([&t](const std::vector<size_t>& idx) { EXPECT_EQ(t(idx), T(7)); });
+    mpcf::walk(t, [&t](const std::vector<size_t>& idx) { EXPECT_EQ(t(idx), T(7)); });
   }
 
   TYPED_TEST(TensorTppTyped, AssignScalarOverwritesPreviousValues)
@@ -200,7 +201,7 @@ namespace
     using T = TypeParam;
     auto t = make_sequential<T>({ 10 });
     int count = 0;
-    t.walk([&count](const std::vector<size_t>&) -> bool { return ++count < 5; });
+    mpcf::walk(t, [&count](const std::vector<size_t>&) -> bool { return ++count < 5; });
     EXPECT_EQ(count, 5);
   }
 
@@ -209,7 +210,7 @@ namespace
     using T = TypeParam;
     auto t = make_sequential<T>({ 4 });
     int count = 0;
-    t.walk([&count](const std::vector<size_t>&) -> bool { ++count; return true; });
+    mpcf::walk(t, [&count](const std::vector<size_t>&) -> bool { ++count; return true; });
     EXPECT_EQ(count, 4);
   }
 
@@ -218,7 +219,7 @@ namespace
     using T = TypeParam;
     mpcf::Tensor<T> t;
     int count = 0;
-    t.walk([&count](const std::vector<size_t>&) { ++count; });
+    mpcf::walk(t, [&count](const std::vector<size_t>&) { ++count; });
     EXPECT_EQ(count, 0);
   }
 
@@ -227,7 +228,7 @@ namespace
     using T = TypeParam;
     mpcf::Tensor<T> t({ 0, 3 });
     int count = 0;
-    t.walk([&count](const std::vector<size_t>&) { ++count; });
+    mpcf::walk(t, [&count](const std::vector<size_t>&) { ++count; });
     EXPECT_EQ(count, 0);
   }
 
@@ -239,7 +240,7 @@ namespace
     auto t = make_sequential<T>({ 3, 3 });
     t.apply([](T& v) { v = v * T(2); });
     size_t n = 0;
-    t.walk([&t, &n](const std::vector<size_t>& idx) {
+    mpcf::walk(t, [&t, &n](const std::vector<size_t>& idx) {
       EXPECT_EQ(t(idx), T(n) * T(2));
       ++n;
     });

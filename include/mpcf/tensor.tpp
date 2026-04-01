@@ -21,6 +21,7 @@
 #include <taskflow/algorithm/for_each.hpp>
 
 #include "executor.hpp"
+#include "walk.hpp"
 
 namespace mpcf
 {
@@ -72,7 +73,7 @@ namespace mpcf
     }
 
     bool equal = true;
-    walk([&equal, this, &rhs](const std::vector<size_t>& idx) {
+    mpcf::walk(*this, [&equal, this, &rhs](const std::vector<size_t>& idx) {
       return (equal &= ( (*this)(idx) == rhs(idx) ) );
     });
 
@@ -151,7 +152,7 @@ namespace mpcf
     }
 
     auto rhs_view = rhs.broadcast_to(target);
-    walk([this, &rhs_view](const std::vector<size_t>& idx){
+    mpcf::walk(*this, [this, &rhs_view](const std::vector<size_t>& idx){
       (*this)(idx) = T(rhs_view(idx));
     });
   }
@@ -410,7 +411,7 @@ namespace mpcf
       auto lhs_view = lhs.broadcast_to(out_shape);
       auto rhs_view = rhs.broadcast_to(out_shape);
       Tensor<R> result(out_shape);
-      result.walk([&](const std::vector<size_t>& idx) {
+      mpcf::walk(result, [&](const std::vector<size_t>& idx) {
         result(idx) = op(lhs_view(idx), rhs_view(idx));
       });
       return result;
@@ -424,7 +425,7 @@ namespace mpcf
         throw std::invalid_argument("Cannot broadcast in-place: output shape " +
             shape_to_string(out_shape) + " differs from LHS shape " + shape_to_string(lhs.shape()));
       auto rhs_view = rhs.broadcast_to(out_shape);
-      lhs.walk([&](const std::vector<size_t>& idx) {
+      mpcf::walk(lhs, [&](const std::vector<size_t>& idx) {
         lhs(idx) = op(lhs(idx), rhs_view(idx));
       });
       return lhs;
@@ -1150,7 +1151,7 @@ namespace mpcf
   {
     Tensor<T> ret(shape());
 
-    walk([&ret, this](const std::vector<size_t>& idx){
+    mpcf::walk(*this, [&ret, this](const std::vector<size_t>& idx){
       ret(idx) = (*this)(idx);
     });
 
@@ -1378,36 +1379,6 @@ namespace mpcf
   template <typename T>
   template <typename UnaryFunc>
 #ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  void Tensor<T>::walk(UnaryFunc&& f) const
-  {
-    mpcf::walk(*this, std::forward<UnaryFunc>(f));
-  }
-
-  template <typename T>
-  template <typename UnaryFunc>
-#ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  void Tensor<T>::parallel_walk(UnaryFunc&& f, Executor& exec) const
-  {
-    mpcf::parallel_walk(*this, std::forward<UnaryFunc>(f), exec);
-  }
-
-  template <typename T>
-  template <typename UnaryFunc>
-#ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  tf::Future<void> Tensor<T>::parallel_walk_async(UnaryFunc&& f, Executor& exec) const
-  {
-    return mpcf::parallel_walk_async(*this, std::forward<UnaryFunc>(f), exec);
-  }
-
-  template <typename T>
-  template <typename UnaryFunc>
-#ifndef __CUDACC__
   requires std::invocable<UnaryFunc, const T&>
 #endif
   bool Tensor<T>::any_of(UnaryFunc&& f) const
@@ -1424,8 +1395,7 @@ namespace mpcf
   {
     bool match = false;
 
-    // This could be made more efficient
-    walk([&match, &f](const std::vector<size_t>& idx) {
+    mpcf::walk(*this, [&match, &f](const std::vector<size_t>& idx) {
 
       if (f(idx))
       {
@@ -1450,7 +1420,7 @@ namespace mpcf
   template <typename UnaryFunc> requires std::invocable<UnaryFunc, T&>
   void Tensor<T>::apply(UnaryFunc&& f)
   {
-    walk([&f, this](const std::vector<size_t>& idx){ f((*this)(idx)); });
+    mpcf::walk(*this, [&f, this](const std::vector<size_t>& idx){ f((*this)(idx)); });
   }
 
   template <typename T>
@@ -1607,104 +1577,6 @@ namespace mpcf
   T& Tensor<T>::index_to_ref(const std::vector<size_t>& index)
   {
     return m_data[index_to_data_index(index)];
-  }
-
-  template <IsTensor TTensor, typename UnaryFunc>
-#ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  void walk(const TTensor& tensor, UnaryFunc&& f)
-  {
-    auto shape_range = tensor.shape();
-    std::vector<size_t> shape(std::begin(shape_range), std::end(shape_range));
-
-    if (shape.empty() || std::any_of(shape.begin(), shape.end(), [](size_t n){ return n == 0; }))
-    {
-      return;
-    }
-
-    auto ndim = shape.size();
-    std::vector<size_t> cur(ndim, 0_uz);
-
-    while (true)
-    {
-      if constexpr (std::is_same_v<decltype(f(cur)), bool>)
-      {
-        if (!f(cur))
-        {
-          return;
-        }
-      }
-      else
-      {
-        f(cur);
-      }
-
-      for (ptrdiff_t i = ndim - 1; i >= 0; --i)
-      {
-        ++cur[i];
-
-        if (cur[i] < shape[i])
-        {
-          break;
-        }
-
-        if (i == 0)
-        {
-          return;
-        }
-
-        cur[i] = 0;
-      }
-    }
-  }
-
-  template <IsTensor TTensor, typename UnaryFunc>
-#ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  tf::Future<void> parallel_walk_async(const TTensor& tensor, UnaryFunc&& f, Executor& exec)
-  {
-    auto shape_range = tensor.shape();
-    std::vector<size_t> shape(std::begin(shape_range), std::end(shape_range));
-
-    if (shape.empty() || std::any_of(shape.begin(), shape.end(), [](size_t n){ return n == 0; }))
-    {
-      // No work to do; submit an empty flow to get an already-resolved future.
-      tf::Taskflow flow;
-      return exec.cpu()->run(std::move(flow));
-    }
-
-    auto ndim = shape.size();
-    size_t total = 1;
-    for (auto s : shape)
-      total *= s;
-
-    tf::Taskflow flow;
-    flow.for_each_index<size_t, size_t, size_t>(0ul, total, 1ul, [f, shape = std::move(shape), ndim](size_t flat) {
-      thread_local std::vector<size_t> idx;
-      idx.resize(ndim);
-
-      size_t rem = flat;
-      for (ptrdiff_t i = ndim - 1; i >= 0; --i)
-      {
-        idx[i] = rem % shape[i];
-        rem /= shape[i];
-      }
-
-      f(idx);
-    });
-
-    return exec.cpu()->run(std::move(flow));
-  }
-
-  template <IsTensor TTensor, typename UnaryFunc>
-#ifndef __CUDACC__
-  requires std::invocable<UnaryFunc, std::vector<size_t>>
-#endif
-  void parallel_walk(const TTensor& tensor, UnaryFunc&& f, Executor& exec)
-  {
-    parallel_walk_async(tensor, std::forward<UnaryFunc>(f), exec).wait();
   }
 
   template <typename T, typename UnaryPred>

@@ -52,7 +52,7 @@ namespace mpcf
     multiples.back() = static_cast<T>(1);
     std::partial_sum(multiples.rbegin() + 1, multiples.rend(), multiples.rbegin() + 1, std::multiplies<>());
 
-    ret.walk([&ret, &multiples](const std::vector<size_t>& idx) {
+    mpcf::walk(ret, [&ret, &multiples](const std::vector<size_t>& idx) {
       auto val = std::inner_product(idx.begin(), idx.end(), multiples.begin(), 0_uz);
       ret(idx) = val;
     });

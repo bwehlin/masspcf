@@ -48,7 +48,7 @@ namespace mpcf
       tf::Taskflow flow;
       std::vector<tf::Task> tasks;
 
-      m_in.walk([this](const std::vector<std::size_t>& idx) {
+      mpcf::walk(m_in, [this](const std::vector<std::size_t>& idx) {
         m_out(idx) = m_functional(m_in(idx));
       });
 

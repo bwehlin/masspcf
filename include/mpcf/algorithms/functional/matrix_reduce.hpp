@@ -55,7 +55,7 @@ namespace mpcf
 
     Tensor<PcfT> ret(shape);
     auto op = std::forward<ReductionF>(reduction);
-    ret.parallel_walk([&ret, &in, inDimSize, dim, &op](const std::vector<size_t>& idx){
+    mpcf::parallel_walk(ret, [&ret, &in, inDimSize, dim, &op](const std::vector<size_t>& idx){
       std::vector<size_t> inIdx(in.shape().size(), 0_uz);
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());
@@ -115,7 +115,7 @@ namespace mpcf
     }
     OutTensorT ret(shape);
 
-    ret.parallel_walk([&ret, &in, inDimSize, dim, &f, &maxOp](const std::vector<size_t>& idx){
+    mpcf::parallel_walk(ret, [&ret, &in, inDimSize, dim, &f, &maxOp](const std::vector<size_t>& idx){
       std::vector<size_t> inIdx(in.shape().size(), 0_uz);
 
       std::copy(idx.begin(), idx.begin() + dim, inIdx.begin());

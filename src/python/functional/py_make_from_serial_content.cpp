@@ -66,7 +66,7 @@ namespace mpcf_py
 
     TensorT target(targetShape);
 
-    target.walk([&target, &content, &enumeration](const std::vector<size_t>& idx) {
+    mpcf::walk(target, [&target, &content, &enumeration](const std::vector<size_t>& idx) {
 
       auto enumerationBaseOffset = std::inner_product(idx.begin(), idx.end(), enumeration.strides(), 0_uz);
       enumerationBaseOffset /= enumeration.itemsize();

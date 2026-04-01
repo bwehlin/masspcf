@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/tensor.hpp>
+#include <mpcf/walk.hpp>
 
 static_assert(std::random_access_iterator<mpcf::Tensor1dValueIterator<mpcf::Tensor<double>>>);
 
@@ -169,7 +170,7 @@ TEST(TensorWalk, MemberWalkMatchesFreeWalk)
   mpcf::Tensor<int> x({2, 3});
 
   std::vector<std::vector<size_t>> from_member;
-  x.walk([&](const std::vector<size_t>& idx) {
+  mpcf::walk(x, [&](const std::vector<size_t>& idx) {
     from_member.push_back(idx);
   });
 

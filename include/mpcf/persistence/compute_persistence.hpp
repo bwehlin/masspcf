@@ -159,7 +159,7 @@ namespace mpcf::ph
 
       next_step(m_input.size(), "Computing persistence", "pointcloud");
 
-      return m_input.parallel_walk_async([this](const std::vector<size_t>& index) {
+      return mpcf::parallel_walk_async(m_input, [this](const std::vector<size_t>& index) {
         if (stop_requested())
           return;
 

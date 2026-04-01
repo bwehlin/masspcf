@@ -17,6 +17,38 @@ from .tensor_create import zeros
 from .typing import _validate_dtype, pcf32, pcf64
 
 
+class Generator:
+    """Seedable random number generator for masspcf.
+
+    Parameters
+    ----------
+    seed : int, optional
+        Seed for deterministic generation. If ``None``, a non-deterministic
+        seed is used.
+    """
+
+    def __init__(self, seed=None):
+        if seed is None:
+            self._gen = cpp.RandomGenerator()
+        else:
+            self._gen = cpp.RandomGenerator(seed)
+
+    def seed(self, seed):
+        """Re-seed the generator."""
+        self._gen.seed(seed)
+
+
+def seed(s):
+    """Seed the global random number generator.
+
+    Parameters
+    ----------
+    s : int
+        Seed value.
+    """
+    cpp.seed(s)
+
+
 def _get_backend(dtype):
     dtype = _validate_dtype(dtype, [pcf32, pcf64])
 
@@ -26,7 +58,7 @@ def _get_backend(dtype):
         return cpp.Random_f64_f64
 
 
-def noisy_sin(shape, n_points=20, dtype=pcf32):
+def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None):
     r"""Generate a tensor of noisy :math:`\sin(2\pi t)` PCFs.
 
     Each generated PCF has the form
@@ -47,6 +79,8 @@ def noisy_sin(shape, n_points=20, dtype=pcf32):
         Number of breakpoints per PCF, by default 20.
     dtype : type, optional
         ``pcf32`` or ``pcf64``, by default ``pcf32``.
+    generator : Generator, optional
+        Random number generator. If ``None``, the global generator is used.
 
     Returns
     -------
@@ -56,12 +90,13 @@ def noisy_sin(shape, n_points=20, dtype=pcf32):
     backend = _get_backend(dtype)
 
     A = zeros(shape, dtype=dtype)
-    backend.noisy_sin(A._data, n_points)
+    gen = generator._gen if generator is not None else None
+    backend.noisy_sin(A._data, n_points, gen)
 
     return A
 
 
-def noisy_cos(shape, n_points=20, dtype=pcf32):
+def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None):
     r"""Generate a tensor of noisy :math:`\cos(2\pi t)` PCFs.
 
     Each generated PCF has the form
@@ -82,6 +117,8 @@ def noisy_cos(shape, n_points=20, dtype=pcf32):
         Number of breakpoints per PCF, by default 20.
     dtype : type, optional
         ``pcf32`` or ``pcf64``, by default ``pcf32``.
+    generator : Generator, optional
+        Random number generator. If ``None``, the global generator is used.
 
     Returns
     -------
@@ -91,6 +128,7 @@ def noisy_cos(shape, n_points=20, dtype=pcf32):
     backend = _get_backend(dtype)
 
     A = zeros(shape, dtype=dtype)
-    backend.noisy_cos(A._data, n_points)
+    gen = generator._gen if generator is not None else None
+    backend.noisy_cos(A._data, n_points, gen)
 
     return A

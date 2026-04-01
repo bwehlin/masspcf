@@ -50,7 +50,7 @@ namespace mpcf::ph
 
       m_ret = Tensor<Pcf<T, T>>(m_barcodes.shape());
 
-      m_barcodes.walk([this, &flow](const std::vector<size_t>& index) {
+      mpcf::walk(m_barcodes, [this, &flow](const std::vector<size_t>& index) {
         flow.emplace([this, index] {
           m_ret(index) = m_func(m_barcodes(index));
           add_progress(1);

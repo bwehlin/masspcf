@@ -6,6 +6,7 @@ User guide
 
    concepts
    tensors
+   random
    indexing
    arithmetic
    evaluation

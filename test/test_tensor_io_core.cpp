@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/tensor.hpp>
+#include <mpcf/walk.hpp>
 #include <mpcf/io/tensor_io.hpp>
 #include <mpcf/functional/pcf.hpp>
 #include <mpcf/persistence/barcode.hpp>
@@ -137,7 +138,7 @@ namespace
 
     EXPECT_EQ(rt.shape(), view.shape());
 
-    view.walk([&](const std::vector<size_t>& idx)
+    mpcf::walk(view, [&](const std::vector<size_t>& idx)
     {
       EXPECT_EQ(rt(idx), view(idx));
     });

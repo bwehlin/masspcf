@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <mpcf/tensor.hpp>
+#include <mpcf/walk.hpp>
 
 namespace
 {
@@ -24,7 +25,7 @@ namespace
   {
     mpcf::Tensor<T> t(shape);
     size_t n = 0;
-    t.walk([&t, &n](const std::vector<size_t>& idx)
+    mpcf::walk(t, [&t, &n](const std::vector<size_t>& idx)
     {
       t(idx) = static_cast<T>(n++);
     });
