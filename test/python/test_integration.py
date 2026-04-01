@@ -53,13 +53,11 @@ def test_point_cloud_to_persistence_to_stable_rank():
     bcs = mpers.compute_persistent_homology(pclouds, maxDim=1, verbose=False)
     assert bcs.shape == (n_clouds, 2)
 
-    # Step 3: Extract H1 stable ranks as PCFs
-    srs = mpcf.zeros((n_clouds,), dtype=mpcf.pcf64)
-    for i in range(n_clouds):
-        srs[i] = mpers.barcode_to_stable_rank(bcs[i, 1])
+    # Step 3: Convert barcodes to stable ranks as PCFs
+    srs = mpers.barcode_to_stable_rank(bcs, verbose=False)
 
-    # Step 4: Compute distance matrix between stable ranks
-    dm = mpcf.pdist(srs, p=1, verbose=False)
+    # Step 4: Compute distance matrix between H1 stable ranks
+    dm = mpcf.pdist(srs[:, 1], p=1, verbose=False)
     assert dm.size == n_clouds
     dense = dm.to_dense()
     # Basic metric properties
