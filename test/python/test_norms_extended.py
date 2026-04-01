@@ -16,7 +16,7 @@ def _pcf(points, dtype):
 # --- L2 norm ---
 
 
-@pytest.mark.xfail(reason="lp_norm ignores p parameter -- always computes L1 (norms.py:69)")
+
 def test_l2_norm_constant_function(pcf_dtype):
     """L2 norm of f=c on [0,T) is c*sqrt(T)."""
     X = mpcf.zeros((1,), dtype=pcf_dtype)
@@ -26,7 +26,7 @@ def test_l2_norm_constant_function(pcf_dtype):
     npt.assert_allclose(result[0], 6.0, rtol=1e-5)
 
 
-@pytest.mark.xfail(reason="lp_norm ignores p parameter -- always computes L1 (norms.py:69)")
+
 def test_l2_norm_two_step_function(pcf_dtype):
     """L2 norm of a piecewise constant function with two steps."""
     X = mpcf.zeros((1,), dtype=pcf_dtype)
@@ -36,7 +36,7 @@ def test_l2_norm_two_step_function(pcf_dtype):
     npt.assert_allclose(result[0], np.sqrt(5.0), rtol=1e-5)
 
 
-@pytest.mark.xfail(reason="lp_norm ignores p parameter -- always computes L1 (norms.py:69)")
+
 def test_l2_norm_differs_from_l1():
     """L2 norm should differ from L1 norm for non-trivial functions."""
     X = mpcf.zeros((1,), dtype=mpcf.pcf64)
@@ -51,7 +51,7 @@ def test_l2_norm_differs_from_l1():
 # --- Lp norm for general p ---
 
 
-@pytest.mark.xfail(reason="lp_norm ignores p parameter -- always computes L1 (norms.py:69)")
+
 def test_lp_norm_p3(pcf_dtype):
     """L3 norm of f with two steps where L3 != L1."""
     X = mpcf.zeros((1,), dtype=pcf_dtype)
@@ -62,7 +62,7 @@ def test_lp_norm_p3(pcf_dtype):
     npt.assert_allclose(result[0], expected, rtol=1e-4)
 
 
-@pytest.mark.xfail(reason="lp_norm ignores p parameter -- always computes L1 (norms.py:69)")
+
 def test_lp_norm_large_p_approaches_linfinity(pcf_dtype):
     """For large p, Lp norm should approach max|f|."""
     X = mpcf.zeros((1,), dtype=pcf_dtype)
@@ -75,10 +75,7 @@ def test_lp_norm_large_p_approaches_linfinity(pcf_dtype):
 
 
 def test_lp_norm_zero_function(pcf_dtype):
-    """Norm of the zero function is 0 for any p.
-
-    Note: this passes even though lp_norm ignores p, because L1(0) = L2(0) = 0.
-    """
+    """Norm of the zero function is 0."""
     X = mpcf.zeros((1,), dtype=pcf_dtype)
     X[0] = _pcf([[0.0, 0.0]], pcf_dtype)
     result = mpcf.lp_norm(X, p=1)

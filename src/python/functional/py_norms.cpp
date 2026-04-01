@@ -50,12 +50,24 @@ namespace
       return mpcf_py::execute_stoppable_task<mpcf::ApplyFunctional<TensorT, NumpyTensor<Tv>, decltype(f)>>(inTensor, outTensor, f);
     }
 
+    static std::unique_ptr<mpcf::StoppableTask<void>> lpnorm_lp(py::array_t<Tv>& out, TensorT inTensor, Tv p)
+    {
+      NumpyTensor<Tv> outTensor(out);
+
+      auto f = [p](const PcfT& v) {
+        return mpcf::lp_norm(v, p);
+      };
+
+      return mpcf_py::execute_stoppable_task<mpcf::ApplyFunctional<TensorT, NumpyTensor<Tv>, decltype(f)>>(inTensor, outTensor, f);
+    }
+
     static void register_bindings(py::handle m, const std::string& suffix)
     {
       py::class_<PyNormsBindings> cls(m, ("Norms" + suffix).c_str());
 
       cls
           .def_static("lpnorm_l1", &PyNormsBindings::lpnorm_l1)
+          .def_static("lpnorm_lp", &PyNormsBindings::lpnorm_lp)
       ;
 
     }
