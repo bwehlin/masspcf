@@ -1,10 +1,17 @@
 """Edge case tests for persistent homology computation."""
 
 import numpy as np
-import pytest
 
 import masspcf as mpcf
 import masspcf.persistence as mpers
+from masspcf.persistence.barcode import Barcode
+
+
+def _bc(pairs, dtype=np.float64):
+    """Create a Barcode from a list of (birth, death) pairs."""
+    if len(pairs) == 0:
+        return Barcode(np.zeros((0, 2), dtype=dtype))
+    return Barcode(np.array(pairs, dtype=dtype))
 
 
 # --- Empty point cloud ---
@@ -14,16 +21,16 @@ def test_empty_point_cloud():
     """An empty point cloud should produce zero bars in all dimensions."""
     X = np.zeros((0, 2), dtype=np.float64)
     bcs = mpers.compute_persistent_homology(X, maxDim=1, verbose=False)
-    assert len(bcs[0]) == 0
-    assert len(bcs[1]) == 0
+    assert bcs[0].is_isomorphic_to(_bc([]))
+    assert bcs[1].is_isomorphic_to(_bc([]))
 
 
 def test_empty_point_cloud_reduced():
     """Reduced homology of an empty point cloud should be trivial."""
     X = np.zeros((0, 2), dtype=np.float64)
     bcs = mpers.compute_persistent_homology(X, maxDim=1, reduced=True, verbose=False)
-    assert len(bcs[0]) == 0
-    assert len(bcs[1]) == 0
+    assert bcs[0].is_isomorphic_to(_bc([]))
+    assert bcs[1].is_isomorphic_to(_bc([]))
 
 
 # --- Single point ---
@@ -33,23 +40,16 @@ def test_single_point_has_one_h0_bar():
     """A single point should produce exactly one H0 bar [0, inf) (unreduced)."""
     X = np.array([[1.0, 2.0]])  # 1 point in R^2
     bcs = mpers.compute_persistent_homology(X, maxDim=1, verbose=False)
-    h0 = bcs[0]
-    h1 = bcs[1]
-
-    assert len(h0) == 1
-    bars = h0.to_numpy()
-    assert bars[0, 0] == pytest.approx(0.0)
-    assert np.isinf(bars[0, 1])
-
-    assert len(h1) == 0
+    assert bcs[0].is_isomorphic_to(_bc([[0.0, np.inf]]))
+    assert bcs[1].is_isomorphic_to(_bc([]))
 
 
 def test_single_point_reduced_has_no_bars():
     """Reduced homology of a single point should be trivial."""
     X = np.array([[0.0, 0.0]])
     bcs = mpers.compute_persistent_homology(X, maxDim=1, reduced=True, verbose=False)
-    h0 = bcs[0]
-    assert len(h0) == 0
+    assert bcs[0].is_isomorphic_to(_bc([]))
+    assert bcs[1].is_isomorphic_to(_bc([]))
 
 
 # --- Two points ---
@@ -59,20 +59,8 @@ def test_two_points_h0():
     """Two points produce 2 H0 bars (unreduced): one essential, one finite."""
     X = np.array([[0.0, 0.0], [3.0, 0.0]])  # distance = 3
     bcs = mpers.compute_persistent_homology(X, maxDim=1, verbose=False)
-    h0 = bcs[0]
-    h1 = bcs[1]
-
-    assert len(h0) == 2
-    bars = h0.to_numpy()
-    births = sorted(bars[:, 0])
-    assert all(b == pytest.approx(0.0) for b in births)
-
-    # One bar should die at distance 3, one should be infinite
-    deaths = sorted(bars[:, 1])
-    assert deaths[0] == pytest.approx(3.0)
-    assert np.isinf(deaths[1])
-
-    assert len(h1) == 0
+    assert bcs[0].is_isomorphic_to(_bc([[0.0, 3.0], [0.0, np.inf]]))
+    assert bcs[1].is_isomorphic_to(_bc([]))
 
 
 # --- All identical points ---
@@ -82,13 +70,7 @@ def test_identical_points():
     """All identical points: distances are 0, so all merge at scale 0."""
     X = np.array([[1.0, 1.0]] * 5)
     bcs = mpers.compute_persistent_homology(X, maxDim=1, verbose=False)
-    h0 = bcs[0]
-
-    bars = h0.to_numpy()
-    # All finite bars should die at 0
-    finite_bars = bars[~np.isinf(bars[:, 1])]
-    for bar in finite_bars:
-        assert bar[1] == pytest.approx(0.0)
+    assert bcs[0].is_isomorphic_to(_bc([[0.0, np.inf]]))
 
 
 # --- maxDim variations ---
@@ -115,8 +97,7 @@ def test_collinear_points_no_h1():
     """Collinear points should produce no H1 features."""
     X = np.array([[float(i), 0.0] for i in range(5)])
     bcs = mpers.compute_persistent_homology(X, maxDim=1, verbose=False)
-    h1 = bcs[1]
-    assert len(h1) == 0
+    assert bcs[1].is_isomorphic_to(_bc([]))
 
 
 # --- Float32 vs Float64 ---
@@ -152,5 +133,5 @@ def test_pcloud_tensor_single_point_per_cloud():
     assert bcs.shape == (3, 2)
 
     for i in range(3):
-        assert len(bcs[i, 0]) == 1  # one essential H0 bar
-        assert len(bcs[i, 1]) == 0  # no H1
+        assert bcs[i, 0].is_isomorphic_to(_bc([[0.0, np.inf]]))
+        assert bcs[i, 1].is_isomorphic_to(_bc([]))
