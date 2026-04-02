@@ -661,7 +661,7 @@ if (BUILD_TESTER)
       test/test_result_writer.cpp
       test/test_offset_data_manager.cpp
       test/test_walk_random.cpp
-      test/test_algorithms_extended.cpp
+      test/test_subdivide.cpp
   )
 
   if (BUILD_CUDA_TESTER)

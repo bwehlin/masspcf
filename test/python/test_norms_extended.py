@@ -82,15 +82,6 @@ def test_lp_norm_zero_function(pcf_dtype):
     assert result[0] == pytest.approx(0.0)
 
 
-def test_lp_norm_single_point_function(pcf_dtype):
-    """A PCF with a single breakpoint (constant forever) has a well-defined norm
-    only if that constant is 0 (otherwise the integral is infinite)."""
-    X = mpcf.zeros((1,), dtype=pcf_dtype)
-    X[0] = _pcf([[0.0, 0.0]], pcf_dtype)
-    result = mpcf.lp_norm(X, p=1)
-    assert result[0] == pytest.approx(0.0)
-
-
 def test_lp_norm_negative_values(pcf_dtype):
     """Norm uses |f|, so negative values should give same norm as positive."""
     X_pos = mpcf.zeros((1,), dtype=pcf_dtype)

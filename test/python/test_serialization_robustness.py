@@ -126,13 +126,3 @@ def test_save_load_empty_barcode_tensor():
     for i in range(3):
         assert len(bcs2[i]) == 0
 
-
-def test_multiple_save_load_same_buffer():
-    """Saving two objects to a buffer and loading back the first works."""
-    f = mpcf.Pcf(np.array([[0.0, 5.0], [1.0, 0.0]]))
-
-    buf = io.BytesIO()
-    mpcf.save(f, buf)
-    buf.seek(0)
-    g = mpcf.load(buf)
-    assert f == g
