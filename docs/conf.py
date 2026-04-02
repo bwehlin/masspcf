@@ -123,15 +123,16 @@ for file in files:
     else:
         os.symlink(file, target)
 
-# Create a stub _mpcf_cpu so that _mpcf_cpp.py can import a backend
-# without needing the compiled C++ extension (not available on RTD).
-# The stub uses __getattr__ to return a flexible mock for any attribute,
-# so module-level accesses like cpp.Shape succeed without enumerating
-# every C++ class.
-_stub_path = os.path.join(masspcf_temp_dir, "_mpcf_cpu.py")
-with open(_stub_path, "w") as _f:
+# Replace _mpcf_cpp.py with a stub so that `from . import _mpcf_cpp as cpp`
+# followed by `cpp.Shape` etc. works without the compiled C++ extension.
+_cpp_link = os.path.join(masspcf_temp_dir, "_mpcf_cpp.py")
+if os.path.islink(_cpp_link):
+    os.remove(_cpp_link)
+elif os.path.isfile(_cpp_link):
+    os.remove(_cpp_link)
+with open(_cpp_link, "w") as _f:
     _f.write(
-        "# Stub backend for documentation builds\n"
+        "# Stub _mpcf_cpp for documentation builds\n"
         "class _Mock:\n"
         "    def __init__(self, *a, **kw): pass\n"
         "    def __call__(self, *a, **kw): return _Mock()\n"
