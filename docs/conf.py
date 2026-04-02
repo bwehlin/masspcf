@@ -87,7 +87,7 @@ html_static_path = ["_static"]
 html_css_files = ["lightbox.css"]
 html_js_files = ["lightbox.js"]
 
-# --- Create a temporary bundle of 'masspcf' and (a fake) 'mpcf_cpp' from the Python source in ../masspcf. This is only for documentation purposes (so that we don't have to keep reinstalling, including recompiling, masspcf everytime we want to update the docs). The setup has been tested on Linux and should probably work on OSX. It is unclear if it'll work on Windows.
+# --- Create a temporary bundle of 'masspcf' with a stub C++ backend from the Python source in ../masspcf. This is only for documentation purposes (so that we don't have to keep reinstalling, including recompiling, masspcf everytime we want to update the docs). The setup has been tested on Linux and should probably work on OSX. It is unclear if it'll work on Windows.
 
 import os
 import platform
@@ -123,8 +123,10 @@ for file in files:
     else:
         os.symlink(file, target)
 
-# Handle the directory link/copy
-cpp_src = os.path.abspath("./mpcf_cpp")
-cpp_dest = os.path.join(masspcf_temp_dir, "mpcf_cpp")
+# Create a stub _mpcf_cpu so that _mpcf_cpp.py can import a backend
+# without needing the compiled C++ extension (not available on RTD).
+_stub_path = os.path.join(masspcf_temp_dir, "_mpcf_cpu.py")
+with open(_stub_path, "w") as _f:
+    _f.write("# Stub backend for documentation builds\n")
 
 sys.path.insert(0, temp_mod_dir)
