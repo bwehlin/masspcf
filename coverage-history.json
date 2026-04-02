@@ -419,6 +419,6 @@
     "cpp": 87.3,
     "py": 86.0,
     "cuda": 100.0,
-    "release_tag": null
+    "release_tag": "v0.4.0b12"
   }
 ]
