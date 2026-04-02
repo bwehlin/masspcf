@@ -82,6 +82,7 @@
   {
     "utc_iso": "2026-03-06T16:41:47Z",
     "sha": "673cf17",
+    "branch": "main",
     "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html",
     "cpp": 70.3,
     "py": 70.0,
@@ -179,6 +180,7 @@
   {
     "utc_iso": "2026-03-09T14:09:56Z",
     "sha": "791ab3f",
+    "branch": "main",
     "detail_path": "reports/2026-03-09_14-09-56_791ab3f/report.html",
     "cpp": 82.2,
     "py": 69.0,
@@ -212,6 +214,7 @@
   {
     "utc_iso": "2026-03-11T17:18:26Z",
     "sha": "fd1f6b5",
+    "branch": "main",
     "detail_path": "reports/2026-03-11_17-18-26_fd1f6b5/report.html",
     "cpp": 82.3,
     "py": 71.0,
@@ -278,6 +281,7 @@
   {
     "utc_iso": "2026-03-16T11:18:20Z",
     "sha": "78f2e13",
+    "branch": "main",
     "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html",
     "cpp": 85.3,
     "py": 77.0,
@@ -350,6 +354,7 @@
   {
     "utc_iso": "2026-03-17T18:59:12Z",
     "sha": "21f94f0",
+    "branch": "main",
     "detail_path": "reports/2026-03-17_18-59-12_21f94f0/report.html",
     "cpp": 87.3,
     "py": 84.0,
@@ -359,6 +364,7 @@
   {
     "utc_iso": "2026-03-17T20:08:31Z",
     "sha": "8065e68",
+    "branch": "main",
     "detail_path": "reports/2026-03-17_20-08-31_8065e68/report.html",
     "cpp": 87.1,
     "py": 84.0,
@@ -368,6 +374,7 @@
   {
     "utc_iso": "2026-03-20T12:22:45Z",
     "sha": "d98d104",
+    "branch": "main",
     "detail_path": "reports/2026-03-20_12-22-45_d98d104/report.html",
     "cpp": 87.6,
     "py": 82.0,
@@ -377,6 +384,7 @@
   {
     "utc_iso": "2026-03-21T21:41:15Z",
     "sha": "3ed00c3",
+    "branch": "main",
     "detail_path": "reports/2026-03-21_21-41-15_3ed00c3/report.html",
     "cpp": 86.0,
     "py": 84.0,
@@ -386,6 +394,7 @@
   {
     "utc_iso": "2026-03-23T21:35:55Z",
     "sha": "4f8f28d",
+    "branch": "main",
     "detail_path": "reports/2026-03-23_21-35-55_4f8f28d/report.html",
     "cpp": 86.5,
     "py": 85.0,
@@ -395,8 +404,19 @@
   {
     "utc_iso": "2026-03-28T21:34:13Z",
     "sha": "44e3856",
+    "branch": "cuda_refactor",
     "detail_path": "reports/2026-03-28_21-34-13_44e3856/report.html",
     "cpp": 87.1,
+    "py": 86.0,
+    "cuda": 100.0,
+    "release_tag": null
+  },
+  {
+    "utc_iso": "2026-04-02T15:07:21Z",
+    "sha": "5c5c872",
+    "branch": "main",
+    "detail_path": "reports/2026-04-02_15-07-21_5c5c872/report.html",
+    "cpp": 87.3,
     "py": 86.0,
     "cuda": 100.0,
     "release_tag": null

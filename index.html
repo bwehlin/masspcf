@@ -337,6 +337,28 @@ footer {
   margin-bottom: 16px;
 }
 
+.chart-controls {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chart-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .chart-wrap {
   position: relative;
   width: 100%;
@@ -408,6 +430,12 @@ footer {
   color: var(--text);
 }
 
+.tt-branch {
+  color: var(--muted);
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
 .tt-release {
   color: var(--release);
   font-size: 10px;
@@ -451,6 +479,12 @@ footer {
 
   <div class="chart-section">
   <h2 class="chart-title">Coverage history</h2>
+  <div class="chart-controls">
+    <label class="chart-toggle">
+      <input type="checkbox" id="covChartMainOnly" checked>
+      <span>main only</span>
+    </label>
+  </div>
   <div class="chart-wrap">
     <canvas id="covChart"></canvas>
   </div>
@@ -463,171 +497,190 @@ footer {
 </div>
 <script>
 (function() {
-  const DATA = [{"utc_iso": "2026-03-05T19:07:46Z", "sha": "8f59c05", "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:23:07Z", "sha": "ec81680", "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:43:56Z", "sha": "b61083a", "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:59:10Z", "sha": "93fb7ed", "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:28:39Z", "sha": "d9e454d", "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:36:41Z", "sha": "f256e37", "detail_path": "reports/2026-03-06_13-36-41_f256e37/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T14:39:02Z", "sha": "5113316", "detail_path": "reports/2026-03-06_14-39-02_5113316/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:03:02Z", "sha": "31ed062", "detail_path": "reports/2026-03-06_15-03-02_31ed062/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:28:13Z", "sha": "2c087a2", "detail_path": "reports/2026-03-06_15-28-13_2c087a2/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:30:08Z", "sha": "480a106", "detail_path": "reports/2026-03-06_16-30-08_480a106/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:41:47Z", "sha": "673cf17", "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html", "cpp": 70.3, "py": 70.0, "cuda": null, "release_tag": "v0.4.0b5"}, {"utc_iso": "2026-03-07T21:28:45Z", "sha": "d757cff", "detail_path": "reports/2026-03-07_21-28-45_d757cff/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:23:00Z", "sha": "11efe1d", "detail_path": "reports/2026-03-08_09-23-00_11efe1d/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:38:13Z", "sha": "d9a513a", "detail_path": "reports/2026-03-08_09-38-13_d9a513a/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:51:02Z", "sha": "3c2a632", "detail_path": "reports/2026-03-08_09-51-02_3c2a632/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T10:13:31Z", "sha": "e6aca89", "detail_path": "reports/2026-03-08_10-13-31_e6aca89/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-09T07:35:44Z", "sha": "57a8860", "detail_path": "reports/2026-03-09_07-35-44_57a8860/report.html", "cpp": 81.2, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T10:34:29Z", "sha": "e73293d", "detail_path": "reports/2026-03-09_10-34-29_e73293d/report.html", "cpp": 81.7, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:12:14Z", "sha": "ff4c90f", "detail_path": "reports/2026-03-09_11-12-14_ff4c90f/report.html", "cpp": 81.3, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:16:56Z", "sha": "9e7fec1", "detail_path": "reports/2026-03-09_11-16-56_9e7fec1/report.html", "cpp": 81.5, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T12:42:47Z", "sha": "8a9e8bb", "detail_path": "reports/2026-03-09_12-42-47_8a9e8bb/report.html", "cpp": 81.0, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T13:53:56Z", "sha": "705b49c", "detail_path": "reports/2026-03-09_13-53-56_705b49c/report.html", "cpp": 81.5, "py": 69.0, "release_tag": null}, {"utc_iso": "2026-03-09T14:09:56Z", "sha": "791ab3f", "detail_path": "reports/2026-03-09_14-09-56_791ab3f/report.html", "cpp": 82.2, "py": 69.0, "cuda": null, "release_tag": "v0.4.0b6"}, {"utc_iso": "2026-03-09T16:48:39Z", "sha": "71098b4", "detail_path": "reports/2026-03-09_16-48-39_71098b4/report.html", "cpp": 81.4, "py": 74.0, "release_tag": null}, {"utc_iso": "2026-03-10T18:55:03Z", "sha": "7f23109", "detail_path": "reports/2026-03-10_18-55-03_7f23109/report.html", "cpp": 82.2, "py": 72.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:11:04Z", "sha": "6c187c9", "detail_path": "reports/2026-03-11_17-11-04_6c187c9/report.html", "cpp": 82.3, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:18:26Z", "sha": "fd1f6b5", "detail_path": "reports/2026-03-11_17-18-26_fd1f6b5/report.html", "cpp": 82.3, "py": 71.0, "cuda": null, "release_tag": "v0.4.0b7"}, {"utc_iso": "2026-03-13T21:43:55Z", "sha": "1bfc53d", "detail_path": "reports/2026-03-13_21-43-55_1bfc53d/report.html", "cpp": 82.9, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:09:19Z", "sha": "6d3d543", "detail_path": "reports/2026-03-14_21-09-19_6d3d543/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:23:15Z", "sha": "6ed7f92", "detail_path": "reports/2026-03-14_21-23-15_6ed7f92/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:32:54Z", "sha": "be34812", "detail_path": "reports/2026-03-14_21-32-54_be34812/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:44:10Z", "sha": "a9a3c3e", "detail_path": "reports/2026-03-14_21-44-10_a9a3c3e/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:03:44Z", "sha": "bb344cd", "detail_path": "reports/2026-03-16_11-03-44_bb344cd/report.html", "cpp": 85.3, "py": 75.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:09:11Z", "sha": "c406403", "detail_path": "reports/2026-03-16_11-09-11_c406403/report.html", "cpp": 85.1, "py": 75.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-16T11:18:20Z", "sha": "78f2e13", "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html", "cpp": 85.3, "py": 77.0, "cuda": null, "release_tag": "v0.4.0b8"}, {"utc_iso": "2026-03-16T19:13:29Z", "sha": "b4c52e7", "detail_path": "reports/2026-03-16_19-13-29_b4c52e7/report.html", "cpp": 86.1, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-16T21:01:58Z", "sha": "f4f31d7", "detail_path": "reports/2026-03-16_21-01-58_f4f31d7/report.html", "cpp": 86.8, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-17T10:00:30Z", "sha": "e5f2740", "detail_path": "reports/2026-03-17_10-00-30_e5f2740/report.html", "cpp": 86.9, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-17T13:59:32Z", "sha": "85bc2eb", "detail_path": "reports/2026-03-17_13-59-32_85bc2eb/report.html", "cpp": 86.9, "py": 77.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T15:58:25Z", "sha": "01bc354", "detail_path": "reports/2026-03-17_15-58-25_01bc354/report.html", "cpp": 86.9, "py": 80.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T16:14:11Z", "sha": "607ced4", "detail_path": "reports/2026-03-17_16-14-11_607ced4/report.html", "cpp": 86.7, "py": 80.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T16:30:42Z", "sha": "f37da73", "detail_path": "reports/2026-03-17_16-30-42_f37da73/report.html", "cpp": 86.8, "py": 80.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T18:59:12Z", "sha": "21f94f0", "detail_path": "reports/2026-03-17_18-59-12_21f94f0/report.html", "cpp": 87.3, "py": 84.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T20:08:31Z", "sha": "8065e68", "detail_path": "reports/2026-03-17_20-08-31_8065e68/report.html", "cpp": 87.1, "py": 84.0, "cuda": 89.1, "release_tag": "v0.4.0b9"}, {"utc_iso": "2026-03-20T12:22:45Z", "sha": "d98d104", "detail_path": "reports/2026-03-20_12-22-45_d98d104/report.html", "cpp": 87.6, "py": 82.0, "cuda": 89.1, "release_tag": "v0.4.0b10"}, {"utc_iso": "2026-03-21T21:41:15Z", "sha": "3ed00c3", "detail_path": "reports/2026-03-21_21-41-15_3ed00c3/report.html", "cpp": 86.0, "py": 84.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-23T21:35:55Z", "sha": "4f8f28d", "detail_path": "reports/2026-03-23_21-35-55_4f8f28d/report.html", "cpp": 86.5, "py": 85.0, "cuda": 97.8, "release_tag": null}, {"utc_iso": "2026-03-28T21:34:13Z", "sha": "44e3856", "detail_path": "reports/2026-03-28_21-34-13_44e3856/report.html", "cpp": 87.1, "py": 86.0, "cuda": 100.0, "release_tag": null}];
-  if (!DATA.length) return;
+  const ALL_DATA = [{"utc_iso": "2026-03-05T19:07:46Z", "sha": "8f59c05", "detail_path": "reports/2026-03-05_19-07-46_8f59c05/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:23:07Z", "sha": "ec81680", "detail_path": "reports/2026-03-05_19-23-07_ec81680/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:43:56Z", "sha": "b61083a", "detail_path": "reports/2026-03-05_19-43-56_b61083a/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-05T19:59:10Z", "sha": "93fb7ed", "detail_path": "reports/2026-03-05_19-59-10_93fb7ed/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:28:39Z", "sha": "d9e454d", "detail_path": "reports/2026-03-06_13-28-39_d9e454d/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T13:36:41Z", "sha": "f256e37", "detail_path": "reports/2026-03-06_13-36-41_f256e37/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T14:39:02Z", "sha": "5113316", "detail_path": "reports/2026-03-06_14-39-02_5113316/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:03:02Z", "sha": "31ed062", "detail_path": "reports/2026-03-06_15-03-02_31ed062/report.html", "cpp": 68.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T15:28:13Z", "sha": "2c087a2", "detail_path": "reports/2026-03-06_15-28-13_2c087a2/report.html", "cpp": 68.2, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:30:08Z", "sha": "480a106", "detail_path": "reports/2026-03-06_16-30-08_480a106/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-06T16:41:47Z", "sha": "673cf17", "branch": "main", "detail_path": "reports/2026-03-06_16-41-47_673cf17/report.html", "cpp": 70.3, "py": 70.0, "cuda": null, "release_tag": "v0.4.0b5"}, {"utc_iso": "2026-03-07T21:28:45Z", "sha": "d757cff", "detail_path": "reports/2026-03-07_21-28-45_d757cff/report.html", "cpp": 70.3, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:23:00Z", "sha": "11efe1d", "detail_path": "reports/2026-03-08_09-23-00_11efe1d/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:38:13Z", "sha": "d9a513a", "detail_path": "reports/2026-03-08_09-38-13_d9a513a/report.html", "cpp": 84.5, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T09:51:02Z", "sha": "3c2a632", "detail_path": "reports/2026-03-08_09-51-02_3c2a632/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-08T10:13:31Z", "sha": "e6aca89", "detail_path": "reports/2026-03-08_10-13-31_e6aca89/report.html", "cpp": 81.0, "py": 70.0, "release_tag": null}, {"utc_iso": "2026-03-09T07:35:44Z", "sha": "57a8860", "detail_path": "reports/2026-03-09_07-35-44_57a8860/report.html", "cpp": 81.2, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T10:34:29Z", "sha": "e73293d", "detail_path": "reports/2026-03-09_10-34-29_e73293d/report.html", "cpp": 81.7, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:12:14Z", "sha": "ff4c90f", "detail_path": "reports/2026-03-09_11-12-14_ff4c90f/report.html", "cpp": 81.3, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T11:16:56Z", "sha": "9e7fec1", "detail_path": "reports/2026-03-09_11-16-56_9e7fec1/report.html", "cpp": 81.5, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T12:42:47Z", "sha": "8a9e8bb", "detail_path": "reports/2026-03-09_12-42-47_8a9e8bb/report.html", "cpp": 81.0, "py": 68.0, "release_tag": null}, {"utc_iso": "2026-03-09T13:53:56Z", "sha": "705b49c", "detail_path": "reports/2026-03-09_13-53-56_705b49c/report.html", "cpp": 81.5, "py": 69.0, "release_tag": null}, {"utc_iso": "2026-03-09T14:09:56Z", "sha": "791ab3f", "branch": "main", "detail_path": "reports/2026-03-09_14-09-56_791ab3f/report.html", "cpp": 82.2, "py": 69.0, "cuda": null, "release_tag": "v0.4.0b6"}, {"utc_iso": "2026-03-09T16:48:39Z", "sha": "71098b4", "detail_path": "reports/2026-03-09_16-48-39_71098b4/report.html", "cpp": 81.4, "py": 74.0, "release_tag": null}, {"utc_iso": "2026-03-10T18:55:03Z", "sha": "7f23109", "detail_path": "reports/2026-03-10_18-55-03_7f23109/report.html", "cpp": 82.2, "py": 72.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:11:04Z", "sha": "6c187c9", "detail_path": "reports/2026-03-11_17-11-04_6c187c9/report.html", "cpp": 82.3, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-11T17:18:26Z", "sha": "fd1f6b5", "branch": "main", "detail_path": "reports/2026-03-11_17-18-26_fd1f6b5/report.html", "cpp": 82.3, "py": 71.0, "cuda": null, "release_tag": "v0.4.0b7"}, {"utc_iso": "2026-03-13T21:43:55Z", "sha": "1bfc53d", "detail_path": "reports/2026-03-13_21-43-55_1bfc53d/report.html", "cpp": 82.9, "py": 71.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:09:19Z", "sha": "6d3d543", "detail_path": "reports/2026-03-14_21-09-19_6d3d543/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:23:15Z", "sha": "6ed7f92", "detail_path": "reports/2026-03-14_21-23-15_6ed7f92/report.html", "cpp": 84.8, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:32:54Z", "sha": "be34812", "detail_path": "reports/2026-03-14_21-32-54_be34812/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-14T21:44:10Z", "sha": "a9a3c3e", "detail_path": "reports/2026-03-14_21-44-10_a9a3c3e/report.html", "cpp": 84.7, "py": 73.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:03:44Z", "sha": "bb344cd", "detail_path": "reports/2026-03-16_11-03-44_bb344cd/report.html", "cpp": 85.3, "py": 75.0, "release_tag": null}, {"utc_iso": "2026-03-16T11:09:11Z", "sha": "c406403", "detail_path": "reports/2026-03-16_11-09-11_c406403/report.html", "cpp": 85.1, "py": 75.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-16T11:18:20Z", "sha": "78f2e13", "branch": "main", "detail_path": "reports/2026-03-16_11-18-20_78f2e13/report.html", "cpp": 85.3, "py": 77.0, "cuda": null, "release_tag": "v0.4.0b8"}, {"utc_iso": "2026-03-16T19:13:29Z", "sha": "b4c52e7", "detail_path": "reports/2026-03-16_19-13-29_b4c52e7/report.html", "cpp": 86.1, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-16T21:01:58Z", "sha": "f4f31d7", "detail_path": "reports/2026-03-16_21-01-58_f4f31d7/report.html", "cpp": 86.8, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-17T10:00:30Z", "sha": "e5f2740", "detail_path": "reports/2026-03-17_10-00-30_e5f2740/report.html", "cpp": 86.9, "py": 77.0, "cuda": null, "release_tag": null}, {"utc_iso": "2026-03-17T13:59:32Z", "sha": "85bc2eb", "detail_path": "reports/2026-03-17_13-59-32_85bc2eb/report.html", "cpp": 86.9, "py": 77.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T15:58:25Z", "sha": "01bc354", "detail_path": "reports/2026-03-17_15-58-25_01bc354/report.html", "cpp": 86.9, "py": 80.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T16:14:11Z", "sha": "607ced4", "detail_path": "reports/2026-03-17_16-14-11_607ced4/report.html", "cpp": 86.7, "py": 80.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T16:30:42Z", "sha": "f37da73", "detail_path": "reports/2026-03-17_16-30-42_f37da73/report.html", "cpp": 86.8, "py": 80.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T18:59:12Z", "sha": "21f94f0", "branch": "main", "detail_path": "reports/2026-03-17_18-59-12_21f94f0/report.html", "cpp": 87.3, "py": 84.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-17T20:08:31Z", "sha": "8065e68", "branch": "main", "detail_path": "reports/2026-03-17_20-08-31_8065e68/report.html", "cpp": 87.1, "py": 84.0, "cuda": 89.1, "release_tag": "v0.4.0b9"}, {"utc_iso": "2026-03-20T12:22:45Z", "sha": "d98d104", "branch": "main", "detail_path": "reports/2026-03-20_12-22-45_d98d104/report.html", "cpp": 87.6, "py": 82.0, "cuda": 89.1, "release_tag": "v0.4.0b10"}, {"utc_iso": "2026-03-21T21:41:15Z", "sha": "3ed00c3", "branch": "main", "detail_path": "reports/2026-03-21_21-41-15_3ed00c3/report.html", "cpp": 86.0, "py": 84.0, "cuda": 89.1, "release_tag": null}, {"utc_iso": "2026-03-23T21:35:55Z", "sha": "4f8f28d", "branch": "main", "detail_path": "reports/2026-03-23_21-35-55_4f8f28d/report.html", "cpp": 86.5, "py": 85.0, "cuda": 97.8, "release_tag": null}, {"utc_iso": "2026-03-28T21:34:13Z", "sha": "44e3856", "branch": "cuda_refactor", "detail_path": "reports/2026-03-28_21-34-13_44e3856/report.html", "cpp": 87.1, "py": 86.0, "cuda": 100.0, "release_tag": null}, {"utc_iso": "2026-04-02T15:07:21Z", "sha": "5c5c872", "branch": "main", "detail_path": "reports/2026-04-02_15-07-21_5c5c872/report.html", "cpp": 87.3, "py": 86.0, "cuda": 100.0, "release_tag": null}];
+  if (!ALL_DATA.length) return;
 
-  const canvas = document.getElementById('covChart');
-  const dpr    = window.devicePixelRatio || 1;
-  const W = canvas.parentElement.clientWidth || 800;
-  const H = 260;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  const canvas   = document.getElementById('covChart');
+  const checkbox = document.getElementById('covChartMainOnly');
 
-  const PAD = { top: 24, right: 32, bottom: 52, left: 48 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top  - PAD.bottom;
+  function render() {
+    const DATA = checkbox.checked
+      ? ALL_DATA.filter(d => d.branch === 'main' || d.release_tag)
+      : ALL_DATA;
+    if (!DATA.length) return;
 
-  // Resolve CSS variables — matched to the existing design system
-  const style   = getComputedStyle(document.documentElement);
-  const cppCol  = style.getPropertyValue('--chart-cpp').trim()     || '#2563eb';
-  const pyCol   = style.getPropertyValue('--chart-py').trim()      || '#16a34a';
-  const cudaCol = style.getPropertyValue('--chart-cuda').trim()    || '#76b900';
-  const gridCol = style.getPropertyValue('--chart-grid').trim()    || '#e2e7ef';
-  const textCol = style.getPropertyValue('--chart-text').trim()    || '#6b7280';
-  const relCol  = style.getPropertyValue('--chart-release').trim() || '#d97706';
-  const bgCol   = style.getPropertyValue('--chart-bg').trim()      || 'transparent';
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.parentElement.clientWidth || 800;
+    const H = 260;
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
 
-  // Y axis: 0-100
-  const Y_MIN = 0, Y_MAX = 100;
-  const xOf = i => PAD.left + (DATA.length === 1 ? cW / 2 : i / (DATA.length - 1) * cW);
-  const yOf = v => PAD.top  + (1 - (v - Y_MIN) / (Y_MAX - Y_MIN)) * cH;
+    const PAD = { top: 24, right: 32, bottom: 52, left: 48 };
+    const cW = W - PAD.left - PAD.right;
+    const cH = H - PAD.top  - PAD.bottom;
 
-  // Background
-  if (bgCol !== 'transparent') {
-    ctx.fillStyle = bgCol;
-    ctx.fillRect(0, 0, W, H);
-  }
+    // Resolve CSS variables — matched to the existing design system
+    const style   = getComputedStyle(document.documentElement);
+    const cppCol  = style.getPropertyValue('--chart-cpp').trim()     || '#2563eb';
+    const pyCol   = style.getPropertyValue('--chart-py').trim()      || '#16a34a';
+    const cudaCol = style.getPropertyValue('--chart-cuda').trim()    || '#76b900';
+    const gridCol = style.getPropertyValue('--chart-grid').trim()    || '#e2e7ef';
+    const textCol = style.getPropertyValue('--chart-text').trim()    || '#6b7280';
+    const relCol  = style.getPropertyValue('--chart-release').trim() || '#d97706';
+    const bgCol   = style.getPropertyValue('--chart-bg').trim()      || 'transparent';
 
-  // Grid lines
-  ctx.strokeStyle = gridCol;
-  ctx.lineWidth = 1;
-  [0, 25, 50, 75, 100].forEach(v => {
-    const y = yOf(v);
-    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
-    ctx.fillStyle = textCol;
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(v + '%', PAD.left - 6, y + 4);
-  });
+    // Y axis: 0-100
+    const Y_MIN = 0, Y_MAX = 100;
+    const xOf = i => PAD.left + (DATA.length === 1 ? cW / 2 : i / (DATA.length - 1) * cW);
+    const yOf = v => PAD.top  + (1 - (v - Y_MIN) / (Y_MAX - Y_MIN)) * cH;
 
-  // Release marker lines
-  DATA.forEach((d, i) => {
-    if (!d.release_tag) return;
-    const x = xOf(i);
-    ctx.save();
-    ctx.strokeStyle = relCol;
-    ctx.setLineDash([4, 3]);
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
-    ctx.restore();
-    // Tag label
-    ctx.save();
-    ctx.fillStyle = relCol;
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.globalAlpha = 0.9;
-    ctx.fillText(d.release_tag, x, PAD.top - 6);
-    ctx.restore();
-  });
+    // Clear
+    ctx.clearRect(0, 0, W, H);
 
-  // Draw a series line + dots
-  function drawSeries(key, color) {
-    const pts = DATA.map((d, i) => d[key] != null ? [xOf(i), yOf(d[key])] : null);
-    // Line segments (skip nulls)
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    let penDown = false;
-    pts.forEach(p => {
-      if (!p) { penDown = false; return; }
-      penDown ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
-      penDown = true;
+    // Background
+    if (bgCol !== 'transparent') {
+      ctx.fillStyle = bgCol;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Grid lines
+    ctx.strokeStyle = gridCol;
+    ctx.lineWidth = 1;
+    [0, 25, 50, 75, 100].forEach(v => {
+      const y = yOf(v);
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+      ctx.fillStyle = textCol;
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(v + '%', PAD.left - 6, y + 4);
     });
-    ctx.stroke();
-    // Dots
-    pts.forEach((p, i) => {
-      if (!p) return;
-      ctx.beginPath();
-      ctx.arc(p[0], p[1], DATA[i].release_tag ? 5 : 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = DATA[i].release_tag ? relCol : color;
-      ctx.fill();
-      ctx.strokeStyle = '#f8f9fb';  /* --bg */
+
+    // Release marker lines
+    DATA.forEach((d, i) => {
+      if (!d.release_tag) return;
+      const x = xOf(i);
+      ctx.save();
+      ctx.strokeStyle = relCol;
+      ctx.setLineDash([4, 3]);
       ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
+      ctx.restore();
+      // Tag label
+      ctx.save();
+      ctx.fillStyle = relCol;
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(d.release_tag, x, PAD.top - 6);
+      ctx.restore();
     });
+
+    // Draw a series line + dots
+    function drawSeries(key, color) {
+      const pts = DATA.map((d, i) => d[key] != null ? [xOf(i), yOf(d[key])] : null);
+      // Line segments (skip nulls)
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let penDown = false;
+      pts.forEach(p => {
+        if (!p) { penDown = false; return; }
+        penDown ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+        penDown = true;
+      });
+      ctx.stroke();
+      // Dots
+      pts.forEach((p, i) => {
+        if (!p) return;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], DATA[i].release_tag ? 5 : 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = DATA[i].release_tag ? relCol : color;
+        ctx.fill();
+        ctx.strokeStyle = '#f8f9fb';  /* --bg */
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+    }
+
+    drawSeries('cpp',  cppCol);
+    drawSeries('py',   pyCol);
+    drawSeries('cuda', cudaCol);
+
+    // X axis labels (dates) — show up to 6, prefer releases
+    ctx.fillStyle = textCol;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    const step = Math.max(1, Math.ceil(DATA.length / 6));
+    DATA.forEach((d, i) => {
+      const showLabel = (i % step === 0) || i === DATA.length - 1 || d.release_tag;
+      if (!showLabel) return;
+      const x = xOf(i);
+      const dateStr = d.utc_iso ? d.utc_iso.slice(0, 10) : d.sha;
+      ctx.save();
+      ctx.translate(x, PAD.top + cH + 14);
+      ctx.rotate(-Math.PI / 5);
+      ctx.fillText(dateStr, 0, 0);
+      ctx.restore();
+    });
+
+    // Tooltip
+    let tooltip = canvas.parentElement.querySelector('.chart-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'chart-tooltip';
+      canvas.parentElement.style.position = 'relative';
+      canvas.parentElement.appendChild(tooltip);
+    }
+    tooltip.style.display = 'none';
+
+    canvas.onmousemove = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      // Find nearest point
+      let best = null, bestDist = 999;
+      DATA.forEach((d, i) => {
+        const dist = Math.abs(xOf(i) - mx);
+        if (dist < bestDist) { bestDist = dist; best = { d, i }; }
+      });
+      if (!best || bestDist > 40) { tooltip.style.display = 'none'; return; }
+      const d = best.d;
+      let html = `<div class="tt-date">${d.utc_iso ? d.utc_iso.slice(0,10) : d.sha}</div>`;
+      if (d.branch) html += `<div class="tt-branch">&#x2387; ${d.branch}</div>`;
+      if (d.release_tag) html += `<div class="tt-release">&#x1f3f7; ${d.release_tag}</div>`;
+      if (d.cpp  != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cppCol}"></span>C++ ${d.cpp.toFixed(1)}%</div>`;
+      if (d.py   != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${pyCol}"></span>Py ${d.py.toFixed(1)}%</div>`;
+      if (d.cuda != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cudaCol}"></span>CUDA ${d.cuda.toFixed(1)}%</div>`;
+      html += `<div class="tt-sha">${d.sha}</div>`;
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      const tx = Math.min(xOf(best.i) + 10, W - 160);
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top  = (PAD.top + 8) + 'px';
+    };
+    canvas.onmouseleave = function() { tooltip.style.display = 'none'; };
+    canvas.style.cursor = 'crosshair';
+
+    // Click to navigate to report
+    canvas.onclick = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      let best = null, bestDist = 999;
+      DATA.forEach((d, i) => {
+        const dist = Math.abs(xOf(i) - mx);
+        if (dist < bestDist) { bestDist = dist; best = d; }
+      });
+      if (best && bestDist < 40 && best.detail_path) window.location.href = best.detail_path;
+    };
   }
 
-  drawSeries('cpp',  cppCol);
-  drawSeries('py',   pyCol);
-  drawSeries('cuda', cudaCol);
-
-  // X axis labels (dates) — show up to 6, prefer releases
-  ctx.fillStyle = textCol;
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
-  const step = Math.max(1, Math.ceil(DATA.length / 6));
-  DATA.forEach((d, i) => {
-    const showLabel = (i % step === 0) || i === DATA.length - 1 || d.release_tag;
-    if (!showLabel) return;
-    const x = xOf(i);
-    const dateStr = d.utc_iso ? d.utc_iso.slice(0, 10) : d.sha;
-    ctx.save();
-    ctx.translate(x, PAD.top + cH + 14);
-    ctx.rotate(-Math.PI / 5);
-    ctx.fillText(dateStr, 0, 0);
-    ctx.restore();
-  });
-
-  // Tooltip
-  const tooltip = document.createElement('div');
-  tooltip.className = 'chart-tooltip';
-  tooltip.style.display = 'none';
-  canvas.parentElement.style.position = 'relative';
-  canvas.parentElement.appendChild(tooltip);
-
-  canvas.addEventListener('mousemove', e => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    // Find nearest point
-    let best = null, bestDist = 999;
-    DATA.forEach((d, i) => {
-      const dist = Math.abs(xOf(i) - mx);
-      if (dist < bestDist) { bestDist = dist; best = { d, i }; }
-    });
-    if (!best || bestDist > 40) { tooltip.style.display = 'none'; return; }
-    const d = best.d;
-    let html = `<div class="tt-date">${d.utc_iso ? d.utc_iso.slice(0,10) : d.sha}</div>`;
-    if (d.release_tag) html += `<div class="tt-release">&#x1f3f7; ${d.release_tag}</div>`;
-    if (d.cpp  != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cppCol}"></span>C++ ${d.cpp.toFixed(1)}%</div>`;
-    if (d.py   != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${pyCol}"></span>Py ${d.py.toFixed(1)}%</div>`;
-    if (d.cuda != null) html += `<div class="tt-row"><span class="tt-dot" style="background:${cudaCol}"></span>CUDA ${d.cuda.toFixed(1)}%</div>`;
-    html += `<div class="tt-sha">${d.sha}</div>`;
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-    const tx = Math.min(xOf(best.i) + 10, W - 160);
-    tooltip.style.left = tx + 'px';
-    tooltip.style.top  = (PAD.top + 8) + 'px';
-  });
-  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-  canvas.style.cursor = 'crosshair';
-
-  // Click to navigate to report
-  canvas.addEventListener('click', e => {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    let best = null, bestDist = 999;
-    DATA.forEach((d, i) => {
-      const dist = Math.abs(xOf(i) - mx);
-      if (dist < bestDist) { bestDist = dist; best = d; }
-    });
-    if (best && bestDist < 40 && best.detail_path) window.location.href = best.detail_path;
-  });
+  checkbox.addEventListener('change', render);
+  render();
 })();
 </script>
 
@@ -635,14 +688,34 @@ footer {
   <div class="reports-list">
     
 <div class="report-card-wrapper latest">
-  <a class="report-card-link" href="reports/2026-03-28_21-34-13_44e3856/report.html">
+  <a class="report-card-link" href="reports/2026-04-02_15-07-21_5c5c872/report.html">
     <div class="report-card">
       <span class="report-index">#1</span>
+      <div class="report-info">
+        <div class="report-label" data-utc="2026-04-02T15:07:21Z" data-sha="5c5c872">2026-04-02 15:07:21 UTC — 5c5c872</div>
+        <div class="report-branch">&#x2387; main</div>
+      </div>
+      <span class="badge badge-latest">Latest</span>
+      <div class="report-stats">
+        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">87.3%</span></span>
+        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">86%</span></span>
+        <span class="stat-group"><span class="stat-label">CUDA</span><span class="stat stat-ok">100.0%</span></span>
+        <span class="stat stat-ok">0 mem errs</span>
+      </div>
+      <div class="card-arrow">&#x2192;</div>
+    </div>
+  </a>
+</div>
+
+<div class="report-card-wrapper">
+  <a class="report-card-link" href="reports/2026-03-28_21-34-13_44e3856/report.html">
+    <div class="report-card">
+      <span class="report-index">#2</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-28T21:34:13Z" data-sha="44e3856">2026-03-28 21:34:13 UTC — 44e3856</div>
         <div class="report-branch">&#x2387; cuda_refactor</div>
       </div>
-      <span class="badge badge-latest">Latest</span>
+      
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">87.1%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">86%</span></span>
@@ -657,7 +730,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-23_21-35-55_4f8f28d/report.html">
     <div class="report-card">
-      <span class="report-index">#2</span>
+      <span class="report-index">#3</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-23T21:35:55Z" data-sha="4f8f28d">2026-03-23 21:35:55 UTC — 4f8f28d</div>
         <div class="report-branch">&#x2387; main</div>
@@ -677,7 +750,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-21_21-41-15_3ed00c3/report.html">
     <div class="report-card">
-      <span class="report-index">#3</span>
+      <span class="report-index">#4</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-21T21:41:15Z" data-sha="3ed00c3">2026-03-21 21:41:15 UTC — 3ed00c3</div>
         <div class="report-branch">&#x2387; main</div>
@@ -697,7 +770,7 @@ footer {
 <div class="report-card-wrapper release">
   <a class="report-card-link" href="reports/2026-03-20_12-22-45_d98d104/report.html">
     <div class="report-card">
-      <span class="report-index">#4</span>
+      <span class="report-index">#5</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-20T12:22:45Z" data-sha="d98d104">2026-03-20 12:22:45 UTC — d98d104</div>
         <div class="report-branch">&#x2387; main</div>
@@ -717,7 +790,7 @@ footer {
 <div class="report-card-wrapper release">
   <a class="report-card-link" href="reports/2026-03-17_20-08-31_8065e68/report.html">
     <div class="report-card">
-      <span class="report-index">#5</span>
+      <span class="report-index">#6</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-17T20:08:31Z" data-sha="8065e68">2026-03-17 20:08:31 UTC — 8065e68</div>
         <div class="report-branch">&#x2387; main</div>
@@ -737,7 +810,7 @@ footer {
 <div class="report-card-wrapper">
   <a class="report-card-link" href="reports/2026-03-17_18-59-12_21f94f0/report.html">
     <div class="report-card">
-      <span class="report-index">#6</span>
+      <span class="report-index">#7</span>
       <div class="report-info">
         <div class="report-label" data-utc="2026-03-17T18:59:12Z" data-sha="21f94f0">2026-03-17 18:59:12 UTC — 21f94f0</div>
         <div class="report-branch">&#x2387; main</div>
@@ -746,26 +819,6 @@ footer {
       <div class="report-stats">
         <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">87.3%</span></span>
         <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">84%</span></span>
-        <span class="stat-group"><span class="stat-label">CUDA</span><span class="stat stat-ok">89.1%</span></span>
-        <span class="stat stat-ok">0 mem errs</span>
-      </div>
-      <div class="card-arrow">&#x2192;</div>
-    </div>
-  </a>
-</div>
-
-<div class="report-card-wrapper">
-  <a class="report-card-link" href="reports/2026-03-17_16-30-42_f37da73/report.html">
-    <div class="report-card">
-      <span class="report-index">#7</span>
-      <div class="report-info">
-        <div class="report-label" data-utc="2026-03-17T16:30:42Z" data-sha="f37da73">2026-03-17 16:30:42 UTC — f37da73</div>
-        <div class="report-branch">&#x2387; main</div>
-      </div>
-      
-      <div class="report-stats">
-        <span class="stat-group"><span class="stat-label">C++</span><span class="stat stat-ok">86.8%</span></span>
-        <span class="stat-group"><span class="stat-label">Py</span><span class="stat stat-ok">80%</span></span>
         <span class="stat-group"><span class="stat-label">CUDA</span><span class="stat stat-ok">89.1%</span></span>
         <span class="stat stat-ok">0 mem errs</span>
       </div>
