@@ -91,14 +91,6 @@ random
    :undoc-members:
    :show-inheritance:
 
-point_process
--------------
-
-.. automodule:: masspcf.point_process
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 system
 ------
 
