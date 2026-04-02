@@ -110,10 +110,14 @@ masspcf_temp_dir = os.path.join(os.path.abspath("modules"), "masspcf")
 
 files = glob(os.path.abspath("../masspcf/*"))
 for file in files:
+    basename = os.path.basename(file)
     if "__pycache__" in file:
         continue
+    # Skip the real _mpcf_cpp.py -- we replace it with the stub below
+    if basename == "_mpcf_cpp.py":
+        continue
 
-    target = os.path.join(masspcf_temp_dir, os.path.basename(file))
+    target = os.path.join(masspcf_temp_dir, basename)
 
     if is_windows:
         if os.path.isdir(file):
@@ -123,12 +127,8 @@ for file in files:
     else:
         os.symlink(file, target)
 
-# Replace the symlinked _mpcf_cpp.py with the stub package in docs/_mpcf_cpp/
-# so that autodoc can import masspcf without the compiled C++ extension.
-_cpp_link = os.path.join(masspcf_temp_dir, "_mpcf_cpp.py")
-if os.path.islink(_cpp_link) or os.path.isfile(_cpp_link):
-    os.remove(_cpp_link)
-
+# Symlink the stub _mpcf_cpp package (docs/_mpcf_cpp/) so that autodoc can
+# import masspcf without the compiled C++ extension.
 cpp_src = os.path.abspath("./_mpcf_cpp")
 cpp_dest = os.path.join(masspcf_temp_dir, "_mpcf_cpp")
 
