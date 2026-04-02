@@ -123,24 +123,18 @@ for file in files:
     else:
         os.symlink(file, target)
 
-# Replace _mpcf_cpp.py with a stub so that `from . import _mpcf_cpp as cpp`
-# followed by `cpp.Shape` etc. works without the compiled C++ extension.
+# Replace the symlinked _mpcf_cpp.py with the stub package in docs/_mpcf_cpp/
+# so that autodoc can import masspcf without the compiled C++ extension.
 _cpp_link = os.path.join(masspcf_temp_dir, "_mpcf_cpp.py")
-if os.path.islink(_cpp_link):
+if os.path.islink(_cpp_link) or os.path.isfile(_cpp_link):
     os.remove(_cpp_link)
-elif os.path.isfile(_cpp_link):
-    os.remove(_cpp_link)
-with open(_cpp_link, "w") as _f:
-    _f.write(
-        "# Stub _mpcf_cpp for documentation builds\n"
-        "class _Mock:\n"
-        "    def __init__(self, *a, **kw): pass\n"
-        "    def __call__(self, *a, **kw): return _Mock()\n"
-        "    def __getattr__(self, name): return _Mock()\n"
-        "    def __iter__(self): return iter([])\n"
-        "    def __bool__(self): return False\n"
-        "    def __repr__(self): return '_Mock()'\n"
-        "def __getattr__(name): return _Mock()\n"
-    )
+
+cpp_src = os.path.abspath("./_mpcf_cpp")
+cpp_dest = os.path.join(masspcf_temp_dir, "_mpcf_cpp")
+
+if is_windows:
+    shutil.copytree(cpp_src, cpp_dest)
+else:
+    os.symlink(cpp_src, cpp_dest)
 
 sys.path.insert(0, temp_mod_dir)
