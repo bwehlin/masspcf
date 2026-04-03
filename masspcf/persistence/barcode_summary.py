@@ -14,7 +14,7 @@
 
 from .. import _mpcf_cpp as cpp
 from ..async_task import _run_task
-from ..pcf import Pcf
+from ..functional.pcf import Pcf
 from ..tensor import Tensor, _get_backend
 from ..tensor_create import zeros
 from ..typing import barcode32, barcode64, pcf32, pcf64

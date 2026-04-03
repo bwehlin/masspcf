@@ -19,7 +19,7 @@ from .distance import cdist, lp_distance, pdist
 from .inner_product import l2_kernel
 from .io import load, save
 from .norms import lp_norm
-from .pcf import Pcf
+from .functional import Pcf
 from .reductions import max_time, mean
 from .serialize import from_serial_content
 from .distance_matrix import DistanceMatrix, DistanceMatrixTensor

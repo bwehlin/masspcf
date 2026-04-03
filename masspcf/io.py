@@ -18,7 +18,7 @@ from .persistence.barcode import Barcode
 from .persistence.ph_tensor import BarcodeTensor
 from .distance_matrix import DistanceMatrix, DistanceMatrixTensor
 from .symmetric_matrix import SymmetricMatrix, SymmetricMatrixTensor
-from .pcf import Pcf
+from .functional.pcf import Pcf
 from .tensor import (
     BoolTensor,
     FloatTensor,

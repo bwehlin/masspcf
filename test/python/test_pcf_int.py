@@ -17,7 +17,7 @@ import numpy.testing as npt
 import pytest
 
 import masspcf as mpcf
-from masspcf.pcf import Pcf
+from masspcf.functional import Pcf
 
 
 class TestIntPcfDtypeConstruction:

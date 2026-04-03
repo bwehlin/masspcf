@@ -16,7 +16,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from masspcf.pcf import Pcf
+from masspcf.functional import Pcf
 
 
 @pytest.fixture(params=[np.float32, np.float64])

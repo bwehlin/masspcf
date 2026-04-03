@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from . import _mpcf_cpp as cpp
-from .typing import _assert_valid_dtype, _MPCF_TO_NP, _NP_TO_MPCF, float32, float64, int32, int64, pcf32, pcf32i, pcf64, pcf64i
+from .. import _mpcf_cpp as cpp
+from ..typing import _assert_valid_dtype, _MPCF_TO_NP, _NP_TO_MPCF, float32, float64, int32, int64, pcf32, pcf32i, pcf64, pcf64i
 
 
 class Pcf:
@@ -248,7 +248,7 @@ class Pcf:
         >>> f(np.array([0.5, 1.5, 4.0]))
         array([1. , 2. , 0.5], dtype=float32)
         """
-        from .tensor import FloatTensor
+        from ..tensor import FloatTensor
 
         if isinstance(t, int | float):
             return self._data(t)
@@ -291,10 +291,10 @@ class Pcf:
 
     def __reduce__(self):
         import io as _io
-        from .io import _save_object, _load_object
+        from ..io import _save_object, _load_object
         buf = _io.BytesIO()
         _save_object(self, buf)
-        from .io import _unpickle_object
+        from ..io import _unpickle_object
         return _unpickle_object, (buf.getvalue(),)
 
     def __eq__(self, other):

@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 from . import _mpcf_cpp as cpp
-from .pcf import Pcf
+from .functional.pcf import Pcf
 from .tensor import (
     FloatTensor,
     PcfTensor,

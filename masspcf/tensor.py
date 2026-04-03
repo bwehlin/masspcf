@@ -18,7 +18,7 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor, _tensor_from_nested
-from .pcf import Pcf
+from .functional.pcf import Pcf
 from .typing import (
     _NP_TO_MPCF,
     _validate_dtype,
