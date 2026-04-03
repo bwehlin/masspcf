@@ -52,7 +52,7 @@ namespace mpcf
     {
       using point_type = typename mpcf::Pcf<Tt, Tv>::point_type;
 
-      std::vector<mpcf::Point<Tt, Tv>> points;
+      std::vector<mpcf::TimePoint<Tt, Tv>> points;
 
       py::buffer_info buf = arr.request();
       if (buf.size == 0)

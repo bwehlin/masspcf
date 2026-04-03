@@ -14,8 +14,8 @@
 * limitations under the License.
 */
 
-#ifndef MPCF_POINT_H
-#define MPCF_POINT_H
+#ifndef MPCF_TIME_POINT_H
+#define MPCF_TIME_POINT_H
 
 #include "../config.hpp"
 
@@ -30,7 +30,7 @@ namespace mpcf
   }
   
   template <typename Tt, typename Tv>
-  struct Point
+  struct TimePoint
   {
     using time_type = Tt;
     using value_type = Tv;
@@ -48,21 +48,21 @@ namespace mpcf
     Tt t = static_cast<Tt>(0.); // time
     Tv v = static_cast<Tv>(0.); // value
 
-    Point() = default;
-    Point(Tt it, Tv iv)
+    TimePoint() = default;
+    TimePoint(Tt it, Tv iv)
       : t(it), v(iv) { }
 
     template <typename T1, typename T2>
-    Point(T1 it, T2 iv)
+    TimePoint(T1 it, T2 iv)
       : t(static_cast<Tt>(it)), v(static_cast<Tv>(iv)) { }
 
     
-    bool operator==(const Point& rhs) const
+    bool operator==(const TimePoint& rhs) const
     {
       return t == rhs.t && v == rhs.v;
     }
     
-    bool operator!=(const Point& rhs) const
+    bool operator!=(const TimePoint& rhs) const
     {
       return t != rhs.t || v != rhs.v;
     }
@@ -71,19 +71,19 @@ namespace mpcf
   template <typename Tt, typename Tv>
   struct OrderByTimeAscending
   {
-    [[nodiscard]] bool operator()(const mpcf::Point<Tt, Tv>& a, const mpcf::Point<Tt, Tv>& b) const noexcept
+    [[nodiscard]] bool operator()(const mpcf::TimePoint<Tt, Tv>& a, const mpcf::TimePoint<Tt, Tv>& b) const noexcept
     {
       return a.t < b.t;
     }
   };
   
-  using Point_f32 = Point<float32_t, float32_t>;
-  using Point_f64 = Point<float64_t, float64_t>;
-  using Point_i32 = Point<int32_t, int32_t>;
-  using Point_i64 = Point<int64_t, int64_t>;
+  using TimePoint_f32 = TimePoint<float32_t, float32_t>;
+  using TimePoint_f64 = TimePoint<float64_t, float64_t>;
+  using TimePoint_i32 = TimePoint<int32_t, int32_t>;
+  using TimePoint_i64 = TimePoint<int64_t, int64_t>;
 
   template <typename P>
-  concept PointLike = requires(P p)
+  concept TimePointLike = requires(P p)
   {
     typename P::time_type;
     typename P::value_type;

@@ -17,7 +17,7 @@
 #ifndef MPCF_PCF_H
 #define MPCF_PCF_H
 
-#include "point.hpp"
+#include "time_point.hpp"
 #include "rectangle.hpp"
 #include "../algorithms/functional/reduce.hpp"
 
@@ -32,7 +32,7 @@ namespace mpcf
   class Pcf
   {
   public:
-    using point_type = Point<Tt, Tv>;
+    using point_type = TimePoint<Tt, Tv>;
     using time_type = typename point_type::time_type;
     using value_type = typename point_type::value_type;
 
@@ -50,7 +50,7 @@ namespace mpcf
       m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(v));
     }
 
-    explicit Pcf(std::vector<Point<Tt, Tv>>&& pts)
+    explicit Pcf(std::vector<TimePoint<Tt, Tv>>&& pts)
       : m_points(std::move(pts))
     {
 
@@ -429,7 +429,7 @@ namespace mpcf
     typename F::rectangle_type;
     typename F::segment_type;
 
-    requires PointLike<typename F::point_type>;
+    requires TimePointLike<typename F::point_type>;
 
     { cf.points() } -> std::convertible_to<const std::vector<typename F::point_type>&>;
     { cf.size()   } -> std::convertible_to<std::size_t>;

@@ -16,18 +16,18 @@
 #define MASSPCF_POINT_IO_H
 
 #include "io_stream_base.hpp"
-#include "../functional/point.hpp"
+#include "../functional/time_point.hpp"
 
 namespace mpcf::io::detail
 {
-  template <PointLike PointT>
+  template <TimePointLike PointT>
   void write_element(std::ostream& os, const PointT& pt)
   {
     write_bytes<typename PointT::time_type>(os, pt.t);
     write_bytes<typename PointT::value_type>(os, pt.v);
   }
 
-  template <PointLike PointT>
+  template <TimePointLike PointT>
   PointT read_element(std::istream& is)
   {
     PointT ret;
