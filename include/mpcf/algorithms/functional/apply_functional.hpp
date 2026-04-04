@@ -74,48 +74,50 @@ namespace mpcf
     exec.cpu()->run(std::move(flow)).wait();
   }
 
-  template <typename PcfT>
-  PcfT::value_type l1_norm(const PcfT& f)
-  {
-    typename PcfT::value_type out{ 0 };
+  // --- PCF norms ---
 
-    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](const typename PcfT::segment_type& seg) {
+  template <PcfLike F>
+  typename F::value_type l1_norm(const F& f)
+  {
+    typename F::value_type out{ 0 };
+
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename F::time_type{ 0 }, infinite_time<F>(), [&out](const typename F::segment_type& seg) {
       out += (seg.right - seg.left) * std::abs(seg.value);
       });
 
     return out;
   }
 
-  template <typename PcfT>
-  PcfT::value_type l2_norm(const PcfT& f)
+  template <PcfLike F>
+  typename F::value_type l2_norm(const F& f)
   {
-    typename PcfT::value_type out{ 0 };
+    typename F::value_type out{ 0 };
 
-    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out](const typename PcfT::segment_type& seg) {
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename F::time_type{ 0 }, infinite_time<F>(), [&out](const typename F::segment_type& seg) {
       out += (seg.right - seg.left) * seg.value * seg.value;
       });
 
     return std::sqrt(out);
   }
 
-  template <typename PcfT>
-  PcfT::value_type lp_norm(const PcfT& f, typename PcfT::value_type p)
+  template <PcfLike F>
+  typename F::value_type lp_norm(const F& f, typename F::value_type p)
   {
-    typename PcfT::value_type out{ 0 };
+    typename F::value_type out{ 0 };
 
-    iterate_segments(f.points().cbegin(), f.points().cend(), typename PcfT::time_type{ 0 }, infinite_time<PcfT>(), [&out, p](const typename PcfT::segment_type& seg) {
+    iterate_segments(f.points().cbegin(), f.points().cend(), typename F::time_type{ 0 }, infinite_time<F>(), [&out, p](const typename F::segment_type& seg) {
       out += (seg.right - seg.left) * std::pow(std::abs(seg.value), p);
       });
 
-    return std::pow(out, typename PcfT::value_type{1} / p);
+    return std::pow(out, typename F::value_type{1} / p);
   }
 
-  template <typename PcfT>
-  PcfT::value_type linfinity_norm(const PcfT& f)
+  template <PiecewiseFunctionLike F>
+  typename F::value_type linfinity_norm(const F& f)
   {
-    using value_type = typename PcfT::value_type;
-    value_type out{ 0 }; // No PCF should be empty, but if that happens we adopt the convention that L_inf=0
-    for (auto const & pt : f.points())
+    using value_type = typename F::value_type;
+    value_type out{ 0 };
+    for (auto const& pt : f.points())
     {
       out = std::max(out, static_cast<value_type>(std::abs(pt.v)));
     }

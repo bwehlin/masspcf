@@ -338,6 +338,7 @@ SET(MPCF_HEADER_FILES
     concepts.hpp
     version.hpp
     functional/pcf.hpp
+    functional/piecewise_function.hpp
     functional/time_point.hpp
     functional/rectangle.hpp
     functional/operations.cuh
