@@ -7,3 +7,4 @@ This section documents the internal architecture of masspcf. It is intended for 
 .. toctree::
 
    internals/cuda_engine
+   internals/deterministic_random

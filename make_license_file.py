@@ -276,6 +276,7 @@ THIRD_PARTY = [
     ("pybind11", "3rd/pybind11/LICENSE", "https://github.com/pybind/pybind11"),
     ("GoogleTest", "3rd/googletest/LICENSE", "https://github.com/google/googletest"),
     ("Ripser", "3rd/ripser/LICENSE", "https://github.com/Ripser/ripser"),
+    ("xoroshiro128++", "3rd/xoroshiro/LICENSE", "https://prng.di.unimi.it/xoroshiro128plusplus.c"),
     ("splitmix64", "3rd/splitmix64/LICENSE", "https://prng.di.unimi.it/splitmix64.c"),
 ]
 
