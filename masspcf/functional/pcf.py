@@ -321,19 +321,7 @@ def _has_matching_types(f: Pcf, g: Pcf):
 
 
 class Rectangle:
-    """A rectangle produced by iterating over a pair of PCFs.
-
-    Attributes
-    ----------
-    l : float
-        Left time boundary.
-    r : float
-        Right time boundary.
-    fv : float
-        Value of the first PCF on this interval.
-    gv : float
-        Value of the second PCF on this interval.
-    """
+    """A rectangle produced by iterating over a pair of PCFs."""
 
     __slots__ = ("_data",)
 
@@ -342,18 +330,22 @@ class Rectangle:
 
     @property
     def l(self):
+        """Left time boundary."""
         return self._data.left
 
     @property
     def r(self):
+        """Right time boundary."""
         return self._data.right
 
     @property
     def fv(self):
+        """Value of the first PCF on this interval."""
         return self._data.fv
 
     @property
     def gv(self):
+        """Value of the second PCF on this interval."""
         return self._data.gv
 
     def __eq__(self, other):
