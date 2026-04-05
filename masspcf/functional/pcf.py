@@ -318,3 +318,82 @@ backend_f64_f64 = cpp.Backend_f64_f64
 
 def _has_matching_types(f: Pcf, g: Pcf):
     return type(f._data) is type(g._data)
+
+
+class Rectangle:
+    """A rectangle produced by iterating over a pair of PCFs.
+
+    Attributes
+    ----------
+    l : float
+        Left time boundary.
+    r : float
+        Right time boundary.
+    fv : float
+        Value of the first PCF on this interval.
+    gv : float
+        Value of the second PCF on this interval.
+    """
+
+    __slots__ = ("_data",)
+
+    def __init__(self, data):
+        self._data = data
+
+    @property
+    def l(self):
+        return self._data.left
+
+    @property
+    def r(self):
+        return self._data.right
+
+    @property
+    def fv(self):
+        return self._data.fv
+
+    @property
+    def gv(self):
+        return self._data.gv
+
+    def __eq__(self, other):
+        if isinstance(other, Rectangle):
+            return (self.l == other.l and self.r == other.r
+                    and self.fv == other.fv and self.gv == other.gv)
+        if isinstance(other, tuple) and len(other) == 4:
+            return (self.l, self.r, self.fv, self.gv) == other
+        return NotImplemented
+
+    def __repr__(self):
+        return (f"Rectangle(l={self.l}, r={self.r}, "
+                f"fv={self.fv}, gv={self.gv})")
+
+
+def iterate_rectangles(f: Pcf, g: Pcf, a=0.0, b=float('inf')):
+    """Iterate over the rectangles formed by two PCFs.
+
+    Parameters
+    ----------
+    f, g : Pcf
+        The two piecewise constant functions.
+    a : float, optional
+        Left integration bound (default 0).
+    b : float, optional
+        Right integration bound (default infinity).
+
+    Returns
+    -------
+    list[Rectangle]
+        Rectangles in chronological order.
+    """
+    if not isinstance(f, Pcf) or not isinstance(g, Pcf):
+        raise TypeError("Both f and g must be Pcf objects.")
+    if not _has_matching_types(f, g):
+        raise TypeError("f and g must have the same dtype.")
+    backend = _BACKEND_MAP.get(type(f._data))
+    if backend is None:
+        raise TypeError(
+            "iterate_rectangles is not supported for this PCF type."
+        )
+    cpp_rects = backend.iterate_rectangles(f._data, g._data, a, b)
+    return [Rectangle(r) for r in cpp_rects]

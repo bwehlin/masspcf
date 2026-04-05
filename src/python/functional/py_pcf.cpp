@@ -23,12 +23,14 @@
 #include <mpcf/functional/pcf.hpp>
 #include "../pypcf_support.hpp"
 #include <mpcf/algorithm.hpp>
+#include <mpcf/algorithms/functional/iterate_rectangles.hpp>
 #include <mpcf/executor.hpp>
 #include <mpcf/task.hpp>
 
 #include "../py_np_support.hpp"
 
 #include <iostream>
+#include <sstream>
 
 namespace py = pybind11;
 
@@ -103,13 +105,23 @@ namespace
       return mpcf::linfinity_norm(f);
     }
 
+    static std::vector<mpcf::Rectangle<Tt, Tv>> iterate_rectangles(const mpcf::Pcf<Tt, Tv>& f, const mpcf::Pcf<Tt, Tv>& g, Tt a, Tt b)
+    {
+      std::vector<mpcf::Rectangle<Tt, Tv>> result;
+      mpcf::iterate_rectangles(f.points(), g.points(),
+        [&result](const mpcf::Rectangle<Tt, Tv>& rect) {
+          result.push_back(rect);
+        }, a, b);
+      return result;
+    }
+
   };
 
   template <typename Tt, typename Tv>
   class PyBindings
   {
   public:
-    static void register_bindings(py::handle m, const std::string& suffix)
+    static void register_bindings(py::module_& m, const std::string& suffix)
     {
       using TPcf = mpcf::Pcf<Tt, Tv>;
       using point_type = typename TPcf::point_type;
@@ -203,6 +215,23 @@ namespace
           }))
         ;
 
+      using RectT = mpcf::Rectangle<Tt, Tv>;
+      py::class_<RectT>(m, ("Rectangle" + suffix).c_str())
+        .def(py::init<>())
+        .def(py::init<Tt, Tt, Tv, Tv>(), py::arg("left"), py::arg("right"), py::arg("fv"), py::arg("gv"))
+        .def_readwrite("left", &RectT::left)
+        .def_readwrite("right", &RectT::right)
+        .def_property("fv", [](const RectT& r){ return r.top; }, [](RectT& r, Tv v){ r.top = v; })
+        .def_property("gv", [](const RectT& r){ return r.bottom; }, [](RectT& r, Tv v){ r.bottom = v; })
+        .def("__repr__", [](const RectT& r) {
+          std::ostringstream os;
+          os << "Rectangle(left=" << r.left << ", right=" << r.right
+             << ", fv=" << r.top << ", gv=" << r.bottom << ")";
+          return os.str();
+        })
+        .def("__eq__", &RectT::operator==)
+        ;
+
       py::class_<Backend<Tt, Tv>> backend(m, ("Backend" + suffix).c_str());
       backend
         .def(py::init<>())
@@ -216,16 +245,10 @@ namespace
         .def_static("single_lp_norm", &Backend<Tt, Tv>::single_lp_norm)
         .def_static("single_linfinity_norm", &Backend<Tt, Tv>::single_linfinity_norm)
 
-      /*
-        .def_static("list_l1_norm", &Backend<Tt, Tv>::list_l1_norm)
-        .def_static("list_l2_norm", &Backend<Tt, Tv>::list_l2_norm)
-        //.def_static("list_lp_norm", &Backend<Tt, Tv>::list_lp_norm)
-        .def_static("list_linfinity_norm", &Backend<Tt, Tv>::list_linfinity_norm)
-
-        .def_static("calc_pdist_1", &Backend<Tt, Tv>::pdist_1)
-        .def_static("calc_pdist_p", &Backend<Tt, Tv>::pdist_p)
-        .def_static("calc_l2_kernel", &Backend<Tt, Tv>::l2_kernel)
-        */
+        .def_static("iterate_rectangles", &Backend<Tt, Tv>::iterate_rectangles,
+          py::arg("f"), py::arg("g"),
+          py::arg("a") = point_type::zero_time(),
+          py::arg("b") = point_type::infinite_time())
         ;
 
       mpcf_py::register_bindings_future<TPcf>(m, suffix);

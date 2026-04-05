@@ -15,102 +15,18 @@
 import os
 import sys
 
-import matplotlib
-if os.environ.get("MPCF_SHOW_PLOTS"):
-    matplotlib.use("TkAgg")
-else:
-    matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+
+from plot_helpers import FigureGallery, gallery_fixture, ax_fixture, SHOW
 
 import masspcf as mpcf
 from masspcf.persistence import Barcode, BarcodeTensor
 from masspcf.plotting import plot, plot_barcode
 
-_SHOW = bool(os.environ.get("MPCF_SHOW_PLOTS"))
-
-
-_figures = []
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _show_gallery():
-    """After all tests, show a plot viewer with Prev/Next buttons."""
-    yield
-    if not _SHOW or not _figures:
-        return
-
-    import tkinter as tk
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-    from matplotlib.figure import Figure
-
-    # Pre-render all figures to images
-    images = []
-    titles = []
-    for i, fig in enumerate(_figures):
-        fig.canvas.draw()
-        img = np.asarray(fig.canvas.buffer_rgba()).copy()
-        title = fig._suptitle.get_text() if fig._suptitle else f"Test {i}"
-        images.append(img)
-        titles.append(title)
-        plt.close(fig)
-
-    # Close all matplotlib state before building the Tk viewer
-    plt.close("all")
-
-    root = tk.Tk()
-    root.title("Plot Test Viewer")
-    root.geometry("800x500")
-
-    # Left: native Tk listbox
-    list_frame = tk.Frame(root)
-    list_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
-    tk.Label(list_frame, text="Tests", font=("sans-serif", 12, "bold")).pack(anchor=tk.W)
-    listbox = tk.Listbox(list_frame, width=35, font=("monospace", 9),
-                         activestyle="dotbox", selectmode=tk.SINGLE)
-    listbox.pack(fill=tk.Y, expand=True)
-    for i, t in enumerate(titles):
-        listbox.insert(tk.END, f"{i + 1}. {t}")
-
-    # Right: matplotlib figure in Tk canvas
-    view_fig = Figure(figsize=(5, 4))
-    view_ax = view_fig.add_subplot(111)
-    canvas = FigureCanvasTkAgg(view_fig, master=root)
-    canvas.get_tk_widget().pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-
-    def show(idx):
-        view_ax.clear()
-        view_ax.imshow(images[idx])
-        view_ax.set_title(f"[{idx + 1}/{len(images)}] {titles[idx]}")
-        view_ax.axis("off")
-        view_fig.tight_layout()
-        canvas.draw()
-
-    def on_select(_event):
-        sel = listbox.curselection()
-        if sel:
-            show(sel[0])
-
-    listbox.bind("<<ListboxSelect>>", on_select)
-    listbox.selection_set(0)
-    show(0)
-
-    root.mainloop()
-
-
-@pytest.fixture
-def ax(request):
-    fig, ax = plt.subplots()
-    if _SHOW:
-        fig.suptitle(request.node.name)
-    yield ax
-    if _SHOW:
-        fig.tight_layout()
-        _figures.append(fig)
-    else:
-        plt.close(fig)
+_gallery = FigureGallery()
+_show_gallery = gallery_fixture(_gallery)
+ax = ax_fixture(_gallery)
 
 
 def _make_pcf(pairs, dtype=np.float32):
