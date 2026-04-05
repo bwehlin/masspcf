@@ -17,7 +17,9 @@ import pytest
 
 import masspcf as mpcf
 from masspcf.random import Generator
-from masspcf.sampling import Gaussian, Uniform, Mixture, sample
+from masspcf.sampling import (
+    DistanceWeightedSampler, Gaussian, Uniform, Mixture, sample,
+)
 
 
 def _make_point_cloud(pts, dtype=mpcf.pcloud64):
@@ -372,3 +374,51 @@ class TestUnbiasedSampling:
             f"Chi-squared test failed: p={p_value:.6f}, chi2={chi2:.1f}. "
             f"Observed: {observed}, Expected: {np.round(expected_counts).astype(int)}"
         )
+
+
+class TestDistanceWeightedSampler:
+    def test_reuse_across_distributions(self):
+        """Build sampler once, sample with different distributions."""
+        np.random.seed(42)
+        pts = np.random.randn(100, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+
+        vantage_pts = np.zeros((1, 2), dtype=np.float64)
+        V = _make_point_cloud(vantage_pts)
+
+        sampler = DistanceWeightedSampler(X)
+
+        r1 = sampler.sample(V, k=10, dist=Gaussian(mean=0.0, sigma=1.0))
+        r2 = sampler.sample(V, k=10, dist=Uniform(lo=0.5, hi=2.0))
+
+        assert r1.shape == (1,)
+        assert r2.shape == (1,)
+        assert np.asarray(r1[0]).shape == (10, 2)
+        assert np.asarray(r2[0]).shape == (10, 2)
+
+    def test_reuse_across_vantage_sets(self):
+        """Build sampler once, sample with different vantage sets."""
+        np.random.seed(42)
+        pts = np.random.randn(100, 3).astype(np.float64)
+        X = _make_point_cloud(pts)
+
+        sampler = DistanceWeightedSampler(X)
+        dist = Gaussian(mean=0.0, sigma=2.0)
+
+        V1 = _make_point_cloud(np.zeros((5, 3), dtype=np.float64))
+        V2 = _make_point_cloud(np.ones((3, 3), dtype=np.float64))
+
+        r1 = sampler.sample(V1, k=10, dist=dist)
+        r2 = sampler.sample(V2, k=10, dist=dist)
+
+        assert r1.shape == (5,)
+        assert r2.shape == (3,)
+
+    def test_properties(self):
+        np.random.seed(42)
+        pts = np.random.randn(50, 4).astype(np.float64)
+        X = _make_point_cloud(pts)
+
+        sampler = DistanceWeightedSampler(X)
+        assert sampler.dim == 4
+        assert sampler.n_points == 50

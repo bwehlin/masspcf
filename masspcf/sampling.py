@@ -178,23 +178,6 @@ def _get_cpp_dist(dist, pcloud_dtype):
         raise TypeError(f"Unsupported weight function type: {type(dist)}")
 
 
-def _get_sample_func(dist, dtype):
-    """Get the appropriate C++ sampling function for the distribution type."""
-    if dtype == pcloud32:
-        backend = cpp.Sampling32
-    else:
-        backend = cpp.Sampling64
-
-    if isinstance(dist, Gaussian):
-        return backend.sample_gaussian
-    elif isinstance(dist, Uniform):
-        return backend.sample_uniform
-    elif isinstance(dist, Mixture):
-        return backend.sample_mixture
-    else:
-        raise TypeError(f"Unsupported distribution type: {type(dist)}")
-
-
 class IndexedPointCloudTensor(PointCloudTensor):
     """A PointCloudTensor backed by a shared source cloud + index arrays.
 
@@ -246,14 +229,110 @@ class IndexedPointCloudTensor(PointCloudTensor):
         return FloatTensor(self._collection.source)
 
 
+class DistanceWeightedSampler:
+    """Precomputed sampling state for distance-weighted point cloud sampling.
+
+    Builds a KD-tree over the source cloud once, then supports efficient
+    repeated sampling with different vantage points and/or weight functions.
+
+    Parameters
+    ----------
+    source : PointCloudTensor
+        Source point cloud of shape ``(N, D)``. Must be a rank-1 tensor
+        with one element.
+    dtype : type, optional
+        ``pcloud32`` or ``pcloud64``. Inferred from source if not given.
+    """
+
+    __slots__ = ('_cpp', '_dtype')
+
+    def __init__(self, source, dtype=None):
+        if dtype is None:
+            dtype = source.dtype
+        dtype = _validate_dtype(dtype, [pcloud32, pcloud64])
+        self._dtype = dtype
+
+        if isinstance(source, PointCloudTensor):
+            source_inner = source._data._get_element([0])
+        else:
+            source_inner = source
+
+        cpp_cls = {pcloud32: cpp.DistanceWeightedSampler32,
+                   pcloud64: cpp.DistanceWeightedSampler64}[dtype]
+        self._cpp = cpp_cls(source_inner)
+
+    def sample(self, vantage, k, *, dist, radius=None, replace=True,
+               generator=None, min_correction=0.0):
+        r"""Sample k points around each vantage point, weighted by a weight function of distance.
+
+        Parameters
+        ----------
+        vantage : PointCloudTensor
+            Vantage points of shape ``(M, D)``.
+        k : int
+            Number of samples per vantage point.
+        dist : Gaussian, Uniform, or Mixture
+            Weight function applied to the Euclidean distance from each source
+            point to the vantage point.
+        radius : float, optional
+            Ball radius restriction. If ``None``, samples from all points.
+        replace : bool, optional
+            If ``True`` (default), sample with replacement.
+        generator : Generator, optional
+            Random number generator. If ``None``, the global generator is used.
+        min_correction : float, optional
+            Minimum value for the cumulative correction factor.
+            ``0.0`` (default) gives exact unbiased sampling. ``1.0`` disables
+            the correction entirely.
+
+        Returns
+        -------
+        IndexedPointCloudTensor
+            Tensor of shape ``(M,)`` where each element is a point cloud of
+            shape ``(k, D)`` containing the sampled points.
+        """
+        if isinstance(vantage, PointCloudTensor):
+            vantage_inner = vantage._data._get_element([0])
+        else:
+            vantage_inner = vantage
+
+        cpp_dist = _get_cpp_dist(dist, self._dtype)
+        gen = generator._gen if generator is not None else None
+
+        kwargs = dict(
+            vantage=vantage_inner,
+            k=k,
+            dist=cpp_dist,
+            replace=replace,
+            generator=gen,
+            min_correction=float(min_correction),
+        )
+
+        if radius is not None:
+            kwargs['radius'] = float(radius)
+
+        collection = self._cpp.sample(**kwargs)
+        return IndexedPointCloudTensor(collection)
+
+    @property
+    def dim(self):
+        """Dimensionality of the source point cloud."""
+        return self._cpp.dim
+
+    @property
+    def n_points(self):
+        """Number of points in the source cloud."""
+        return self._cpp.n_points
+
+
 def sample(source, vantage, k, *, dist, radius=None, replace=True,
            generator=None, dtype=None, min_correction=0.0):
     r"""Sample k points around each vantage point, weighted by a weight function of distance.
 
-    Uses tree-based importance sampling via a KD-tree. The KD-tree is built
-    once over the source cloud, then for each vantage point the tree is
-    traversed top-down with probabilities proportional to weight function
-    bounds per node, producing an efficient adaptive proposal.
+    Convenience function that builds a :class:`DistanceWeightedSampler` from
+    the source cloud and immediately samples. If you need to sample from the
+    same source cloud multiple times, construct a
+    :class:`DistanceWeightedSampler` directly to avoid rebuilding the KD-tree.
 
     Parameters
     ----------
@@ -290,40 +369,6 @@ def sample(source, vantage, k, *, dist, radius=None, replace=True,
         shape ``(k, D)`` containing the sampled points. Backed by a shared
         source cloud and index arrays for efficient storage.
     """
-    if dtype is None:
-        dtype = source.dtype
-
-    dtype = _validate_dtype(dtype, [pcloud32, pcloud64])
-
-    # Unwrap to C++ inner point clouds (PointCloud<T>, shape N×D)
-    if isinstance(source, PointCloudTensor):
-        source_inner = source._data._get_element([0])
-    else:
-        source_inner = source
-
-    if isinstance(vantage, PointCloudTensor):
-        vantage_inner = vantage._data._get_element([0])
-    else:
-        vantage_inner = vantage
-
-    cpp_dist = _get_cpp_dist(dist, dtype)
-    sample_func = _get_sample_func(dist, dtype)
-
-    gen = generator._gen if generator is not None else None
-
-    kwargs = dict(
-        source=source_inner,
-        vantage=vantage_inner,
-        k=k,
-        dist=cpp_dist,
-        replace=replace,
-        generator=gen,
-        min_correction=float(min_correction),
-    )
-
-    if radius is not None:
-        kwargs['radius'] = float(radius)
-
-    collection = sample_func(**kwargs)
-
-    return IndexedPointCloudTensor(collection)
+    sampler = DistanceWeightedSampler(source, dtype=dtype)
+    return sampler.sample(vantage, k, dist=dist, radius=radius, replace=replace,
+                          generator=generator, min_correction=min_correction)

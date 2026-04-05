@@ -18,7 +18,7 @@
 
 #include <mpcf/sampling/distribution.hpp>
 #include <mpcf/sampling/indexed_point_cloud.hpp>
-#include <mpcf/sampling/sample.hpp>
+#include <mpcf/sampling/sampler.hpp>
 
 #include <pybind11/stl.h>
 
@@ -36,60 +36,14 @@ namespace
     using PCloud = mpcf::PointCloud<T>;
     using Collection = mpcf::sampling::IndexedPointCloudCollection<T>;
     using IPC = mpcf::sampling::IndexedPointCloud<T>;
+    using SamplerT = mpcf::sampling::DistanceWeightedSampler<T>;
 
-    template <typename Dist>
-    static Collection do_sample(
-        const PCloud& source,
-        const PCloud& vantage,
-        size_t k,
-        const Dist& dist,
-        bool replace,
-        const mpcf::DefaultRandomGenerator* gen,
-        T radius,
-        T min_correction)
-    {
-      if (gen)
-      {
-        return mpcf::sampling::sample(source, vantage, k, dist, replace, *gen,
-                               mpcf::default_executor(), radius, min_correction);
-      }
-      else
-      {
-        return mpcf::sampling::sample(source, vantage, k, dist, replace,
-                               mpcf::default_generator(), mpcf::default_executor(), radius, min_correction);
-      }
-    }
-
-    static Collection sample_gaussian(
-        const PCloud& source, const PCloud& vantage,
-        size_t k, const mpcf::sampling::Gaussian<T>& dist, bool replace,
-        const mpcf::DefaultRandomGenerator* gen, T radius, T min_correction)
-    {
-      return do_sample(source, vantage, k, dist, replace, gen, radius, min_correction);
-    }
-
-    static Collection sample_uniform(
-        const PCloud& source, const PCloud& vantage,
-        size_t k, const mpcf::sampling::Uniform<T>& dist, bool replace,
-        const mpcf::DefaultRandomGenerator* gen, T radius, T min_correction)
-    {
-      return do_sample(source, vantage, k, dist, replace, gen, radius, min_correction);
-    }
-
-    static Collection sample_mixture(
-        const PCloud& source, const PCloud& vantage,
-        size_t k, const mpcf::sampling::DefaultMixture<T>& dist, bool replace,
-        const mpcf::DefaultRandomGenerator* gen, T radius, T min_correction)
-    {
-      return do_sample(source, vantage, k, dist, replace, gen, radius, min_correction);
-    }
+    using Gaussian = mpcf::sampling::Gaussian<T>;
+    using Uniform = mpcf::sampling::Uniform<T>;
+    using DefaultMixture = mpcf::sampling::DefaultMixture<T>;
 
     static void register_bindings(py::handle m, const std::string& suffix)
     {
-      using Gaussian = mpcf::sampling::Gaussian<T>;
-      using Uniform = mpcf::sampling::Uniform<T>;
-      using DefaultMixture = mpcf::sampling::DefaultMixture<T>;
-
       // Distribution classes
       py::class_<Gaussian>(m, ("Gaussian" + suffix).c_str())
           .def(py::init<T, T>(), py::arg("mean"), py::arg("sigma"))
@@ -148,29 +102,48 @@ namespace
 
       T inf = std::numeric_limits<T>::infinity();
 
-      // Sampling functions
-      py::class_<PySamplingBindings> cls(m, ("Sampling" + suffix).c_str());
+      // DistanceWeightedSampler
+      py::class_<SamplerT>(m, ("DistanceWeightedSampler" + suffix).c_str())
+          .def(py::init<PCloud>(), py::arg("source"))
+          .def("sample", [](const SamplerT& self,
+                            const PCloud& vantage,
+                            size_t k,
+                            py::object dist_obj,
+                            bool replace,
+                            const mpcf::DefaultRandomGenerator* gen,
+                            T radius,
+                            T min_correction) -> Collection
+          {
+            auto do_sample = [&](const auto& d) -> Collection {
+              if (gen)
+              {
+                return self.sample(vantage, k, d, replace, *gen,
+                                   mpcf::default_executor(), radius, min_correction);
+              }
+              else
+              {
+                return self.sample(vantage, k, d, replace,
+                                   mpcf::default_generator(), mpcf::default_executor(),
+                                   radius, min_correction);
+              }
+            };
 
-      cls.def_static("sample_gaussian", &PySamplingBindings::sample_gaussian,
-                     py::arg("source"), py::arg("vantage"),
-                     py::arg("k"), py::arg("dist"), py::arg("replace"),
-                     py::arg("generator").none(true) = py::none(),
-                     py::arg("radius") = inf,
-                     py::arg("min_correction") = T(0));
+            if (py::isinstance<Gaussian>(dist_obj))
+              return do_sample(dist_obj.cast<const Gaussian&>());
+            if (py::isinstance<Uniform>(dist_obj))
+              return do_sample(dist_obj.cast<const Uniform&>());
+            if (py::isinstance<DefaultMixture>(dist_obj))
+              return do_sample(dist_obj.cast<const DefaultMixture&>());
 
-      cls.def_static("sample_uniform", &PySamplingBindings::sample_uniform,
-                     py::arg("source"), py::arg("vantage"),
-                     py::arg("k"), py::arg("dist"), py::arg("replace"),
-                     py::arg("generator").none(true) = py::none(),
-                     py::arg("radius") = inf,
-                     py::arg("min_correction") = T(0));
-
-      cls.def_static("sample_mixture", &PySamplingBindings::sample_mixture,
-                     py::arg("source"), py::arg("vantage"),
-                     py::arg("k"), py::arg("dist"), py::arg("replace"),
-                     py::arg("generator").none(true) = py::none(),
-                     py::arg("radius") = inf,
-                     py::arg("min_correction") = T(0));
+            throw py::type_error("dist must be Gaussian, Uniform, or Mixture");
+          },
+          py::arg("vantage"), py::arg("k"), py::arg("dist"),
+          py::arg("replace"),
+          py::arg("generator").none(true) = py::none(),
+          py::arg("radius") = inf,
+          py::arg("min_correction") = T(0))
+          .def_property_readonly("dim", &SamplerT::dim)
+          .def_property_readonly("n_points", &SamplerT::n_points);
     }
   };
 
