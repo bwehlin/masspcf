@@ -344,6 +344,7 @@ if (WIN32)
 endif ()
 
 include_directories("3rd/taskflow")
+include_directories("3rd/nanoflann/include")
 
 set(PYBIND11_FINDPYTHON ON)
 add_subdirectory(3rd/pybind11)
@@ -436,6 +437,12 @@ SET(MPCF_PY_POINT_PROCESS_SOURCES
 
 list(TRANSFORM MPCF_PY_POINT_PROCESS_SOURCES PREPEND "point_process/")
 
+SET(MPCF_PY_SAMPLING_SOURCES
+    py_sampling.hpp py_sampling.cpp
+)
+
+list(TRANSFORM MPCF_PY_SAMPLING_SOURCES PREPEND "sampling/")
+
 SET(MPCF_PY_SOURCES
     pybind.hpp
     pymodule.cpp
@@ -456,6 +463,7 @@ SET(MPCF_PY_SOURCES
     py_distance_matrix.hpp py_distance_matrix.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}
     ${MPCF_PY_POINT_PROCESS_SOURCES}
+    ${MPCF_PY_SAMPLING_SOURCES}
 )
 
 list(TRANSFORM MPCF_PY_SOURCES PREPEND "src/python/")

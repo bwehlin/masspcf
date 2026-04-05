@@ -140,7 +140,10 @@ class FloatTensor(NumericTensor):
             raise TypeError(f"Cannot create FloatTensor from {type(data)}")
 
         self._data = data
-        self.dtype = _FLOAT_CPP_TO_DTYPE[type(self._data)]
+        if isinstance(self._data, cpp.Float64Tensor):
+            self.dtype = float64
+        else:
+            self.dtype = float32
 
     def _to_py_tensor(self, data):
         return FloatTensor(data)

@@ -157,5 +157,12 @@ namespace mpcf_py
 
     register_typed_tensor_bindings<mpcf::PointCloud<mpcf::float32_t>>(m, "PointCloud32", "");
     register_typed_tensor_bindings<mpcf::PointCloud<mpcf::float64_t>>(m, "PointCloud64", "");
+
+    // Register PointCloud<T> as a standalone type (inheriting Tensor<T>) so pybind11
+    // can convert return values of _get_element on Tensor<PointCloud<T>>.
+    py::class_<mpcf::PointCloud<mpcf::float32_t>, mpcf::Tensor<mpcf::float32_t>>(m, "PointCloud32_inner")
+        .def(py::init<const mpcf::Tensor<mpcf::float32_t>&>());
+    py::class_<mpcf::PointCloud<mpcf::float64_t>, mpcf::Tensor<mpcf::float64_t>>(m, "PointCloud64_inner")
+        .def(py::init<const mpcf::Tensor<mpcf::float64_t>&>());
   }
 }

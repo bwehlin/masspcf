@@ -37,6 +37,15 @@ namespace mpcf_py
   void register_tensor_bindings(pybind11::module_& m);
 
   template <typename T>
+  struct is_point_cloud : std::false_type {};
+
+  template <mpcf::ArithmeticType U>
+  struct is_point_cloud<mpcf::PointCloud<U>> : std::true_type {};
+
+  template <typename T>
+  inline constexpr bool is_point_cloud_v = is_point_cloud<T>::value;
+
+  template <typename T>
   struct scalar_of
   {
     using type = T;
@@ -240,7 +249,19 @@ namespace mpcf_py
           self(index) = val;
         })
 
-      .def("copy", &TTensor::copy)
+      ;
+
+      // For Tensor<PointCloud<U>>: also accept plain Tensor<U> as element value
+      if constexpr (is_point_cloud_v<T>)
+      {
+        using ScalarT = typename T::value_type;
+        cls.def("_set_element", [](TTensor& self, const std::vector<size_t>& index, const mpcf::Tensor<ScalarT>& val) {
+          assert_valid_index(self, index);
+          self(index) = T(val);
+        });
+      }
+
+      cls.def("copy", &TTensor::copy)
       .def("flatten", &TTensor::flatten)
       .def("reshape", &TTensor::reshape)
       .def("transpose", &TTensor::transpose, pybind11::arg("axes") = std::vector<size_t>{})

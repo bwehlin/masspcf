@@ -35,6 +35,7 @@
 
 #include "persistence/pymodule_persistence.hpp"
 #include "point_process/pymodule_point_process.hpp"
+#include "sampling/py_sampling.hpp"
 
 #ifdef BUILD_WITH_CUDA
 #include <cuda_runtime.h>
@@ -190,4 +191,5 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
 
   mpcf_py::register_module_persistence(m);
   mpcf_py::register_module_point_process(m);
+  mpcf_py::register_sampling(m);
 }

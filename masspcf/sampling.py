@@ -1,0 +1,329 @@
+#    Copyright 2024-2026 Bjorn Wehlin
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+r"""Distance-weighted sampling from point clouds.
+
+This module provides distance-weighted samplers that draw points from a
+source point cloud with probabilities controlled by a weight function.
+Internally, a KD-tree over the source cloud serves as a hierarchical proposal
+distribution, giving :math:`O(\log N)` per-sample cost regardless of the
+weight function shape.
+
+See :doc:`/sampling` for a user guide and :doc:`/internals/tree_importance_sampling`
+for algorithmic details.
+"""
+
+from . import _mpcf_cpp as cpp
+from .tensor import FloatTensor, PointCloudTensor
+from .typing import _validate_dtype, float32, float64, pcloud32, pcloud64
+
+
+class Gaussian:
+    r"""Gaussian weight function.
+
+    .. math::
+
+       g(x) = \exp\!\left(-\frac{(x - \mu)^2}{2\sigma^2}\right)
+
+    Parameters
+    ----------
+    mean : float
+        Centre :math:`\mu` of the Gaussian.
+    sigma : float
+        Width :math:`\sigma` of the Gaussian.
+    """
+
+    def __init__(self, mean: float, sigma: float, dtype=float64):
+        if sigma <= 0:
+            raise ValueError(f"sigma ({sigma}) must be positive")
+        dtype = _validate_dtype(dtype, [float32, float64])
+        cls = {float32: cpp.Gaussian32, float64: cpp.Gaussian64}[dtype]
+        self._cpp = cls(mean, sigma)
+
+    @property
+    def mean(self):
+        return self._cpp.mean
+
+    @property
+    def sigma(self):
+        return self._cpp.sigma
+
+    def __call__(self, x: float) -> float:
+        return self._cpp(x)
+
+    def max(self) -> float:
+        return self._cpp.max()
+
+    def max_in_range(self, x_min: float, x_max: float) -> float:
+        return self._cpp.max_in_range(x_min, x_max)
+
+
+class Uniform:
+    r"""Uniform weight function.
+
+    Returns 1 for inputs in :math:`[lo, hi]` and 0 otherwise.
+
+    Parameters
+    ----------
+    lo : float
+        Lower bound of the support interval.
+    hi : float
+        Upper bound of the support interval.
+    dtype : type, optional
+        ``float32`` or ``float64``, by default ``float64``.
+    """
+
+    def __init__(self, lo: float, hi: float, dtype=float64):
+        if lo > hi:
+            raise ValueError(f"lo ({lo}) must be <= hi ({hi})")
+        dtype = _validate_dtype(dtype, [float32, float64])
+        cls = {float32: cpp.Uniform32, float64: cpp.Uniform64}[dtype]
+        self._cpp = cls(lo, hi)
+
+    @property
+    def lo(self):
+        return self._cpp.lo
+
+    @property
+    def hi(self):
+        return self._cpp.hi
+
+    def __call__(self, x: float) -> float:
+        return self._cpp(x)
+
+    def max(self) -> float:
+        return self._cpp.max()
+
+    def max_in_range(self, x_min: float, x_max: float) -> float:
+        return self._cpp.max_in_range(x_min, x_max)
+
+
+class Mixture:
+    r"""Weighted mixture of component weight functions.
+
+    .. math::
+
+       g(x) = \sum_{j=1}^{C} w_j \, g_j(x)
+
+    Each component can be any weight function (Gaussian, Uniform, or
+    another Mixture).
+
+    Parameters
+    ----------
+    components : list of weight functions
+        The component functions (e.g. Gaussian, Uniform).
+    weights : list of float
+        Non-negative mixing weights (need not sum to 1).
+    dtype : type, optional
+        ``float32`` or ``float64``, by default ``float64``.
+    """
+
+    def __init__(self, components: list, weights: list[float], dtype=float64):
+        self.components = components
+        self.weights = weights
+        dtype = _validate_dtype(dtype, [float32, float64])
+        mix_cls = {float32: cpp.Mixture32, float64: cpp.Mixture64}[dtype]
+        self._cpp = mix_cls([c._cpp for c in components], weights)
+
+    def __call__(self, x: float) -> float:
+        return self._cpp(x)
+
+    def max(self) -> float:
+        return self._cpp.max()
+
+    def max_in_range(self, x_min: float, x_max: float) -> float:
+        return self._cpp.max_in_range(x_min, x_max)
+
+
+_PCLOUD_TO_FLOAT = {pcloud32: float32, pcloud64: float64}
+
+
+def _get_cpp_dist(dist, pcloud_dtype):
+    """Get the C++ weight function object, rebuilding at the target precision if needed."""
+    target_float = _PCLOUD_TO_FLOAT[pcloud_dtype]
+    cpp_obj = dist._cpp
+
+    # Check if the stored C++ object already matches the target precision
+    if target_float == float32:
+        expected_types = (cpp.Gaussian32, cpp.Uniform32, cpp.Mixture32)
+    else:
+        expected_types = (cpp.Gaussian64, cpp.Uniform64, cpp.Mixture64)
+
+    if isinstance(cpp_obj, expected_types):
+        return cpp_obj
+
+    # Precision mismatch — rebuild at the target precision
+    if isinstance(dist, Gaussian):
+        cls = {float32: cpp.Gaussian32, float64: cpp.Gaussian64}[target_float]
+        return cls(dist.mean, dist.sigma)
+    elif isinstance(dist, Uniform):
+        cls = {float32: cpp.Uniform32, float64: cpp.Uniform64}[target_float]
+        return cls(dist.lo, dist.hi)
+    elif isinstance(dist, Mixture):
+        mix_cls = {float32: cpp.Mixture32, float64: cpp.Mixture64}[target_float]
+        cpp_components = [_get_cpp_dist(c, pcloud_dtype) for c in dist.components]
+        return mix_cls(cpp_components, dist.weights)
+    else:
+        raise TypeError(f"Unsupported weight function type: {type(dist)}")
+
+
+def _get_sample_func(dist, dtype):
+    """Get the appropriate C++ sampling function for the distribution type."""
+    if dtype == pcloud32:
+        backend = cpp.Sampling32
+    else:
+        backend = cpp.Sampling64
+
+    if isinstance(dist, Gaussian):
+        return backend.sample_gaussian
+    elif isinstance(dist, Uniform):
+        return backend.sample_uniform
+    elif isinstance(dist, Mixture):
+        return backend.sample_mixture
+    else:
+        raise TypeError(f"Unsupported distribution type: {type(dist)}")
+
+
+class IndexedPointCloudTensor(PointCloudTensor):
+    """A PointCloudTensor backed by a shared source cloud + index arrays.
+
+    Behaves identically to a regular PointCloudTensor. The indexed backing
+    is an internal optimization — users interact with the same API.
+    """
+
+    __slots__ = ('_collection',)
+
+    def __init__(self, collection):
+        # Skip PointCloudTensor.__init__ — we don't have a C++ tensor of point clouds.
+        # pylint: disable=super-init-not-called
+        self._collection = collection
+        self.dtype = (pcloud32
+                      if isinstance(collection, cpp.IndexedPointCloudCollection32)
+                      else pcloud64)
+
+    @property
+    def shape(self):
+        return (self._collection.n_vantage(),)
+
+    @property
+    def ndim(self):
+        return 1
+
+    def __len__(self):
+        return self._collection.n_vantage()
+
+    def __getitem__(self, i):
+        if isinstance(i, int):
+            if i < 0:
+                i += len(self)
+            ipc = self._collection[i]
+            return FloatTensor(ipc.materialize())
+        raise TypeError(f"IndexedPointCloudTensor only supports integer indexing, got {type(i)}")
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    @property
+    def indices(self):
+        """Index tensor of shape (M, k) — source indices per vantage."""
+        return self._collection.indices
+
+    @property
+    def source(self):
+        """The shared source point cloud."""
+        return FloatTensor(self._collection.source)
+
+
+def sample(source, vantage, k, *, dist, radius=None, replace=True,
+           generator=None, dtype=None, min_correction=0.0):
+    r"""Sample k points around each vantage point, weighted by a weight function of distance.
+
+    Uses tree-based importance sampling via a KD-tree. The KD-tree is built
+    once over the source cloud, then for each vantage point the tree is
+    traversed top-down with probabilities proportional to weight function
+    bounds per node, producing an efficient adaptive proposal.
+
+    Parameters
+    ----------
+    source : PointCloudTensor
+        Source point cloud of shape ``(N, D)``. Must be a single point cloud
+        (rank-1 tensor with one element), or the inner point cloud directly.
+    vantage : PointCloudTensor
+        Vantage points of shape ``(M, D)``.
+    k : int
+        Number of samples per vantage point.
+    dist : Gaussian, Uniform, or Mixture
+        Weight function applied to the Euclidean distance from each source
+        point to the vantage point.
+    radius : float, optional
+        Ball radius restriction. If ``None``, samples from all points
+        (tree nodes are not pruned by distance).
+    replace : bool, optional
+        If ``True`` (default), sample with replacement.
+    generator : Generator, optional
+        Random number generator. If ``None``, the global generator is used.
+    dtype : type, optional
+        ``pcloud32`` or ``pcloud64``. Inferred from source if not given.
+    min_correction : float, optional
+        Minimum value for the cumulative correction factor used to unbias the
+        hierarchical sampler. ``0.0`` (default) gives exact unbiased sampling.
+        Values in ``(0, 1]`` clamp the correction, introducing bounded bias
+        but improving acceptance rates for distributions with well-separated
+        modes and small bandwidths. ``1.0`` disables the correction entirely.
+
+    Returns
+    -------
+    IndexedPointCloudTensor
+        Tensor of shape ``(M,)`` where each element is a point cloud of
+        shape ``(k, D)`` containing the sampled points. Backed by a shared
+        source cloud and index arrays for efficient storage.
+    """
+    if dtype is None:
+        dtype = source.dtype
+
+    dtype = _validate_dtype(dtype, [pcloud32, pcloud64])
+
+    # Unwrap to C++ inner point clouds (PointCloud<T>, shape N×D)
+    if isinstance(source, PointCloudTensor):
+        source_inner = source._data._get_element([0])
+    else:
+        source_inner = source
+
+    if isinstance(vantage, PointCloudTensor):
+        vantage_inner = vantage._data._get_element([0])
+    else:
+        vantage_inner = vantage
+
+    cpp_dist = _get_cpp_dist(dist, dtype)
+    sample_func = _get_sample_func(dist, dtype)
+
+    gen = generator._gen if generator is not None else None
+
+    kwargs = dict(
+        source=source_inner,
+        vantage=vantage_inner,
+        k=k,
+        dist=cpp_dist,
+        replace=replace,
+        generator=gen,
+        min_correction=float(min_correction),
+    )
+
+    if radius is not None:
+        kwargs['radius'] = float(radius)
+
+    collection = sample_func(**kwargs)
+
+    return IndexedPointCloudTensor(collection)

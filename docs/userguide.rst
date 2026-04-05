@@ -15,4 +15,5 @@ User guide
    distances
    persistence
    point_processes
+   sampling
    gpu

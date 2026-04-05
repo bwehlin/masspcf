@@ -871,11 +871,11 @@ namespace mpcf
 
   template <typename T, typename U>
   requires std::is_constructible_v<T, U>
-  Tensor<Tensor<T>> pcloud_cast(const Tensor<Tensor<U>>& src)
+  Tensor<PointCloud<T>> pcloud_cast(const Tensor<PointCloud<U>>& src)
   {
-    Tensor<Tensor<T>> result(src.shape());
+    Tensor<PointCloud<T>> result(src.shape());
     walk(src, [&](const std::vector<size_t>& idx) {
-      result(idx) = tensor_cast<T>(src(idx));
+      result(idx) = PointCloud<T>(tensor_cast<T>(src(idx)));
     });
     return result;
   }

@@ -8,3 +8,4 @@ This section documents the internal architecture of masspcf. It is intended for 
 
    internals/cuda_engine
    internals/deterministic_random
+   internals/tree_importance_sampling

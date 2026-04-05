@@ -404,7 +404,25 @@ namespace mpcf
   }
 
   template <ArithmeticType T>
-  using PointCloud = Tensor<T>;
+  class PointCloud : public Tensor<T>
+  {
+  public:
+    using Tensor<T>::Tensor;
+    using Tensor<T>::operator=;
+
+    PointCloud() = default;
+
+    PointCloud(Tensor<T>&& t)
+      : Tensor<T>(std::move(t))
+    {
+    }
+
+    PointCloud(const Tensor<T>& t)
+      : Tensor<T>(t)
+    {
+    }
+
+  };
 
   template <typename T, typename UnaryPred>
 #ifndef __CUDACC__
@@ -555,7 +573,7 @@ namespace mpcf
    */
   template <typename T, typename U>
   requires std::is_constructible_v<T, U>
-  [[nodiscard]] Tensor<Tensor<T>> pcloud_cast(const Tensor<Tensor<U>>& src);
+  [[nodiscard]] Tensor<PointCloud<T>> pcloud_cast(const Tensor<PointCloud<U>>& src);
 
   // ============================================================================
   // Joining operations
