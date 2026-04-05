@@ -76,7 +76,7 @@ Each tensor class supports multiple precisions via a `dtype` parameter: `PcfTens
 ### Python module layers
 1. **Low**: `_mpcf_cpp` (backend dispatch) → `_mpcf_cpu` / `_mpcf_cudaXX` (pybind11)
 2. **Mid**: `pcf.py`, `tensor.py`, `_tensor_base.py` (Python wrappers)
-3. **High**: `distance.py` (`pdist`), `reductions.py` (`mean`, `max_time`), `norms.py`, `persistence/`
+3. **High**: `distance.py` (`pdist`), `reductions.py` (`mean`, `max_time`), `norms.py`, `persistence/`, `sampling.py`, `random.py`, `functional/`, `point_process/`
 
 ### GPU/CPU runtime control (`masspcf/system.py`)
 `force_cpu()`, `limit_cpus()`, `limit_gpus()`, `set_cuda_threshold()`, `set_device_verbose()` — all configure the backend at runtime.
