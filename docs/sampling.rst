@@ -207,8 +207,8 @@ The same seed produces the same samples regardless of thread count or
 execution order. See :doc:`random` for details.
 
 
-Bias–efficiency trade-off
-==========================
+Adaptive bias control
+======================
 
 The sampler is unbiased by default: accepted samples are drawn with
 probability exactly proportional to :math:`g(d)`. However, for distributions
@@ -216,31 +216,47 @@ with well-separated modes and small bandwidths (e.g., a Mixture of tight
 Gaussians centered at distances 0 and 5), the unbiasing correction can make
 the acceptance rate very low for distant modes.
 
-The ``min_correction`` parameter controls this trade-off:
+Rather than requiring the user to manually tune a bias parameter, the sampler
+uses **adaptive escalation**: it starts with exact (unbiased) sampling and
+automatically introduces bounded bias only when the acceptance rate drops
+too low. This is controlled by three advanced parameters:
 
-- ``0.0`` (default) — exact unbiased sampling. The effective distribution
-  is exactly proportional to :math:`g(d)`. May have low acceptance rates
-  for well-separated modes.
-- ``1.0`` — no correction. Points on heavily-tightened tree paths are
-  overweighted, but all modes are efficiently reachable.
-- Values in between — points with correction factor above the threshold
-  are sampled exactly; only points on heavily-tightened paths are
-  overweighted. Clamping never underweights any point.
+- ``stages`` — a tuple of correction-clamping levels, traversed in order.
+  The default ``(0, 0.1, 0.5, 1.0)`` starts exact and escalates through
+  progressively looser bounds. Stage 0 (value 0) is fully unbiased; stage
+  3 (value 1.0) disables the correction entirely.
+- ``escalation_threshold`` — number of consecutive rejections before
+  escalating to the next stage (default: 100).
+- ``max_attempts`` — maximum number of proposal attempts per requested
+  sample (default: 1000).
 
-::
+For most distributions, the sampler never leaves stage 0 and sampling is
+exact. See :doc:`internals/tree_importance_sampling` for a full probabilistic
+analysis.
 
-   # Tight mixture that would have near-zero acceptance for the far mode
-   dist = Mixture(
-       components=[Gaussian(mean=0.0, sigma=0.5),
-                   Gaussian(mean=5.0, sigma=0.5)],
-       weights=[0.5, 0.5],
-   )
 
-   # Allow bias to ensure both modes are reachable
-   result = sample(X, V, k=100, dist=dist, min_correction=1.0)
+Sampling diagnostics
+====================
 
-See :doc:`internals/tree_importance_sampling` for a full probabilistic
-analysis of the clamping effect.
+Every call to :py:func:`~masspcf.sampling.sample` (or
+:py:meth:`~masspcf.sampling.DistanceWeightedSampler.sample`) returns a
+:py:class:`~masspcf.sampling.SamplingResult` containing both the sampled
+points and post-hoc diagnostics::
+
+   result = sample(X, V, k=100, dist=dist)
+
+   # Check whether any bias was introduced
+   if not result.diagnostics.all_exact:
+       print(f"{result.diagnostics.biased_vantage_count} vantage(s) required escalation")
+
+   # Per-vantage details
+   for i, rate in enumerate(result.diagnostics.acceptance_rate):
+       print(f"Vantage {i}: acceptance rate {rate:.2%}, biased={result.diagnostics.biased[i]}")
+
+The :py:class:`~masspcf.sampling.SamplingResult` delegates to
+:py:class:`~masspcf.sampling.IndexedPointCloudTensor`, so existing code that
+indexes into the result (``result[i]``, ``result.indices``, etc.) works
+unchanged.
 
 
 Precision

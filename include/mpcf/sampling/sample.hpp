@@ -29,7 +29,7 @@ namespace mpcf::sampling
   /// cloud multiple times, construct a DistanceWeightedSampler directly to
   /// avoid rebuilding the KD-tree.
   template <typename T, typename Dist, typename EngineT>
-  IndexedPointCloudCollection<T> sample(
+  SamplingResult<T> sample(
       const PointCloud<T>& source,
       const PointCloud<T>& vantage,
       size_t k,
@@ -38,10 +38,13 @@ namespace mpcf::sampling
       const RandomGenerator<EngineT>& gen,
       Executor& exec,
       T radius = std::numeric_limits<T>::infinity(),
-      T min_correction = T(0))
+      const std::vector<T>& stages = {T(0), T(0.1), T(0.5), T(1.0)},
+      size_t escalation_threshold = DistanceWeightedSampler<T>::default_escalation_threshold,
+      size_t max_attempts = DistanceWeightedSampler<T>::default_max_attempts)
   {
     DistanceWeightedSampler<T> sampler(source);
-    return sampler.sample(vantage, k, dist, replace, gen, exec, radius, min_correction);
+    return sampler.sample(vantage, k, dist, replace, gen, exec, radius,
+                          stages, escalation_threshold, max_attempts);
   }
 
 }

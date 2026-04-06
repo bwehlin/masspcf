@@ -229,6 +229,99 @@ class IndexedPointCloudTensor(PointCloudTensor):
         return FloatTensor(self._collection.source)
 
 
+_DEFAULT_STAGES = (0.0, 0.1, 0.5, 1.0)
+_DEFAULT_ESCALATION_THRESHOLD = 100
+_DEFAULT_MAX_ATTEMPTS = 1000
+
+
+class SamplingDiagnostics:
+    """Post-hoc diagnostics for a sampling operation."""
+
+    __slots__ = ('_cpp',)
+
+    def __init__(self, cpp_diag):
+        self._cpp = cpp_diag
+
+    @property
+    def acceptance_rate(self):
+        """Per-vantage acceptance rate."""
+        return self._cpp.acceptance_rate
+
+    @property
+    def total_attempts(self):
+        """Per-vantage total number of proposal attempts."""
+        return self._cpp.total_attempts
+
+    @property
+    def biased(self):
+        """Per-vantage flag: True if adaptive escalation was triggered."""
+        return self._cpp.biased
+
+    @property
+    def all_exact(self):
+        """True if every vantage point was sampled without escalation."""
+        return self._cpp.all_exact()
+
+    @property
+    def biased_vantage_count(self):
+        """Number of vantage points where adaptive escalation was triggered."""
+        return self._cpp.biased_vantage_count()
+
+
+class SamplingResult:
+    """Result of a sampling operation: samples plus diagnostics.
+
+    Delegates to :class:`IndexedPointCloudTensor` for backward compatibility:
+    ``.indices``, ``.source``, ``[i]``, ``len()`` all work as before.
+    """
+
+    __slots__ = ('_samples', '_diagnostics', 'dtype')
+
+    def __init__(self, cpp_result, pcloud_dtype):
+        self._samples = IndexedPointCloudTensor(cpp_result.collection)
+        self._diagnostics = SamplingDiagnostics(cpp_result.diagnostics)
+        self.dtype = pcloud_dtype
+
+    @property
+    def samples(self):
+        """The sampled point clouds."""
+        return self._samples
+
+    @property
+    def diagnostics(self):
+        """Post-hoc sampling diagnostics."""
+        return self._diagnostics
+
+    # Delegate IndexedPointCloudTensor interface for backward compatibility
+
+    @property
+    def shape(self):
+        return self._samples.shape
+
+    @property
+    def ndim(self):
+        return self._samples.ndim
+
+    def __len__(self):
+        return len(self._samples)
+
+    def __getitem__(self, i):
+        return self._samples[i]
+
+    def __iter__(self):
+        return iter(self._samples)
+
+    @property
+    def indices(self):
+        """Index tensor of shape (M, k) — source indices per vantage."""
+        return self._samples.indices
+
+    @property
+    def source(self):
+        """The shared source point cloud."""
+        return self._samples.source
+
+
 class DistanceWeightedSampler:
     """Precomputed sampling state for distance-weighted point cloud sampling.
 
@@ -262,8 +355,14 @@ class DistanceWeightedSampler:
         self._cpp = cpp_cls(source_inner)
 
     def sample(self, vantage, k, *, dist, radius=None, replace=True,
-               generator=None, min_correction=0.0):
+               generator=None, stages=_DEFAULT_STAGES,
+               escalation_threshold=_DEFAULT_ESCALATION_THRESHOLD,
+               max_attempts=_DEFAULT_MAX_ATTEMPTS):
         r"""Sample k points around each vantage point, weighted by a weight function of distance.
+
+        Uses adaptive escalation: starts with exact (unbiased) sampling and
+        automatically introduces bounded bias if acceptance rates are too low.
+        Check :attr:`SamplingResult.diagnostics` to assess sampling quality.
 
         Parameters
         ----------
@@ -280,16 +379,19 @@ class DistanceWeightedSampler:
             If ``True`` (default), sample with replacement.
         generator : Generator, optional
             Random number generator. If ``None``, the global generator is used.
-        min_correction : float, optional
-            Minimum value for the cumulative correction factor.
-            ``0.0`` (default) gives exact unbiased sampling. ``1.0`` disables
-            the correction entirely.
+        stages : tuple of float, optional
+            Correction-clamping escalation stages. Each value is a floor on the
+            cumulative correction factor (0 = exact). Default: ``(0, 0.1, 0.5, 1.0)``.
+        escalation_threshold : int, optional
+            Consecutive rejections before escalating to the next stage.
+            Default: 100.
+        max_attempts : int, optional
+            Maximum proposal attempts per requested sample. Default: 1000.
 
         Returns
         -------
-        IndexedPointCloudTensor
-            Tensor of shape ``(M,)`` where each element is a point cloud of
-            shape ``(k, D)`` containing the sampled points.
+        SamplingResult
+            Contains the sampled point clouds and post-hoc diagnostics.
         """
         if isinstance(vantage, PointCloudTensor):
             vantage_inner = vantage._data._get_element([0])
@@ -305,14 +407,16 @@ class DistanceWeightedSampler:
             dist=cpp_dist,
             replace=replace,
             generator=gen,
-            min_correction=float(min_correction),
+            stages=list(stages),
+            escalation_threshold=int(escalation_threshold),
+            max_attempts=int(max_attempts),
         )
 
         if radius is not None:
             kwargs['radius'] = float(radius)
 
-        collection = self._cpp.sample(**kwargs)
-        return IndexedPointCloudTensor(collection)
+        cpp_result = self._cpp.sample(**kwargs)
+        return SamplingResult(cpp_result, self._dtype)
 
     @property
     def dim(self):
@@ -326,7 +430,9 @@ class DistanceWeightedSampler:
 
 
 def sample(source, vantage, k, *, dist, radius=None, replace=True,
-           generator=None, dtype=None, min_correction=0.0):
+           generator=None, dtype=None, stages=_DEFAULT_STAGES,
+           escalation_threshold=_DEFAULT_ESCALATION_THRESHOLD,
+           max_attempts=_DEFAULT_MAX_ATTEMPTS):
     r"""Sample k points around each vantage point, weighted by a weight function of distance.
 
     Convenience function that builds a :class:`DistanceWeightedSampler` from
@@ -355,20 +461,20 @@ def sample(source, vantage, k, *, dist, radius=None, replace=True,
         Random number generator. If ``None``, the global generator is used.
     dtype : type, optional
         ``pcloud32`` or ``pcloud64``. Inferred from source if not given.
-    min_correction : float, optional
-        Minimum value for the cumulative correction factor used to unbias the
-        hierarchical sampler. ``0.0`` (default) gives exact unbiased sampling.
-        Values in ``(0, 1]`` clamp the correction, introducing bounded bias
-        but improving acceptance rates for distributions with well-separated
-        modes and small bandwidths. ``1.0`` disables the correction entirely.
+    stages : tuple of float, optional
+        Correction-clamping escalation stages. Default: ``(0, 0.1, 0.5, 1.0)``.
+    escalation_threshold : int, optional
+        Consecutive rejections before escalating. Default: 100.
+    max_attempts : int, optional
+        Maximum proposal attempts per requested sample. Default: 1000.
 
     Returns
     -------
-    IndexedPointCloudTensor
-        Tensor of shape ``(M,)`` where each element is a point cloud of
-        shape ``(k, D)`` containing the sampled points. Backed by a shared
-        source cloud and index arrays for efficient storage.
+    SamplingResult
+        Contains the sampled point clouds and post-hoc diagnostics.
     """
     sampler = DistanceWeightedSampler(source, dtype=dtype)
     return sampler.sample(vantage, k, dist=dist, radius=radius, replace=replace,
-                          generator=generator, min_correction=min_correction)
+                          generator=generator, stages=stages,
+                          escalation_threshold=escalation_threshold,
+                          max_attempts=max_attempts)

@@ -17,7 +17,7 @@
 #include "py_sampling.hpp"
 
 #include <mpcf/sampling/distribution.hpp>
-#include <mpcf/sampling/indexed_point_cloud.hpp>
+#include <mpcf/sampling/sampling_result.hpp>
 #include <mpcf/sampling/sampler.hpp>
 
 #include <pybind11/stl.h>
@@ -37,6 +37,8 @@ namespace
     using Collection = mpcf::sampling::IndexedPointCloudCollection<T>;
     using IPC = mpcf::sampling::IndexedPointCloud<T>;
     using SamplerT = mpcf::sampling::DistanceWeightedSampler<T>;
+    using Result = mpcf::sampling::SamplingResult<T>;
+    using Diagnostics = mpcf::sampling::SamplingDiagnostics;
 
     using Gaussian = mpcf::sampling::Gaussian<T>;
     using Uniform = mpcf::sampling::Uniform<T>;
@@ -102,6 +104,11 @@ namespace
 
       T inf = std::numeric_limits<T>::infinity();
 
+      // SamplingResult
+      py::class_<Result>(m, ("SamplingResult" + suffix).c_str())
+          .def_readonly("collection", &Result::collection)
+          .def_readonly("diagnostics", &Result::diagnostics);
+
       // DistanceWeightedSampler
       py::class_<SamplerT>(m, ("DistanceWeightedSampler" + suffix).c_str())
           .def(py::init<PCloud>(), py::arg("source"))
@@ -112,19 +119,22 @@ namespace
                             bool replace,
                             const mpcf::DefaultRandomGenerator* gen,
                             T radius,
-                            T min_correction) -> Collection
+                            std::vector<T> stages,
+                            size_t escalation_threshold,
+                            size_t max_attempts) -> Result
           {
-            auto do_sample = [&](const auto& d) -> Collection {
+            auto do_sample = [&](const auto& d) -> Result {
               if (gen)
               {
                 return self.sample(vantage, k, d, replace, *gen,
-                                   mpcf::default_executor(), radius, min_correction);
+                                   mpcf::default_executor(), radius,
+                                   stages, escalation_threshold, max_attempts);
               }
               else
               {
                 return self.sample(vantage, k, d, replace,
                                    mpcf::default_generator(), mpcf::default_executor(),
-                                   radius, min_correction);
+                                   radius, stages, escalation_threshold, max_attempts);
               }
             };
 
@@ -141,7 +151,9 @@ namespace
           py::arg("replace"),
           py::arg("generator").none(true) = py::none(),
           py::arg("radius") = inf,
-          py::arg("min_correction") = T(0))
+          py::arg("stages") = std::vector<T>{T(0), T(0.1), T(0.5), T(1.0)},
+          py::arg("escalation_threshold") = SamplerT::default_escalation_threshold,
+          py::arg("max_attempts") = SamplerT::default_max_attempts)
           .def_property_readonly("dim", &SamplerT::dim)
           .def_property_readonly("n_points", &SamplerT::n_points);
     }
@@ -151,6 +163,15 @@ namespace
 
 void mpcf_py::register_sampling(py::module_& m)
 {
+  using Diagnostics = mpcf::sampling::SamplingDiagnostics;
+
+  py::class_<Diagnostics>(m, "SamplingDiagnostics")
+      .def_readonly("acceptance_rate", &Diagnostics::acceptance_rate)
+      .def_readonly("total_attempts", &Diagnostics::total_attempts)
+      .def_readonly("biased", &Diagnostics::biased)
+      .def("all_exact", &Diagnostics::all_exact)
+      .def("biased_vantage_count", &Diagnostics::biased_vantage_count);
+
   PySamplingBindings<mpcf::float32_t>::register_bindings(m, "32");
   PySamplingBindings<mpcf::float64_t>::register_bindings(m, "64");
 }

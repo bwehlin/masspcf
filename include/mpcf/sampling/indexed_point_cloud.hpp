@@ -19,6 +19,7 @@
 
 #include "../tensor.hpp"
 
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 
@@ -31,7 +32,7 @@ namespace mpcf::sampling
   class IndexedPointCloud
   {
   public:
-    IndexedPointCloud(std::shared_ptr<const PointCloud<T>> source, Tensor<size_t> indices)
+    IndexedPointCloud(std::shared_ptr<const PointCloud<T>> source, Tensor<uint64_t> indices)
       : m_source(std::move(source))
       , m_indices(std::move(indices))
     {
@@ -53,7 +54,7 @@ namespace mpcf::sampling
       return (*m_source)({m_indices({point}), d});
     }
 
-    const Tensor<size_t>& indices() const { return m_indices; }
+    const Tensor<uint64_t>& indices() const { return m_indices; }
     const PointCloud<T>& source() const { return *m_source; }
 
     /// Materialize into a contiguous PointCloud (copies data).
@@ -75,7 +76,7 @@ namespace mpcf::sampling
 
   private:
     std::shared_ptr<const PointCloud<T>> m_source;
-    Tensor<size_t> m_indices;
+    Tensor<uint64_t> m_indices;
   };
 
   /// Groups one source cloud with multiple index arrays — the natural output of the sampler.
@@ -84,7 +85,7 @@ namespace mpcf::sampling
   class IndexedPointCloudCollection
   {
   public:
-    IndexedPointCloudCollection(PointCloud<T> source, Tensor<size_t> indices)
+    IndexedPointCloudCollection(PointCloud<T> source, Tensor<uint64_t> indices)
       : m_source(std::make_shared<PointCloud<T>>(std::move(source)))
       , m_indices(std::move(indices))
     {
@@ -111,7 +112,7 @@ namespace mpcf::sampling
       }
 
       size_t nk = k();
-      Tensor<size_t> row_indices({nk});
+      Tensor<uint64_t> row_indices({nk});
       for (size_t j = 0; j < nk; ++j)
       {
         row_indices({j}) = m_indices({i, j});
@@ -120,11 +121,11 @@ namespace mpcf::sampling
     }
 
     const PointCloud<T>& source() const { return *m_source; }
-    const Tensor<size_t>& indices() const { return m_indices; }
+    const Tensor<uint64_t>& indices() const { return m_indices; }
 
   private:
     std::shared_ptr<PointCloud<T>> m_source;
-    Tensor<size_t> m_indices;  // shape (M, k)
+    Tensor<uint64_t> m_indices;  // shape (M, k)
   };
 
 }

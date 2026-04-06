@@ -18,7 +18,7 @@ import pytest
 import masspcf as mpcf
 from masspcf.random import Generator
 from masspcf.sampling import (
-    DistanceWeightedSampler, Gaussian, Uniform, Mixture, sample,
+    DistanceWeightedSampler, Gaussian, Uniform, Mixture, SamplingResult, sample,
 )
 
 
@@ -241,9 +241,9 @@ class TestMixtureDistribution:
         assert far_count == 0, f"Expected no far samples, got {far_count}"
 
 
-class TestMinCorrection:
-    def test_tight_mixture_with_min_correction(self):
-        """With min_correction > 0, tight separated modes should both be sampled."""
+class TestAdaptiveSampling:
+    def test_tight_mixture_adapts(self):
+        """Adaptive escalation should handle tight separated modes automatically."""
         np.random.seed(42)
         near = np.random.randn(50, 2).astype(np.float64) * 0.3
         far = np.random.randn(50, 2).astype(np.float64) * 0.3 + 5.0
@@ -258,10 +258,9 @@ class TestMinCorrection:
             weights=[0.5, 0.5],
         )
         gen = Generator(seed=42)
-        # min_correction=1.0 disables the correction entirely, allowing the
-        # original (biased) algorithm to efficiently reach both modes
-        result = sample(X, V, k=500, dist=dist, replace=True,
-                        generator=gen, min_correction=1.0)
+        # Use aggressive escalation to ensure both modes are reached
+        result = sample(X, V, k=500, dist=dist, replace=True, generator=gen,
+                        escalation_threshold=20)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -269,6 +268,85 @@ class TestMinCorrection:
         far_count = np.sum(dists > 3.0)
         assert near_count >= 10, f"Expected samples near origin, got {near_count}"
         assert far_count >= 10, f"Expected samples far from origin, got {far_count}"
+
+        # Adaptive escalation should have been triggered for this hard distribution
+        assert not result.diagnostics.all_exact
+
+    def test_custom_stages(self):
+        """Custom escalation stages should be accepted."""
+        np.random.seed(42)
+        pts = np.random.randn(50, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=1.0)
+        gen = Generator(seed=42)
+        result = sample(X, V, k=10, dist=dist, replace=True,
+                        generator=gen, stages=(0.0, 1.0),
+                        escalation_threshold=50, max_attempts=500)
+        assert result.shape == (1,)
+
+
+class TestDiagnostics:
+    def test_easy_distribution_is_exact(self):
+        """A broad Gaussian on a small cloud should not trigger escalation."""
+        np.random.seed(42)
+        pts = np.random.randn(50, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=5.0)
+        gen = Generator(seed=42)
+        result = sample(X, V, k=20, dist=dist, replace=True, generator=gen)
+
+        diag = result.diagnostics
+        assert diag.all_exact
+        assert diag.biased_vantage_count == 0
+        assert len(diag.acceptance_rate) == 1
+        assert diag.acceptance_rate[0] > 0
+        assert len(diag.total_attempts) == 1
+        assert diag.total_attempts[0] >= 20
+        assert len(diag.biased) == 1
+        assert not diag.biased[0]
+
+    def test_result_is_sampling_result(self):
+        """sample() should return a SamplingResult."""
+        np.random.seed(42)
+        pts = np.random.randn(50, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=1.0)
+        result = sample(X, V, k=10, dist=dist, replace=True)
+        assert isinstance(result, SamplingResult)
+
+    def test_backward_compat_delegates(self):
+        """SamplingResult should delegate IndexedPointCloudTensor interface."""
+        np.random.seed(42)
+        pts = np.random.randn(30, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((2, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=2.0)
+        gen = Generator(seed=42)
+        result = sample(X, V, k=5, dist=dist, replace=True, generator=gen)
+
+        # Shape / len / ndim
+        assert result.shape == (2,)
+        assert len(result) == 2
+        assert result.ndim == 1
+
+        # Indexing
+        elem = np.asarray(result[0])
+        assert elem.shape == (5, 2)
+
+        # Iteration
+        count = sum(1 for _ in result)
+        assert count == 2
+
+        # Properties
+        assert result.indices is not None
+        assert result.source is not None
 
 
 class TestEdgeCases:
@@ -366,6 +444,9 @@ class TestUnbiasedSampling:
             idx = np.argmin(diffs)
             assert diffs[idx] < 1e-10, f"Sample {s} doesn't match any source point"
             observed[idx] += 1
+
+        # Verify sampling was exact (no adaptive escalation)
+        assert result.diagnostics.all_exact, "Unbiased test should not trigger escalation"
 
         # Chi-squared test at 1% significance
         expected_counts = expected_probs * n_samples

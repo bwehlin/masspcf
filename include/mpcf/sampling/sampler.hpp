@@ -18,7 +18,7 @@
 #define MPCF_SAMPLING_SAMPLER_H
 
 #include "distribution.hpp"
-#include "indexed_point_cloud.hpp"
+#include "sampling_result.hpp"
 #include "kdtree.hpp"
 #include "../tensor.hpp"
 #include "../walk.hpp"
@@ -124,7 +124,19 @@ namespace mpcf::sampling
     size_t dim() const { return m_dim; }
     size_t n_points() const { return m_source.shape()[0]; }
 
+    /// Default escalation stages for adaptive correction clamping.
+    static constexpr std::array<double, 4> default_stages = {0.0, 0.1, 0.5, 1.0};
+
+    /// Default number of consecutive rejections before escalating to the next stage.
+    static constexpr size_t default_escalation_threshold = 100;
+
+    /// Default maximum number of sample_one attempts per requested sample.
+    static constexpr size_t default_max_attempts = 1000;
+
     /// Sample k points around each vantage point, weighted by a distance distribution.
+    ///
+    /// Uses adaptive escalation: starts with exact (unbiased) sampling and
+    /// automatically introduces bounded bias when acceptance rates are too low.
     ///
     /// @param vantage   Vantage points of shape (M, D).
     /// @param k         Number of samples per vantage point.
@@ -133,13 +145,11 @@ namespace mpcf::sampling
     /// @param gen       Random generator for deterministic seeding.
     /// @param exec      Executor for parallel dispatch.
     /// @param radius    Optional ball radius (default: infinity = unrestricted).
-    /// @param min_correction  Minimum value for the cumulative correction factor.
-    ///                  0.0 (default) gives exact unbiased sampling. Values in (0,1]
-    ///                  clamp the correction, introducing bounded bias but improving
-    ///                  acceptance rates for distributions with well-separated modes.
-    ///                  1.0 disables the correction entirely.
+    /// @param stages    Escalation stages for correction clamping (default: {0, 0.1, 0.5, 1.0}).
+    /// @param escalation_threshold  Consecutive rejections before escalating (default: 100).
+    /// @param max_attempts  Maximum sample_one calls per requested sample (default: 1000).
     template <typename Dist, typename EngineT>
-    IndexedPointCloudCollection<T> sample(
+    SamplingResult<T> sample(
         const PointCloud<T>& vantage,
         size_t k,
         const Dist& dist,
@@ -147,7 +157,9 @@ namespace mpcf::sampling
         const RandomGenerator<EngineT>& gen,
         Executor& exec,
         T radius = std::numeric_limits<T>::infinity(),
-        T min_correction = T(0)) const
+        const std::vector<T>& stages = {T(0), T(0.1), T(0.5), T(1.0)},
+        size_t escalation_threshold = default_escalation_threshold,
+        size_t max_attempts = default_max_attempts) const
     {
       static_assert(WeightFunction<Dist, T>, "Dist must satisfy WeightFunction concept");
 
@@ -159,23 +171,28 @@ namespace mpcf::sampling
       {
         throw std::invalid_argument("source and vantage must have same dimensionality");
       }
+      if (stages.empty())
+      {
+        throw std::invalid_argument("stages must not be empty");
+      }
 
       size_t nVantage = vantage.shape()[0];
       T radius_sq = radius * radius;
 
-      constexpr size_t maxAttempts = 1000;
-
-      Tensor<size_t> allIndices({nVantage, k});
+      Tensor<uint64_t> allIndices({nVantage, k});
 
       constexpr size_t sentinel = static_cast<size_t>(-1);
       std::fill(allIndices.data(), allIndices.data() + nVantage * k, sentinel);
 
       std::vector<size_t> acceptedCounts(nVantage, 0);
+      std::vector<size_t> attemptCounts(nVantage, 0);
+      std::vector<bool> biasedFlags(nVantage, false);
 
       Tensor<T> dummy({nVantage});
 
       mpcf::parallel_walk(dummy, gen,
-          [this, &vantage, &dist, &allIndices, &acceptedCounts, k, radius_sq, replace, maxAttempts, min_correction]
+          [this, &vantage, &dist, &allIndices, &acceptedCounts, &attemptCounts, &biasedFlags,
+           &stages, k, radius_sq, replace, max_attempts, escalation_threshold]
           (const std::vector<size_t>& idx, auto& engine)
       {
         size_t vantageIdx = idx[0];
@@ -194,19 +211,35 @@ namespace mpcf::sampling
         std::vector<size_t> accepted;
         accepted.reserve(k);
 
+        size_t stage = 0;
+        size_t consecutive_rejections = 0;
+        size_t total_attempts = 0;
+
         if (replace)
         {
           for (size_t s = 0; s < k; ++s)
           {
-            for (size_t attempt = 0; attempt < maxAttempts; ++attempt)
+            bool got_sample = false;
+            for (size_t attempt = 0; attempt < max_attempts && !got_sample; ++attempt)
             {
+              ++total_attempts;
               size_t pidx = sample_one(
                   vpt.data(), dist, radius_sq, engine, uniform01,
-                  bbox_lo, bbox_hi, min_correction);
+                  bbox_lo, bbox_hi, stages[stage]);
               if (pidx != static_cast<size_t>(-1))
               {
                 accepted.push_back(pidx);
-                break;
+                consecutive_rejections = 0;
+                got_sample = true;
+              }
+              else
+              {
+                ++consecutive_rejections;
+                if (consecutive_rejections >= escalation_threshold && stage + 1 < stages.size())
+                {
+                  ++stage;
+                  consecutive_rejections = 0;
+                }
               }
             }
           }
@@ -217,16 +250,28 @@ namespace mpcf::sampling
 
           for (size_t s = 0; s < k; ++s)
           {
-            for (size_t attempt = 0; attempt < maxAttempts; ++attempt)
+            bool got_sample = false;
+            for (size_t attempt = 0; attempt < max_attempts && !got_sample; ++attempt)
             {
+              ++total_attempts;
               size_t pidx = sample_one(
                   vpt.data(), dist, radius_sq, engine, uniform01,
-                  bbox_lo, bbox_hi, min_correction);
+                  bbox_lo, bbox_hi, stages[stage]);
               if (pidx != static_cast<size_t>(-1) && seen.find(pidx) == seen.end())
               {
                 seen.insert(pidx);
                 accepted.push_back(pidx);
-                break;
+                consecutive_rejections = 0;
+                got_sample = true;
+              }
+              else
+              {
+                ++consecutive_rejections;
+                if (consecutive_rejections >= escalation_threshold && stage + 1 < stages.size())
+                {
+                  ++stage;
+                  consecutive_rejections = 0;
+                }
               }
             }
           }
@@ -237,8 +282,23 @@ namespace mpcf::sampling
           allIndices({vantageIdx, s}) = accepted[s];
         }
         acceptedCounts[vantageIdx] = accepted.size();
+        attemptCounts[vantageIdx] = total_attempts;
+        biasedFlags[vantageIdx] = (stage > 0);
       }, exec);
 
+      // Build diagnostics
+      SamplingDiagnostics diagnostics;
+      diagnostics.acceptance_rate.resize(nVantage);
+      diagnostics.total_attempts = std::move(attemptCounts);
+      diagnostics.biased = std::move(biasedFlags);
+      for (size_t i = 0; i < nVantage; ++i)
+      {
+        diagnostics.acceptance_rate[i] = diagnostics.total_attempts[i] > 0
+            ? static_cast<double>(acceptedCounts[i]) / static_cast<double>(diagnostics.total_attempts[i])
+            : 0.0;
+      }
+
+      // Compact indices
       bool allFull = true;
       for (size_t i = 0; i < nVantage; ++i)
       {
@@ -251,17 +311,21 @@ namespace mpcf::sampling
 
       if (allFull)
       {
-        return IndexedPointCloudCollection<T>(m_source, std::move(allIndices));
+        return SamplingResult<T>{
+            IndexedPointCloudCollection<T>(m_source, std::move(allIndices)),
+            std::move(diagnostics)};
       }
 
       size_t maxAccepted = *std::max_element(acceptedCounts.begin(), acceptedCounts.end());
       if (maxAccepted == 0)
       {
-        Tensor<size_t> emptyIndices({nVantage, 0_uz});
-        return IndexedPointCloudCollection<T>(m_source, std::move(emptyIndices));
+        Tensor<uint64_t> emptyIndices({nVantage, 0_uz});
+        return SamplingResult<T>{
+            IndexedPointCloudCollection<T>(m_source, std::move(emptyIndices)),
+            std::move(diagnostics)};
       }
 
-      Tensor<size_t> compactIndices({nVantage, maxAccepted});
+      Tensor<uint64_t> compactIndices({nVantage, maxAccepted});
       for (size_t i = 0; i < nVantage; ++i)
       {
         for (size_t j = 0; j < maxAccepted; ++j)
@@ -277,7 +341,9 @@ namespace mpcf::sampling
         }
       }
 
-      return IndexedPointCloudCollection<T>(m_source, std::move(compactIndices));
+      return SamplingResult<T>{
+          IndexedPointCloudCollection<T>(m_source, std::move(compactIndices)),
+          std::move(diagnostics)};
     }
 
   private:

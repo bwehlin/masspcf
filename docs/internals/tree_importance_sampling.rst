@@ -177,20 +177,33 @@ The denominator :math:`S_{\text{root}}` is the **same constant** for all points.
 **Why the correction stays in** :math:`[0, 1]`: At every node, children's refined bounds are tighter, so :math:`S \leq W` and each factor :math:`S/W \leq 1`. The cumulative product is therefore :math:`\leq 1`. Combined with :math:`g(d)/g_{\max} \leq 1`, the acceptance probability is always valid.
 
 
-Bias–efficiency trade-off: ``min_correction``
------------------------------------------------
+Adaptive escalation
+--------------------
 
 For distributions with well-separated modes and small bandwidths, the
 correction factor can compound to near-zero along paths to distant modes.
 This makes the sampler unbiased but impractical: nearly all proposals for the
 far mode are rejected.
 
-The ``min_correction`` parameter (denoted :math:`c` below) clamps the
-cumulative correction to :math:`[c, 1]` at each step during traversal.
+Rather than exposing an opaque tuning parameter, the sampler uses **adaptive
+escalation**: it begins with exact (unbiased) sampling and automatically
+introduces bounded bias only when acceptance rates are too low. This is
+motivated by the importance sampling literature, which shows that no
+a priori mapping exists from a user-facing tolerance to a weight-clipping
+level — the bias depends on the tail behavior of the weight distribution,
+which is data-dependent [Ion08]_ [VGS+24]_.
+
+The escalation mechanism works as follows. A sequence of *stages*
+:math:`c_0, c_1, \dots, c_S` defines progressively looser correction
+floors (by default :math:`0, 0.1, 0.5, 1`). The sampler starts at
+stage 0 (:math:`c = 0`, exact). After a configurable number of
+consecutive rejections (default: 100), it escalates to the next stage
+and resets the counter. Once escalated, it remains at that level for the
+rest of the current vantage point's samples.
 
 
-Effect on the sampling distribution
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Effect of correction clamping on the sampling distribution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Each point :math:`x` in the source cloud has a unique root-to-leaf path
 through the KD-tree. Let :math:`\gamma(x)` denote the unclamped correction
@@ -223,8 +236,8 @@ points (those on heavily-tightened tree paths) are overrepresented, while
 unclamped points retain their exact relative weights.
 
 
-When does clamping activate?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When does escalation trigger?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The correction :math:`\gamma(x)` is small when the tree traversal passes
 through nodes where the children's refined weight bounds are much tighter
@@ -237,21 +250,19 @@ reduces the distance range. This typically happens when:
 - The path to the far cluster accumulates many tightening factors < 1.
 
 For unimodal or broad distributions, :math:`\gamma(x)` rarely drops below
-0.5 and clamping has no practical effect.
+0.5 and escalation never triggers.
 
 
-Choosing ``min_correction``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Post-hoc diagnostics
+^^^^^^^^^^^^^^^^^^^^^
 
-- :math:`c = 0` (default): exact, unbiased sampling. May be impractical
-  for well-separated modes.
-- :math:`c = 1`: no correction at all; the effective distribution is
-  :math:`P_1(x) \propto g(d_x) / \gamma(x)`, which overweights points in
-  parts of the tree with loose bounds. This is the most efficient setting
-  and appropriate when approximate proportionality suffices.
-- Intermediate values: trade off between bias and efficiency. All points
-  with :math:`\gamma(x) \geq c` are sampled exactly; only points on
-  heavily-tightened paths are affected.
+Since no a priori tolerance-to-clipping mapping exists in the literature
+[Ion08]_, the sampler returns post-hoc diagnostics so users can assess
+sampling quality after the fact. These include the per-vantage acceptance
+rate, whether escalation was triggered, and the total number of proposal
+attempts. The Pareto-smoothed importance sampling (PSIS) framework
+[VGS+24]_ provides additional tools for diagnosing IS weight reliability
+that can be applied to the sampler's output.
 
 
 ``max_in_range`` implementations
@@ -327,7 +338,9 @@ Implementation files
 
 - ``include/mpcf/sampling/distribution.hpp`` — distribution types and ``DistanceDist`` concept
 - ``include/mpcf/sampling/kdtree.hpp`` — nanoflann adaptor for ``PointCloud<T>``
-- ``include/mpcf/sampling/sample.hpp`` — tree traversal and sampling algorithm
+- ``include/mpcf/sampling/sampler.hpp`` — ``DistanceWeightedSampler`` class with adaptive escalation
+- ``include/mpcf/sampling/sampling_result.hpp`` — ``SamplingResult`` and ``SamplingDiagnostics``
+- ``include/mpcf/sampling/sample.hpp`` — convenience wrapper
 - ``src/python/sampling/py_sampling.cpp`` — pybind11 bindings
 - ``masspcf/sampling.py`` — Python wrapper
 
@@ -345,3 +358,7 @@ References
 .. [WABG06] Walter, B., Fernandez, S., Arbree, A., Bala, K., Donikian, M., & Greenberg, D. P. (2005). Lightcuts: a scalable approach to illumination. *ACM Transactions on Graphics (SIGGRAPH)*, 24(3), 1098–1107.
 
 .. [Yuk19] Yuksel, C. (2019). Stochastic Lightcuts. *Proceedings of the Conference on High-Performance Graphics*, 27–32.
+
+.. [Ion08] Ionides, E. L. (2008). Truncated importance sampling. *Journal of Computational and Graphical Statistics*, 17(2), 295–311.
+
+.. [VGS+24] Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2024). Pareto smoothed importance sampling. *Journal of Machine Learning Research*, 25(72), 1–58.
