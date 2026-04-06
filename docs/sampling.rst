@@ -75,6 +75,17 @@ RBF-style weighting where nearby points are strongly preferred.
    # Favor points at distance ~ 3 from the vantage
    dist = Gaussian(mean=3.0, sigma=0.5)
 
+The left panel below shows per-point weights under a Gaussian centered at the
+vantage (red star). The two right panels show independent draws of 30 samples.
+
+.. image:: _static/gallery_sampling_gaussian_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_sampling_gaussian_dark.png
+   :width: 100%
+   :class: only-dark
+
 Uniform
 -------
 
@@ -95,6 +106,18 @@ neighborhood.
 
    # Sample from an annulus at distance 1–2
    dist = Uniform(lo=1.0, hi=2.0)
+
+Here the Uniform weight function selects only points in the distance range
+:math:`[2, 4]` from the vantage. Points outside the annulus have zero weight
+and are never sampled.
+
+.. image:: _static/gallery_sampling_uniform_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_sampling_uniform_dark.png
+   :width: 100%
+   :class: only-dark
 
 Mixture
 --------
@@ -125,6 +148,17 @@ shell.
                    Uniform(lo=3.0, hi=5.0)],
        weights=[0.8, 0.2],
    )
+
+Here a Gaussian near the vantage is mixed with a Uniform annulus at distance
+3–5. The sampler draws from both modes proportionally.
+
+.. image:: _static/gallery_sampling_mixture_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_sampling_mixture_dark.png
+   :width: 100%
+   :class: only-dark
 
 
 Basic usage
