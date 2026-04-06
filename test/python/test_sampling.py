@@ -18,7 +18,7 @@ import pytest
 import masspcf as mpcf
 from masspcf.random import Generator
 from masspcf.sampling import (
-    DistanceWeightedSampler, Gaussian, Uniform, Mixture, SamplingResult, sample,
+    DistanceWeightedSampler, Gaussian, Uniform, Mixture, SamplingResult,
 )
 
 
@@ -80,7 +80,7 @@ class TestSamplingWithReplacement:
         V = _make_point_cloud(pts)
 
         dist = Gaussian(mean=0.0, sigma=1.0)
-        result = sample(X, V, k=10, dist=dist, replace=True)
+        result = DistanceWeightedSampler(X).sample(V, k=10, dist=dist, replace=True)
 
         assert result.shape == (200,)
         for i in range(min(5, 200)):
@@ -97,7 +97,7 @@ class TestSamplingWithReplacement:
         V = _make_point_cloud(vantage_pts)
 
         dist = Gaussian(mean=0.0, sigma=0.5)
-        result = sample(X, V, k=20, dist=dist, replace=True, radius=1.0)
+        result = DistanceWeightedSampler(X).sample(V, k=20, dist=dist, replace=True, radius=1.0)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -118,7 +118,7 @@ class TestSamplingWithReplacement:
 
         dist = Gaussian(mean=0.0, sigma=0.5)
         gen = Generator(seed=42)
-        result = sample(X, V, k=100, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=100, dist=dist, replace=True, generator=gen)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -133,7 +133,7 @@ class TestSamplingWithReplacement:
         V = _make_point_cloud(pts, dtype=mpcf.pcloud32)
 
         dist = Gaussian(mean=0.0, sigma=1.0)
-        result = sample(X, V, k=5, dist=dist, replace=True, dtype=mpcf.pcloud32)
+        result = DistanceWeightedSampler(X, dtype=mpcf.pcloud32).sample(V, k=5, dist=dist, replace=True)
 
         assert result.shape == (50,)
         elem = np.asarray(result[0])
@@ -152,7 +152,7 @@ class TestSamplingWithoutReplacement:
 
         dist = Gaussian(mean=0.0, sigma=10.0)  # broad so many points are reachable
         gen = Generator(seed=42)
-        result = sample(X, V, k=20, dist=dist, replace=False, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=20, dist=dist, replace=False, generator=gen)
 
         sampled = np.asarray(result[0])
         # Convert to tuples for uniqueness check
@@ -175,7 +175,7 @@ class TestUniformDistribution:
 
         dist = Uniform(lo=1.0, hi=2.0)
         gen = Generator(seed=42)
-        result = sample(X, V, k=30, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=30, dist=dist, replace=True, generator=gen)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -200,7 +200,7 @@ class TestMixtureDistribution:
             weights=[0.5, 0.5],
         )
         gen = Generator(seed=42)
-        result = sample(X, V, k=500, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=500, dist=dist, replace=True, generator=gen)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -229,7 +229,7 @@ class TestMixtureDistribution:
             weights=[0.5, 0.5],
         )
         gen = Generator(seed=42)
-        result = sample(X, V, k=500, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=500, dist=dist, replace=True, generator=gen)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -259,8 +259,8 @@ class TestAdaptiveSampling:
         )
         gen = Generator(seed=42)
         # Use aggressive escalation to ensure both modes are reached
-        result = sample(X, V, k=500, dist=dist, replace=True, generator=gen,
-                        escalation_threshold=20)
+        result = DistanceWeightedSampler(X).sample(V, k=500, dist=dist, replace=True,
+                                                    generator=gen, escalation_threshold=20)
 
         sampled = np.asarray(result[0])
         dists = np.linalg.norm(sampled, axis=1)
@@ -281,9 +281,9 @@ class TestAdaptiveSampling:
 
         dist = Gaussian(mean=0.0, sigma=1.0)
         gen = Generator(seed=42)
-        result = sample(X, V, k=10, dist=dist, replace=True,
-                        generator=gen, stages=(0.0, 1.0),
-                        escalation_threshold=50, max_attempts=500)
+        result = DistanceWeightedSampler(X).sample(V, k=10, dist=dist, replace=True,
+                                                    generator=gen, stages=(0.0, 1.0),
+                                                    escalation_threshold=50, max_attempts=500)
         assert result.shape == (1,)
 
 
@@ -297,7 +297,7 @@ class TestDiagnostics:
 
         dist = Gaussian(mean=0.0, sigma=5.0)
         gen = Generator(seed=42)
-        result = sample(X, V, k=20, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=20, dist=dist, replace=True, generator=gen)
 
         diag = result.diagnostics
         assert diag.all_exact
@@ -310,14 +310,14 @@ class TestDiagnostics:
         assert not diag.biased[0]
 
     def test_result_is_sampling_result(self):
-        """sample() should return a SamplingResult."""
+        """DistanceWeightedSampler.sample() should return a SamplingResult."""
         np.random.seed(42)
         pts = np.random.randn(50, 2).astype(np.float64)
         X = _make_point_cloud(pts)
         V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
 
         dist = Gaussian(mean=0.0, sigma=1.0)
-        result = sample(X, V, k=10, dist=dist, replace=True)
+        result = DistanceWeightedSampler(X).sample(V, k=10, dist=dist, replace=True)
         assert isinstance(result, SamplingResult)
 
     def test_backward_compat_delegates(self):
@@ -329,7 +329,7 @@ class TestDiagnostics:
 
         dist = Gaussian(mean=0.0, sigma=2.0)
         gen = Generator(seed=42)
-        result = sample(X, V, k=5, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=5, dist=dist, replace=True, generator=gen)
 
         # Shape / len / ndim
         assert result.shape == (2,)
@@ -359,7 +359,7 @@ class TestEdgeCases:
 
         dist = Uniform(lo=-3.0, hi=-1.0)
         gen = Generator(seed=42)
-        result = sample(X, V, k=10, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=10, dist=dist, replace=True, generator=gen)
 
         sampled = np.asarray(result[0])
         assert sampled.shape[0] == 0, f"Expected empty, got shape {sampled.shape}"
@@ -378,7 +378,7 @@ class TestEdgeCases:
 
         dist = Gaussian(mean=0.0, sigma=1.0)
         gen = Generator(seed=42)
-        result = sample(X, V, k=10, dist=dist, replace=True, generator=gen, radius=0.1)
+        result = DistanceWeightedSampler(X).sample(V, k=10, dist=dist, replace=True, generator=gen, radius=0.1)
 
         sampled = np.asarray(result[0])
         assert sampled.shape[0] == 0, f"Expected empty, got shape {sampled.shape}"
@@ -432,7 +432,7 @@ class TestUnbiasedSampling:
         # Draw many samples
         n_samples = 100_000
         gen = Generator(seed=7)
-        result = sample(X, V, k=n_samples, dist=dist, replace=True, generator=gen)
+        result = DistanceWeightedSampler(X).sample(V, k=n_samples, dist=dist, replace=True, generator=gen)
         sampled = np.asarray(result[0])
 
         # Count how often each source point was sampled

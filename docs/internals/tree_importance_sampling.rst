@@ -340,7 +340,6 @@ Implementation files
 - ``include/mpcf/sampling/kdtree.hpp`` — nanoflann adaptor for ``PointCloud<T>``
 - ``include/mpcf/sampling/sampler.hpp`` — ``DistanceWeightedSampler`` class with adaptive escalation
 - ``include/mpcf/sampling/sampling_result.hpp`` — ``SamplingResult`` and ``SamplingDiagnostics``
-- ``include/mpcf/sampling/sample.hpp`` — convenience wrapper
 - ``src/python/sampling/py_sampling.cpp`` — pybind11 bindings
 - ``masspcf/sampling.py`` — Python wrapper
 

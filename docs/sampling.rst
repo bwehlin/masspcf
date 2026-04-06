@@ -130,15 +130,16 @@ shell.
 Basic usage
 ===========
 
-The main entry point is :py:func:`~masspcf.sampling.sample`. It takes a source
-point cloud, a set of vantage points, a sample count *k*, and a weight
-function.
+Create a :py:class:`~masspcf.sampling.DistanceWeightedSampler` from a source
+point cloud, then call its
+:py:meth:`~masspcf.sampling.DistanceWeightedSampler.sample` method with
+vantage points, a sample count *k*, and a weight function.
 
 ::
 
    import numpy as np
    import masspcf as mpcf
-   from masspcf.sampling import Gaussian, sample
+   from masspcf.sampling import DistanceWeightedSampler, Gaussian
 
    # Source: 1000 points in R^3
    pts = np.random.randn(1000, 3)
@@ -150,15 +151,16 @@ function.
    V = mpcf.zeros((1,), dtype=mpcf.pcloud64)
    V[0] = queries
 
-   # 30 samples per vantage, Gaussian weighting
+   # Build sampler (KD-tree construction), then sample
+   sampler = DistanceWeightedSampler(X)
    dist = Gaussian(mean=0.0, sigma=1.0)
-   result = sample(X, V, k=30, dist=dist)
+   result = sampler.sample(V, k=30, dist=dist)
 
-   # result is a PointCloudTensor of shape (50,)
+   # result is a SamplingResult of shape (50,)
    # result[i] is a (30, 3) point cloud sampled around queries[i]
 
-The output is a :py:class:`~masspcf.tensor.PointCloudTensor` where each element
-contains the *k* sampled points for that vantage.
+The sampler can be reused with different vantage points or weight functions
+without rebuilding the KD-tree.
 
 
 Sampling with and without replacement
@@ -167,11 +169,11 @@ Sampling with and without replacement
 By default, sampling is **with replacement** — the same source point may
 appear multiple times in a single vantage's sample::
 
-   result = sample(X, V, k=30, dist=dist, replace=True)   # default
+   result = sampler.sample(V, k=30, dist=dist, replace=True)   # default
 
 To sample **without replacement**, set ``replace=False``::
 
-   result = sample(X, V, k=30, dist=dist, replace=False)
+   result = sampler.sample(V, k=30, dist=dist, replace=False)
 
 Without replacement, each source point appears at most once per vantage.
 If *k* exceeds the number of points with non-zero weight, the sampler
@@ -184,7 +186,7 @@ Ball restriction
 An optional ``radius`` parameter restricts sampling to points within a ball
 of the given radius around each vantage point::
 
-   result = sample(X, V, k=30, dist=dist, radius=2.0)
+   result = sampler.sample(V, k=30, dist=dist, radius=2.0)
 
 Points further than ``radius`` from the vantage are never sampled, regardless
 of the distribution. This is useful when the distribution has broad or heavy
@@ -201,7 +203,7 @@ Pass a :py:class:`~masspcf.random.Generator` for deterministic results::
    from masspcf.random import Generator
 
    gen = Generator(seed=42)
-   result = sample(X, V, k=30, dist=dist, generator=gen)
+   result = sampler.sample(V, k=30, dist=dist, generator=gen)
 
 The same seed produces the same samples regardless of thread count or
 execution order. See :doc:`random` for details.
@@ -238,12 +240,11 @@ analysis.
 Sampling diagnostics
 ====================
 
-Every call to :py:func:`~masspcf.sampling.sample` (or
-:py:meth:`~masspcf.sampling.DistanceWeightedSampler.sample`) returns a
-:py:class:`~masspcf.sampling.SamplingResult` containing both the sampled
-points and post-hoc diagnostics::
+Every call to :py:meth:`~masspcf.sampling.DistanceWeightedSampler.sample`
+returns a :py:class:`~masspcf.sampling.SamplingResult` containing both the
+sampled points and post-hoc diagnostics::
 
-   result = sample(X, V, k=100, dist=dist)
+   result = sampler.sample(V, k=100, dist=dist)
 
    # Check whether any bias was introduced
    if not result.diagnostics.all_exact:
@@ -265,4 +266,5 @@ Precision
 Both ``pcloud32`` and ``pcloud64`` are supported. The dtype is inferred
 from the source tensor, or can be specified explicitly::
 
-   result = sample(X, V, k=30, dist=dist, dtype=mpcf.pcloud32)
+   sampler = DistanceWeightedSampler(X, dtype=mpcf.pcloud32)
+   result = sampler.sample(V, k=30, dist=dist)
