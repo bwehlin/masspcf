@@ -117,16 +117,13 @@ def compute_persistent_homology(
             X = dmX
 
         barcode_dtype = _DISTMAT_TO_BARCODE_DTYPE[X.dtype]
-        out = zeros((1,), dtype=barcode_dtype)
+        out = zeros((*X.shape, maxDim + 1), dtype=barcode_dtype)
 
         if complex_type != ComplexType.VietorisRips:
             raise ValueError(f"Unsupported complex type {complex_type}")
 
         task = _compute_barcodes_distmat_ripser(X, out, maxDim, reduced)
         _run_task(lambda: task, verbose=verbose)
-
-        if len(out.shape) == 2 and out.shape[0] == 1:
-            out = out[0, :]
 
         return out
 
@@ -143,7 +140,7 @@ def compute_persistent_homology(
 
     if isinstance(X, PointCloudTensor):
         barcode_dtype = _PCLOUD_TO_BARCODE_DTYPE[X.dtype]
-        out = zeros((1,), dtype=barcode_dtype)
+        out = zeros((*X.shape, maxDim + 1), dtype=barcode_dtype)
 
     if complex_type == ComplexType.VietorisRips:
         # Use Ripser
@@ -158,8 +155,5 @@ def compute_persistent_homology(
         raise ValueError(f"Unsupported complex type {complex_type}")
 
     _run_task(lambda: task, verbose=verbose)
-
-    if len(out.shape) == 2 and out.shape[0] == 1:
-        out = out[0, :]
 
     return out

@@ -40,15 +40,12 @@ def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
         return Pcf(getattr(backend, single_method)(X._data, **kwargs))
     elif isinstance(X, Tensor):
         pcf_dtype = _BARCODE_TO_PCF_DTYPE[X.dtype]
-        out = zeros((1,), dtype=pcf_dtype)
+        out = zeros(X.shape, dtype=pcf_dtype)
 
         _run_task(
             lambda: getattr(backend, task_method)(X._data, out._data, **kwargs),
             verbose=verbose,
         )
-
-        if len(out.shape) == 2 and out.shape[0] == 1:
-            out = out[0, :]
 
         return out
 
