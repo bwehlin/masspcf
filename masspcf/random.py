@@ -58,7 +58,7 @@ def _get_backend(dtype):
         return cpp.Random_f64_f64
 
 
-def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None):
+def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None, zero_last_value=False):
     r"""Generate a tensor of noisy :math:`\sin(2\pi t)` PCFs.
 
     Each generated PCF has the form
@@ -69,7 +69,7 @@ def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None):
     where :math:`\varepsilon(t) \sim \mathcal{N}(0, 0.1)` is sampled
     independently at each breakpoint. The breakpoints are drawn uniformly
     from :math:`[0, 1]` and sorted, with the first breakpoint fixed at
-    :math:`t = 0` and the last value set to :math:`0`.
+    :math:`t = 0`.
 
     Parameters
     ----------
@@ -81,6 +81,8 @@ def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None):
         ``pcf32`` or ``pcf64``, by default ``pcf32``.
     generator : Generator, optional
         Random number generator. If ``None``, the global generator is used.
+    zero_last_value : bool, optional
+        If ``True``, the last value of each PCF is set to 0. Default ``False``.
 
     Returns
     -------
@@ -91,12 +93,12 @@ def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None):
 
     A = zeros(shape, dtype=dtype)
     gen = generator._gen if generator is not None else None
-    backend.noisy_sin(A._data, n_points, gen)
+    backend.noisy_sin(A._data, n_points, gen, zero_last_value)
 
     return A
 
 
-def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None):
+def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None, zero_last_value=False):
     r"""Generate a tensor of noisy :math:`\cos(2\pi t)` PCFs.
 
     Each generated PCF has the form
@@ -107,7 +109,7 @@ def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None):
     where :math:`\varepsilon(t) \sim \mathcal{N}(0, 0.1)` is sampled
     independently at each breakpoint. The breakpoints are drawn uniformly
     from :math:`[0, 1]` and sorted, with the first breakpoint fixed at
-    :math:`t = 0` and the last value set to :math:`0`.
+    :math:`t = 0`.
 
     Parameters
     ----------
@@ -119,6 +121,8 @@ def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None):
         ``pcf32`` or ``pcf64``, by default ``pcf32``.
     generator : Generator, optional
         Random number generator. If ``None``, the global generator is used.
+    zero_last_value : bool, optional
+        If ``True``, the last value of each PCF is set to 0. Default ``False``.
 
     Returns
     -------
@@ -129,6 +133,6 @@ def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None):
 
     A = zeros(shape, dtype=dtype)
     gen = generator._gen if generator is not None else None
-    backend.noisy_cos(A._data, n_points, gen)
+    backend.noisy_cos(A._data, n_points, gen, zero_last_value)
 
     return A

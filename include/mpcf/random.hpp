@@ -30,12 +30,13 @@ namespace mpcf
 
   template <typename Tt, typename Tv, typename F>
   void noisy_function(Tensor<Pcf<Tt, Tv>>& out, size_t nPoints, F func,
-                      Tv noise = 0.1, const DefaultRandomGenerator& gen = default_generator())
+                      Tv noise = 0.1, const DefaultRandomGenerator& gen = default_generator(),
+                      bool zeroLastValue = false)
   {
     using PcfT = Pcf<Tt, Tv>;
     using PointT = typename PcfT::point_type;
 
-    mpcf::walk(out, gen, [nPoints, noise, &func, &out](const std::vector<size_t>& idx, auto& engine) {
+    mpcf::walk(out, gen, [nPoints, noise, zeroLastValue, &func, &out](const std::vector<size_t>& idx, auto& engine) {
 
       std::uniform_real_distribution<Tt> tDist(static_cast<Tt>(0.), static_cast<Tt>(1.));
       std::normal_distribution<Tv> vDist(static_cast<Tv>(0.), noise);
@@ -57,7 +58,8 @@ namespace mpcf
         pts[i].v = func(randomTs[i]) + randomNoises[i];
       }
 
-      pts.back().v = 0.;
+      if (zeroLastValue)
+        pts.back().v = 0.;
 
       out(idx) = PcfT(std::move(pts));
     });

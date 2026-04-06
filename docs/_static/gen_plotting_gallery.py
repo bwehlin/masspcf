@@ -60,13 +60,13 @@ def plot_arithmetic():
 
 
 # -- docs snippet start mean_highlight --
-def plot_mean_highlight(sin_color="b", cos_color="r"):
+def plot_mean_highlight(sin_color="b", cos_color="r", bg_alpha=0.2):
     sines = noisy_sin((15,), n_points=100)
     cosines = noisy_cos((15,), n_points=100)
 
     fig, ax = plt.subplots(figsize=(5, 2.5))
-    plotpcf(sines, ax=ax, color=sin_color, linewidth=0.5, alpha=0.2)
-    plotpcf(cosines, ax=ax, color=cos_color, linewidth=0.5, alpha=0.2)
+    plotpcf(sines, ax=ax, color=sin_color, linewidth=0.5, alpha=bg_alpha)
+    plotpcf(cosines, ax=ax, color=cos_color, linewidth=0.5, alpha=bg_alpha)
 
     plotpcf(mpcf.mean(sines), ax=ax, color=sin_color, linewidth=2.5, label="mean(sin)")
     plotpcf(mpcf.mean(cosines), ax=ax, color=cos_color, linewidth=2.5, label="mean(cos)")
@@ -97,7 +97,7 @@ def plot_barcode_example(h0_color="steelblue", h1_color="orangered"):
     plot_barcode(bc_h1, ax=ax, y_offset=y + 1, color=h1_color, linewidth=2, label="H1")
     ax.set_xlabel("t")
     ax.set_yticks([])
-    ax.legend()
+    ax.legend(loc="lower right")
     fig.tight_layout()
     return fig
 # -- docs snippet end barcode --
@@ -136,13 +136,20 @@ def plot_tda_pipeline(h0_color="steelblue", h1_color="orangered"):
         [np.asarray(bc_h0), np.asarray(bc_h1)],
         ax=ax2, legend=True, show=False,
     )
-    legend = ax2.get_legend()
-    legend.get_frame().set_alpha(0)
     fg = ax2.xaxis.label.get_color()
-    for text in legend.get_texts():
-        text.set_color(fg)
+    # Recolor plot lines (diagonal, infinity) to match theme foreground
     for line in ax2.get_lines():
         line.set_color(fg)
+    # Recolor legend text and the infinity line handle
+    legend = ax2.get_legend()
+    legend.set_loc("lower right")
+    legend.get_frame().set_alpha(0)
+    for text in legend.get_texts():
+        text.set_color(fg)
+    from matplotlib.lines import Line2D
+    for handle in legend.legend_handles:
+        if isinstance(handle, Line2D):
+            handle.set_color(fg)
     ax2.set_title("Persistence diagram")
 
     # Right: stable rank
@@ -197,7 +204,7 @@ def plot_betti_pipeline(h0_color="steelblue", h1_color="orangered"):
     ax2.set_yticks([])
     ax2.set_xlabel("t")
     ax2.set_title("Persistence barcode")
-    ax2.legend(fontsize=8)
+    ax2.legend(fontsize=8, loc="lower right")
 
     # Right: Betti curves
     plotpcf(bettis[0], ax=ax3, max_time=2, color=h0_color, linewidth=2,
@@ -336,7 +343,7 @@ def _save_themed(plot_func, style, bg_color, fg_color, line_color, outfile):
 
 
 LIGHT = ("default", "white", "black", "steelblue")
-DARK = ("dark_background", "#1a1a2e", "#e0e0e0", "#5dade2")
+DARK = ("dark_background", "#14181e", "#ced6dd", "#5dade2")
 
 if __name__ == "__main__":
     gallery = [
@@ -355,7 +362,7 @@ if __name__ == "__main__":
         ("gallery_single_pcf", lambda: plot_single_pcf()),
         ("gallery_overlaid", lambda: plot_overlaid()),
         ("gallery_arithmetic", lambda: plot_arithmetic()),
-        ("gallery_mean_highlight", lambda: plot_mean_highlight("#5dade2", "#ff6b6b")),
+        ("gallery_mean_highlight", lambda: plot_mean_highlight("#5dade2", "#ff6b6b", bg_alpha=0.4)),
         ("gallery_barcode", lambda: plot_barcode_example("#5dade2", "#ff6b6b")),
         ("gallery_tda_pipeline", lambda: plot_tda_pipeline("#5dade2", "#ff6b6b")),
         ("gallery_betti_pipeline", lambda: plot_betti_pipeline("#5dade2", "#ff6b6b")),

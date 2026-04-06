@@ -38,22 +38,22 @@ namespace
     using PcfT = mpcf::Pcf<Tt, Tv>;
     using TensorT = mpcf::Tensor<PcfT>;
 
-    static void noisy_sin(TensorT& out, size_t nPoints, const mpcf::DefaultRandomGenerator* gen)
+    static void noisy_sin(TensorT& out, size_t nPoints, const mpcf::DefaultRandomGenerator* gen, bool zeroLastValue)
     {
       auto func = [](Tv t) { return sin(static_cast<Tv>(2. * M_PI) * t); };
       if (gen)
-        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen);
+        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen, zeroLastValue);
       else
-        mpcf::noisy_function(out, nPoints, func);
+        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), mpcf::default_generator(), zeroLastValue);
     }
 
-    static void noisy_cos(TensorT& out, size_t nPoints, const mpcf::DefaultRandomGenerator* gen)
+    static void noisy_cos(TensorT& out, size_t nPoints, const mpcf::DefaultRandomGenerator* gen, bool zeroLastValue)
     {
       auto func = [](Tv t) { return cos(static_cast<Tv>(2. * M_PI) * t); };
       if (gen)
-        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen);
+        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen, zeroLastValue);
       else
-        mpcf::noisy_function(out, nPoints, func);
+        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), mpcf::default_generator(), zeroLastValue);
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)
@@ -62,9 +62,11 @@ namespace
 
       cls
           .def_static("noisy_sin", &PyRandomBindings::noisy_sin,
-                       py::arg("out"), py::arg("n_points"), py::arg("generator").none(true) = py::none())
+                       py::arg("out"), py::arg("n_points"), py::arg("generator").none(true) = py::none(),
+                       py::arg("zero_last_value") = false)
           .def_static("noisy_cos", &PyRandomBindings::noisy_cos,
-                       py::arg("out"), py::arg("n_points"), py::arg("generator").none(true) = py::none())
+                       py::arg("out"), py::arg("n_points"), py::arg("generator").none(true) = py::none(),
+                       py::arg("zero_last_value") = false)
           ;
     }
   };

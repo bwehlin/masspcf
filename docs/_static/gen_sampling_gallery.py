@@ -175,6 +175,214 @@ def plot_sampling_mixture(**kw):
         **kw)
 
 
+# ---------------------------------------------------------------------------
+# User-facing example snippets (included in docs via literalinclude)
+# ---------------------------------------------------------------------------
+
+# -- docs snippet start sampling_gaussian --
+def example_sampling_gaussian():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import Normalize
+    from matplotlib.cm import ScalarMappable
+    import masspcf as mpcf
+    from masspcf.sampling import DistanceWeightedSampler, Gaussian
+    from masspcf.point_process import sample_poisson
+    from masspcf.random import Generator
+
+    # Generate a reproducible 2-D source point cloud
+    gen = Generator(seed=42)
+    X = sample_poisson((1,), dim=2, rate=10.0,
+                       lo=np.array([-2.0, -2.0]),
+                       hi=np.array([5.0, 5.0]),
+                       generator=gen)
+    pts = np.asarray(X[0])
+    vantage = np.array([[0.0, 0.0]])
+
+    # Weight function: Gaussian centered at distance 0
+    dist = Gaussian(mean=0.0, sigma=1.5)
+
+    # Compute per-point weights for visualization
+    dists = np.linalg.norm(pts - vantage[0], axis=1)
+    weights = np.array([dist(d) for d in dists])
+
+    # Build sampler and draw two independent samples
+    sampler = DistanceWeightedSampler(X)
+    V = mpcf.zeros((1,), dtype=mpcf.pcloud64)
+    V[0] = vantage
+    result1 = sampler.sample(V, k=30, dist=dist, generator=Generator(seed=123))
+    result2 = sampler.sample(V, k=30, dist=dist, generator=Generator(seed=456))
+
+    # Plot: weights | sample 1 | sample 2
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
+
+    # Panel 1 — color points by weight
+    norm = Normalize(vmin=0, vmax=weights.max())
+    axes[0].scatter(pts[:, 0], pts[:, 1], c=weights, cmap="viridis",
+                    norm=norm, s=28, alpha=0.9, edgecolors="white", linewidths=0.3)
+    fig.colorbar(ScalarMappable(norm=norm, cmap=plt.get_cmap("viridis")),
+                 ax=axes[0], shrink=0.8, pad=0.02).set_label("weight $g(d)$")
+    axes[0].scatter(0, 0, s=180, color="black", marker="*", zorder=5)
+    axes[0].set_title("Weight: Gaussian")
+
+    # Panels 2–3 — sampled points
+    for i, result in enumerate([result1, result2], start=1):
+        sampled = np.asarray(result[0])
+        axes[i].scatter(pts[:, 0], pts[:, 1], s=14, alpha=0.7, color="#56B4E9",
+                        edgecolors="white", linewidths=0.2)
+        axes[i].scatter(sampled[:, 0], sampled[:, 1], s=50, color="#D55E00",
+                        alpha=0.9, edgecolors="black", linewidths=0.5)
+        axes[i].scatter(0, 0, s=180, color="black", marker="*", zorder=5)
+        axes[i].set_title(f"Sample {i}  ($k=30$)")
+
+    for ax in axes:
+        ax.set_aspect("equal")
+        ax.set_xlabel("$x_1$")
+        ax.set_ylabel("$x_2$")
+    fig.tight_layout()
+    plt.show()
+# -- docs snippet end sampling_gaussian --
+
+
+# -- docs snippet start sampling_uniform --
+def example_sampling_uniform():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import Normalize
+    from matplotlib.cm import ScalarMappable
+    import masspcf as mpcf
+    from masspcf.sampling import DistanceWeightedSampler, Uniform
+    from masspcf.point_process import sample_poisson
+    from masspcf.random import Generator
+
+    # Generate a reproducible 2-D source point cloud
+    gen = Generator(seed=42)
+    X = sample_poisson((1,), dim=2, rate=10.0,
+                       lo=np.array([-2.0, -2.0]),
+                       hi=np.array([5.0, 5.0]),
+                       generator=gen)
+    pts = np.asarray(X[0])
+    vantage = np.array([[0.0, 0.0]])
+
+    # Weight function: Uniform on [2, 4] (annular neighborhood)
+    dist = Uniform(lo=2.0, hi=4.0)
+
+    # Compute per-point weights for visualization
+    dists = np.linalg.norm(pts - vantage[0], axis=1)
+    weights = np.array([dist(d) for d in dists])
+
+    # Build sampler and draw two independent samples
+    sampler = DistanceWeightedSampler(X)
+    V = mpcf.zeros((1,), dtype=mpcf.pcloud64)
+    V[0] = vantage
+    result1 = sampler.sample(V, k=30, dist=dist, generator=Generator(seed=123))
+    result2 = sampler.sample(V, k=30, dist=dist, generator=Generator(seed=456))
+
+    # Plot: weights | sample 1 | sample 2
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
+
+    # Panel 1 — color points by weight (gray for zero-weight points)
+    zero = weights < 1e-12
+    axes[0].scatter(pts[zero, 0], pts[zero, 1], s=18, color="#bbbbbb",
+                    alpha=0.5, edgecolors="white", linewidths=0.3)
+    nonzero = ~zero
+    norm = Normalize(vmin=0, vmax=weights[nonzero].max())
+    axes[0].scatter(pts[nonzero, 0], pts[nonzero, 1], c=weights[nonzero],
+                    cmap="viridis", norm=norm, s=28, alpha=0.9,
+                    edgecolors="white", linewidths=0.3)
+    fig.colorbar(ScalarMappable(norm=norm, cmap=plt.get_cmap("viridis")),
+                 ax=axes[0], shrink=0.8, pad=0.02).set_label("weight $g(d)$")
+    axes[0].scatter(0, 0, s=180, color="black", marker="*", zorder=5)
+    axes[0].set_title("Weight: Uniform([2, 4])")
+
+    # Panels 2–3 — sampled points
+    for i, result in enumerate([result1, result2], start=1):
+        sampled = np.asarray(result[0])
+        axes[i].scatter(pts[:, 0], pts[:, 1], s=14, alpha=0.7, color="#56B4E9",
+                        edgecolors="white", linewidths=0.2)
+        axes[i].scatter(sampled[:, 0], sampled[:, 1], s=50, color="#D55E00",
+                        alpha=0.9, edgecolors="black", linewidths=0.5)
+        axes[i].scatter(0, 0, s=180, color="black", marker="*", zorder=5)
+        axes[i].set_title(f"Sample {i}  ($k=30$)")
+
+    for ax in axes:
+        ax.set_aspect("equal")
+        ax.set_xlabel("$x_1$")
+        ax.set_ylabel("$x_2$")
+    fig.tight_layout()
+    plt.show()
+# -- docs snippet end sampling_uniform --
+
+
+# -- docs snippet start sampling_mixture --
+def example_sampling_mixture():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import Normalize
+    from matplotlib.cm import ScalarMappable
+    import masspcf as mpcf
+    from masspcf.sampling import DistanceWeightedSampler, Gaussian, Uniform, Mixture
+    from masspcf.point_process import sample_poisson
+    from masspcf.random import Generator
+
+    # Generate a reproducible 2-D source point cloud
+    gen = Generator(seed=42)
+    X = sample_poisson((1,), dim=2, rate=10.0,
+                       lo=np.array([-2.0, -2.0]),
+                       hi=np.array([5.0, 5.0]),
+                       generator=gen)
+    pts = np.asarray(X[0])
+    vantage = np.array([[0.0, 0.0]])
+
+    # Weight function: mixture of Gaussian + Uniform
+    dist = Mixture(
+        components=[Gaussian(mean=0.0, sigma=0.8),
+                    Uniform(lo=3.0, hi=5.0)],
+        weights=[0.6, 0.4],
+    )
+
+    # Compute per-point weights for visualization
+    dists = np.linalg.norm(pts - vantage[0], axis=1)
+    weights = np.array([dist(d) for d in dists])
+
+    # Build sampler and draw two independent samples
+    sampler = DistanceWeightedSampler(X)
+    V = mpcf.zeros((1,), dtype=mpcf.pcloud64)
+    V[0] = vantage
+    result1 = sampler.sample(V, k=30, dist=dist, generator=Generator(seed=123))
+    result2 = sampler.sample(V, k=30, dist=dist, generator=Generator(seed=456))
+
+    # Plot: weights | sample 1 | sample 2
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
+
+    # Panel 1 — color points by weight
+    norm = Normalize(vmin=0, vmax=weights.max())
+    axes[0].scatter(pts[:, 0], pts[:, 1], c=weights, cmap="viridis",
+                    norm=norm, s=28, alpha=0.9, edgecolors="white", linewidths=0.3)
+    fig.colorbar(ScalarMappable(norm=norm, cmap=plt.get_cmap("viridis")),
+                 ax=axes[0], shrink=0.8, pad=0.02).set_label("weight $g(d)$")
+    axes[0].scatter(0, 0, s=180, color="black", marker="*", zorder=5)
+    axes[0].set_title("Weight: Gaussian + Uniform mixture")
+
+    # Panels 2–3 — sampled points
+    for i, result in enumerate([result1, result2], start=1):
+        sampled = np.asarray(result[0])
+        axes[i].scatter(pts[:, 0], pts[:, 1], s=14, alpha=0.7, color="#56B4E9",
+                        edgecolors="white", linewidths=0.2)
+        axes[i].scatter(sampled[:, 0], sampled[:, 1], s=50, color="#D55E00",
+                        alpha=0.9, edgecolors="black", linewidths=0.5)
+        axes[i].scatter(0, 0, s=180, color="black", marker="*", zorder=5)
+        axes[i].set_title(f"Sample {i}  ($k=30$)")
+
+    for ax in axes:
+        ax.set_aspect("equal")
+        ax.set_xlabel("$x_1$")
+        ax.set_ylabel("$x_2$")
+    fig.tight_layout()
+    plt.show()
+# -- docs snippet end sampling_mixture --
+
+
 # -- Generate light and dark variants --
 def _save_themed(plot_func, style, bg_color, fg_color, line_color, outfile):
     with plt.style.context(style), \
@@ -196,8 +404,8 @@ def _save_themed(plot_func, style, bg_color, fg_color, line_color, outfile):
         print(f"saved {outfile}")
 
 
-LIGHT = ("default", "white", "black", "steelblue")
-DARK = ("dark_background", "#1a1a2e", "#e0e0e0", "#5dade2")
+LIGHT = ("default", "#fff", "black", "steelblue")
+DARK = ("dark_background", "#14181e", "#ced6dd", "#5dade2")
 
 # Light theme: black vantage with white edge, dark edges on points
 LIGHT_KW = {}  # all defaults

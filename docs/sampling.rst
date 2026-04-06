@@ -86,6 +86,14 @@ vantage (red star). The two right panels show independent draws of 30 samples.
    :width: 100%
    :class: only-dark
 
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_sampling_gallery.py
+      :language: python
+      :start-after: docs snippet start sampling_gaussian --
+      :end-before: docs snippet end sampling_gaussian --
+
 Uniform
 -------
 
@@ -118,6 +126,14 @@ and are never sampled.
 .. image:: _static/gallery_sampling_uniform_dark.png
    :width: 100%
    :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_sampling_gallery.py
+      :language: python
+      :start-after: docs snippet start sampling_uniform --
+      :end-before: docs snippet end sampling_uniform --
 
 Mixture
 --------
@@ -159,6 +175,14 @@ Here a Gaussian near the vantage is mixed with a Uniform annulus at distance
 .. image:: _static/gallery_sampling_mixture_dark.png
    :width: 100%
    :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_sampling_gallery.py
+      :language: python
+      :start-after: docs snippet start sampling_mixture --
+      :end-before: docs snippet end sampling_mixture --
 
 
 Basic usage
