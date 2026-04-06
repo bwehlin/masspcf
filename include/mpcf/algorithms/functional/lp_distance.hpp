@@ -35,7 +35,6 @@ namespace mpcf
     OperationLpDist<Tt, Tv> op(p);
     return op(integrate(f, g, op));
   }
-
 }
 
 #endif
