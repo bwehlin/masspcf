@@ -16,15 +16,11 @@ from . import _mpcf_cpp as cpp
 from .async_task import _run_task
 from .distance_matrix import DistanceMatrix
 from .functional.pcf import Pcf, _has_matching_types
-from .tensor import FloatTensor, PcfContainerLike, _get_backend, _to_tensor_pcf
+from .tensor import FloatTensor, PcfContainerLike, _resolve_pcf_inputs
 from .typing import float32, float64, pcf32, pcf64
 
 
-def _get_distance_backend(fs) -> type[cpp.Distance_f32_f32] | type[cpp.Distance_f64_f64]:
-    mapping = {pcf32: cpp.Distance_f32_f32, pcf64: cpp.Distance_f64_f64}
-    backend, _ = _get_backend(fs, mapping)
-    return backend
-
+_DISTANCE_BACKEND_MAP = {pcf32: cpp.Distance_f32_f32, pcf64: cpp.Distance_f64_f64}
 
 _VTYPE_TO_DISTANCE_BACKEND = {
     float32: cpp.Distance_f32_f32,
@@ -114,12 +110,10 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
     if p < 1:
         raise ValueError("p must be >= 1.")
 
-    X = _to_tensor_pcf(fs)
+    backend, X = _resolve_pcf_inputs(_DISTANCE_BACKEND_MAP, fs)
 
     if len(X.shape) != 1:
         raise ValueError("1d tensor expected.")
-
-    backend = _get_distance_backend(X)
 
     if p == 1:
         task, dm_or_dense = backend.pdist_l1(X._data)
@@ -162,10 +156,7 @@ def cdist(X: PcfContainerLike, Y: PcfContainerLike, p=1, verbose=True) -> FloatT
     if p < 1:
         raise ValueError("p must be >= 1.")
 
-    Xt = _to_tensor_pcf(X)
-    Yt = _to_tensor_pcf(Y)
-
-    backend = _get_distance_backend(Xt)
+    backend, Xt, Yt = _resolve_pcf_inputs(_DISTANCE_BACKEND_MAP, X, Y)
 
     if p == 1:
         task, out = backend.cdist_l1(Xt._data, Yt._data)

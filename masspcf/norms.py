@@ -17,14 +17,11 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from .async_task import _run_task
 from .np_support import numpy_type
-from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
+from .tensor import PcfContainerLike, _resolve_pcf_inputs
 from .typing import pcf32, pcf64
 
 
-def _get_norms_backend(fs):
-    mapping = {pcf32: cpp.Norms_f32_f32, pcf64: cpp.Norms_f64_f64}
-
-    return _get_backend(fs, mapping)
+_NORMS_BACKEND_MAP = {pcf32: cpp.Norms_f32_f32, pcf64: cpp.Norms_f64_f64}
 
 
 def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
@@ -61,9 +58,7 @@ def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
     if p < 1:
         raise ValueError("p must be >= 1.")
 
-    X = _to_tensor_pcf(fs)
-
-    backend, _ = _get_norms_backend(X)
+    backend, X = _resolve_pcf_inputs(_NORMS_BACKEND_MAP, fs)
     out = np.zeros(X.shape, dtype=numpy_type(X))
 
     if p == 1:

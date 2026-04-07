@@ -176,6 +176,17 @@ def test_lp_norm_accepts_list_of_pcfs():
     assert norms[0] == pytest.approx(3.0)
 
 
+def test_cdist_rejects_mismatched_dtypes():
+    f32 = mpcf.Pcf(np.array([[0.0, 1.0]], dtype=np.float32))
+    f64 = mpcf.Pcf(np.array([[0.0, 1.0]], dtype=np.float64))
+
+    X = mpcf.PcfTensor([f32])
+    Y = mpcf.PcfTensor([f64])
+
+    with pytest.raises(TypeError, match="same dtype"):
+        mpcf.cdist(X, Y, verbose=False)
+
+
 def test_pdist_accepts_empty_list():
     D = mpcf.pdist([], verbose=False)
 

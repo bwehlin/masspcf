@@ -18,15 +18,12 @@ from .tensor import (
     FloatTensor,
     PcfTensor,
     PcfContainerLike,
-    _get_backend,
+    _resolve_pcf_inputs,
 )
 from .typing import pcf32, pcf64
 
 
-def _get_tensor_and_backend(fs):
-    mapping = {pcf32: cpp.Reductions_f32_f32, pcf64: cpp.Reductions_f64_f64}
-    backend, tensor = _get_backend(fs, mapping)
-    return tensor, backend
+_REDUCTIONS_BACKEND_MAP = {pcf32: cpp.Reductions_f32_f32, pcf64: cpp.Reductions_f64_f64}
 
 
 def _to_tensor_or_val(outFs):
@@ -72,7 +69,7 @@ def mean(fs: PcfContainerLike, dim: int = 0):
         A single ``Pcf`` if the result is scalar, otherwise a ``PcfTensor``
         with the reduced dimension removed.
     """
-    tensor, backend = _get_tensor_and_backend(fs)
+    backend, tensor = _resolve_pcf_inputs(_REDUCTIONS_BACKEND_MAP, fs)
     return _to_tensor_or_val(backend.mean(tensor._data, dim))
 
 
@@ -104,5 +101,5 @@ def max_time(fs: PcfContainerLike, dim: int = 0):
     float or FloatTensor
         A scalar if the result is 0-dimensional, otherwise a numeric tensor.
     """
-    tensor, backend = _get_tensor_and_backend(fs)
+    backend, tensor = _resolve_pcf_inputs(_REDUCTIONS_BACKEND_MAP, fs)
     return _to_tensor_or_val(backend.max_time(tensor._data, dim))

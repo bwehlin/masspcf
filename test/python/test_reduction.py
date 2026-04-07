@@ -81,11 +81,12 @@ def test_mean_2d_dim1():
     assert avg.shape == (2,)
 
 
-def test_get_tensor_and_backend_invalid():
-    from masspcf.reductions import _get_tensor_and_backend
+def test_resolve_pcf_inputs_invalid():
+    from masspcf.tensor import _resolve_pcf_inputs
+    from masspcf.reductions import _REDUCTIONS_BACKEND_MAP
 
     with pytest.raises(ValueError, match="not supported"):
-        _get_tensor_and_backend("not a tensor")
+        _resolve_pcf_inputs(_REDUCTIONS_BACKEND_MAP, "not a tensor")
 
 
 def test_max_time_1d():

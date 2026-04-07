@@ -17,8 +17,11 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from .async_task import _run_task
 from .symmetric_matrix import SymmetricMatrix
-from .tensor import PcfContainerLike, _get_backend, _to_tensor_pcf
+from .tensor import PcfContainerLike, _resolve_pcf_inputs
 from .typing import pcf32, pcf64
+
+
+_INNER_PRODUCT_BACKEND_MAP = {pcf32: cpp.InnerProduct_f32_f32, pcf64: cpp.InnerProduct_f64_f64}
 
 
 def l2_kernel(fs: PcfContainerLike, verbose=True) -> SymmetricMatrix:
@@ -48,13 +51,10 @@ def l2_kernel(fs: PcfContainerLike, verbose=True) -> SymmetricMatrix:
     ValueError
         If ``fs`` is not 1-dimensional.
     """
-    X = _to_tensor_pcf(fs)
+    backend, X = _resolve_pcf_inputs(_INNER_PRODUCT_BACKEND_MAP, fs)
 
     if len(X.shape) != 1:
         raise ValueError("1d tensor expected.")
-
-    mapping = {pcf32: cpp.InnerProduct_f32_f32, pcf64: cpp.InnerProduct_f64_f64}
-    backend, _ = _get_backend(fs, mapping)
     task, sm_or_dense = backend.l2(X._data)
     _run_task(lambda: task, verbose=verbose)
 

@@ -367,6 +367,8 @@ def _get_backend(fs, backendMapping: dict):
         return backend, fs
     elif isinstance(fs, np.ndarray):
         return _get_backend(FloatTensor(fs), backendMapping)
+    elif isinstance(fs, (Pcf, list, tuple)):
+        return _get_backend(_to_tensor_pcf(fs), backendMapping)
     elif hasattr(fs, "dtype"):
         _validate_dtype(fs.dtype, backendMapping.keys())
         backend = backendMapping.get(fs.dtype)
@@ -377,3 +379,26 @@ def _get_backend(fs, backendMapping: dict):
         return backend, fs
 
     raise ValueError(f"Operation not supported for data of this type ({type(fs)})")
+
+
+def _resolve_pcf_inputs(backend_map: dict, *inputs: PcfContainerLike):
+    """Convert one or more PcfContainerLike inputs to tensors and look up the backend.
+
+    Returns ``(backend, tensor1, tensor2, ...)`` with all tensors guaranteed
+    to have the same dtype.
+
+    Raises
+    ------
+    TypeError
+        If inputs have mismatched dtypes.
+    """
+    results = [_get_backend(inp, backend_map) for inp in inputs]
+    backend = results[0][0]
+    tensors = [r[1] for r in results]
+
+    dtypes = [t.dtype for t in tensors]
+    if len(set(id(d) for d in dtypes)) > 1:
+        names = ", ".join(d.__name__ for d in dtypes)
+        raise TypeError(f"All inputs must have the same dtype (got {names}).")
+
+    return (backend, *tensors)
