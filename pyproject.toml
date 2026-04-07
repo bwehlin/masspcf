@@ -28,6 +28,25 @@ classifiers = [
 ]
 dependencies = [ "numpy>=2.0", "tqdm", "matplotlib" ]
 
+[tool.scikit-build]
+wheel.packages = ["masspcf"]
+sdist.include = [
+    "CMakeLists.txt",
+    "LICENSE.rst",
+    "README.md",
+    "pyproject.toml",
+    "version.cpp.in",
+    "3rd/pybind11/",
+    "3rd/taskflow/",
+    "cmake/",
+    "include/",
+    "masspcf/*.py",
+    "masspcf/functional/",
+    "masspcf/persistence/",
+    "masspcf/point_process/",
+    "src/",
+]
+
 [project.urls]
 Homepage = "https://github.com/bwehlin/masspcf"
 Issues = "https://github.com/bwehlin/masspcf/issues"
