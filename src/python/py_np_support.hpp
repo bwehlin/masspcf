@@ -93,14 +93,14 @@ public:
 
   [[nodiscard]] T& operator()(const std::vector<std::size_t>& idx)
   {
-    auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), 0);
+    auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), pybind11::ssize_t{0});
     offset /= m_arr.itemsize();
     return *(m_arr.mutable_data() + offset);
   }
 
   [[nodiscard]] const T& operator()(const std::vector<std::size_t>& idx) const
   {
-    auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), 0);
+    auto offset = std::inner_product(idx.begin(), idx.end(), m_arr.strides(), pybind11::ssize_t{0});
     offset /= m_arr.itemsize();
     return *(m_arr.data() + offset);
   }
