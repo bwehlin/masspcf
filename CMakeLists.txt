@@ -172,20 +172,27 @@ if (BUILD_WITH_CUDA)
   if (NOT SKBUILD)
     set(CMAKE_CUDA_ARCHITECTURES native)
   else()
-    # This matches what torch.cuda.get_gencode_flags() returns for PyTorch 2.10.0. If it's good enough for them, it's
-    # probably good enough for us. We may need to update this list sometime in the future as GPUs evolve.
-    # Maxwell (5.0, 5.2) is supported through CUDA 12.6 but dropped in later versions.
+    # Build SASS for each listed architecture, plus PTX for the highest
+    # so that newer GPUs can JIT-compile at first launch.
+    #
+    # Maxwell (5.0, 5.2) supported through CUDA 12.6, dropped in 12.7+.
+    # Blackwell (100, 120) requires CUDA 12.8+.
     set(CMAKE_CUDA_ARCHITECTURES
-      75
-      80
-      86
-      90
-      100
-      120
+      75-real
+      80-real
+      86-real
     )
     if (CUDAToolkit_VERSION VERSION_LESS "12.7")
-      list(PREPEND CMAKE_CUDA_ARCHITECTURES 50 52)
+      # Maxwell support: CUDA <= 12.6
+      list(PREPEND CMAKE_CUDA_ARCHITECTURES 50-real 52-real)
     endif()
+    if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+      # Blackwell native support
+      list(APPEND CMAKE_CUDA_ARCHITECTURES 100-real 120-real)
+    endif()
+    # Emit PTX for the highest real arch for forward compatibility.
+    # sm_90 is the common baseline for both CUDA 12 and 13 builds.
+    list(APPEND CMAKE_CUDA_ARCHITECTURES 90)
   endif()
 else ()
   message(STATUS "!!! Building without CUDA !!!")
