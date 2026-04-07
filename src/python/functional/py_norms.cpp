@@ -18,19 +18,14 @@
 #include "functional/pcf.hpp"
 #include "task.hpp"
 #include "../py_async_support.hpp"
-#include "../py_np_support.hpp"
 #include "algorithms/functional/apply_functional.hpp"
 
 #include <memory>
-
-#include <pybind11/numpy.h>
 
 namespace py = pybind11;
 
 namespace
 {
-
-
 
   template <typename Tt, typename Tv>
   class PyNormsBindings
@@ -38,27 +33,30 @@ namespace
   public:
     using PcfT = mpcf::Pcf<Tt, Tv>;
     using TensorT = mpcf::Tensor<PcfT>;
+    using OutTensorT = mpcf::Tensor<Tv>;
 
-    static std::unique_ptr<mpcf::StoppableTask<void>> lpnorm_l1(py::array_t<Tv>& out, TensorT inTensor)
+    static py::tuple lpnorm_l1(TensorT inTensor)
     {
-      NumpyTensor<Tv> outTensor(out);
+      auto outTensor = OutTensorT(inTensor.shape(), Tv(0));
 
       auto f = [](const PcfT& v) {
         return mpcf::l1_norm(v);
       };
 
-      return mpcf_py::execute_stoppable_task<mpcf::ApplyFunctional<TensorT, NumpyTensor<Tv>, decltype(f)>>(inTensor, outTensor, f);
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::ApplyFunctional<TensorT, OutTensorT, decltype(f)>>(inTensor, outTensor, f);
+      return py::make_tuple(std::move(task), outTensor);
     }
 
-    static std::unique_ptr<mpcf::StoppableTask<void>> lpnorm_lp(py::array_t<Tv>& out, TensorT inTensor, Tv p)
+    static py::tuple lpnorm_lp(TensorT inTensor, Tv p)
     {
-      NumpyTensor<Tv> outTensor(out);
+      auto outTensor = OutTensorT(inTensor.shape(), Tv(0));
 
       auto f = [p](const PcfT& v) {
         return mpcf::lp_norm(v, p);
       };
 
-      return mpcf_py::execute_stoppable_task<mpcf::ApplyFunctional<TensorT, NumpyTensor<Tv>, decltype(f)>>(inTensor, outTensor, f);
+      std::unique_ptr<mpcf::StoppableTask<void>> task = mpcf_py::execute_stoppable_task<mpcf::ApplyFunctional<TensorT, OutTensorT, decltype(f)>>(inTensor, outTensor, f);
+      return py::make_tuple(std::move(task), outTensor);
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)

@@ -12,19 +12,16 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import numpy as np
-
 from . import _mpcf_cpp as cpp
 from .async_task import _run_task
-from .np_support import numpy_type
-from .tensor import PcfContainerLike, _resolve_pcf_inputs
+from .tensor import FloatTensor, PcfContainerLike, _resolve_pcf_inputs
 from .typing import pcf32, pcf64
 
 
 _NORMS_BACKEND_MAP = {pcf32: cpp.Norms_f32_f32, pcf64: cpp.Norms_f64_f64}
 
 
-def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
+def lp_norm(fs: PcfContainerLike, p=1, verbose=False) -> FloatTensor:
     r"""Computes the :math:`L_p` norm of each PCF in `fs`. For example, if `fs` is an :math:`m \times n` array with elements indexed as :math:`f_{ij}`, :math:`0 \leq i < m, 0 \leq j < n`, we compute
 
       .. math::
@@ -42,7 +39,7 @@ def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
 
       Parameters
       ----------
-      fs : Container
+      fs : PcfContainerLike
           PCFs whose norms are to be computed.
       p : int, optional
           :math:`p` parameter in the :math:`L_p` norm, by default 1
@@ -51,18 +48,20 @@ def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
 
       Returns
       -------
-      numpy.ndarray
-        `numpy.ndarray` of the same shape as `fs` with :math:`L_p` norms of the input functions.
+      FloatTensor
+        Tensor of the same shape as `fs` with :math:`L_p` norms of the input functions.
       """
 
     if p < 1:
         raise ValueError("p must be >= 1.")
 
     backend, X = _resolve_pcf_inputs(_NORMS_BACKEND_MAP, fs)
-    out = np.zeros(X.shape, dtype=numpy_type(X))
 
     if p == 1:
-        _run_task(lambda: backend.lpnorm_l1(out, X._data), verbose=verbose)
+        task, out = backend.lpnorm_l1(X._data)
     else:
-        _run_task(lambda: backend.lpnorm_lp(out, X._data, float(p)), verbose=verbose)
-    return out
+        task, out = backend.lpnorm_lp(X._data, float(p))
+
+    _run_task(lambda: task, verbose=verbose)
+
+    return FloatTensor(out)
