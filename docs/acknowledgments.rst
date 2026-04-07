@@ -30,4 +30,10 @@ Program (WASP) funded by the Knut and Alice Wallenberg Foundation.
 For more information about WASP, please visit https://wasp-sweden.org.
 
 
+Trademarks
+===========
+
+masspcf is an independent open-source project and is not affiliated with, endorsed by, or sponsored by NVIDIA Corporation. NVIDIA, CUDA, GeForce, Tesla, and other product names are trademarks of NVIDIA Corporation. All other trademarks are property of their respective owners.
+
+
 .. include:: ../LICENSE.rst
