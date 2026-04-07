@@ -138,3 +138,7 @@ Pre-built CUDA 13 wheels additionally include native SASS for:
 -------------------
 
 Single-precision (32-bit) computation is significantly faster on most GPUs, where single-precision throughput is often 4x or more compared to double-precision. Use ``pcf32`` (the default) unless you specifically need 64-bit numerical precision.
+
+.. note::
+
+   masspcf is an independent open-source project and is not affiliated with, endorsed by, or sponsored by NVIDIA Corporation. NVIDIA, CUDA, GeForce, Tesla, and other product names are trademarks of NVIDIA Corporation.
