@@ -173,7 +173,7 @@ Boolean masks can select elements by condition::
    X[:, mask]   # shape (3, 2) — select columns where mask is True
    X[X > threshold]  # flat 1D — all elements matching the condition
 
-See :doc:`tensors` for full details on :ref:`boolean masking <masking-numpy-differences>`.
+See :doc:`indexing` for full details on :ref:`boolean masking <masking-numpy-differences>`.
 
 Tensor types
 ------------
