@@ -28,30 +28,6 @@ def test_mean_of_simple():
     assert avg_data[1][1] == pytest.approx(1.5, 1e-4)
 
 
-"""
-def test_mean_of_2x3():
-    X = mpcf.zeros((2,3), dtype=mpcf.float64)
-
-    X[0, 0] = mpcf.Pcf(np.array([[0., 10.], [2., 5.], [4., 0.]]))
-    X[0, 1] = mpcf.Pcf(np.array([[0., 5.], [3., 6.], [5., 5.], [8., 0.]]))
-    X[0, 2] = mpcf.Pcf(np.array([[0., 12.], [3., 0.]]))
-
-    X[1, 0] = mpcf.Pcf(np.array([[0., 50.], [0.5, 0.]]))
-    X[1, 1] = mpcf.Pcf(np.array([[0., 0.]]))
-    X[1, 2] = mpcf.Pcf(np.array([[0., 2.], [3., 0.]]))
-
-    avg = mpcf.mean(X)
-    avg0 = mpcf.mean(X, dim=0)
-    avg1 = mpcf.mean(X, dim=1)
-
-    assert avg.shape == (3)
-    assert avg0.shape == (3)
-    assert avg1.shape == (2)
-
-    assert False
-"""
-
-
 def test_mean_f64():
     A = mpcf.zeros((2,), dtype=mpcf.pcf64)
     A[0] = mpcf.Pcf(np.array([[0.0, 4.0], [2.0, 0.0]], dtype=np.float64))
@@ -70,6 +46,8 @@ def test_mean_2d_dim0():
 
     avg = mpcf.mean(X, dim=0)
     assert avg.shape == (3,)
+    # Column 0: mean of 2 and 4 on [0,1) -> 3
+    assert avg[0](0.5) == pytest.approx(3.0, abs=1e-5)
 
 
 def test_mean_2d_dim1():
@@ -80,6 +58,8 @@ def test_mean_2d_dim1():
 
     avg = mpcf.mean(X, dim=1)
     assert avg.shape == (2,)
+    # Row 0: mean of 6, 2, 4 on [0,1) -> 4
+    assert avg[0](0.5) == pytest.approx(4.0, abs=1e-5)
 
 
 def test_resolve_pcf_inputs_invalid():
