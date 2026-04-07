@@ -30,7 +30,7 @@ jobs:
             artifact_suffix: "-cpu"
           - os: windows-2025
             cuda: 1
-            cuda_version: 12.8
+            cuda_version: 12.6
             cuda_major: 12
             artifact_suffix: "-cuda12"
           - os: windows-2025

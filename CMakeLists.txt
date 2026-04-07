@@ -174,6 +174,7 @@ if (BUILD_WITH_CUDA)
   else()
     # This matches what torch.cuda.get_gencode_flags() returns for PyTorch 2.10.0. If it's good enough for them, it's
     # probably good enough for us. We may need to update this list sometime in the future as GPUs evolve.
+    # Maxwell (5.0, 5.2) is supported through CUDA 12.6 but dropped in later versions.
     set(CMAKE_CUDA_ARCHITECTURES
       75
       80
@@ -182,6 +183,9 @@ if (BUILD_WITH_CUDA)
       100
       120
     )
+    if (CUDAToolkit_VERSION VERSION_LESS "12.7")
+      list(PREPEND CMAKE_CUDA_ARCHITECTURES 50 52)
+    endif()
   endif()
 else ()
   message(STATUS "!!! Building without CUDA !!!")
