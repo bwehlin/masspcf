@@ -59,6 +59,22 @@ norms
    :undoc-members:
    :show-inheritance:
 
+inner_product
+-------------
+
+.. automodule:: masspcf.inner_product
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+comparison
+----------
+
+.. automodule:: masspcf.comparison
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 io
 --
 
