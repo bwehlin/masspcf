@@ -211,7 +211,7 @@ namespace mpcf_py
           return self[slices];
         })
 
-      .def("__setitem__", [](const TTensor& self, const std::vector<mpcf::Slice>& slices, const TTensor& vals) {
+      .def("__setitem__", [](TTensor& self, const std::vector<mpcf::Slice>& slices, const TTensor& vals) {
           self[slices].assign_from(vals);
         })
 

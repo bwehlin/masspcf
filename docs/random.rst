@@ -82,3 +82,6 @@ from the master seed and the element's flat (row-major) index. This means:
 - The result is independent of how many threads are used or the order in which
   elements are computed.
 - Different elements receive independent random streams.
+
+For a deeper look at the seeding and hashing mechanism, see
+:doc:`internals/deterministic_random`.

@@ -74,7 +74,8 @@ namespace mpcf_py
   {
     pybind11::class_<Future<RetT>>(m, ("Future" + suffix).c_str())
       .def(pybind11::init<>())
-      .def("wait_for", &Future<RetT>::wait_for);
+      .def("wait_for", &Future<RetT>::wait_for,
+           pybind11::call_guard<pybind11::gil_scoped_release>());
   }
 }
 

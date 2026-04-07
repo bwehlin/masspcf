@@ -17,7 +17,7 @@
 #ifndef MPCF_PCF_H
 #define MPCF_PCF_H
 
-#include "point.hpp"
+#include "piecewise_function.hpp"
 #include "rectangle.hpp"
 #include "../algorithms/functional/reduce.hpp"
 
@@ -32,7 +32,7 @@ namespace mpcf
   class Pcf
   {
   public:
-    using point_type = Point<Tt, Tv>;
+    using point_type = TimePoint<Tt, Tv>;
     using time_type = typename point_type::time_type;
     using value_type = typename point_type::value_type;
 
@@ -50,7 +50,7 @@ namespace mpcf
       m_points.emplace_back(static_cast<Tt>(0), static_cast<Tv>(v));
     }
 
-    explicit Pcf(std::vector<Point<Tt, Tv>>&& pts)
+    explicit Pcf(std::vector<TimePoint<Tt, Tv>>&& pts)
       : m_points(std::move(pts))
     {
 
@@ -108,7 +108,7 @@ namespace mpcf
     Pcf& operator+=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top + rect.bottom;
+        return rect.f_value + rect.g_value;
         });
       return *this;
     }
@@ -116,7 +116,7 @@ namespace mpcf
     Pcf& operator-=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top - rect.bottom;
+        return rect.f_value - rect.g_value;
         });
       return *this;
     }
@@ -124,7 +124,7 @@ namespace mpcf
     Pcf& operator*=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top * rect.bottom;
+        return rect.f_value * rect.g_value;
         });
       return *this;
     }
@@ -132,7 +132,7 @@ namespace mpcf
     Pcf& operator/=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top / rect.bottom;
+        return rect.f_value / rect.g_value;
         });
       return *this;
     }
@@ -300,7 +300,7 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top + rect.bottom;
+      return rect.f_value + rect.g_value;
     });
   }
 
@@ -316,7 +316,7 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top * rect.bottom;
+      return rect.f_value * rect.g_value;
     });
   }
 
@@ -324,92 +324,15 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top / rect.bottom;
+      return rect.f_value / rect.g_value;
     });
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, Ts val)
-  {
-    Pcf<Tt, Tv> ret = f;
-    ret += val;
-    return ret;
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator+(Ts val, const Pcf<Tt, Tv>& f)
-  {
-    Pcf<Tt, Tv> ret = f;
-    ret += val;
-    return ret;
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator-(const Pcf<Tt, Tv>& f, Ts val)
-  {
-    Pcf<Tt, Tv> ret = f;
-    ret -= val;
-    return ret;
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator-(Ts val, const Pcf<Tt, Tv>& f)
-  {
-    auto pts = f.points();
-    for (auto& pt : pts)
-    {
-      pt.v = static_cast<Tv>(val) - pt.v;
-    }
-    return Pcf<Tt, Tv>(std::move(pts));
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, Ts val)
-  {
-    Pcf<Tt, Tv> ret = f;
-    ret /= val;
-    return ret;
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator/(Ts val, const Pcf<Tt, Tv>& f)
-  {
-    auto pts = f.points();
-    for (auto& pt : pts)
-    {
-      pt.v = static_cast<Tv>(val) / pt.v;
-    }
-    return Pcf<Tt, Tv>(std::move(pts));
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, Ts val)
-  {
-    Pcf<Tt, Tv> ret = f;
-    ret *= val;
-    return ret;
-  }
-
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> operator*(Ts val, const Pcf<Tt, Tv>& f)
-  {
-    Pcf<Tt, Tv> ret = f;
-    ret *= val;
-    return ret;
-  }
-
-  /// Convenience free function; equivalent to `f.pow(exponent)`.
-  template <typename Tt, typename Tv, Arithmetic Ts>
-  [[nodiscard]] Pcf<Tt, Tv> pow(const Pcf<Tt, Tv>& f, Ts exponent)
-  {
-    return f.pow(exponent);
   }
 
   template <typename Tt, typename Tv>
   [[nodiscard]] Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
     auto f = parallel_reduce(fs.begin(), fs.end(), [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-      return rect.top + rect.bottom;
+      return rect.f_value + rect.g_value;
     }, chunksz);
     return f / static_cast<Tv>(fs.size());
   }
@@ -421,21 +344,10 @@ namespace mpcf
   }
 
   template <typename F>
-  concept PcfLike = requires(F f, const F cf)
+  concept PcfLike = PiecewiseFunctionLike<F> && requires
   {
-    typename F::point_type;
-    typename F::time_type;
-    typename F::value_type;
     typename F::rectangle_type;
     typename F::segment_type;
-
-    requires PointLike<typename F::point_type>;
-
-    { cf.points() } -> std::convertible_to<const std::vector<typename F::point_type>&>;
-    { cf.size()   } -> std::convertible_to<std::size_t>;
-
-    { cf == cf } -> std::convertible_to<bool>;
-    { cf != cf } -> std::convertible_to<bool>;
   };
 }
 

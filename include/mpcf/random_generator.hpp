@@ -17,6 +17,8 @@
 #ifndef MPCF_RANDOM_GENERATOR_H
 #define MPCF_RANDOM_GENERATOR_H
 
+#include "xoroshiro128pp.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <random>
@@ -29,7 +31,7 @@ namespace mpcf
     inline uint64_t splitmix64(uint64_t x)
     {
       /*
-        splitmix64 is based on Sebastiano Vigna's reference implementation 
+        splitmix64 is based on Sebastiano Vigna's reference implementation
         (available at https://prng.di.unimi.it/splitmix64.c), which is licensed
         as follows:
 
@@ -56,9 +58,25 @@ namespace mpcf
       x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
       return x ^ (x >> 31);
     }
+
+    /// Default: hash seed via splitmix64 and forward to single-argument constructor.
+    template <typename EngineT>
+    EngineT make_engine(uint64_t seed)
+    {
+      return EngineT(splitmix64(seed));
+    }
+
+    /// Xoroshiro128pp: chain splitmix64 twice to fill both state words.
+    template <>
+    inline Xoroshiro128pp make_engine<Xoroshiro128pp>(uint64_t seed)
+    {
+      uint64_t s0 = splitmix64(seed);
+      uint64_t s1 = splitmix64(s0);
+      return Xoroshiro128pp(s0, s1);
+    }
   }
 
-  template <typename EngineT = std::mt19937_64>
+  template <typename EngineT = Xoroshiro128pp>
   class RandomGenerator
   {
   public:
@@ -78,14 +96,14 @@ namespace mpcf
 
     [[nodiscard]] EngineT sub_generator(size_t flatIndex) const
     {
-      return EngineT(detail::splitmix64(m_seed + flatIndex));
+      return detail::make_engine<EngineT>(m_seed + flatIndex);
     }
 
   private:
     uint64_t m_seed;
   };
 
-  using DefaultRandomGenerator = RandomGenerator<std::mt19937_64>;
+  using DefaultRandomGenerator = RandomGenerator<Xoroshiro128pp>;
 
   inline DefaultRandomGenerator& default_generator()
   {

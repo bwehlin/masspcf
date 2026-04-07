@@ -52,7 +52,7 @@ namespace mpcf
     {
       using point_type = typename mpcf::Pcf<Tt, Tv>::point_type;
 
-      std::vector<mpcf::Point<Tt, Tv>> points;
+      std::vector<mpcf::TimePoint<Tt, Tv>> points;
 
       py::buffer_info buf = arr.request();
       if (buf.size == 0)
@@ -67,21 +67,21 @@ namespace mpcf
       }
 
       auto data = arr.template unchecked<2>();
-      auto start = 0ul;
-      if (data(0, 0) != 0)
-      {
-        ++start;
-      }
 
       if (buf.shape.size() == 2 && buf.shape[1] == 2)
       {
-        points.resize(buf.shape[0] + start);
-        points[0].t = 0;
-        points[0].v = 0;
+        if (data(0, 0) != 0)
+        {
+          throw std::invalid_argument(
+            "The first breakpoint must have time t=0 (got t="
+            + std::to_string(static_cast<double>(data(0, 0))) + ").");
+        }
+
+        points.resize(buf.shape[0]);
         for (auto i = 0; i < buf.shape[0]; ++i)
         {
-          points[i + start].t = data(i, 0);
-          points[i + start].v = data(i, 1);
+          points[i].t = data(i, 0);
+          points[i].v = data(i, 1);
         }
       }
       else

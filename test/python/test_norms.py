@@ -52,7 +52,7 @@ def test_l1_norm():
 
     actual = mpcf.lp_norm(X, p=1)
 
-    assert isinstance(actual, np.ndarray)
+    assert isinstance(actual, mpcf.FloatTensor)
     assert actual.shape == (2, 3)
 
-    npt.assert_allclose(actual, expected, rtol=1e-7, atol=0)
+    npt.assert_allclose(np.asarray(actual), expected, rtol=1e-7, atol=0)

@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from . import _mpcf_cpp as cpp
-from .typing import _assert_valid_dtype, _MPCF_TO_NP, _NP_TO_MPCF, float32, float64, int32, int64, pcf32, pcf32i, pcf64, pcf64i
+from .. import _mpcf_cpp as cpp
+from ..typing import _assert_valid_dtype, _MPCF_TO_NP, _NP_TO_MPCF, float32, float64, int32, int64, pcf32, pcf32i, pcf64, pcf64i
 
 
 class Pcf:
@@ -28,6 +28,9 @@ class Pcf:
     :math:`t_0 = 0` and :math:`t_0 < t_1 < \cdots < t_{n-1}`. The function
     takes the value :math:`v_i` on the interval :math:`[t_i, t_{i+1})` for
     :math:`0 \leq i < n-1`, and :math:`v_{n-1}` on :math:`[t_{n-1}, \infty)`.
+
+    The first breakpoint must have :math:`t_0 = 0`. An ``InvalidArgument``
+    error is raised if the first time coordinate is not zero.
 
     Parameters
     ----------
@@ -45,7 +48,7 @@ class Pcf:
     >>> import numpy as np
     >>> import masspcf as mpcf
     >>> f = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.0]], dtype=np.float32))
-    >>> f.size()
+    >>> f.size
     3
     """
 
@@ -248,7 +251,7 @@ class Pcf:
         >>> f(np.array([0.5, 1.5, 4.0]))
         array([1. , 2. , 0.5], dtype=float32)
         """
-        from .tensor import FloatTensor
+        from ..tensor import FloatTensor
 
         if isinstance(t, int | float):
             return self._data(t)
@@ -266,11 +269,10 @@ class Pcf:
             return return_tensor(result)
         return result
 
+    @property
     def size(self):
+        """Number of breakpoints (time-value pairs) in this PCF."""
         return self._data.size()
-
-    # def save(self):
-    #  return self._data.to_numpy().save()
 
     _VTYPE_NAMES = {
         float32: "float32",
@@ -291,10 +293,10 @@ class Pcf:
 
     def __reduce__(self):
         import io as _io
-        from .io import _save_object, _load_object
+        from ..io import _save_object, _load_object
         buf = _io.BytesIO()
         _save_object(self, buf)
-        from .io import _unpickle_object
+        from ..io import _unpickle_object
         return _unpickle_object, (buf.getvalue(),)
 
     def __eq__(self, other):
@@ -308,13 +310,77 @@ _BACKEND_MAP = {
     cpp.Pcf_i64_i64: cpp.Backend_i64_i64,
 }
 
-# Legacy aliases
-tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))
-tPcf_f64_f64 = Pcf(np.array([[0, 0]]).astype(np.float64))
-
-backend_f32_f32 = cpp.Backend_f32_f32
-backend_f64_f64 = cpp.Backend_f64_f64
-
 
 def _has_matching_types(f: Pcf, g: Pcf):
     return type(f._data) is type(g._data)
+
+
+class Rectangle:
+    """A rectangle produced by iterating over a pair of PCFs."""
+
+    __slots__ = ("_data",)
+
+    def __init__(self, data):
+        self._data = data
+
+    @property
+    def left(self):
+        """Left time boundary."""
+        return self._data.left
+
+    @property
+    def right(self):
+        """Right time boundary."""
+        return self._data.right
+
+    @property
+    def f_value(self):
+        """Value of the first PCF on this interval."""
+        return self._data.f_value
+
+    @property
+    def g_value(self):
+        """Value of the second PCF on this interval."""
+        return self._data.g_value
+
+    def __eq__(self, other):
+        if isinstance(other, Rectangle):
+            return (self.left == other.left and self.right == other.right
+                    and self.f_value == other.f_value and self.g_value == other.g_value)
+        if isinstance(other, tuple) and len(other) == 4:
+            return (self.left, self.right, self.f_value, self.g_value) == other
+        return NotImplemented
+
+    def __repr__(self):
+        return (f"Rectangle(left={self.left}, right={self.right}, "
+                f"f_value={self.f_value}, g_value={self.g_value})")
+
+
+def iterate_rectangles(f: Pcf, g: Pcf, a=0.0, b=float('inf')):
+    """Iterate over the rectangles formed by two PCFs.
+
+    Parameters
+    ----------
+    f, g : Pcf
+        The two piecewise constant functions.
+    a : float, optional
+        Left integration bound (default 0).
+    b : float, optional
+        Right integration bound (default infinity).
+
+    Returns
+    -------
+    list[Rectangle]
+        Rectangles in chronological order.
+    """
+    if not isinstance(f, Pcf) or not isinstance(g, Pcf):
+        raise TypeError("Both f and g must be Pcf objects.")
+    if not _has_matching_types(f, g):
+        raise TypeError("f and g must have the same dtype.")
+    backend = _BACKEND_MAP.get(type(f._data))
+    if backend is None:
+        raise TypeError(
+            "iterate_rectangles is not supported for this PCF type."
+        )
+    cpp_rects = backend.iterate_rectangles(f._data, g._data, a, b)
+    return [Rectangle(r) for r in cpp_rects]

@@ -8,7 +8,11 @@ masspcf can use NVIDIA GPUs to accelerate computationally intensive operations, 
 Supported platforms
 ===================================
 
-CUDA support is provided on Linux and Windows only. On macOS, execution is CPU-only. You may need to `pip install cuda-toolkit[cudart]` in order to use the GPU acceleration (masspcf will fall back to CPU execution with a warning message if there is a CUDA-capable GPU present but loading the CUDA-based library fails.).
+CUDA support is provided on Linux and Windows only. On macOS, execution is CPU-only. If you have an NVIDIA GPU but no system-wide CUDA installation, you can install the CUDA runtime via pip::
+
+   pip install cuda-toolkit[cudart]
+
+masspcf will fall back to CPU execution with a warning message if a CUDA-capable GPU is detected but the CUDA runtime library cannot be loaded.
 
 Automatic CPU/GPU dispatch
 ===========================
@@ -118,7 +122,27 @@ GPU acceleration provides the largest benefit for computations with many PCFs --
 
 For small problems (fewer than a few hundred PCFs), CPU execution is typically faster due to GPU launch overhead.
 
+Supported GPU architectures
+----------------------------
+
+Pre-built CUDA 12 wheels include native SASS for Maxwell through Hopper, plus PTX for forward compatibility:
+
+- **Maxwell** (sm_50) -- e.g. GTX 980, Tesla M40
+- **Turing** (sm_75) -- e.g. RTX 2080, Tesla T4
+- **Ampere** (sm_80, sm_86) -- e.g. A100, RTX 3090
+- **Hopper** (sm_90) -- e.g. H100 (also emits PTX for forward compat)
+
+GPUs with architectures in between or newer (e.g. Pascal GTX 1080, Ada Lovelace RTX 4090, Blackwell B200) are supported via binary compatibility or PTX JIT compilation.
+
+Pre-built CUDA 13 wheels additionally include native SASS for:
+
+- **Blackwell** (sm_100, sm_120) -- e.g. B200, RTX 5090
+
 32-bit vs. 64-bit
 -------------------
 
 Single-precision (32-bit) computation is significantly faster on most GPUs, where single-precision throughput is often 4x or more compared to double-precision. Use ``pcf32`` (the default) unless you specifically need 64-bit numerical precision.
+
+.. note::
+
+   masspcf is an independent open-source project and is not affiliated with, endorsed by, or sponsored by NVIDIA Corporation. NVIDIA, CUDA, GeForce, Tesla, and other product names are trademarks of NVIDIA Corporation.

@@ -32,6 +32,11 @@ _dtype_to_cpp = {
 
 _cpp_types = (cpp.DistanceMatrix_f32, cpp.DistanceMatrix_f64)
 
+_CPP_TO_DTYPE = {
+    cpp.DistanceMatrix_f32: float32,
+    cpp.DistanceMatrix_f64: float64,
+}
+
 _DISTMAT_CPP_TO_DTYPE = {
     cpp.DistanceMatrix32Tensor: distmat32,
     cpp.DistanceMatrix64Tensor: distmat64,
@@ -49,7 +54,7 @@ class DistanceMatrix:
     n_or_data : int | DistanceMatrix | CppDistanceMatrix
         If an int, creates a zero-initialized matrix of that size.
         If a DistanceMatrix or C++ distance matrix, wraps it directly.
-    dtype : type[float32] | type[float64] | None, optional
+    dtype : float32 | float64 | None, optional
         Element precision. ``float32`` stores entries as 32-bit floats,
         ``float64`` as 64-bit floats. Defaults to ``float64`` when
         ``n_or_data`` is an int. Ignored otherwise.
@@ -58,7 +63,7 @@ class DistanceMatrix:
     def __init__(
         self,
         n_or_data: int | DistanceMatrix | CppDistanceMatrix,
-        dtype: type[float32] | type[float64] | None = None,
+        dtype: float32 | float64 | None = None,
     ):
         if isinstance(n_or_data, DistanceMatrix):
             self._data = n_or_data._data
@@ -72,6 +77,11 @@ class DistanceMatrix:
             self._data = _dtype_to_cpp[dtype](n_or_data)
         else:
             raise TypeError(f"Expected int, DistanceMatrix, or C++ DistanceMatrix; got {type(n_or_data)}")
+
+    @property
+    def dtype(self):
+        """Element precision (``float32`` or ``float64``)."""
+        return _CPP_TO_DTYPE[type(self._data)]
 
     @property
     def size(self) -> int:

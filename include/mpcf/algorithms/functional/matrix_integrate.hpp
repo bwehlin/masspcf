@@ -38,7 +38,7 @@ namespace mpcf
 
     Tv val = Tv(0);
     iterate_rectangles(f.points(), g.points(), [&val, &op](const rect_t& rect) -> void {
-      val += (rect.right - rect.left) * op(rect.top, rect.bottom);
+      val += (rect.right - rect.left) * op(rect.f_value, rect.g_value);
     }, a, b);
 
     return val;

@@ -109,7 +109,7 @@ namespace
 
   TYPED_TEST(IoStreamTest, TestPointRoundtrip)
   {
-    using PointT = mpcf::Point<TypeParam, TypeParam>;
+    using PointT = mpcf::TimePoint<TypeParam, TypeParam>;
     PointT pt(0.5, 2.5);
 
     std::stringstream ss;

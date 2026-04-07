@@ -39,10 +39,10 @@ def test_distmat_single_matches_point_cloud():
         [3.0, 4.0],
     ])
 
-    bcs_pc = mpers.compute_persistent_homology(points, maxDim=2, verbose=False)
+    bcs_pc = mpers.compute_persistent_homology(points, max_dim=2, verbose=False)
 
     dm = _points_to_distmat(points, mpcf.float64)
-    bcs_dm = mpers.compute_persistent_homology(dm, maxDim=2, verbose=False)
+    bcs_dm = mpers.compute_persistent_homology(dm, max_dim=2, verbose=False)
 
     assert isinstance(bcs_dm, mpers.BarcodeTensor)
     assert bcs_dm.dtype == mpcf.barcode64
@@ -61,7 +61,7 @@ def test_distmat_single_f32():
     ])
 
     dm = _points_to_distmat(points, mpcf.float32)
-    bcs = mpers.compute_persistent_homology(dm, maxDim=1, verbose=False)
+    bcs = mpers.compute_persistent_homology(dm, max_dim=1, verbose=False)
 
     assert isinstance(bcs, mpers.BarcodeTensor)
     assert bcs.dtype == mpcf.barcode32
@@ -80,8 +80,8 @@ def test_distmat_tensor_matches_point_cloud():
         pclouds[i] = pts
         dmats[i] = _points_to_distmat(pts, mpcf.float64)
 
-    bcs_pc = mpers.compute_persistent_homology(pclouds, maxDim=1, verbose=False)
-    bcs_dm = mpers.compute_persistent_homology(dmats, maxDim=1, verbose=False)
+    bcs_pc = mpers.compute_persistent_homology(pclouds, max_dim=1, verbose=False)
+    bcs_dm = mpers.compute_persistent_homology(dmats, max_dim=1, verbose=False)
 
     assert isinstance(bcs_dm, mpers.BarcodeTensor)
     assert bcs_dm.dtype == mpcf.barcode64
@@ -103,8 +103,8 @@ def test_distmat_reduced_homology():
 
     dm = _points_to_distmat(points, mpcf.float64)
 
-    bcs_unreduced = mpers.compute_persistent_homology(dm, maxDim=1, reduced=False, verbose=False)
-    bcs_reduced = mpers.compute_persistent_homology(dm, maxDim=1, reduced=True, verbose=False)
+    bcs_unreduced = mpers.compute_persistent_homology(dm, max_dim=1, reduced=False, verbose=False)
+    bcs_reduced = mpers.compute_persistent_homology(dm, max_dim=1, reduced=True, verbose=False)
 
     # Unreduced H0 should have one more bar (the essential [0, inf))
     assert len(bcs_unreduced[0]) == len(bcs_reduced[0]) + 1

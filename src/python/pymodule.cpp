@@ -48,6 +48,47 @@ namespace py = pybind11;
 namespace
 {
 
+  // A test-only task that blocks until Python calls advance() n_steps times.
+  // Used to verify the GIL is released during wait_for: if it isn't, the
+  // thread calling wait_for holds the GIL, Python can never call advance(),
+  // and the test deadlocks.
+  class GatedTask : public mpcf::StoppableTask<void>
+  {
+  public:
+    explicit GatedTask(size_t n_steps) : m_remaining(n_steps) { }
+
+    void advance()
+    {
+      {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_remaining > 0)
+          --m_remaining;
+      }
+      m_cv.notify_one();
+    }
+
+  private:
+    tf::Future<void> run_async(mpcf::Executor& exec) override
+    {
+      next_step(m_remaining, "Waiting for gate", "step");
+      m_flow.emplace([this]() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_cv.wait(lock, [this]() { return m_remaining == 0 || stop_requested(); });
+      });
+      return exec.cpu()->run(std::move(m_flow));
+    }
+
+    void on_stop_requested() override
+    {
+      m_cv.notify_one();
+    }
+
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    size_t m_remaining;
+    tf::Taskflow m_flow;
+  };
+
   int getNumGpus()
   {
 #ifdef BUILD_WITH_CUDA
@@ -70,7 +111,8 @@ namespace
 
     cls
         .def("request_stop", &mpcf::StoppableTask<RetT>::request_stop)
-        .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms) { return self.wait_for(std::chrono::milliseconds(ms)); })
+        .def("wait_for", [](mpcf::StoppableTask<RetT>& self, int ms) { return self.wait_for(std::chrono::milliseconds(ms)); },
+             py::call_guard<py::gil_scoped_release>())
         .def("work_total", &mpcf::StoppableTask<RetT>::work_total)
         .def("work_completed", &mpcf::StoppableTask<RetT>::work_completed)
         .def("work_step", &mpcf::StoppableTask<RetT>::work_step)
@@ -86,6 +128,16 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
 
   register_bindings_stoppable_task<void>(m, "_void");
 
+  py::class_<GatedTask, mpcf::StoppableTask<void>>(m, "_GatedTask")
+    .def(py::init<size_t>())
+    .def("advance", &GatedTask::advance);
+
+  m.def("_create_gated_task", [](size_t n_steps) {
+    auto task = std::make_unique<GatedTask>(n_steps);
+    task->start_async(mpcf::default_executor());
+    return task;
+  });
+
   py::enum_<std::future_status>(m, "FutureStatus")
     .value("deferred", std::future_status::deferred)
     .value("ready", std::future_status::ready)
@@ -94,7 +146,8 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
 
   py::class_<mpcf_py::Future<void>>(m, "Future_void")
     .def(py::init<>())
-    .def("wait_for", &mpcf_py::Future<void>::wait_for);
+    .def("wait_for", &mpcf_py::Future<void>::wait_for,
+         py::call_guard<py::gil_scoped_release>());
 
   m.def("force_cpu", [](bool on){ mpcf::settings().forceCpu = on; });
   m.def("set_cuda_threshold", [](size_t n){ mpcf::settings().cudaThreshold = n; });

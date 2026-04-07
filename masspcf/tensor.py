@@ -18,7 +18,7 @@ import numpy as np
 
 from . import _mpcf_cpp as cpp
 from ._tensor_base import ArithmeticTensorMixin, FunctionTensorMixin, Tensor, _tensor_from_nested
-from .pcf import Pcf
+from .functional.pcf import Pcf
 from .typing import (
     _NP_TO_MPCF,
     _validate_dtype,
@@ -63,6 +63,18 @@ _PCLOUD_TO_FLOAT_DTYPE = {pcloud32: float32, pcloud64: float64}
 class NumericTensor(Tensor, ArithmeticTensorMixin):
     def __init__(self):
         super().__init__()
+
+    def __float__(self):
+        if self.size != 1:
+            raise TypeError(
+                "Only single-element tensors can be converted to a Python scalar. "
+                f"This tensor has {self.size} elements."
+            )
+        idx = [0] * self.ndim
+        return float(self._data._get_element(idx))
+
+    def __int__(self):
+        return int(self.__float__())
 
     def _get_valid_setitem_dtypes(self):
         return [NumericTensor, float, int, np.ndarray]
@@ -340,7 +352,17 @@ def _to_tensor_pcf(fs: PcfContainerLike):
     if isinstance(fs, _PcfTensorBase):
         return fs
 
-    # TODO: Deal with lists/single pcfs
+    if isinstance(fs, Pcf):
+        return PcfTensor([fs])
+
+    if isinstance(fs, (list, tuple)):
+        if not fs:
+            return PcfTensor(fs)
+        first = fs[0] if not isinstance(fs[0], (list, tuple)) else fs[0][0]
+        if isinstance(first, Pcf):
+            if first.vtype in (int32, int64):
+                return IntPcfTensor(fs)
+            return PcfTensor(fs)
 
     raise TypeError("Input should be convertible to a PcfTensor.")
 
@@ -357,6 +379,8 @@ def _get_backend(fs, backendMapping: dict):
         return backend, fs
     elif isinstance(fs, np.ndarray):
         return _get_backend(FloatTensor(fs), backendMapping)
+    elif isinstance(fs, (Pcf, list, tuple)):
+        return _get_backend(_to_tensor_pcf(fs), backendMapping)
     elif hasattr(fs, "dtype"):
         _validate_dtype(fs.dtype, backendMapping.keys())
         backend = backendMapping.get(fs.dtype)
@@ -367,3 +391,26 @@ def _get_backend(fs, backendMapping: dict):
         return backend, fs
 
     raise ValueError(f"Operation not supported for data of this type ({type(fs)})")
+
+
+def _resolve_pcf_inputs(backend_map: dict, *inputs: PcfContainerLike):
+    """Convert one or more PcfContainerLike inputs to tensors and look up the backend.
+
+    Returns ``(backend, tensor1, tensor2, ...)`` with all tensors guaranteed
+    to have the same dtype.
+
+    Raises
+    ------
+    TypeError
+        If inputs have mismatched dtypes.
+    """
+    results = [_get_backend(inp, backend_map) for inp in inputs]
+    backend = results[0][0]
+    tensors = [r[1] for r in results]
+
+    dtypes = [t.dtype for t in tensors]
+    if len(set(id(d) for d in dtypes)) > 1:
+        names = ", ".join(d.__name__ for d in dtypes)
+        raise TypeError(f"All inputs must have the same dtype (got {names}).")
+
+    return (backend, *tensors)

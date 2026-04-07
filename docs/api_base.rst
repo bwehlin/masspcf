@@ -6,7 +6,7 @@ Core library for piecewise constant functions, tensors, and computations.
 pcf
 ---
 
-.. automodule:: masspcf.pcf
+.. automodule:: masspcf.functional.pcf
    :members:
    :undoc-members:
    :show-inheritance:
@@ -55,6 +55,22 @@ norms
 -----
 
 .. automodule:: masspcf.norms
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+inner_product
+-------------
+
+.. automodule:: masspcf.inner_product
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+comparison
+----------
+
+.. automodule:: masspcf.comparison
    :members:
    :undoc-members:
    :show-inheritance:

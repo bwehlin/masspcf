@@ -13,13 +13,16 @@
 #    limitations under the License.
 
 
+__before = set(dir())
+
 from . import random, system
 from ._tensor_base import Shape
+from .comparison import allclose
 from .distance import cdist, lp_distance, pdist
 from .inner_product import l2_kernel
 from .io import load, save
 from .norms import lp_norm
-from .pcf import Pcf
+from .functional import Pcf, iterate_rectangles
 from .reductions import max_time, mean
 from .serialize import from_serial_content
 from .distance_matrix import DistanceMatrix, DistanceMatrixTensor
@@ -34,6 +37,7 @@ from .tensor import (
 )
 from .tensor_create import array_split, concatenate, split, stack, zeros
 from .typing import (
+    dtype,
     barcode32,
     barcode64,
     boolean,
@@ -54,3 +58,11 @@ from .typing import (
     uint32,
     uint64,
 )
+
+import types as _types
+__all__ = sorted(
+    name for name in set(dir()) - __before - {"__before"}
+    if not name.startswith("_")
+    and not isinstance(globals()[name], _types.ModuleType)
+) + ["random", "system"]
+del __before, _types

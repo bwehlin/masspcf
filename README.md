@@ -10,11 +10,11 @@ The basic objects are **numpy**-like (multidimensional) arrays of PCFs, on which
 
 ## Installing
 
-**masspcf** can be used on all three major platforms. Currently, users must install the CUDA toolkit locally (for Windows and Linux) to build **masspcf**. In addition, a compiler supporting C++ >=17 is required. 
-
-The latest released version of the package can be obtained via PyPI.
+**masspcf** can be used on all three major platforms. Pre-built wheels with CUDA support are available from PyPI:
 
 `pip install masspcf`
+
+For building from source (e.g. from a git checkout), a C++20 compiler is required. CUDA support is optional and auto-detected; see the [build instructions](docs/installing.rst) for details.
 
 For any issues installing or using **masspcf**, please file an issue on this GitHub repo.
 

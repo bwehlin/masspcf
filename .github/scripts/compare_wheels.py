@@ -1,5 +1,6 @@
 import io
 import sys
+import tarfile
 import zipfile
 from fnmatch import fnmatch
 from pathlib import Path
@@ -58,10 +59,27 @@ def dump_contents(name, files):
         print(f"    {f}")
 
 
+def dump_sdist(path):
+    """List contents of any .tar.gz source distributions found."""
+    if path.is_dir():
+        sdists = sorted(path.glob("*.tar.gz"))
+    else:
+        sdists = []
+
+    for sdist_path in sdists:
+        print(f"📦 Source distribution: {sdist_path.name}")
+        with tarfile.open(sdist_path, "r:gz") as tf:
+            members = sorted(m.name for m in tf.getmembers() if not m.isdir())
+            for m in members:
+                print(f"    {m}")
+        print()
+
+
 def main(input_path, verbose=False):
     path = Path(input_path)
     if path.is_dir():
         wheels, raw = get_wheels_from_dir(path)
+        dump_sdist(path)
     elif path.suffix == ".zip":
         wheels, raw = get_wheels_from_zip(path)
     else:
@@ -101,6 +119,28 @@ def main(input_path, verbose=False):
             if verbose:
                 dump_contents(name, raw[name])
         print()
+
+    # Verify CUDA wheels contain both CUDA 12 and CUDA 13 modules
+    CUDA_PLATFORMS = ("linux_x86_64", "win_amd64")
+    print("CUDA module check:")
+    for name in names:
+        if not any(p in name for p in CUDA_PLATFORMS):
+            print(f"  ⏭️  {name}: non-CUDA platform, skipped")
+            continue
+        all_files = raw[name]
+        has_cuda12 = any(fnmatch(f, "masspcf/_mpcf_cuda12*") for f in all_files)
+        has_cuda13 = any(fnmatch(f, "masspcf/_mpcf_cuda13*") for f in all_files)
+        if has_cuda12 and has_cuda13:
+            print(f"  ✅ {name}: contains CUDA 12 and CUDA 13 modules")
+        else:
+            failed = True
+            missing = []
+            if not has_cuda12:
+                missing.append("CUDA 12")
+            if not has_cuda13:
+                missing.append("CUDA 13")
+            print(f"  ❌ {name}: missing {', '.join(missing)} module!")
+    print()
 
     return 1 if failed else 0
 

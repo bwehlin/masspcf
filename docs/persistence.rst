@@ -12,11 +12,11 @@ Background
 
 The output is a **persistence barcode**: a collection of intervals :math:`[b_i, d_i)`, where each interval records the birth :math:`b_i` and death :math:`d_i` of a topological feature. Features that persist over a wide range of scales are considered significant, while short-lived features are often regarded as noise.
 
-masspcf provides two functional summaries of persistence barcodes, both of which are piecewise constant functions:
+masspcf provides three functional summaries of persistence barcodes, all of which are piecewise constant functions:
 
-- The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` [CR20]_ [GC17]_ [SCL17]_.
-- The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., [U17]_ [CM21]_).
-- The **accumulated persistence function** (APF) sums, for each mean age :math:`m`, the lifetimes of all bars whose midpoint is at most :math:`m` [BM19]_.
+- The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` :footcite:`Chacholski2020,Gafvert2017,Scolamiero2017`.
+- The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., :footcite:`Umeda2017,Chazal2021`).
+- The **accumulated persistence function** (APF) sums, for each mean age :math:`m`, the lifetimes of all bars whose midpoint is at most :math:`m` :footcite:`Biscio2019`.
 
 Because these summaries are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
 
@@ -68,18 +68,18 @@ Higher-dimensional tensors work as well::
 Step 2: Computing persistent homology
 =======================================
 
-:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser [B21]_ under the hood::
+:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser :footcite:`Bauer2021` under the hood::
 
    from masspcf import persistence as mpers
 
-   bcs = mpers.compute_persistent_homology(pclouds, maxDim=1)
+   bcs = mpers.compute_persistent_homology(pclouds, max_dim=1)
 
-The ``maxDim`` parameter controls the highest homology dimension computed. With ``maxDim=1``, the function computes :math:`H_0` (connected components) and :math:`H_1` (loops).
+The ``max_dim`` parameter controls the highest homology dimension computed. With ``max_dim=1``, the function computes :math:`H_0` (connected components) and :math:`H_1` (loops).
 
-The output tensor has one extra dimension appended, of size ``maxDim + 1``. For example:
+The output tensor has one extra dimension appended, of size ``max_dim + 1``. For example:
 
-- Input shape ``(5,)`` with ``maxDim=1`` produces output shape ``(5, 2)``
-- Input shape ``(10, 20)`` with ``maxDim=2`` produces output shape ``(10, 20, 3)``
+- Input shape ``(5,)`` with ``max_dim=1`` produces output shape ``(5, 2)``
+- Input shape ``(10, 20)`` with ``max_dim=2`` produces output shape ``(10, 20, 3)``
 
 To access the :math:`H_n` barcode for a specific point cloud, index with the point cloud's position followed by ``n``::
 
@@ -102,7 +102,7 @@ Input flexibility
 
    # From a NumPy array directly
    points = np.random.randn(50, 3)
-   bcs = mpers.compute_persistent_homology(points, maxDim=1)
+   bcs = mpers.compute_persistent_homology(points, max_dim=1)
 
 When the input is a distance matrix, the ``distance_type`` parameter is
 ignored because distances are already provided::
@@ -119,7 +119,7 @@ ignored because distances are already provided::
        for j in range(i):
            dm[i, j] = D[i, j]
 
-   bcs = mpers.compute_persistent_homology(dm, maxDim=1)
+   bcs = mpers.compute_persistent_homology(dm, max_dim=1)
 
 Options
 -------
@@ -129,7 +129,7 @@ The function supports the following options:
 - ``distance_type`` -- The distance metric used between points. Currently only ``DistanceType.Euclidean`` (the default). Ignored when the input is a distance matrix.
 - ``complex_type`` -- The simplicial complex construction. Currently only ``ComplexType.VietorisRips`` (the default).
 - ``reduced`` -- If ``True``, compute reduced homology. If ``False`` (the default), an essential ``[0, inf)`` bar is added to :math:`H_0` representing the single connected component that never dies. This matches the convention used by most TDA textbooks.
-- ``verbose`` -- Print progress information (default ``True``).
+- ``verbose`` -- Print progress information (default ``False``).
 
 
 Step 3: Functional summaries
@@ -145,11 +145,27 @@ Stable ranks
 :py:func:`~masspcf.persistence.barcode_to_stable_rank` converts barcodes into
 stable rank PCFs. The stable rank counts, for each threshold :math:`t`, the
 number of bars with length (death minus birth) strictly greater than :math:`t`
-[CR20]_::
+:footcite:`Chacholski2020`::
 
    sranks = mpers.barcode_to_stable_rank(bcs)
 
 The output tensor has the same shape as the input.
+
+.. image:: _static/gallery_tda_pipeline_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_tda_pipeline_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start tda_pipeline --
+      :end-before: docs snippet end tda_pipeline --
 
 Betti curves
 -------------
@@ -163,11 +179,27 @@ death)::
 
 The output tensor has the same shape as the input.
 
+.. image:: _static/gallery_betti_pipeline_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_betti_pipeline_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start betti_pipeline --
+      :end-before: docs snippet end betti_pipeline --
+
 Accumulated persistence functions
 ----------------------------------
 
 :py:func:`~masspcf.persistence.barcode_to_accumulated_persistence` converts
-barcodes into accumulated persistence functions (APFs) [BM19]_. For each mean
+barcodes into accumulated persistence functions (APFs) :footcite:`Biscio2019`. For each mean
 age :math:`m`, the APF sums the lifetimes of all bars whose midpoint is at
 most :math:`m`:
 
@@ -202,7 +234,7 @@ lifetime, :math:`m_i = (b_i + d_i)/2` is the midpoint of bar :math:`i`, and
       :end-before: docs snippet end apf --
 
 An optional ``max_death`` parameter excludes bars whose death time exceeds
-a given threshold. This corresponds to Equation (2) in [BM19]_, where a
+a given threshold. This corresponds to Equation (2) in :footcite:`Biscio2019`, where a
 filtration cutoff :math:`T` limits the computation to bars with
 :math:`d_i \leq T`::
 
@@ -268,7 +300,7 @@ The following example creates a multidimensional tensor of random point clouds, 
            pclouds[i, j] = np.random.randn(n_points, pcloud_dim)
 
    # Compute persistent homology (H0 and H1)
-   bcs = mpers.compute_persistent_homology(pclouds, maxDim=1)
+   bcs = mpers.compute_persistent_homology(pclouds, max_dim=1)
    print(bcs.shape)   # (10, 20, 2)
 
    # Convert to stable ranks
@@ -306,16 +338,5 @@ You can also convert a single barcode to a stable rank::
 References
 ==========
 
-.. [B21] Bauer, U. (2021). Ripser: efficient computation of Vietoris–Rips persistence barcodes. *Journal of Applied and Computational Topology*, 5(3), 391–423.
 
-.. [BM19] Biscio, C. A. N., & Møller, J. (2019). The accumulated persistence function, a new useful functional summary statistic for topological data analysis, with a view to brain artery trees and spatial point process applications. *Journal of Computational and Graphical Statistics*, 28(3), 671–681.
-
-.. [CR20] Chachólski, W., & Riihimäki, H. (2020). Metrics and stabilization in one parameter persistence. *SIAM Journal on Applied Algebra and Geometry*, 4(1), 69–98.
-
-.. [GC17] Gäfvert, O., & Chachólski, W. (2017). Stable invariants for multiparameter persistence. *arXiv preprint* arXiv:1703.03632.
-
-.. [SCL17] Scolamiero, M., Chachólski, W., Lundman, A., Ramanujam, R., & Öberg, S. (2017). Multidimensional persistence and noise. *Foundations of Computational Mathematics*, 17, 1367–1406.
-
-.. [U17] Umeda, Y. (2017). Time series classification via topological data analysis. *Information and Media Technologies*, 12, 228–239.
-
-.. [CM21] Chazal, F., & Michel, B. (2021). An introduction to topological data analysis: fundamental and practical aspects for data scientists. *Frontiers in Artificial Intelligence*, 4, 667963.
+.. footbibliography::

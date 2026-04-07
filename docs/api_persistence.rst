@@ -4,9 +4,7 @@ masspcf.persistence
 Persistent homology, barcodes, and stable rank functions.
 
 .. automodule:: masspcf.persistence
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   :no-members:
 
 barcode
 -------
@@ -39,3 +37,8 @@ barcode_summary
    :members:
    :undoc-members:
    :show-inheritance:
+
+References
+----------
+
+.. footbibliography::

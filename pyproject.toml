@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    'scikit-build-core>=0.9',
+    'scikit-build-core>=0.12',
     'numpy>=2.0',
     'pybind11_stubgen',
 ]
@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "masspcf"
-version = "0.4.0b12"
+version = "0.4.0"
 authors = [ { name="Bjorn H. Wehlin", email="bwehlin@kth.se" } ]
 description = "Massively parallel computations for piecewise constant functions"
 readme = "README.md"
@@ -27,6 +27,63 @@ classifiers = [
     "Topic :: Scientific/Engineering"
 ]
 dependencies = [ "numpy>=2.0", "tqdm", "matplotlib" ]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["masspcf"]
+sdist.exclude = [
+    ".*",
+    "3rd/cuda",
+    "3rd/gcc-runtime",
+    "3rd/googletest",
+    "3rd/pybind11/docs",
+    "3rd/pybind11/tests",
+    "3rd/pybind11/noxfile.py",
+    "3rd/pybind11/setup.*",
+    "3rd/pybind11/pybind11",
+    "3rd/pybind11/.github",
+    "3rd/pybind11/pyproject.toml",
+    "3rd/taskflow/adsfund.json",
+    "3rd/taskflow/images",
+    "3rd/ripser",
+    "3rd/splitmix64",
+    "3rd/taskflow/3rd-party",
+    "3rd/taskflow/benchmarks",
+    "3rd/taskflow/docs",
+    "3rd/taskflow/doxygen",
+    "3rd/taskflow/examples",
+    "3rd/taskflow/sandbox",
+    "3rd/taskflow/tfprof",
+    "3rd/taskflow/unittests",
+    "3rd/xoroshiro",
+    "benchmarking",
+    "covreport",
+    "docs",
+    "examples",
+    "gpucov",
+    "test",
+    "masspcf/*.so",
+    "masspcf/*.pyi",
+    "masspcf/py.typed",
+    "masspcf/_mpcf_cpu",
+    "masspcf/_mpcf_cuda*",
+    "masspcf/_mpcf_cpp_cpu",
+    "masspcf/_mpcf_cpp_cuda",
+    "collect_sources*",
+    "copydbg",
+    "copypy",
+    "environment.clion",
+    "install_manifest.txt",
+    "make_license_file.py",
+    "mpcf.LICENSE.input",
+    "pyrightconfig.json",
+    "remove_cuda_from_env.bat",
+    "run_coverage.sh",
+    "update_submodules",
+    "BUILDING.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+]
 
 [project.urls]
 Homepage = "https://github.com/bwehlin/masspcf"

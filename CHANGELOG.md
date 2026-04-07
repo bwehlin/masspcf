@@ -12,10 +12,14 @@ Major rewrite of the core data structures and significant expansion of the API.
 * **`DistanceMatrix` and `SymmetricMatrix`** — dedicated types with I/O support, `from_dense` and `to_dense` for NumPy interop.
 * **Tensor I/O** — `save`/`load` for all tensor types; `from_serial_content` for in-memory deserialization.
 * **PCF evaluation** — evaluate PCFs at given time points.
-* **Plotting** — built-in plotting for barcodes (matplotlib).
+* **Plotting** — built-in plotting for PCFs and barcodes (matplotlib).
 * **`lp_distance`** — scalar Lp distance between two individual PCFs.
 * **`cdist`** — cross-distance matrices between two collections of PCFs.
-* **`allclose`, `all_of`, `any_of`** — free functions for element-wise tensor comparisons.
+* **`lp_norm`** — Lp norms for collections of PCFs.
+* **`allclose`** — free function for element-wise approximate equality (FloatTensor, DistanceMatrix, SymmetricMatrix).
+* **`array_equal`** — exact element-wise equality check for tensors.
+* **`iterate_rectangles`** — iterate over the rectangle decomposition of two PCFs.
+* **`flatten`, `copy`** — tensor methods for flattening and deep-copying.
 * **`pickle` support** — all tensor types can be pickled and unpickled.
 * **Deterministic random generation** — seedable `Generator` for reproducible output across threads.
 * **`point_process` submodule** — `sample_poisson` for sampling spatial Poisson point processes.

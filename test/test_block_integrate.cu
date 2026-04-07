@@ -45,7 +45,7 @@ namespace
   {
     using Tv = float;
     using Pcf = mpcf::Pcf_f32;
-    using Point = mpcf::Point_f32;
+    using Point = mpcf::TimePoint_f32;
     static constexpr double tolerance = 1e-5;
     static const char* name() { return "f32"; }
   };
@@ -55,7 +55,7 @@ namespace
   {
     using Tv = double;
     using Pcf = mpcf::Pcf_f64;
-    using Point = mpcf::Point_f64;
+    using Point = mpcf::TimePoint_f64;
     static constexpr double tolerance = 1e-10;
     static const char* name() { return "f64"; }
   };

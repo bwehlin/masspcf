@@ -59,8 +59,11 @@ def plot(f: PcfContainerLike, fmt="", ax=None, auto_label=False, max_time=None, 
 
     if isinstance(f, PcfTensor):
         if len(f.shape) != 1:
-            raise ValueError(f"Expected 1-dimensional array (got array with {f.shape})")
-        mt = max_time if max_time is not None else np.array(max_time_reduction(f))
+            squeezed = f.squeeze()
+            if len(squeezed.shape) != 1:
+                raise ValueError(f"Expected 1-dimensional array (got array with {f.shape})")
+            return plot(squeezed, ax=ax, max_time=max_time, auto_label=auto_label, **kwargs)
+        mt = max_time if max_time is not None else float(max_time_reduction(f))
         for i in range(f.shape[0]):
             kw = {"label": f"f{i}"} if auto_label else {}
             plot_single_(f[i], mt, **kw)
@@ -101,7 +104,10 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
 
     if isinstance(bc, BarcodeTensor):
         if len(bc.shape) != 1:
-            raise ValueError(f"Expected 1-dimensional tensor (got shape {bc.shape})")
+            squeezed = bc.squeeze()
+            if len(squeezed.shape) != 1:
+                raise ValueError(f"Expected 1-dimensional tensor (got shape {bc.shape})")
+            return plot_barcode(squeezed, ax=ax, y_offset=y_offset, **kwargs)
         y = y_offset
         for i in range(bc.shape[0]):
             y = plot_barcode(bc[i], ax=ax, y_offset=y, **kwargs)
@@ -111,43 +117,52 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
     if len(bars) == 0:
         return y_offset
 
+    # Sort bars lexicographically by (birth, length), descending
+    lengths = np.where(np.isfinite(bars[:, 1]), bars[:, 1] - bars[:, 0], np.inf)
+    order = np.lexsort((lengths, bars[:, 0]))[::-1]
+    bars = bars[order]
+
     finite_mask = np.isfinite(bars[:, 1])
     finite_bars = bars[finite_mask]
     inf_bars = bars[~finite_mask]
 
-    # Draw finite bars
     defaults = {"linewidth": 1.5}
     defaults.update(kwargs)
+    color = defaults.get("color", None)
+    lw = defaults.get("linewidth", 1.5)
 
-    if len(finite_bars) > 0:
-        finite_indices = np.where(finite_mask)[0]
-        segments = [[(b, y_offset + i), (d, y_offset + i)]
-                    for i, (b, d) in zip(finite_indices, finite_bars)]
-        lc = LineCollection(segments, **defaults)
-        ax.add_collection(lc)
-
-    # Draw infinite bars: line segment extending to the right edge with arrowhead
+    # Compute xmax for infinite bars (line segment extends to this point)
     if len(inf_bars) > 0:
-        inf_indices = np.where(~finite_mask)[0]
-        color = defaults.get("color", None)
-        lw = defaults.get("linewidth", 1.5)
-
-        # Determine xmax from all finite deaths plus margin
         if len(finite_bars) > 0:
             xmax = finite_bars[:, 1].max() * 1.15
         else:
             xmax = inf_bars[:, 0].max() + 1.0
 
-        inf_segs = [[(b, y_offset + i), (xmax, y_offset + i)]
-                    for i, (b, _) in zip(inf_indices, inf_bars)]
-        inf_lc = LineCollection(inf_segs, linewidth=lw, color=color)
-        ax.add_collection(inf_lc)
-        for i in inf_indices:
-            ax.annotate("",
-                xy=(xmax, y_offset + i),
-                xytext=(xmax - (xmax * 0.02), y_offset + i),
-                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw))
+    # Build all bar segments in one pass, using sequential y-positions
+    segments = []
+    inf_y_positions = []
+    for i in range(len(bars)):
+        y = y_offset + i
+        birth = bars[i, 0]
+        death = bars[i, 1]
+        if np.isfinite(death):
+            segments.append([(birth, y), (death, y)])
+        else:
+            segments.append([(birth, y), (xmax, y)])
+            inf_y_positions.append(y)
+
+    if segments:
+        lc = LineCollection(segments, **defaults)
+        ax.add_collection(lc)
+
+    # Add arrowheads for infinite bars
+    for y in inf_y_positions:
+        ax.annotate("",
+            xy=(xmax, y),
+            xytext=(xmax - (xmax * 0.02), y),
+            arrowprops=dict(arrowstyle="-|>", color=color, lw=lw))
 
     ax.autoscale_view()
+    ax.yaxis.set_ticks([])
 
     return y_offset + len(bars)

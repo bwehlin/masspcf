@@ -50,22 +50,22 @@ def compute_persistent_homology(
     | DistanceMatrixTensor
     | FloatTensor
     | np.ndarray,
-    maxDim: int = 1,
+    max_dim: int = 1,
     distance_type: DistanceType = DistanceType.Euclidean,
     complex_type: ComplexType = ComplexType.VietorisRips,
     reduced: bool = False,
-    verbose: bool = True,
+    verbose: bool = False,
 ) -> BarcodeTensor:
     r"""Compute persistent homology of a point cloud or distance matrix.
 
-    Returns barcodes for homology dimensions 0 through ``maxDim``. When
+    Returns barcodes for homology dimensions 0 through ``max_dim``. When
     ``complex_type`` is ``ComplexType.VietorisRips`` (currently the only
-    available option), the computation uses Ripser [ripser_ref]_. When the input
+    available option), the computation uses Ripser :footcite:`Bauer2021`. When the input
     contains multiple point clouds or distance matrices, the computations are
     parallelized across them.
 
     For an input tensor of shape :math:`(d_1, \ldots, d_n)`, the output has
-    shape :math:`(d_1, \ldots, d_n, \texttt{maxDim} + 1)`.
+    shape :math:`(d_1, \ldots, d_n, \texttt{max_dim} + 1)`.
 
     Parameters
     ----------
@@ -75,7 +75,7 @@ def compute_persistent_homology(
         A ``DistanceMatrix`` or ``DistanceMatrixTensor`` provides
         precomputed pairwise distances directly; ``distance_type`` is
         ignored in that case.
-    maxDim : int, optional
+    max_dim : int, optional
         Maximum homology dimension to compute, by default 1.
     distance_type : DistanceType, optional
         Distance metric for point cloud input, by default
@@ -88,18 +88,13 @@ def compute_persistent_homology(
         If ``False`` (default), an infinite bar ``[0, inf)`` is added to
         H0 representing the single connected component.
     verbose : bool, optional
-        Show progress information, by default True.
+        Show progress information, by default False.
 
     Returns
     -------
     BarcodeTensor
         A tensor of barcodes.
 
-    References
-    ----------
-    .. [ripser_ref] U. Bauer, "Ripser: efficient computation of Vietoris-Rips
-       persistence barcodes", *Journal of Applied and Computational
-       Topology*, vol. 5, pp. 391--423, 2021.
     """
 
     from ..tensor_create import zeros
@@ -122,7 +117,7 @@ def compute_persistent_homology(
         if complex_type != ComplexType.VietorisRips:
             raise ValueError(f"Unsupported complex type {complex_type}")
 
-        task = _compute_barcodes_distmat_ripser(X, out, maxDim, reduced)
+        task = _compute_barcodes_distmat_ripser(X, out, max_dim, reduced)
         _run_task(lambda: task, verbose=verbose)
 
         if len(out.shape) == 2 and out.shape[0] == 1:
@@ -149,7 +144,7 @@ def compute_persistent_homology(
         # Use Ripser
         match distance_type:
             case DistanceType.Euclidean:
-                task = _compute_barcodes_euclidean_pcloud_ripser(X, out, maxDim, reduced)
+                task = _compute_barcodes_euclidean_pcloud_ripser(X, out, max_dim, reduced)
             case _:
                 raise ValueError(
                     f"Distance type {distance_type} not supported for complex type {complex_type}."

@@ -50,12 +50,12 @@ namespace mpcf
     return std::prev(it);
   }
 
-  template <typename Point, typename FCb>
-  void iterate_rectangles(const std::vector<Point>& fpts, const std::vector<Point>& gpts, FCb cb,
-    typename Point::time_type a = Point::zero_time(), typename Point::time_type b = Point::infinite_time())
+  template <typename TimePointT, typename FCb>
+  void iterate_rectangles(const std::vector<TimePointT>& fpts, const std::vector<TimePointT>& gpts, FCb cb,
+    typename TimePointT::time_type a = TimePointT::zero_time(), typename TimePointT::time_type b = TimePointT::infinite_time())
   {
-    using TTime = typename Point::time_type;
-    using TVal = typename Point::value_type;
+    using TTime = typename TimePointT::time_type;
+    using TVal = typename TimePointT::value_type;
 
     auto fi = max_time_iterator_prior_to(fpts.begin(), fpts.end(), a);
     auto gi = max_time_iterator_prior_to(gpts.begin(), gpts.end(), a);
@@ -100,8 +100,8 @@ namespace mpcf
       {
         rect.left = tprev;
         rect.right = b;
-        rect.top = fv;
-        rect.bottom = gv;
+        rect.f_value = fv;
+        rect.g_value = gv;
 
         cb(rect);
 
@@ -112,8 +112,8 @@ namespace mpcf
 
       rect.left = tprev;
       rect.right = t;
-      rect.top = fv;
-      rect.bottom = gv;
+      rect.f_value = fv;
+      rect.g_value = gv;
 
       cb(rect);
     }

@@ -47,8 +47,8 @@ namespace
   TYPED_TEST(PcfL1DirectTest, TwoPointPcfIntegrate)
   {
     using T = TypeParam;
-    mpcf::Pcf<T, T> f(std::vector<mpcf::Point<T, T>>({ {T(0), T(3)}, {T(1), T(0)} }));
-    mpcf::Pcf<T, T> g(std::vector<mpcf::Point<T, T>>({ {T(0), T(1)}, {T(2), T(0)} }));
+    mpcf::Pcf<T, T> f(std::vector<mpcf::TimePoint<T, T>>({ {T(0), T(3)}, {T(1), T(0)} }));
+    mpcf::Pcf<T, T> g(std::vector<mpcf::TimePoint<T, T>>({ {T(0), T(1)}, {T(2), T(0)} }));
 
     auto op = mpcf::OperationL1Dist<T, T>{};
     T result = op(mpcf::integrate(f, g, op));
@@ -125,7 +125,7 @@ namespace
   TYPED_TEST(PcfL1IntegratorFixture, TwoPointPcfL1dist)
   {
     using T = typename TypeParam::value_type;
-    using PointT = mpcf::Point<T, T>;
+    using PointT = mpcf::TimePoint<T, T>;
 
     this->m_pcfs.emplace_back(std::vector<PointT>({{T(0), T(3)}, {T(1), T(0)}}));
     this->m_pcfs.emplace_back(std::vector<PointT>({{T(0), T(1)}, {T(2), T(0)}}));

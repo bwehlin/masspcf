@@ -17,7 +17,7 @@ import numpy.testing as npt
 import pytest
 
 import masspcf as mpcf
-from masspcf.pcf import Pcf
+from masspcf.functional import Pcf
 
 
 class TestIntPcfDtypeConstruction:
@@ -167,18 +167,16 @@ class TestIntPcfPickle:
         import pickle
 
         f = Pcf(np.array([[0, 1], [2, 3]], dtype=np.int32))
-        data = pickle.dumps(f._data)
-        restored = pickle.loads(data)
-        g = Pcf(restored)
+        data = pickle.dumps(f)
+        g = pickle.loads(data)
         assert f == g
 
     def test_pickle_roundtrip_i64(self):
         import pickle
 
         f = Pcf(np.array([[0, 1], [2, 3]], dtype=np.int64))
-        data = pickle.dumps(f._data)
-        restored = pickle.loads(data)
-        g = Pcf(restored)
+        data = pickle.dumps(f)
+        g = pickle.loads(data)
         assert f == g
 
 

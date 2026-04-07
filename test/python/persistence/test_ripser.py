@@ -24,7 +24,7 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correc
 
     bcs = mpers.compute_persistent_homology(
         X,
-        maxDim=3,
+        max_dim=3,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
     )
@@ -38,7 +38,7 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_returns_correc
 
     bcs = mpers.compute_persistent_homology(
         X,
-        maxDim=3,
+        max_dim=3,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
     )
@@ -53,7 +53,7 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns
 
     bcs = mpers.compute_persistent_homology(
         X,
-        maxDim=3,
+        max_dim=3,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
     )
@@ -66,7 +66,7 @@ def test_persistence_ripser_compute_euclidean_barcode_from_pcloud_tensor_returns
 
     bcs = mpers.compute_persistent_homology(
         X,
-        maxDim=3,
+        max_dim=3,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
     )
@@ -91,7 +91,7 @@ def test_persistence_ripser_unreduced_homology():
 
     bcs = mpers.compute_persistent_homology(
         X,
-        maxDim=2,
+        max_dim=2,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
     )
@@ -116,7 +116,7 @@ def test_persistence_ripser_reduced_homology():
 
     bcs = mpers.compute_persistent_homology(
         X,
-        maxDim=2,
+        max_dim=2,
         reduced=True,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
@@ -145,7 +145,7 @@ def test_persistence_ripser_compute_euclidean_barcode_on_tensor():
 
     Y = mpers.compute_persistent_homology(
         X,
-        maxDim=1,
+        max_dim=1,
         complex_type=mpers.ComplexType.VietorisRips,
         distance_type=mpers.DistanceType.Euclidean,
     )
@@ -155,7 +155,7 @@ def test_persistence_ripser_compute_euclidean_barcode_on_tensor():
             for k in range(5):
                 xbc = mpers.compute_persistent_homology(
                     X[i, j, k],
-                    maxDim=1,
+                    max_dim=1,
                     complex_type=mpers.ComplexType.VietorisRips,
                     distance_type=mpers.DistanceType.Euclidean,
                 )
