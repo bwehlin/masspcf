@@ -14,16 +14,16 @@ jobs:
           submodules: 'recursive'
 
       - name: Build sdist
-        run: python -m build --sdist
+        run: python3 -m build --sdist
 
       - name: Install from sdist
-        run: pip install dist/masspcf-*.tar.gz --no-build-isolation --force-reinstall
+        run: python3 -m pip install dist/masspcf-*.tar.gz --no-build-isolation --force-reinstall
         env:
           BUILD_WITH_CUDA: "0"
 
       - name: Test sdist install
         working-directory: test
-        run: python -m pytest python -x -q
+        run: python3 -m pytest python -x -q
 
       - uses: actions/upload-artifact@v6
         with:
