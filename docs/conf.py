@@ -40,7 +40,7 @@ extensions = [
 ]
 
 bibtex_bibfiles = ["references.bib"]
-bibtex_default_style = "unsrt"
+bibtex_default_style = "alpha"
 #'breathe',
 #'exhale']
 
