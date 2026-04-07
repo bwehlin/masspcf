@@ -8,7 +8,11 @@ masspcf can use NVIDIA GPUs to accelerate computationally intensive operations, 
 Supported platforms
 ===================================
 
-CUDA support is provided on Linux and Windows only. On macOS, execution is CPU-only. You may need to `pip install cuda-toolkit[cudart]` in order to use the GPU acceleration (masspcf will fall back to CPU execution with a warning message if there is a CUDA-capable GPU present but loading the CUDA-based library fails.).
+CUDA support is provided on Linux and Windows only. On macOS, execution is CPU-only. If you have an NVIDIA GPU but no system-wide CUDA installation, you can install the CUDA runtime via pip::
+
+   pip install cuda-toolkit[cudart]
+
+masspcf will fall back to CPU execution with a warning message if a CUDA-capable GPU is detected but the CUDA runtime library cannot be loaded.
 
 Automatic CPU/GPU dispatch
 ===========================
