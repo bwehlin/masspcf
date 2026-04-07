@@ -26,14 +26,10 @@ from .typing import pcf32, pcf64
 _REDUCTIONS_BACKEND_MAP = {pcf32: cpp.Reductions_f32_f32, pcf64: cpp.Reductions_f64_f64}
 
 
-def _to_tensor_or_val(outFs):
+def _to_tensor(outFs):
     if isinstance(outFs, (cpp.Pcf32Tensor, cpp.Pcf64Tensor)):
-        if len(outFs.shape) == 1 and outFs.shape[0] == 1:
-            return Pcf(outFs._get_element(0))
         return PcfTensor(outFs)
     elif isinstance(outFs, (cpp.Float32Tensor, cpp.Float64Tensor)):
-        if len(outFs.shape) == 1 and outFs.shape[0] == 1:
-            return outFs._get_element(0)
         return FloatTensor(outFs)
     else:
         raise ValueError(
@@ -65,12 +61,11 @@ def mean(fs: PcfContainerLike, dim: int = 0):
 
     Returns
     -------
-    Pcf or PcfTensor
-        A single ``Pcf`` if the result is scalar, otherwise a ``PcfTensor``
-        with the reduced dimension removed.
+    PcfTensor
+        A ``PcfTensor`` with the reduced dimension removed.
     """
     backend, tensor = _resolve_pcf_inputs(_REDUCTIONS_BACKEND_MAP, fs)
-    return _to_tensor_or_val(backend.mean(tensor._data, dim))
+    return _to_tensor(backend.mean(tensor._data, dim))
 
 
 def max_time(fs: PcfContainerLike, dim: int = 0):
@@ -98,8 +93,8 @@ def max_time(fs: PcfContainerLike, dim: int = 0):
 
     Returns
     -------
-    float or FloatTensor
-        A scalar if the result is 0-dimensional, otherwise a numeric tensor.
+    FloatTensor
+        A numeric tensor with the reduced dimension removed.
     """
     backend, tensor = _resolve_pcf_inputs(_REDUCTIONS_BACKEND_MAP, fs)
-    return _to_tensor_or_val(backend.max_time(tensor._data, dim))
+    return _to_tensor(backend.max_time(tensor._data, dim))

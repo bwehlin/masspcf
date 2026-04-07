@@ -63,7 +63,7 @@ def plot(f: PcfContainerLike, fmt="", ax=None, auto_label=False, max_time=None, 
             if len(squeezed.shape) != 1:
                 raise ValueError(f"Expected 1-dimensional array (got array with {f.shape})")
             return plot(squeezed, ax=ax, max_time=max_time, auto_label=auto_label, **kwargs)
-        mt = max_time if max_time is not None else np.array(max_time_reduction(f))
+        mt = max_time if max_time is not None else float(max_time_reduction(f))
         for i in range(f.shape[0]):
             kw = {"label": f"f{i}"} if auto_label else {}
             plot_single_(f[i], mt, **kw)

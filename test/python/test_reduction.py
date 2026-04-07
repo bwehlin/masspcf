@@ -4,12 +4,13 @@ import pytest
 import masspcf as mpcf
 
 
-def test_mean_of_1d_returns_pcf():
+def test_mean_of_1d_returns_tensor():
     A = mpcf.zeros((10,))
     avg = mpcf.mean(A)
 
-    assert isinstance(avg, mpcf.Pcf)
-    assert np.array_equal(avg.to_numpy(), np.zeros((1, 2)))
+    assert isinstance(avg, mpcf.PcfTensor)
+    assert avg.shape == (1,)
+    assert np.array_equal(avg[0].to_numpy(), np.zeros((1, 2)))
 
 
 def test_mean_of_simple():
@@ -18,7 +19,7 @@ def test_mean_of_simple():
     A[0] = mpcf.Pcf(np.array([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32))
 
     avg = mpcf.mean(A)
-    avg_data = avg.to_numpy()
+    avg_data = avg[0].to_numpy()
 
     assert avg_data.shape == (2, 2)
     assert avg_data[0][0] == pytest.approx(0.0, 1e-4)
@@ -57,8 +58,8 @@ def test_mean_f64():
     A[1] = mpcf.Pcf(np.array([[0.0, 2.0], [2.0, 0.0]], dtype=np.float64))
 
     avg = mpcf.mean(A)
-    assert isinstance(avg, mpcf.Pcf)
-    avg_data = avg.to_numpy()
+    assert isinstance(avg, mpcf.PcfTensor)
+    avg_data = avg[0].to_numpy()
     assert avg_data[0][1] == pytest.approx(3.0, abs=1e-7)
 
 
@@ -95,8 +96,8 @@ def test_max_time_1d():
     A[1] = mpcf.Pcf(np.array([[0.0, 1.0], [3.0, 0.0]], dtype=np.float32))
 
     result = mpcf.max_time(A)
-    assert isinstance(result, float)
-    assert result == pytest.approx(5.0, abs=1e-5)
+    assert isinstance(result, mpcf.FloatTensor)
+    assert float(result) == pytest.approx(5.0, abs=1e-5)
 
 
 def test_max_time_f64():
@@ -105,8 +106,8 @@ def test_max_time_f64():
     A[1] = mpcf.Pcf(np.array([[0.0, 1.0], [3.0, 0.0]], dtype=np.float64))
 
     result = mpcf.max_time(A)
-    assert isinstance(result, float)
-    assert result == pytest.approx(7.0, abs=1e-10)
+    assert isinstance(result, mpcf.FloatTensor)
+    assert float(result) == pytest.approx(7.0, abs=1e-10)
 
 
 def test_max_time_2d():
@@ -136,7 +137,7 @@ def test_max_time_with_default_pcf():
     """Default-constructed PCFs (single breakpoint at t=0) should not crash."""
     X = mpcf.zeros((3,))
     result = mpcf.max_time(X)
-    assert result == pytest.approx(0.0)
+    assert float(result) == pytest.approx(0.0)
 
 
 def test_max_time_mixed_default_and_nondefault():
@@ -145,4 +146,20 @@ def test_max_time_mixed_default_and_nondefault():
     X[1] = mpcf.Pcf(np.array([[0.0, 1.0], [5.0, 0.0]], dtype=np.float32))
 
     result = mpcf.max_time(X)
-    assert result == pytest.approx(5.0, abs=1e-5)
+    assert float(result) == pytest.approx(5.0, abs=1e-5)
+
+
+def test_float_on_single_element_float_tensor():
+    t = mpcf.FloatTensor(np.array([3.14]))
+    assert float(t) == pytest.approx(3.14)
+
+
+def test_int_on_single_element_float_tensor():
+    t = mpcf.FloatTensor(np.array([7.9]))
+    assert int(t) == 7
+
+
+def test_float_rejects_multi_element_tensor():
+    t = mpcf.FloatTensor(np.array([1.0, 2.0]))
+    with pytest.raises(TypeError, match="single-element"):
+        float(t)

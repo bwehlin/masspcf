@@ -64,6 +64,18 @@ class NumericTensor(Tensor, ArithmeticTensorMixin):
     def __init__(self):
         super().__init__()
 
+    def __float__(self):
+        if self.size != 1:
+            raise TypeError(
+                "Only single-element tensors can be converted to a Python scalar. "
+                f"This tensor has {self.size} elements."
+            )
+        idx = [0] * self.ndim
+        return float(self._data._get_element(idx))
+
+    def __int__(self):
+        return int(self.__float__())
+
     def _get_valid_setitem_dtypes(self):
         return [NumericTensor, float, int, np.ndarray]
 
