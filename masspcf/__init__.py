@@ -36,6 +36,7 @@ from .tensor import (
 )
 from .tensor_create import array_split, concatenate, split, stack, zeros
 from .typing import (
+    dtype,
     barcode32,
     barcode64,
     boolean,

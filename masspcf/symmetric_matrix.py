@@ -54,7 +54,7 @@ class SymmetricMatrix:
     n_or_data : int | SymmetricMatrix | CppSymmetricMatrix
         If an int, creates a zero-initialized matrix of that size.
         If a SymmetricMatrix or C++ symmetric matrix, wraps it directly.
-    dtype : type[float32] | type[float64] | None, optional
+    dtype : float32 | float64 | None, optional
         Element precision. ``float32`` stores entries as 32-bit floats,
         ``float64`` as 64-bit floats. Defaults to ``float64`` when
         ``n_or_data`` is an int. Ignored otherwise.
@@ -63,7 +63,7 @@ class SymmetricMatrix:
     def __init__(
         self,
         n_or_data: int | SymmetricMatrix | CppSymmetricMatrix,
-        dtype: type[float32] | type[float64] | None = None,
+        dtype: float32 | float64 | None = None,
     ):
         if isinstance(n_or_data, SymmetricMatrix):
             self._data = n_or_data._data
