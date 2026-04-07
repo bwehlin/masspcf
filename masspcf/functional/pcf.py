@@ -307,13 +307,6 @@ _BACKEND_MAP = {
     cpp.Pcf_i64_i64: cpp.Backend_i64_i64,
 }
 
-# Legacy aliases
-tPcf_f32_f32 = Pcf(np.array([[0, 0]]).astype(np.float32))
-tPcf_f64_f64 = Pcf(np.array([[0, 0]]).astype(np.float64))
-
-backend_f32_f32 = cpp.Backend_f32_f32
-backend_f64_f64 = cpp.Backend_f64_f64
-
 
 def _has_matching_types(f: Pcf, g: Pcf):
     return type(f._data) is type(g._data)
