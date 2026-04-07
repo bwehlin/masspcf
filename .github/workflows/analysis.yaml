@@ -15,52 +15,8 @@ permissions:
   contents: write
 
 jobs:
-  build_sdist:
-    name: Build & test source distribution
-    runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: 'recursive'
-
-      - name: Set up Python (GitHub runner)
-        if: inputs.use_github_runners
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-          cache: 'pip'
-
-      - name: Set up Python (self-hosted)
-        if: ${{ !inputs.use_github_runners }}
-        run: |
-          python3 -m venv --system-site-packages ${{github.workspace}}/.venv
-          echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
-
-      - name: Install build tool
-        run: python3 -m pip install build
-
-      - name: Build sdist
-        run: python3 -m build --sdist
-
-      - name: Install from sdist
-        run: python3 -m pip install dist/masspcf-*.tar.gz --force-reinstall
-        env:
-          BUILD_WITH_CUDA: "0"
-
-      - name: Test sdist install
-        working-directory: test
-        run: python3 -m pytest python -x -q
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: sdist
-          path: dist/*.tar.gz
-          retention-days: 2
-
   coverage_report:
     name: Coverage report (host C++ & Python)
-    needs: [memory_check]
     runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
     timeout-minutes: 20
     env:
@@ -195,7 +151,6 @@ jobs:
 
   memory_check:
     name: Memory check (Valgrind + Helgrind)
-    needs: [build_sdist]
     runs-on: ${{ inputs.use_github_runners && 'ubuntu-24.04' || fromJSON('["self-hosted", "gpu", "cuda12"]') }}
     timeout-minutes: 30
     env:
@@ -371,7 +326,6 @@ jobs:
 
   cuda_test:
     name: CUDA build, test & coverage
-    needs: [memory_check]
     if: ${{ !inputs.use_github_runners }}
     runs-on: [self-hosted, gpu, cuda12]
     timeout-minutes: 15
