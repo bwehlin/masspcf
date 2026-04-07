@@ -29,6 +29,9 @@ class Pcf:
     takes the value :math:`v_i` on the interval :math:`[t_i, t_{i+1})` for
     :math:`0 \leq i < n-1`, and :math:`v_{n-1}` on :math:`[t_{n-1}, \infty)`.
 
+    The first breakpoint must have :math:`t_0 = 0`. An ``InvalidArgument``
+    error is raised if the first time coordinate is not zero.
+
     Parameters
     ----------
     arr : numpy.ndarray or Pcf or list

@@ -56,6 +56,11 @@ class TestIntArrayInput:
         with pytest.raises(ValueError, match="Unsupported array type"):
             Pcf(arr)
 
+    def test_nonzero_first_time_raises(self):
+        arr = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        with pytest.raises(Exception, match="t=0"):
+            Pcf(arr)
+
 
 class TestListInput:
     def test_list_default_dtype(self):
