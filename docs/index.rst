@@ -9,16 +9,8 @@ The core data structures are NumPy-like multidimensional tensors supporting slic
 
 .. toctree::
    :hidden:
-   :caption: Getting started:
 
-   installing
-   quickstart
-   tutorials
-
-.. toctree::
-   :hidden:
-   :caption: User guide:
-
+   getting_started
    userguide
 
 .. toctree::
@@ -43,7 +35,7 @@ The core data structures are NumPy-like multidimensional tensors supporting slic
 .. grid:: 2
 
    .. grid-item-card:: :fas:`rocket` Getting started
-      :link: installing
+      :link: getting_started
       :link-type: doc
 
       Install masspcf, quick start examples, and tutorials.
