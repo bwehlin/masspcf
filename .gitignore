@@ -1,3 +1,4 @@
+.claude/
 *.user
 *.autosave
 callgrind.out.*
