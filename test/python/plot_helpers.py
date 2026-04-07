@@ -192,35 +192,35 @@ def rect_plot_fixture(gallery):
         # Collect all boundary times for dashed vlines
         boundaries = set()
         for rect in rects:
-            boundaries.add(rect.l)
-            if not math.isinf(rect.r):
-                boundaries.add(rect.r)
+            boundaries.add(rect.left)
+            if not math.isinf(rect.right):
+                boundaries.add(rect.right)
 
         for t in sorted(boundaries):
             ax.axvline(t, color="grey", linestyle="--", linewidth=0.5, alpha=0.5)
 
         # Shade each rectangle and label it
         for i, rect in enumerate(rects):
-            r_right = rect.r if not math.isinf(rect.r) else (max_time or ax.get_xlim()[1])
-            lo = min(rect.fv, rect.gv)
-            hi = max(rect.fv, rect.gv)
+            r_right = rect.right if not math.isinf(rect.right) else (max_time or ax.get_xlim()[1])
+            lo = min(rect.f_value, rect.g_value)
+            hi = max(rect.f_value, rect.g_value)
             if hi == lo:
                 hi = lo + 0.1  # give zero-height rects a sliver of visibility
 
             from matplotlib.patches import Rectangle as MplRect
-            patch = MplRect((rect.l, lo), r_right - rect.l, hi - lo,
+            patch = MplRect((rect.left, lo), r_right - rect.left, hi - lo,
                             alpha=0.15, facecolor="C2", edgecolor="C2",
                             linewidth=0.5)
             ax.add_patch(patch)
 
             # Number label centered in the rectangle
-            cx = (rect.l + r_right) / 2
+            cx = (rect.left + r_right) / 2
             cy = (lo + hi) / 2
             ax.text(cx, cy, str(i), ha="center", va="center",
                     fontsize=11, fontweight="bold", color="C2")
 
             # Value annotation below the rectangle
-            label = f"l={rect.l:.4g} r={'inf' if math.isinf(rect.r) else f'{rect.r:.4g}'}\nfv={rect.fv:.4g} gv={rect.gv:.4g}"
+            label = f"l={rect.left:.4g} r={'inf' if math.isinf(rect.right) else f'{rect.right:.4g}'}\nfv={rect.f_value:.4g} gv={rect.g_value:.4g}"
             ax.text(cx, lo, label, ha="center", va="top",
                     fontsize=8, color="grey")
 

@@ -67,7 +67,7 @@ namespace
       ReductionWrapper<Tt, Tv> reduction(cb);
       return mpcf::combine(f, g,
         [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt {
-          return reduction(rect.left, rect.right, rect.top, rect.bottom);
+          return reduction(rect.left, rect.right, rect.f_value, rect.g_value);
         });
     }
 
@@ -81,7 +81,7 @@ namespace
       return mpcf::parallel_reduce(fs.begin(), fs.end(),
         [&reduction](const mpcf::Rectangle<Tt, Tv>& rect) -> Tt
         {
-          return reduction(rect.left, rect.right, rect.top, rect.bottom);
+          return reduction(rect.left, rect.right, rect.f_value, rect.g_value);
         });
     }
 
@@ -218,15 +218,15 @@ namespace
       using RectT = mpcf::Rectangle<Tt, Tv>;
       py::class_<RectT>(m, ("Rectangle" + suffix).c_str())
         .def(py::init<>())
-        .def(py::init<Tt, Tt, Tv, Tv>(), py::arg("left"), py::arg("right"), py::arg("fv"), py::arg("gv"))
+        .def(py::init<Tt, Tt, Tv, Tv>(), py::arg("left"), py::arg("right"), py::arg("f_value"), py::arg("g_value"))
         .def_readwrite("left", &RectT::left)
         .def_readwrite("right", &RectT::right)
-        .def_property("fv", [](const RectT& r){ return r.top; }, [](RectT& r, Tv v){ r.top = v; })
-        .def_property("gv", [](const RectT& r){ return r.bottom; }, [](RectT& r, Tv v){ r.bottom = v; })
+        .def_readwrite("f_value", &RectT::f_value)
+        .def_readwrite("g_value", &RectT::g_value)
         .def("__repr__", [](const RectT& r) {
           std::ostringstream os;
           os << "Rectangle(left=" << r.left << ", right=" << r.right
-             << ", fv=" << r.top << ", gv=" << r.bottom << ")";
+             << ", fv=" << r.f_value << ", gv=" << r.g_value << ")";
           return os.str();
         })
         .def("__eq__", &RectT::operator==)

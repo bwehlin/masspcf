@@ -26,46 +26,29 @@ namespace mpcf
   {
     Tt left = 0;
     Tt right = 0;
-    Tv top = 0;
-    Tv bottom = 0;
+    Tv f_value = 0;
+    Tv g_value = 0;
 
     Rectangle() = default;
-    Rectangle(Tt l, Tt r, Tv t, Tv b)
-      : left(l), right(r), top(t), bottom(b)
+    Rectangle(Tt l, Tt r, Tv fv, Tv gv)
+      : left(l), right(r), f_value(fv), g_value(gv)
     { }
 
-    Rectangle& l(Tt t)
-    {
-      left = t;
-      return *this;
-    }
-
-    Rectangle& r(Tt t)
-    {
-      right = t;
-      return *this;
-    }
-
-    Rectangle& fv(Tv v)
-    {
-      top = v;
-      return *this;
-    }
-
-    Rectangle& gv(Tv v)
-    {
-      bottom = v;
-      return *this;
-    }
+    // Builder methods for readable construction in tests:
+    //   Rectangle<T,T>().l(0).r(1).fv(2).gv(3)
+    Rectangle& l(Tt t) { left = t; return *this; }
+    Rectangle& r(Tt t) { right = t; return *this; }
+    Rectangle& fv(Tv v) { f_value = v; return *this; }
+    Rectangle& gv(Tv v) { g_value = v; return *this; }
 
     bool operator==(const Rectangle& rhs) const
     {
-      return left == rhs.left && right == rhs.right && top == rhs.top && bottom == rhs.bottom;
+      return left == rhs.left && right == rhs.right && f_value == rhs.f_value && g_value == rhs.g_value;
     }
-    
+
     bool operator!=(const Rectangle& rhs) const
     {
-      return left != rhs.left || right != rhs.right || top != rhs.top || bottom != rhs.bottom;
+      return left != rhs.left || right != rhs.right || f_value != rhs.f_value || g_value != rhs.g_value;
     }
     
     template <typename Ut, typename Uv>
@@ -88,7 +71,7 @@ namespace mpcf
   template <typename Tt, typename Tv>
   std::ostream& operator<<(std::ostream& os, const mpcf::Rectangle<Tt, Tv>& rect)
   {
-    os << "Rectangle(.l = " << rect.left << ", .r = " << rect.right << ", .fv = " << rect.top << ", .gv = " << rect.bottom << ")";
+    os << "Rectangle(.l = " << rect.left << ", .r = " << rect.right << ", .fv = " << rect.f_value << ", .gv = " << rect.g_value << ")";
     return os;
   }
 }

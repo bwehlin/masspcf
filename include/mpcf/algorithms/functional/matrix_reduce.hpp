@@ -85,7 +85,7 @@ namespace mpcf
   Tensor<PcfT> mean(const Tensor<PcfT>& in, size_t dim, Executor& exec = default_executor())
   {
     auto ret = parallel_tensor_reduce(in, dim, [](const typename PcfT::rectangle_type& rect) {
-      return rect.top + rect.bottom;
+      return rect.f_value + rect.g_value;
     }, exec);
 
     const auto inDimSize = in.shape()[dim];

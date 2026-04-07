@@ -108,7 +108,7 @@ namespace mpcf
     Pcf& operator+=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top + rect.bottom;
+        return rect.f_value + rect.g_value;
         });
       return *this;
     }
@@ -116,7 +116,7 @@ namespace mpcf
     Pcf& operator-=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top - rect.bottom;
+        return rect.f_value - rect.g_value;
         });
       return *this;
     }
@@ -124,7 +124,7 @@ namespace mpcf
     Pcf& operator*=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top * rect.bottom;
+        return rect.f_value * rect.g_value;
         });
       return *this;
     }
@@ -132,7 +132,7 @@ namespace mpcf
     Pcf& operator/=(const Pcf& rhs)
     {
       *this = combine(*this, rhs, [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-        return rect.top / rect.bottom;
+        return rect.f_value / rect.g_value;
         });
       return *this;
     }
@@ -300,7 +300,7 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> operator+(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top + rect.bottom;
+      return rect.f_value + rect.g_value;
     });
   }
 
@@ -316,7 +316,7 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top * rect.bottom;
+      return rect.f_value * rect.g_value;
     });
   }
 
@@ -324,7 +324,7 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> operator/(const Pcf<Tt, Tv>& f, const Pcf<Tt, Tv>& g)
   {
     return combine(f, g, [](const typename Pcf<Tt, Tv>::rectangle_type& rect){
-      return rect.top / rect.bottom;
+      return rect.f_value / rect.g_value;
     });
   }
 
@@ -332,7 +332,7 @@ namespace mpcf
   [[nodiscard]] Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
     auto f = parallel_reduce(fs.begin(), fs.end(), [](const typename Pcf<Tt, Tv>::rectangle_type& rect) {
-      return rect.top + rect.bottom;
+      return rect.f_value + rect.g_value;
     }, chunksz);
     return f / static_cast<Tv>(fs.size());
   }

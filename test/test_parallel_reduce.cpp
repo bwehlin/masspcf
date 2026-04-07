@@ -28,7 +28,7 @@ TEST(ParallelReduce, AddThreeFunctions)
   pcfs.emplace_back(mpcf::Pcf_f64{ {0., 0.}, {3., 7.}, {5., 2.} });
 
   auto res = mpcf::parallel_reduce(pcfs.begin(), pcfs.end(), [](const typename mpcf::Pcf_f64::rectangle_type& rect) {
-    return rect.top + rect.bottom;
+    return rect.f_value + rect.g_value;
     });
 
   EXPECT_EQ(res, (pcfs[0] + pcfs[1] + pcfs[2]));

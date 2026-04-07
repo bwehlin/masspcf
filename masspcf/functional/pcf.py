@@ -321,36 +321,36 @@ class Rectangle:
         self._data = data
 
     @property
-    def l(self):
+    def left(self):
         """Left time boundary."""
         return self._data.left
 
     @property
-    def r(self):
+    def right(self):
         """Right time boundary."""
         return self._data.right
 
     @property
-    def fv(self):
+    def f_value(self):
         """Value of the first PCF on this interval."""
-        return self._data.fv
+        return self._data.f_value
 
     @property
-    def gv(self):
+    def g_value(self):
         """Value of the second PCF on this interval."""
-        return self._data.gv
+        return self._data.g_value
 
     def __eq__(self, other):
         if isinstance(other, Rectangle):
-            return (self.l == other.l and self.r == other.r
-                    and self.fv == other.fv and self.gv == other.gv)
+            return (self.left == other.left and self.right == other.right
+                    and self.f_value == other.f_value and self.g_value == other.g_value)
         if isinstance(other, tuple) and len(other) == 4:
-            return (self.l, self.r, self.fv, self.gv) == other
+            return (self.left, self.right, self.f_value, self.g_value) == other
         return NotImplemented
 
     def __repr__(self):
-        return (f"Rectangle(l={self.l}, r={self.r}, "
-                f"fv={self.fv}, gv={self.gv})")
+        return (f"Rectangle(left={self.left}, right={self.right}, "
+                f"f_value={self.f_value}, g_value={self.g_value})")
 
 
 def iterate_rectangles(f: Pcf, g: Pcf, a=0.0, b=float('inf')):

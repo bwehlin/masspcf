@@ -22,18 +22,18 @@ def _pcf(points, dtype):
 
 def _assert_rect(rect, *, l, r, fv, gv):
     """Assert that a Rectangle has the expected values (with approx tolerance)."""
-    assert rect.l == pytest.approx(l)
-    assert rect.r == pytest.approx(r)
-    assert rect.fv == pytest.approx(fv)
-    assert rect.gv == pytest.approx(gv)
+    assert rect.left == pytest.approx(l)
+    assert rect.right == pytest.approx(r)
+    assert rect.f_value == pytest.approx(fv)
+    assert rect.g_value == pytest.approx(gv)
 
 
 def _assert_rect_inf(rect, *, l, fv, gv):
     """Assert a Rectangle with infinite right boundary."""
-    assert rect.l == pytest.approx(l)
-    assert math.isinf(rect.r)
-    assert rect.fv == pytest.approx(fv)
-    assert rect.gv == pytest.approx(gv)
+    assert rect.left == pytest.approx(l)
+    assert math.isinf(rect.right)
+    assert rect.f_value == pytest.approx(fv)
+    assert rect.g_value == pytest.approx(gv)
 
 
 # --- Baseline (mirrors C++ Full test) ---
@@ -100,7 +100,7 @@ def test_identical_pcfs(pcf_dtype):
     rects = mpcf.iterate_rectangles(f, g)
 
     for r in rects:
-        assert r.fv == pytest.approx(r.gv)
+        assert r.f_value == pytest.approx(r.g_value)
 
 
 # --- Gap: single-point (constant) PCFs ---
@@ -151,10 +151,10 @@ def test_swapped_args(pcf_dtype):
 
     assert len(rects_fg) == len(rects_gf)
     for r1, r2 in zip(rects_fg, rects_gf):
-        assert r1.l == pytest.approx(r2.l)
-        assert r1.r == pytest.approx(r2.r)
-        assert r1.fv == pytest.approx(r2.gv)
-        assert r1.gv == pytest.approx(r2.fv)
+        assert r1.left == pytest.approx(r2.left)
+        assert r1.right == pytest.approx(r2.right)
+        assert r1.f_value == pytest.approx(r2.g_value)
+        assert r1.g_value == pytest.approx(r2.f_value)
 
 
 # --- Gap: non-overlapping active regions ---
@@ -168,7 +168,7 @@ def test_non_overlapping(pcf_dtype, rect_plot):
     rect_plot(f, g, rects, max_time=10)
 
     for r in rects:
-        assert r.fv == pytest.approx(0) or r.gv == pytest.approx(0)
+        assert r.f_value == pytest.approx(0) or r.g_value == pytest.approx(0)
 
 
 # --- Bounded iteration ---

@@ -100,8 +100,8 @@ namespace mpcf
       {
         rect.left = tprev;
         rect.right = b;
-        rect.top = fv;
-        rect.bottom = gv;
+        rect.f_value = fv;
+        rect.g_value = gv;
 
         cb(rect);
 
@@ -112,8 +112,8 @@ namespace mpcf
 
       rect.left = tprev;
       rect.right = t;
-      rect.top = fv;
-      rect.bottom = gv;
+      rect.f_value = fv;
+      rect.g_value = gv;
 
       cb(rect);
     }
