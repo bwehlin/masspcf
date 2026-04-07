@@ -151,6 +151,22 @@ number of bars with length (death minus birth) strictly greater than :math:`t`
 
 The output tensor has the same shape as the input.
 
+.. image:: _static/gallery_tda_pipeline_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_tda_pipeline_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start tda_pipeline --
+      :end-before: docs snippet end tda_pipeline --
+
 Betti curves
 -------------
 
@@ -162,6 +178,22 @@ death)::
    bettis = mpers.barcode_to_betti_curve(bcs)
 
 The output tensor has the same shape as the input.
+
+.. image:: _static/gallery_betti_pipeline_light.png
+   :width: 100%
+   :class: only-light
+
+.. image:: _static/gallery_betti_pipeline_dark.png
+   :width: 100%
+   :class: only-dark
+
+.. dropdown:: Show code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_plotting_gallery.py
+      :language: python
+      :start-after: docs snippet start betti_pipeline --
+      :end-before: docs snippet end betti_pipeline --
 
 Accumulated persistence functions
 ----------------------------------
