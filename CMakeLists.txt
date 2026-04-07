@@ -177,6 +177,9 @@ if (BUILD_WITH_CUDA)
     #
     # Maxwell (5.0, 5.2) supported through CUDA 12.6, dropped in 12.7+.
     # Blackwell (100, 120) requires CUDA 12.8+.
+    # Mirrors PyTorch's architecture list. Older GPUs (Pascal, Volta) and
+    # in-between archs (Ada Lovelace sm_89) are covered by binary compatibility
+    # or PTX JIT from sm_90.
     set(CMAKE_CUDA_ARCHITECTURES
       75-real
       80-real
@@ -184,7 +187,7 @@ if (BUILD_WITH_CUDA)
     )
     if (CUDAToolkit_VERSION VERSION_LESS "12.7")
       # Maxwell support: CUDA <= 12.6
-      list(PREPEND CMAKE_CUDA_ARCHITECTURES 50-real 52-real)
+      list(PREPEND CMAKE_CUDA_ARCHITECTURES 50-real)
     endif()
     if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
       # Blackwell native support

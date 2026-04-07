@@ -118,6 +118,22 @@ GPU acceleration provides the largest benefit for computations with many PCFs --
 
 For small problems (fewer than a few hundred PCFs), CPU execution is typically faster due to GPU launch overhead.
 
+Supported GPU architectures
+----------------------------
+
+Pre-built CUDA 12 wheels include native SASS for Maxwell through Hopper, plus PTX for forward compatibility:
+
+- **Maxwell** (sm_50) -- e.g. GTX 980, Tesla M40
+- **Turing** (sm_75) -- e.g. RTX 2080, Tesla T4
+- **Ampere** (sm_80, sm_86) -- e.g. A100, RTX 3090
+- **Hopper** (sm_90) -- e.g. H100 (also emits PTX for forward compat)
+
+GPUs with architectures in between or newer (e.g. Pascal GTX 1080, Ada Lovelace RTX 4090, Blackwell B200) are supported via binary compatibility or PTX JIT compilation.
+
+Pre-built CUDA 13 wheels additionally include native SASS for:
+
+- **Blackwell** (sm_100, sm_120) -- e.g. B200, RTX 5090
+
 32-bit vs. 64-bit
 -------------------
 
