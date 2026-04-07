@@ -30,9 +30,10 @@ class TestConstruction:
         assert m.size == 1
         assert m.storage_count == 1
 
-    def test_construct_requires_dtype(self):
-        with pytest.raises(ValueError, match="dtype is required"):
-            mpcf.SymmetricMatrix(5)
+    def test_construct_defaults_to_float64(self):
+        m = mpcf.SymmetricMatrix(5)
+        assert m.size == 5
+        assert m.dtype == mpcf.float64
 
     def test_construct_rejects_bad_dtype(self):
         with pytest.raises(TypeError, match="Unsupported dtype"):

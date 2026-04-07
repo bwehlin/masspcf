@@ -32,6 +32,11 @@ _dtype_to_cpp = {
 
 _cpp_types = (cpp.DistanceMatrix_f32, cpp.DistanceMatrix_f64)
 
+_CPP_TO_DTYPE = {
+    cpp.DistanceMatrix_f32: float32,
+    cpp.DistanceMatrix_f64: float64,
+}
+
 _DISTMAT_CPP_TO_DTYPE = {
     cpp.DistanceMatrix32Tensor: distmat32,
     cpp.DistanceMatrix64Tensor: distmat64,
@@ -72,6 +77,11 @@ class DistanceMatrix:
             self._data = _dtype_to_cpp[dtype](n_or_data)
         else:
             raise TypeError(f"Expected int, DistanceMatrix, or C++ DistanceMatrix; got {type(n_or_data)}")
+
+    @property
+    def dtype(self):
+        """Element precision (``float32`` or ``float64``)."""
+        return _CPP_TO_DTYPE[type(self._data)]
 
     @property
     def size(self) -> int:
