@@ -172,6 +172,28 @@ if (BUILD_WITH_CUDA)
   if (NOT SKBUILD)
     set(CMAKE_CUDA_ARCHITECTURES native)
   else()
+    # Query the CUDA version before project() enables the CUDA language,
+    # because CMAKE_CUDA_ARCHITECTURES must be set before the try-compile
+    # that happens during enable_language(CUDA). CUDAToolkit_VERSION is
+    # not available until find_package(CUDAToolkit), which is too late.
+    if (CMAKE_CUDA_COMPILER)
+      set(_NVCC_PATH "${CMAKE_CUDA_COMPILER}")
+    else()
+      find_program(_NVCC_PATH nvcc HINTS ENV CUDA_PATH PATH_SUFFIXES bin)
+    endif()
+    if (_NVCC_PATH)
+      execute_process(
+        COMMAND "${_NVCC_PATH}" --version
+        OUTPUT_VARIABLE _NVCC_VERSION_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+      string(REGEX MATCH "release ([0-9]+)\\.([0-9]+)" _NVCC_MATCH "${_NVCC_VERSION_OUTPUT}")
+      set(_CUDA_MAJOR "${CMAKE_MATCH_1}")
+      set(_CUDA_MINOR "${CMAKE_MATCH_2}")
+      set(_CUDA_VER "${_CUDA_MAJOR}.${_CUDA_MINOR}")
+      message(STATUS "!!! Detected CUDA ${_CUDA_VER} from nvcc for architecture selection")
+    endif()
+
     # Build SASS for each listed architecture, plus PTX for the highest
     # so that newer GPUs can JIT-compile at first launch.
     #
@@ -185,11 +207,11 @@ if (BUILD_WITH_CUDA)
       80-real
       86-real
     )
-    if (CUDAToolkit_VERSION VERSION_LESS "12.7")
+    if (NOT _CUDA_VER OR _CUDA_VER VERSION_LESS "12.7")
       # Maxwell support: CUDA <= 12.6
       list(PREPEND CMAKE_CUDA_ARCHITECTURES 50-real)
     endif()
-    if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+    if (_CUDA_VER VERSION_GREATER_EQUAL "12.8")
       # Blackwell native support
       list(APPEND CMAKE_CUDA_ARCHITECTURES 100-real 120-real)
     endif()
