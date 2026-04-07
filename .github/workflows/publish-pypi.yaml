@@ -65,11 +65,11 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/analysis.yaml
-    needs: compare
+    needs: check_version
 
   publish:
     runs-on: ubuntu-latest
-    needs: [analysis]
+    needs: [compare, analysis]
     if: github.actor == 'bwehlin'
     environment:
       name: pypi
