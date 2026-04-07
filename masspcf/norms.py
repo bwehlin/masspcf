@@ -63,7 +63,7 @@ def lp_norm(fs: PcfContainerLike, p=1, verbose=False):
 
     X = _to_tensor_pcf(fs)
 
-    backend, fs = _get_norms_backend(fs)
+    backend, _ = _get_norms_backend(X)
     out = np.zeros(X.shape, dtype=numpy_type(X))
 
     if p == 1:

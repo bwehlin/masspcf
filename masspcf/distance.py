@@ -119,7 +119,7 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
     if len(X.shape) != 1:
         raise ValueError("1d tensor expected.")
 
-    backend = _get_distance_backend(fs)
+    backend = _get_distance_backend(X)
 
     if p == 1:
         task, dm_or_dense = backend.pdist_l1(X._data)
@@ -165,7 +165,7 @@ def cdist(X: PcfContainerLike, Y: PcfContainerLike, p=1, verbose=True) -> FloatT
     Xt = _to_tensor_pcf(X)
     Yt = _to_tensor_pcf(Y)
 
-    backend = _get_distance_backend(X)
+    backend = _get_distance_backend(Xt)
 
     if p == 1:
         task, out = backend.cdist_l1(Xt._data, Yt._data)

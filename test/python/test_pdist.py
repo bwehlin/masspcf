@@ -140,3 +140,44 @@ def test_from_dense_rejects_asymmetric():
                        [2.0, 0.0]])
     with pytest.raises(ValueError, match="symmetric"):
         DistanceMatrix.from_dense(dense)
+
+
+# --- Tests for PcfContainerLike acceptance (list / single Pcf) ---
+
+
+def test_pdist_accepts_list_of_pcfs():
+    f = mpcf.Pcf(np.array([[0.0, 10.0], [2.0, 5.0], [3.0, 0.0]]))
+    g = mpcf.Pcf(np.array([[0.0, 5.0], [6.0, 0.0]]))
+
+    D = mpcf.pdist([f, g], verbose=False)
+
+    assert isinstance(D, DistanceMatrix)
+    assert D.size == 2
+    assert D[0, 0] == 0.0
+    assert D[0, 1] == pytest.approx(2 * 5 + 3 * 5)
+
+
+def test_cdist_accepts_lists_of_pcfs():
+    f = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.float64))
+    g = mpcf.Pcf(np.array([[0.0, 2.0], [1.0, 0.0]], dtype=np.float64))
+
+    D = mpcf.cdist([f], [g], verbose=False)
+
+    assert D.shape == (1, 1)
+    assert float(np.asarray(D).flat[0]) == pytest.approx(1.0)
+
+
+def test_lp_norm_accepts_list_of_pcfs():
+    f = mpcf.Pcf(np.array([[0.0, 3.0], [1.0, 0.0]], dtype=np.float64))
+
+    norms = mpcf.lp_norm([f], verbose=False)
+
+    assert norms.shape == (1,)
+    assert norms[0] == pytest.approx(3.0)
+
+
+def test_pdist_accepts_empty_list():
+    D = mpcf.pdist([], verbose=False)
+
+    assert isinstance(D, DistanceMatrix)
+    assert D.size == 0

@@ -340,7 +340,17 @@ def _to_tensor_pcf(fs: PcfContainerLike):
     if isinstance(fs, _PcfTensorBase):
         return fs
 
-    # TODO: Deal with lists/single pcfs
+    if isinstance(fs, Pcf):
+        return PcfTensor([fs])
+
+    if isinstance(fs, (list, tuple)):
+        if not fs:
+            return PcfTensor(fs)
+        first = fs[0] if not isinstance(fs[0], (list, tuple)) else fs[0][0]
+        if isinstance(first, Pcf):
+            if first.vtype in (int32, int64):
+                return IntPcfTensor(fs)
+            return PcfTensor(fs)
 
     raise TypeError("Input should be convertible to a PcfTensor.")
 
