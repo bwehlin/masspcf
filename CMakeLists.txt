@@ -222,8 +222,6 @@ if (BUILD_WITH_CUDA)
   # if CUDAToolkit_ROOT is still unset (handles the case where nvcc is on PATH but the
   # toolkit root was not automatically detected).
   if (NOT CUDAToolkit_ROOT AND CMAKE_CUDA_COMPILER)
-    message(STATUS "981273987398272319872139873219832798321738291732198732198732198327198321739821")
-
     get_filename_component(_CUDA_BIN_DIR "${CMAKE_CUDA_COMPILER}" DIRECTORY)
     get_filename_component(_CUDA_DERIVED_ROOT "${_CUDA_BIN_DIR}" DIRECTORY)
 
