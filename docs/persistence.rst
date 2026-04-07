@@ -12,7 +12,7 @@ Background
 
 The output is a **persistence barcode**: a collection of intervals :math:`[b_i, d_i)`, where each interval records the birth :math:`b_i` and death :math:`d_i` of a topological feature. Features that persist over a wide range of scales are considered significant, while short-lived features are often regarded as noise.
 
-masspcf provides two functional summaries of persistence barcodes, both of which are piecewise constant functions:
+masspcf provides three functional summaries of persistence barcodes, all of which are piecewise constant functions:
 
 - The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` [CR20]_ [GC17]_ [SCL17]_.
 - The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., [U17]_ [CM21]_).
