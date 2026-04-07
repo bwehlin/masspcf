@@ -30,6 +30,9 @@ jobs:
         env:
           BUILD_WITH_CUDA: "0"
 
+      - name: Install test dependencies
+        run: python3 -m pip install pytest scipy
+
       - name: Test sdist install
         working-directory: test
         run: python3 -m pytest python -x -q
