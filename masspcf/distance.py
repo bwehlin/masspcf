@@ -78,7 +78,7 @@ def lp_distance(f: Pcf, g: Pcf, p=1) -> float:
         return float(backend.lp_distance_lp(f._data, g._data, float(p)))
 
 
-def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
+def pdist(fs: PcfContainerLike, p=1, verbose=False) -> DistanceMatrix:
     r"""Compute the pairwise :math:`L_p` distance matrix for a 1-D tensor of PCFs.
 
     For a tensor :math:`(f_0, f_1, \ldots, f_{n-1})`, returns an
@@ -95,7 +95,7 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
         The :math:`p` parameter in the :math:`L_p` distance (must be
         :math:`\geq 1`), by default 1.
     verbose : bool, optional
-        Show progress information during computation, by default True.
+        Show progress information during computation, by default False.
 
     Returns
     -------
@@ -125,7 +125,7 @@ def pdist(fs: PcfContainerLike, p=1, verbose=True) -> DistanceMatrix:
     return DistanceMatrix(dm_or_dense)
 
 
-def cdist(X: PcfContainerLike, Y: PcfContainerLike, p=1, verbose=True) -> FloatTensor:
+def cdist(X: PcfContainerLike, Y: PcfContainerLike, p=1, verbose=False) -> FloatTensor:
     r"""Compute the pairwise :math:`L_p` distances between two tensors of PCFs.
 
     For tensors :math:`X` of shape :math:`(m_1, \ldots, m_n)` and :math:`Y` of
@@ -146,7 +146,7 @@ def cdist(X: PcfContainerLike, Y: PcfContainerLike, p=1, verbose=True) -> FloatT
         The :math:`p` parameter in the :math:`L_p` distance (must be
         :math:`\geq 1`), by default 1.
     verbose : bool, optional
-        Show progress information during computation, by default True.
+        Show progress information during computation, by default False.
 
     Returns
     -------

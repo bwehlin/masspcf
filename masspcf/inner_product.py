@@ -24,7 +24,7 @@ from .typing import pcf32, pcf64
 _INNER_PRODUCT_BACKEND_MAP = {pcf32: cpp.InnerProduct_f32_f32, pcf64: cpp.InnerProduct_f64_f64}
 
 
-def l2_kernel(fs: PcfContainerLike, verbose=True) -> SymmetricMatrix:
+def l2_kernel(fs: PcfContainerLike, verbose=False) -> SymmetricMatrix:
     r"""Compute the pairwise :math:`L_2` kernel matrix for a 1-D tensor of PCFs.
 
     For a tensor :math:`(f_0, f_1, \ldots, f_{n-1})`, returns an
@@ -39,7 +39,7 @@ def l2_kernel(fs: PcfContainerLike, verbose=True) -> SymmetricMatrix:
     fs : PcfContainerLike
         A 1-D tensor of PCFs.
     verbose : bool, optional
-        Show progress information during computation, by default True.
+        Show progress information during computation, by default False.
 
     Returns
     -------

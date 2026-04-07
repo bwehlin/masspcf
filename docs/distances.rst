@@ -68,9 +68,9 @@ The ``p`` parameter controls which :math:`L_p` distance is computed::
 Progress output
 ---------------
 
-By default, ``pdist`` prints progress information during computation. To suppress this, pass ``verbose=False``::
+By default, progress output is suppressed. To show a progress bar during computation, pass ``verbose=True``::
 
-   D = mpcf.pdist(X, verbose=False)
+   D = mpcf.pdist(X, verbose=True)
 
 Input requirements
 ------------------

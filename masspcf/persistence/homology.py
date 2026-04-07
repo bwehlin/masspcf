@@ -54,7 +54,7 @@ def compute_persistent_homology(
     distance_type: DistanceType = DistanceType.Euclidean,
     complex_type: ComplexType = ComplexType.VietorisRips,
     reduced: bool = False,
-    verbose: bool = True,
+    verbose: bool = False,
 ) -> BarcodeTensor:
     r"""Compute persistent homology of a point cloud or distance matrix.
 
@@ -88,7 +88,7 @@ def compute_persistent_homology(
         If ``False`` (default), an infinite bar ``[0, inf)`` is added to
         H0 representing the single connected component.
     verbose : bool, optional
-        Show progress information, by default True.
+        Show progress information, by default False.
 
     Returns
     -------

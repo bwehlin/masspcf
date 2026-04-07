@@ -31,7 +31,7 @@ _BACKEND_MAP = {
 _BARCODE_TO_PCF_DTYPE = {barcode32: pcf32, barcode64: pcf64}
 
 
-def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
+def _barcode_to_pcf(bc, single_method, task_method, verbose=False, **kwargs):
     """Shared implementation for barcode-to-PCF conversions."""
 
     backend, X = _get_backend(bc, _BACKEND_MAP)
@@ -54,7 +54,7 @@ def _barcode_to_pcf(bc, single_method, task_method, verbose=True, **kwargs):
 
 
 def barcode_to_stable_rank(
-    bc: Barcode | BarcodeTensor, verbose=True
+    bc: Barcode | BarcodeTensor, verbose=False
 ):
     r"""Convert barcodes to stable rank functions.
 
@@ -67,7 +67,7 @@ def barcode_to_stable_rank(
     bc : Barcode or BarcodeTensor
         A single barcode or a tensor of barcodes.
     verbose : bool, optional
-        Show progress information, by default True.
+        Show progress information, by default False.
 
     Returns
     -------
@@ -87,7 +87,7 @@ def barcode_to_stable_rank(
 
 
 def barcode_to_betti_curve(
-    bc: Barcode | BarcodeTensor, verbose=True
+    bc: Barcode | BarcodeTensor, verbose=False
 ):
     r"""Convert barcodes to Betti curves.
 
@@ -100,7 +100,7 @@ def barcode_to_betti_curve(
     bc : Barcode or BarcodeTensor
         A single barcode or a tensor of barcodes.
     verbose : bool, optional
-        Show progress information, by default True.
+        Show progress information, by default False.
 
     Returns
     -------
@@ -150,7 +150,7 @@ def barcode_to_accumulated_persistence(
         If finite, exclude bars whose death time exceeds this value.
         By default ``inf`` (all finite bars included).
     verbose : bool, optional
-        Show progress information, by default True.
+        Show progress information, by default False.
 
     Returns
     -------
