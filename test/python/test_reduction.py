@@ -130,3 +130,19 @@ def test_max_time_2d():
     result1_np = np.asarray(result1)
     assert result1_np[0] == pytest.approx(10.0, abs=1e-5)
     assert result1_np[1] == pytest.approx(8.0, abs=1e-5)
+
+
+def test_max_time_with_default_pcf():
+    """Default-constructed PCFs (single breakpoint at t=0) should not crash."""
+    X = mpcf.zeros((3,))
+    result = mpcf.max_time(X)
+    assert result == pytest.approx(0.0)
+
+
+def test_max_time_mixed_default_and_nondefault():
+    """max_time should reflect the non-zero PCFs, not be dragged down by defaults."""
+    X = mpcf.zeros((3,))
+    X[1] = mpcf.Pcf(np.array([[0.0, 1.0], [5.0, 0.0]], dtype=np.float32))
+
+    result = mpcf.max_time(X)
+    assert result == pytest.approx(5.0, abs=1e-5)

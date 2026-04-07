@@ -42,6 +42,8 @@ namespace
     static mpcf::Tensor<Tt> max_time(const tensor_type& tensor, size_t dim)
     {
       return mpcf::max_element(tensor, dim, [](const pcf_type& pcf){
+        if (pcf.points().empty())
+          return Tt{0};
         return pcf.points().back().t;
       }, [](Tt a, Tt b){ return std::max(a,b); });
     }
