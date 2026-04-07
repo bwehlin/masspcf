@@ -121,10 +121,10 @@ def main(input_path, verbose=False):
         print()
 
     # Verify CUDA wheels contain both CUDA 12 and CUDA 13 modules
-    CUDA_PLATFORMS = ("linux_x86_64", "win_amd64")
+    CUDA_PLATFORMS = ("manylinux_*_x86_64", "win_amd64")
     print("CUDA module check:")
     for name in names:
-        if not any(p in name for p in CUDA_PLATFORMS):
+        if not any(fnmatch(name, f"*{p}*") for p in CUDA_PLATFORMS):
             print(f"  ⏭️  {name}: non-CUDA platform, skipped")
             continue
         all_files = raw[name]
