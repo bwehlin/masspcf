@@ -14,9 +14,9 @@ The output is a **persistence barcode**: a collection of intervals :math:`[b_i, 
 
 masspcf provides three functional summaries of persistence barcodes, all of which are piecewise constant functions:
 
-- The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` [CR20]_ [GC17]_ [SCL17]_.
-- The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., [U17]_ [CM21]_).
-- The **accumulated persistence function** (APF) sums, for each mean age :math:`m`, the lifetimes of all bars whose midpoint is at most :math:`m` [BM19]_.
+- The (1d) **stable rank** counts, for each threshold :math:`t`, how many bars have length at least :math:`t` :footcite:`Chacholski2020,Gafvert2017,Scolamiero2017`.
+- The **Betti curve** counts, for each filtration value :math:`t`, how many bars are alive at :math:`t` (see, e.g., :footcite:`Umeda2017,Chazal2021`).
+- The **accumulated persistence function** (APF) sums, for each mean age :math:`m`, the lifetimes of all bars whose midpoint is at most :math:`m` :footcite:`Biscio2019`.
 
 Because these summaries are PCFs, they fit naturally into masspcf's tensor framework, enabling efficient computation of distances and means over collections of barcodes.
 
@@ -68,7 +68,7 @@ Higher-dimensional tensors work as well::
 Step 2: Computing persistent homology
 =======================================
 
-:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser [B21]_ under the hood::
+:py:func:`~masspcf.persistence.compute_persistent_homology` takes a tensor of point clouds and returns a tensor of persistence barcodes. Barcode computation is performed using Ripser :footcite:`Bauer2021` under the hood::
 
    from masspcf import persistence as mpers
 
@@ -145,7 +145,7 @@ Stable ranks
 :py:func:`~masspcf.persistence.barcode_to_stable_rank` converts barcodes into
 stable rank PCFs. The stable rank counts, for each threshold :math:`t`, the
 number of bars with length (death minus birth) strictly greater than :math:`t`
-[CR20]_::
+:footcite:`Chacholski2020`::
 
    sranks = mpers.barcode_to_stable_rank(bcs)
 
@@ -199,7 +199,7 @@ Accumulated persistence functions
 ----------------------------------
 
 :py:func:`~masspcf.persistence.barcode_to_accumulated_persistence` converts
-barcodes into accumulated persistence functions (APFs) [BM19]_. For each mean
+barcodes into accumulated persistence functions (APFs) :footcite:`Biscio2019`. For each mean
 age :math:`m`, the APF sums the lifetimes of all bars whose midpoint is at
 most :math:`m`:
 
@@ -234,7 +234,7 @@ lifetime, :math:`m_i = (b_i + d_i)/2` is the midpoint of bar :math:`i`, and
       :end-before: docs snippet end apf --
 
 An optional ``max_death`` parameter excludes bars whose death time exceeds
-a given threshold. This corresponds to Equation (2) in [BM19]_, where a
+a given threshold. This corresponds to Equation (2) in :footcite:`Biscio2019`, where a
 filtration cutoff :math:`T` limits the computation to bars with
 :math:`d_i \leq T`::
 
@@ -338,16 +338,5 @@ You can also convert a single barcode to a stable rank::
 References
 ==========
 
-.. [B21] Bauer, U. (2021). Ripser: efficient computation of Vietoris–Rips persistence barcodes. *Journal of Applied and Computational Topology*, 5(3), 391–423.
 
-.. [BM19] Biscio, C. A. N., & Møller, J. (2019). The accumulated persistence function, a new useful functional summary statistic for topological data analysis, with a view to brain artery trees and spatial point process applications. *Journal of Computational and Graphical Statistics*, 28(3), 671–681.
-
-.. [CR20] Chachólski, W., & Riihimäki, H. (2020). Metrics and stabilization in one parameter persistence. *SIAM Journal on Applied Algebra and Geometry*, 4(1), 69–98.
-
-.. [GC17] Gäfvert, O., & Chachólski, W. (2017). Stable invariants for multiparameter persistence. *arXiv preprint* arXiv:1703.03632.
-
-.. [SCL17] Scolamiero, M., Chachólski, W., Lundman, A., Ramanujam, R., & Öberg, S. (2017). Multidimensional persistence and noise. *Foundations of Computational Mathematics*, 17, 1367–1406.
-
-.. [U17] Umeda, Y. (2017). Time series classification via topological data analysis. *Information and Media Technologies*, 12, 228–239.
-
-.. [CM21] Chazal, F., & Michel, B. (2021). An introduction to topological data analysis: fundamental and practical aspects for data scientists. *Frontiers in Artificial Intelligence*, 4, 667963.
+.. footbibliography::

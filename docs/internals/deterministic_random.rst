@@ -10,7 +10,7 @@ This mechanism underpins all random operations in masspcf -- generating noisy PC
 Design goal
 ============
 
-Several operations populate tensors element-wise with random data: ``sample_poisson`` fills a point cloud tensor with Poisson-distributed points, ``noisy_sin`` fills a PCF tensor with noisy discretizations, and so on. These operations are parallelized across threads via Taskflow [HLH21]_.
+Several operations populate tensors element-wise with random data: ``sample_poisson`` fills a point cloud tensor with Poisson-distributed points, ``noisy_sin`` fills a PCF tensor with noisy discretizations, and so on. These operations are parallelized across threads via Taskflow :footcite:`Huang2021`.
 
 In a parallel setting, the order in which elements are visited depends on the thread scheduler -- this is non-deterministic. A shared RNG would produce different results on every run. The requirement is: **same seed, same results, always** -- independent of the number of threads, the order of execution, or the platform.
 
@@ -30,7 +30,7 @@ Any function that needs per-element randomness simply calls ``walk()`` or ``para
 Engine: xoroshiro128++
 =======================
 
-The default engine is ``Xoroshiro128pp``, an implementation of xoroshiro128++ [BV21]_. It satisfies the C++ ``UniformRandomBitGenerator`` concept, so it works with all standard distribution types (``std::normal_distribution``, ``std::poisson_distribution``, etc.).
+The default engine is ``Xoroshiro128pp``, an implementation of xoroshiro128++ :footcite:`Blackman2021`. It satisfies the C++ ``UniformRandomBitGenerator`` concept, so it works with all standard distribution types (``std::normal_distribution``, ``std::poisson_distribution``, etc.).
 
 The engine takes two 64-bit state words (``s0``, ``s1``) and produces 64-bit output. The core algorithm lives in ``detail/xoroshiro128pp_impl.hpp`` (public domain reference code, unmodified), while the engine wrapper is in ``xoroshiro128pp.hpp``.
 
@@ -38,7 +38,7 @@ Key properties:
 
 - **128-bit state** -- two ``uint64_t`` words, vs 2.5 KB for ``mt19937_64``
 - **Period** -- :math:`2^{128} - 1`, far more than needed for per-element streams
-- **Quality** -- passes BigCrush [LS07]_
+- **Quality** -- passes BigCrush :footcite:`LEcuyer2007`
 - **Speed** -- significantly faster than both ``mt19937_64`` and counter-based alternatives (Philox) for the init-then-draw pattern used here
 
 
@@ -57,7 +57,7 @@ For the default engine, the seeding chain is:
        -> s1 = splitmix64(s0)
        -> Xoroshiro128pp(s0, s1)
 
-This follows the recommended seeding approach from [BV21]_: chain ``splitmix64`` outputs to fill the state words, feeding each output as the next input. Since ``splitmix64`` is a bijection, this guarantees two distinct, well-distributed state words and avoids the all-zeros state (which xoroshiro cannot be in).
+This follows the recommended seeding approach from :footcite:`Blackman2021`: chain ``splitmix64`` outputs to fill the state words, feeding each output as the next input. Since ``splitmix64`` is a bijection, this guarantees two distinct, well-distributed state words and avoids the all-zeros state (which xoroshiro cannot be in).
 
 The default ``make_engine`` for other engine types applies a single ``splitmix64`` and forwards to the engine's constructor:
 
@@ -75,7 +75,7 @@ Adding support for a new engine type requires only a ``make_engine`` specializat
 splitmix64
 -----------
 
-Raw addition (``seed + index``) would produce correlated seeds for nearby indices. The ``splitmix64`` hash function [SLF14]_ transforms the sum into a well-distributed 64-bit value:
+Raw addition (``seed + index``) would produce correlated seeds for nearby indices. The ``splitmix64`` hash function :footcite:`Steele2014` transforms the sum into a well-distributed 64-bit value:
 
 .. code-block:: cpp
 
@@ -211,10 +211,5 @@ The walk infrastructure, consumer functions, and Python bindings do not change.
 References
 ==========
 
-.. [BV21] Blackman, D., & Vigna, S. (2021). Scrambled linear pseudorandom number generators. *ACM Transactions on Mathematical Software*, 47(4), 1–32.
 
-.. [HLH21] Huang, T. W., Lin, D. L., Lin, C. X., & Lin, Y. (2021). Taskflow: a lightweight parallel and heterogeneous task graph computing system. *IEEE Transactions on Parallel and Distributed Systems*, 33(6), 1303–1320.
-
-.. [LS07] L'Ecuyer, P., & Simard, R. (2007). TestU01: a C library for empirical testing of random number generators. *ACM Transactions on Mathematical Software*, 33(4), 1–40.
-
-.. [SLF14] Steele Jr, G. L., Lea, D., & Flood, C. H. (2014). Fast splittable pseudorandom number generators. *ACM SIGPLAN Notices*, 49(10), 453–472.
+.. footbibliography::

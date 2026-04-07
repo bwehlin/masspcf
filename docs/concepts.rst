@@ -73,7 +73,7 @@ Iterating over rectangles
 
 Given two PCFs :math:`f` and :math:`g`, :py:func:`~masspcf.iterate_rectangles` produces the list of intervals on which both functions are constant. Each interval is returned as a :py:class:`~masspcf.functional.pcf.Rectangle` with four properties: ``left`` and ``right`` (the time boundaries) and ``f_value`` and ``g_value`` (the values of each function on that interval).
 
-This corresponds to the rectangle decomposition described in [W24]_ and is useful for inspecting how two PCFs interact or for implementing custom integration-like operations::
+This corresponds to the rectangle decomposition described in :footcite:`Wehlin2024` and is useful for inspecting how two PCFs interact or for implementing custom integration-like operations::
 
    import masspcf as mpcf
 
@@ -99,9 +99,6 @@ Optional ``a`` and ``b`` parameters restrict the iteration to a sub-interval::
    large collections, use the dedicated functions (:py:func:`~masspcf.pdist`,
    :py:func:`~masspcf.lp_norm`, etc.) which are implemented in optimized
    C++/CUDA.
-
-.. [W24] Wehlin, B. H. (2024). Massively parallel computation of similarity matrices from piecewise constant invariants. *arXiv preprint* arXiv:2404.07183.
-
 
 Tensors
 =======
@@ -356,3 +353,10 @@ CPU and GPU execution
 =====================
 
 masspcf automatically detects available NVIDIA GPUs and uses them for computations when beneficial. The library decides at runtime whether to execute a given operation on the CPU or GPU based on problem size. See :doc:`gpu` for details on GPU detection, controlling execution, and performance considerations.
+
+
+References
+==========
+
+
+.. footbibliography::

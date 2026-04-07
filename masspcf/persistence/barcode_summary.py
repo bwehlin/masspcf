@@ -60,7 +60,7 @@ def barcode_to_stable_rank(
 
     The stable rank of a barcode is the PCF that counts, for each
     :math:`t \geq 0`, the number of bars with length (death minus birth)
-    strictly greater than :math:`t` [stable_rank_ref]_.
+    strictly greater than :math:`t` :footcite:`Chacholski2020`.
 
     Parameters
     ----------
@@ -74,12 +74,6 @@ def barcode_to_stable_rank(
     Pcf or PcfTensor
         A single ``Pcf`` if the input is a single ``Barcode``, otherwise a
         ``PcfTensor`` with the same shape as the input.
-
-    References
-    ----------
-    .. [stable_rank_ref] W. Chachólski and H. Riihimäki, "Metrics and
-       stabilization in one parameter persistence", *SIAM Journal on
-       Applied Algebra and Geometry*, vol. 4, no. 1, pp. 69--98, 2020.
     """
     return _barcode_to_pcf(
         bc, "barcode_to_stable_rank", "spawn_barcode_to_stable_rank_task", verbose
@@ -93,7 +87,7 @@ def barcode_to_betti_curve(
 
     The Betti curve is the PCF that counts, for each filtration value
     :math:`t \geq 0`, the number of bars alive at :math:`t`
-    (i.e., bars with birth :math:`\leq t <` death) [betti_ref1]_ [betti_ref2]_.
+    (i.e., bars with birth :math:`\leq t <` death) :footcite:`Umeda2017,Chazal2021`.
 
     Parameters
     ----------
@@ -107,15 +101,6 @@ def barcode_to_betti_curve(
     Pcf or PcfTensor
         A single ``Pcf`` if the input is a single ``Barcode``, otherwise a
         ``PcfTensor`` with the same shape as the input.
-
-    References
-    ----------
-    .. [betti_ref1] Y. Umeda, "Time series classification via topological
-       data analysis", *Information and Media Technologies*, vol. 12,
-       pp. 228--239, 2017.
-    .. [betti_ref2] F. Chazal and B. Michel, "An introduction to topological
-       data analysis: fundamental and practical aspects for data scientists",
-       *Frontiers in Artificial Intelligence*, vol. 4, 667963, 2021.
     """
     return _barcode_to_pcf(
         bc, "barcode_to_betti_curve", "spawn_barcode_to_betti_curve_task", verbose
@@ -137,7 +122,7 @@ def barcode_to_accumulated_persistence(
 
     where :math:`N` is the number of bars, :math:`\ell_i = d_i - b_i` is the
     lifetime of bar :math:`i`, and :math:`m_i = (b_i + d_i) / 2` is its
-    midpoint [apf_ref]_.
+    midpoint :footcite:`Biscio2019`.
 
     When ``max_death`` is finite, only bars with :math:`d_i \leq`
     ``max_death`` are included (Equation 2 in the paper).
@@ -157,14 +142,6 @@ def barcode_to_accumulated_persistence(
     Pcf or PcfTensor
         A single ``Pcf`` if the input is a single ``Barcode``, otherwise a
         ``PcfTensor`` with the same shape as the input.
-
-    References
-    ----------
-    .. [apf_ref] C. A. N. Biscio and J. Moller, "The accumulated persistence
-       function, a new useful functional summary statistic for topological
-       data analysis, with a view to brain artery trees and spatial point
-       process applications", *Journal of Computational and Graphical
-       Statistics*, vol. 28, no. 3, pp. 671--681, 2019.
     """
     return _barcode_to_pcf(
         bc, "barcode_to_accumulated_persistence",

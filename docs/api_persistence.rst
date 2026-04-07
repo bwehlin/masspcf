@@ -37,3 +37,8 @@ barcode_summary
    :members:
    :undoc-members:
    :show-inheritance:
+
+References
+----------
+
+.. footbibliography::

@@ -36,7 +36,11 @@ extensions = [
     "nbsphinx",
     "sphinx_design",
     "sphinxcontrib.mermaid",
+    "sphinxcontrib.bibtex",
 ]
+
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "unsrt"
 #'breathe',
 #'exhale']
 

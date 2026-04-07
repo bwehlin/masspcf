@@ -5,6 +5,7 @@ tqdm
 matplotlib
 sphinxcontrib-youtube
 sphinxcontrib-mermaid
+sphinxcontrib-bibtex
 myst-parser
 nbsphinx
 IPython
