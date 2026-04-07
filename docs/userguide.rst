@@ -16,4 +16,3 @@ User guide
    persistence
    point_processes
    gpu
-   tutorials
