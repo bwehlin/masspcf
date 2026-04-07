@@ -355,14 +355,4 @@ Each dtype family comes in 32-bit and 64-bit variants. The 32-bit variants use l
 CPU and GPU execution
 =====================
 
-masspcf automatically detects available NVIDIA GPUs and uses them for computations when beneficial. The library decides at runtime whether to execute a given operation on the CPU or GPU based on problem size.
-
-You can query GPU availability::
-
-   from masspcf import gpu
-
-   gpu.has_nvidia_gpu()       # True/False
-   gpu.nvidia_gpu_count()     # Number of GPUs
-   gpu.detect_nvidia_gpus()   # Detailed GPU info
-
-For more control, the :py:mod:`masspcf.system` module provides options to force CPU execution, limit the number of GPUs or CPU threads, and tune CUDA parameters. Most users will not need to change these settings.
+masspcf automatically detects available NVIDIA GPUs and uses them for computations when beneficial. The library decides at runtime whether to execute a given operation on the CPU or GPU based on problem size. See :doc:`gpu` for details on GPU detection, controlling execution, and performance considerations.
