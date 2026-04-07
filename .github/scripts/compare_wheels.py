@@ -120,6 +120,28 @@ def main(input_path, verbose=False):
                 dump_contents(name, raw[name])
         print()
 
+    # Verify CUDA wheels contain both CUDA 12 and CUDA 13 modules
+    CUDA_PLATFORMS = ("linux_x86_64", "win_amd64")
+    print("CUDA module check:")
+    for name in names:
+        if not any(p in name for p in CUDA_PLATFORMS):
+            print(f"  ⏭️  {name}: non-CUDA platform, skipped")
+            continue
+        all_files = raw[name]
+        has_cuda12 = any(fnmatch(f, "masspcf/_mpcf_cuda12*") for f in all_files)
+        has_cuda13 = any(fnmatch(f, "masspcf/_mpcf_cuda13*") for f in all_files)
+        if has_cuda12 and has_cuda13:
+            print(f"  ✅ {name}: contains CUDA 12 and CUDA 13 modules")
+        else:
+            failed = True
+            missing = []
+            if not has_cuda12:
+                missing.append("CUDA 12")
+            if not has_cuda13:
+                missing.append("CUDA 13")
+            print(f"  ❌ {name}: missing {', '.join(missing)} module!")
+    print()
+
     return 1 if failed else 0
 
 
