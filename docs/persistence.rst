@@ -72,14 +72,14 @@ Step 2: Computing persistent homology
 
    from masspcf import persistence as mpers
 
-   bcs = mpers.compute_persistent_homology(pclouds, maxDim=1)
+   bcs = mpers.compute_persistent_homology(pclouds, max_dim=1)
 
-The ``maxDim`` parameter controls the highest homology dimension computed. With ``maxDim=1``, the function computes :math:`H_0` (connected components) and :math:`H_1` (loops).
+The ``max_dim`` parameter controls the highest homology dimension computed. With ``max_dim=1``, the function computes :math:`H_0` (connected components) and :math:`H_1` (loops).
 
-The output tensor has one extra dimension appended, of size ``maxDim + 1``. For example:
+The output tensor has one extra dimension appended, of size ``max_dim + 1``. For example:
 
-- Input shape ``(5,)`` with ``maxDim=1`` produces output shape ``(5, 2)``
-- Input shape ``(10, 20)`` with ``maxDim=2`` produces output shape ``(10, 20, 3)``
+- Input shape ``(5,)`` with ``max_dim=1`` produces output shape ``(5, 2)``
+- Input shape ``(10, 20)`` with ``max_dim=2`` produces output shape ``(10, 20, 3)``
 
 To access the :math:`H_n` barcode for a specific point cloud, index with the point cloud's position followed by ``n``::
 
@@ -102,7 +102,7 @@ Input flexibility
 
    # From a NumPy array directly
    points = np.random.randn(50, 3)
-   bcs = mpers.compute_persistent_homology(points, maxDim=1)
+   bcs = mpers.compute_persistent_homology(points, max_dim=1)
 
 When the input is a distance matrix, the ``distance_type`` parameter is
 ignored because distances are already provided::
@@ -119,7 +119,7 @@ ignored because distances are already provided::
        for j in range(i):
            dm[i, j] = D[i, j]
 
-   bcs = mpers.compute_persistent_homology(dm, maxDim=1)
+   bcs = mpers.compute_persistent_homology(dm, max_dim=1)
 
 Options
 -------
@@ -268,7 +268,7 @@ The following example creates a multidimensional tensor of random point clouds, 
            pclouds[i, j] = np.random.randn(n_points, pcloud_dim)
 
    # Compute persistent homology (H0 and H1)
-   bcs = mpers.compute_persistent_homology(pclouds, maxDim=1)
+   bcs = mpers.compute_persistent_homology(pclouds, max_dim=1)
    print(bcs.shape)   # (10, 20, 2)
 
    # Convert to stable ranks

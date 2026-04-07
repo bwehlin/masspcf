@@ -115,7 +115,7 @@ def plot_tda_pipeline(h0_color="steelblue", h1_color="orangered"):
     points = np.column_stack([r * np.cos(theta), r * np.sin(theta)]).astype(np.float64)
 
     # 2. Compute persistent homology
-    bcs = mpers.compute_persistent_homology(points, maxDim=1, verbose=False)
+    bcs = mpers.compute_persistent_homology(points, max_dim=1, verbose=False)
     bc_h0, bc_h1 = bcs[0], bcs[1]
 
     # 3. Convert to stable rank
@@ -175,7 +175,7 @@ def plot_betti_pipeline(h0_color="steelblue", h1_color="orangered"):
     points = np.column_stack([r * np.cos(theta), r * np.sin(theta)]).astype(np.float64)
 
     # 2. Compute persistent homology
-    bcs = mpers.compute_persistent_homology(points, maxDim=1, verbose=False)
+    bcs = mpers.compute_persistent_homology(points, max_dim=1, verbose=False)
     bc_h0, bc_h1 = bcs[0], bcs[1]
 
     # 3. Convert to Betti curves
@@ -225,7 +225,7 @@ def plot_apf_example(h0_color="steelblue", h1_color="orangered"):
     r = 1.0 + rng.normal(0, 0.15, 30)
     points = np.column_stack([r * np.cos(theta), r * np.sin(theta)]).astype(np.float64)
 
-    bcs = mpers.compute_persistent_homology(points, maxDim=1, verbose=False)
+    bcs = mpers.compute_persistent_homology(points, max_dim=1, verbose=False)
     bc_h0, bc_h1 = bcs[0], bcs[1]
     apfs = mpers.barcode_to_accumulated_persistence(bcs, verbose=False)
 
