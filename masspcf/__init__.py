@@ -17,6 +17,7 @@ __before = set(dir())
 
 from . import random, system
 from ._tensor_base import Shape
+from .comparison import allclose
 from .distance import cdist, lp_distance, pdist
 from .inner_product import l2_kernel
 from .io import load, save

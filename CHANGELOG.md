@@ -15,7 +15,7 @@ Major rewrite of the core data structures and significant expansion of the API.
 * **Plotting** — built-in plotting for barcodes (matplotlib).
 * **`lp_distance`** — scalar Lp distance between two individual PCFs.
 * **`cdist`** — cross-distance matrices between two collections of PCFs.
-* **`allclose`, `all_of`, `any_of`** — free functions for element-wise tensor comparisons.
+* **`allclose`** — free function for element-wise approximate equality (FloatTensor, DistanceMatrix, SymmetricMatrix).
 * **`pickle` support** — all tensor types can be pickled and unpickled.
 * **Deterministic random generation** — seedable `Generator` for reproducible output across threads.
 * **`point_process` submodule** — `sample_poisson` for sampling spatial Poisson point processes.
