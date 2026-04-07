@@ -72,7 +72,7 @@ if gen_cpp_docs:
 
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**/.virtual_documents"]
 
 
 # -- Options for HTML output -------------------------------------------------
