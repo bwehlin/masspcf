@@ -37,6 +37,9 @@ jobs:
           python3 -m venv --system-site-packages ${{github.workspace}}/.venv
           echo "${{github.workspace}}/.venv/bin" >> $GITHUB_PATH
 
+      - name: Install build tool
+        run: python3 -m pip install build
+
       - name: Build sdist
         run: python3 -m build --sdist
 
