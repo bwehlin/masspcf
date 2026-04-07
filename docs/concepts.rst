@@ -68,6 +68,41 @@ other PCFs and with scalars::
 
 See :doc:`arithmetic` for the full arithmetic reference, including broadcasting.
 
+Iterating over rectangles
+--------------------------
+
+Given two PCFs :math:`f` and :math:`g`, :py:func:`~masspcf.iterate_rectangles` produces the list of intervals on which both functions are constant. Each interval is returned as a :py:class:`~masspcf.functional.pcf.Rectangle` with four properties: ``left`` and ``right`` (the time boundaries) and ``f_value`` and ``g_value`` (the values of each function on that interval).
+
+This corresponds to the rectangle decomposition described in [W24]_ and is useful for inspecting how two PCFs interact or for implementing custom integration-like operations::
+
+   import masspcf as mpcf
+
+   f = mpcf.Pcf([[0, 1.0], [2, 3.0], [5, 0.0]])
+   g = mpcf.Pcf([[0, 2.0], [3, 1.0], [5, 0.0]])
+
+   rects = mpcf.iterate_rectangles(f, g)
+   for r in rects:
+       print(f"[{r.left}, {r.right}): f={r.f_value}, g={r.g_value}")
+   # [0.0, 2.0): f=1.0, g=2.0
+   # [2.0, 3.0): f=3.0, g=2.0
+   # [3.0, 5.0): f=3.0, g=1.0
+   # [5.0, inf): f=0.0, g=0.0
+
+Optional ``a`` and ``b`` parameters restrict the iteration to a sub-interval::
+
+   rects = mpcf.iterate_rectangles(f, g, a=1.0, b=4.0)
+
+.. note::
+
+   ``iterate_rectangles`` is intended for exploration and prototyping. For
+   performance-critical workloads such as computing distances or norms over
+   large collections, use the dedicated functions (:py:func:`~masspcf.pdist`,
+   :py:func:`~masspcf.lp_norm`, etc.) which are implemented in optimized
+   C++/CUDA.
+
+.. [W24] Wehlin, B. H. (2024). Massively parallel computation of similarity matrices from piecewise constant invariants. *arXiv preprint* arXiv:2404.07183.
+
+
 Tensors
 =======
 
