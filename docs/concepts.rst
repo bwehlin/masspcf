@@ -161,6 +161,9 @@ There are several concrete tensor types, each corresponding to a dtype:
    * - ``FloatTensor``
      - ``float32`` / ``float64``
      - Floating-point scalars
+   * - ``IntTensor``
+     - ``int32`` / ``int64`` / ``uint32`` / ``uint64``
+     - Integer scalars
    * - ``PointCloudTensor``
      - ``pcloud32`` / ``pcloud64``
      - Point clouds
@@ -233,9 +236,9 @@ The ``dtype`` parameter controls the element type of a tensor, analogous to NumP
    * - ``float32`` / ``float64``
      - float
      - Scalar floating-point values
-   * - ``int32`` / ``int64``
+   * - ``int32`` / ``int64`` / ``uint32`` / ``uint64``
      - int
-     - Scalar integer values
+     - Scalar integer values (signed and unsigned)
    * - ``pcloud32`` / ``pcloud64``
      - float
      - Point clouds
@@ -269,8 +272,10 @@ Numeric types
 
 These are used for tensors that hold scalar values, such as the results of norm or distance computations.
 
-- :py:class:`~masspcf.int32` -- 32-bit integer scalars
-- :py:class:`~masspcf.int64` -- 64-bit integer scalars
+- :py:class:`~masspcf.int32` -- 32-bit signed integer scalars
+- :py:class:`~masspcf.int64` -- 64-bit signed integer scalars
+- :py:class:`~masspcf.uint32` -- 32-bit unsigned integer scalars
+- :py:class:`~masspcf.uint64` -- 64-bit unsigned integer scalars
 
 These are used for tensors that hold integer values.
 

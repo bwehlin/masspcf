@@ -18,7 +18,7 @@ In addition to the released versions of `masspcf` that are available on `PyPI`, 
     cd masspcf
 
     # optional: select a specific tagged version to build
-    git checkout tags/v0.3.1
+    git checkout tags/v0.4.0
 
     pip install .
 

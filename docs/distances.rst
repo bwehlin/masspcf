@@ -89,6 +89,30 @@ GPU acceleration
 For large collections of PCFs, ``pdist`` automatically offloads the computation to the GPU when one is available. The number of pairwise integrals grows as :math:`n(n-1)/2`, so GPU acceleration can provide dramatic speedups for large :math:`n`.
 
 
+Cross-distances
+================
+
+:py:func:`~masspcf.cdist` computes the pairwise :math:`L_p` distances between two tensors of PCFs. Unlike ``pdist``, the two input tensors can differ in shape and size. The result is a :py:class:`~masspcf.FloatTensor` whose shape is the concatenation of the two input shapes.
+
+::
+
+   import masspcf as mpcf
+   from masspcf.random import noisy_sin, noisy_cos
+
+   X = noisy_sin((30,), n_points=100)
+   Y = noisy_cos((20,), n_points=100)
+
+   D = mpcf.cdist(X, Y)          # shape (30, 20)
+   D2 = mpcf.cdist(X, Y, p=2)   # L2 cross-distances
+
+Higher-dimensional tensors are supported -- the output shape is ``(*X.shape, *Y.shape)``::
+
+   A = noisy_sin((5, 10), n_points=50)
+   B = noisy_cos((8,), n_points=50)
+
+   D = mpcf.cdist(A, B)   # shape (5, 10, 8)
+
+
 L2 kernel matrices
 ===================
 
