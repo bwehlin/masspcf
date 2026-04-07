@@ -5,7 +5,34 @@ on:
   workflow_call:
 
 jobs:
+  build_sdist:
+    name: Build & test source distribution
+    runs-on: [self-hosted, gpu, cuda12]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - name: Install from sdist
+        run: pip install dist/masspcf-*.tar.gz --no-build-isolation --force-reinstall
+        env:
+          BUILD_WITH_CUDA: "0"
+
+      - name: Test sdist install
+        working-directory: test
+        run: python -m pytest python -x -q
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          retention-days: 2
+
   build_wheels:
+    needs: build_sdist
     name: Build ${{ matrix.cuda == 1 && format('CUDA{0}+CPU', matrix.cuda_major) || 'CPU' }} wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
