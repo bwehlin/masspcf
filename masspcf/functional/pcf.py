@@ -45,7 +45,7 @@ class Pcf:
     >>> import numpy as np
     >>> import masspcf as mpcf
     >>> f = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.0]], dtype=np.float32))
-    >>> f.size()
+    >>> f.size
     3
     """
 
@@ -266,11 +266,10 @@ class Pcf:
             return return_tensor(result)
         return result
 
+    @property
     def size(self):
+        """Number of breakpoints (time-value pairs) in this PCF."""
         return self._data.size()
-
-    # def save(self):
-    #  return self._data.to_numpy().save()
 
     _VTYPE_NAMES = {
         float32: "float32",

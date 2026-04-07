@@ -42,14 +42,14 @@ class TestIntArrayInput:
         f = Pcf(arr)
         assert f.ttype == mpcf.int64
         assert f.vtype == mpcf.int64
-        assert f.size() == 2
+        assert f.size == 2
 
     def test_int32_array(self):
         arr = np.array([[0, 1], [2, 3]], dtype=np.int32)
         f = Pcf(arr)
         assert f.ttype == mpcf.int32
         assert f.vtype == mpcf.int32
-        assert f.size() == 2
+        assert f.size == 2
 
     def test_unsupported_array_dtype_raises(self):
         arr = np.array([[0, 1], [2, 3]], dtype=np.complex128)
@@ -62,7 +62,7 @@ class TestListInput:
         f = Pcf([[0.0, 1.0], [2.0, 3.0]])
         assert f.ttype == mpcf.float64
         assert f.vtype == mpcf.float64
-        assert f.size() == 2
+        assert f.size == 2
 
     def test_list_f32(self):
         f = Pcf([[0.0, 1.0], [2.0, 3.0]], dtype=np.float32)
@@ -256,7 +256,7 @@ class TestStr:
 class TestSize:
     def test_size(self):
         f = Pcf(np.array([[0.0, 1.0], [2.0, 3.0], [4.0, 5.0]], dtype=np.float32))
-        assert f.size() == 3
+        assert f.size == 3
 
 
 class TestArrayProtocol:
