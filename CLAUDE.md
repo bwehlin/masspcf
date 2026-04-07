@@ -86,6 +86,12 @@ Each tensor class supports multiple precisions via a `dtype` parameter: `PcfTens
 - **taskflow** — CPU task parallelism (header-only, included directly)
 - **googletest** — C++ unit tests
 
+## Documentation (`docs/`)
+- Sphinx docs live in `docs/`, built with `make html` from that directory.
+- **Keep docs in sync with code changes.** When renaming parameters, changing defaults, or modifying public API behavior, update the corresponding `.rst` files and docstrings in the same commit.
+- **Document new public functionality.** New public APIs, features, or user-visible behavior changes should be documented in the appropriate `.rst` file unless purely internal.
+- **Plots with code dropdowns.** When adding plots/figures to docs, always include a `.. dropdown:: Show code` with a `.. literalinclude::` referencing snippet markers in the plot generation script. Plot generation scripts live in `docs/_static/`.
+
 ## Key files
 - `pyproject.toml` — single source of truth for version (`[project].version`), dependencies, and wheel build config
 - `version.cpp.in` — CMake template that embeds version + build date into the binary
