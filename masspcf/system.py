@@ -105,5 +105,12 @@ def set_min_block_side(n: int):
     cpp.set_min_block_side(n)
 
 
-def build_type():
+def build_type() -> str:
+    """Return the build type of the masspcf backend.
+
+    Returns
+    -------
+    str
+        ``"CUDA"`` if built with GPU support, ``"CPU"`` otherwise.
+    """
     return cpp._build_type()
