@@ -24,7 +24,7 @@ def test_pcf_generation_to_distance_to_persistence():
     npt.assert_allclose(np.diag(dense), 0.0, atol=1e-10)
 
     # Step 3: Compute persistent homology from distance matrix
-    bcs = mpers.compute_persistent_homology(dm, maxDim=1, verbose=False)
+    bcs = mpers.compute_persistent_homology(dm, max_dim=1, verbose=False)
     assert isinstance(bcs, mpers.BarcodeTensor)
     assert bcs.shape == (2,)  # H0 and H1
 
@@ -50,7 +50,7 @@ def test_point_cloud_to_persistence_to_stable_rank():
         pclouds[i] = np.random.randn(15, 2)
 
     # Step 2: Compute persistence
-    bcs = mpers.compute_persistent_homology(pclouds, maxDim=1, verbose=False)
+    bcs = mpers.compute_persistent_homology(pclouds, max_dim=1, verbose=False)
     assert bcs.shape == (n_clouds, 2)
 
     # Step 3: Convert barcodes to stable ranks as PCFs
