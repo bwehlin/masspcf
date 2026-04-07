@@ -199,20 +199,6 @@ namespace
           return flat_result.reshape(original_shape);
         })
 
-        // We (un-)pickle the raw bytes stored in points()
-        .def(py::pickle([](TPcf& self) {
-            const unsigned char* data = reinterpret_cast<const unsigned char*>(self.points().data());
-            std::vector<unsigned char> buf;
-            buf.resize(sizeof(point_type) * self.points().size());
-            memcpy(buf.data(), data, buf.size());
-            return buf;
-          }, [](const std::vector<unsigned char>& t){
-            std::vector<point_type> pts;
-            pts.resize(t.size() / sizeof(point_type));
-            memcpy(pts.data(), t.data(), t.size());
-            TPcf f(std::move(pts));
-            return f;
-          }))
         ;
 
       using RectT = mpcf::Rectangle<Tt, Tv>;
