@@ -66,7 +66,7 @@ other PCFs and with scalars::
    g = f ** 0.5    # square root: values become [2.0, 3.0]
    h = f * 2.0     # scale: values become [8.0, 18.0]
 
-See :doc:`tensors` for the full arithmetic reference, including broadcasting.
+See :doc:`arithmetic` for the full arithmetic reference, including broadcasting.
 
 Tensors
 =======
