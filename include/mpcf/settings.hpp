@@ -27,7 +27,7 @@ namespace mpcf
     size_t cudaThreshold = 500;
     bool deviceVerbose = false;
 
-    unsigned int blockDimX = 1;
+    unsigned int blockDimX = 4;
     unsigned int blockDimY = 32;
 
     /// Minimum block side length for the block scheduler.
