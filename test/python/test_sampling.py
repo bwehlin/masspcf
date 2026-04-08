@@ -246,7 +246,7 @@ class TestAdaptiveSampling:
         """Adaptive escalation should handle tight separated modes automatically."""
         np.random.seed(42)
         near = np.random.randn(50, 2).astype(np.float64) * 0.3
-        far = np.random.randn(50, 2).astype(np.float64) * 0.3 + 5.0
+        far = np.random.randn(50, 2).astype(np.float64) * 0.3 + [5.0, 0.0]
         pts = np.vstack([near, far])
         X = _make_point_cloud(pts)
 
@@ -254,7 +254,7 @@ class TestAdaptiveSampling:
         V = _make_point_cloud(vantage_pts)
 
         dist = Mixture(
-            components=[Gaussian(mean=0.0, sigma=0.5), Gaussian(mean=5.0, sigma=0.5)],
+            components=[Gaussian(mean=0.0, sigma=0.1), Gaussian(mean=5.0, sigma=0.1)],
             weights=[0.5, 0.5],
         )
         gen = Generator(seed=42)
@@ -449,6 +449,114 @@ class TestUnbiasedSampling:
         assert result.diagnostics.all_exact, "Unbiased test should not trigger escalation"
 
         # Chi-squared test at 1% significance
+        expected_counts = expected_probs * n_samples
+        chi2, p_value = stats.chisquare(observed, f_exp=expected_counts)
+        assert p_value > 0.01, (
+            f"Chi-squared test failed: p={p_value:.6f}, chi2={chi2:.1f}. "
+            f"Observed: {observed}, Expected: {np.round(expected_counts).astype(int)}"
+        )
+
+
+class TestNaiveSampling:
+    def test_naive_basic_gaussian(self):
+        np.random.seed(42)
+        pts = np.random.randn(200, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(pts)
+
+        dist = Gaussian(mean=0.0, sigma=1.0)
+        result = DistanceWeightedSampler(X).sample(V, k=10, dist=dist, replace=True, algorithm="naive")
+
+        assert result.shape == (200,)
+        for i in range(min(5, 200)):
+            elem = np.asarray(result[i])
+            assert elem.shape == (10, 2)
+
+    def test_naive_without_replacement(self):
+        np.random.seed(42)
+        pts = np.random.randn(50, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=10.0)
+        gen = Generator(seed=42)
+        result = DistanceWeightedSampler(X).sample(V, k=20, dist=dist, replace=False,
+                                                    generator=gen, algorithm="naive")
+
+        sampled = np.asarray(result[0])
+        rows = [tuple(row) for row in sampled]
+        assert len(set(rows)) == len(rows), "Without-replacement should produce unique points"
+
+    def test_naive_with_radius(self):
+        np.random.seed(42)
+        pts = np.random.randn(100, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=0.5)
+        result = DistanceWeightedSampler(X).sample(V, k=20, dist=dist, replace=True,
+                                                    radius=1.0, algorithm="naive")
+
+        sampled = np.asarray(result[0])
+        dists = np.linalg.norm(sampled, axis=1)
+        assert np.all(dists <= 1.0 + 1e-6)
+
+    def test_naive_diagnostics(self):
+        np.random.seed(42)
+        pts = np.random.randn(50, 2).astype(np.float64)
+        X = _make_point_cloud(pts)
+        V = _make_point_cloud(np.zeros((1, 2), dtype=np.float64))
+
+        dist = Gaussian(mean=0.0, sigma=5.0)
+        gen = Generator(seed=42)
+        result = DistanceWeightedSampler(X).sample(V, k=20, dist=dist, replace=True,
+                                                    generator=gen, algorithm="naive")
+
+        diag = result.diagnostics
+        assert diag.acceptance_rate[0] == pytest.approx(1.0)
+        assert not diag.biased[0]
+        assert diag.all_exact
+
+    def test_naive_chi_squared(self):
+        """Chi-squared test: naive samples should match exact categorical distribution."""
+        from scipy import stats
+
+        pts = np.array([
+            [0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0],
+            [0.0, 1.0], [0.0, 2.0], [1.0, 1.0], [2.0, 2.0],
+            [0.5, 0.5], [1.5, 0.5], [0.5, 1.5], [1.5, 1.5],
+            [3.0, 3.0], [4.0, 0.0], [0.0, 4.0], [2.5, 1.0],
+            [1.0, 2.5], [3.5, 1.5], [1.5, 3.5], [2.5, 2.5],
+        ], dtype=np.float64)
+        n_points = len(pts)
+
+        X = _make_point_cloud(pts)
+        vantage_pts = np.array([[0.0, 0.0]], dtype=np.float64)
+        V = _make_point_cloud(vantage_pts)
+
+        sigma = 2.0
+        dist = Gaussian(mean=0.0, sigma=sigma)
+
+        distances = np.linalg.norm(pts - vantage_pts[0], axis=1)
+        weights = np.exp(-0.5 * (distances / sigma) ** 2)
+        expected_probs = weights / weights.sum()
+
+        n_samples = 100_000
+        gen = Generator(seed=7)
+        result = DistanceWeightedSampler(X).sample(V, k=n_samples, dist=dist, replace=True,
+                                                    generator=gen, algorithm="naive")
+        sampled = np.asarray(result[0])
+
+        observed = np.zeros(n_points, dtype=int)
+        for s in range(n_samples):
+            pt = sampled[s]
+            diffs = np.linalg.norm(pts - pt, axis=1)
+            idx = np.argmin(diffs)
+            assert diffs[idx] < 1e-10, f"Sample {s} doesn't match any source point"
+            observed[idx] += 1
+
+        assert result.diagnostics.all_exact
+
         expected_counts = expected_probs * n_samples
         chi2, p_value = stats.chisquare(observed, f_exp=expected_counts)
         assert p_value > 0.01, (

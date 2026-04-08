@@ -29,6 +29,60 @@ namespace py = pybind11;
 namespace
 {
 
+  template <typename T, typename SamplerT>
+  void bind_sampler_sample(py::class_<SamplerT>& cls)
+  {
+    using PCloud = mpcf::PointCloud<T>;
+    using Result = mpcf::sampling::SamplingResult<T>;
+    using Gaussian = mpcf::sampling::Gaussian<T>;
+    using Uniform = mpcf::sampling::Uniform<T>;
+    using DefaultMixture = mpcf::sampling::DefaultMixture<T>;
+
+    T inf = std::numeric_limits<T>::infinity();
+
+    cls.def("sample", [](const SamplerT& self,
+                          const PCloud& vantage,
+                          size_t k,
+                          py::object dist_obj,
+                          bool replace,
+                          const mpcf::DefaultRandomGenerator* gen,
+                          T radius,
+                          std::vector<T> stages,
+                          size_t escalation_threshold,
+                          size_t max_attempts) -> Result
+        {
+          auto do_sample = [&](const auto& d) -> Result {
+            if (gen)
+            {
+              return self.sample(vantage, k, d, replace, *gen,
+                                 radius, stages, escalation_threshold, max_attempts);
+            }
+            else
+            {
+              return self.sample(vantage, k, d, replace,
+                                 mpcf::default_generator(),
+                                 radius, stages, escalation_threshold, max_attempts);
+            }
+          };
+
+          if (py::isinstance<Gaussian>(dist_obj))
+            return do_sample(dist_obj.cast<const Gaussian&>());
+          if (py::isinstance<Uniform>(dist_obj))
+            return do_sample(dist_obj.cast<const Uniform&>());
+          if (py::isinstance<DefaultMixture>(dist_obj))
+            return do_sample(dist_obj.cast<const DefaultMixture&>());
+
+          throw py::type_error("dist must be Gaussian, Uniform, or Mixture");
+        },
+        py::arg("vantage"), py::arg("k"), py::arg("dist"),
+        py::arg("replace"),
+        py::arg("generator").none(true) = py::none(),
+        py::arg("radius") = inf,
+        py::arg("stages") = std::vector<T>{T(0), T(0.1), T(0.5), T(1.0)},
+        py::arg("escalation_threshold") = mpcf::sampling::default_escalation_threshold,
+        py::arg("max_attempts") = mpcf::sampling::default_max_attempts);
+  }
+
   template <typename T>
   class PySamplingBindings
   {
@@ -36,7 +90,8 @@ namespace
     using PCloud = mpcf::PointCloud<T>;
     using Collection = mpcf::sampling::IndexedPointCloudCollection<T>;
     using IPC = mpcf::sampling::IndexedPointCloud<T>;
-    using SamplerT = mpcf::sampling::DistanceWeightedSampler<T>;
+    using TreeSamplerT = mpcf::sampling::TreeSampler<T>;
+    using NaiveSamplerT = mpcf::sampling::NaiveSampler<T>;
     using Result = mpcf::sampling::SamplingResult<T>;
     using Diagnostics = mpcf::sampling::SamplingDiagnostics;
 
@@ -102,60 +157,25 @@ namespace
           .def_property_readonly("source", &Collection::source)
           .def_property_readonly("indices", &Collection::indices);
 
-      T inf = std::numeric_limits<T>::infinity();
-
       // SamplingResult
       py::class_<Result>(m, ("SamplingResult" + suffix).c_str())
           .def_readonly("collection", &Result::collection)
           .def_readonly("diagnostics", &Result::diagnostics);
 
-      // DistanceWeightedSampler
-      py::class_<SamplerT>(m, ("DistanceWeightedSampler" + suffix).c_str())
+      // TreeSampler
+      auto tree_cls = py::class_<TreeSamplerT>(m, ("TreeSampler" + suffix).c_str())
           .def(py::init<PCloud>(), py::arg("source"))
-          .def("sample", [](const SamplerT& self,
-                            const PCloud& vantage,
-                            size_t k,
-                            py::object dist_obj,
-                            bool replace,
-                            const mpcf::DefaultRandomGenerator* gen,
-                            T radius,
-                            std::vector<T> stages,
-                            size_t escalation_threshold,
-                            size_t max_attempts) -> Result
-          {
-            auto do_sample = [&](const auto& d) -> Result {
-              if (gen)
-              {
-                return self.sample(vantage, k, d, replace, *gen,
-                                   mpcf::default_executor(), radius,
-                                   stages, escalation_threshold, max_attempts);
-              }
-              else
-              {
-                return self.sample(vantage, k, d, replace,
-                                   mpcf::default_generator(), mpcf::default_executor(),
-                                   radius, stages, escalation_threshold, max_attempts);
-              }
-            };
+          .def_property_readonly("dim", &TreeSamplerT::dim)
+          .def_property_readonly("n_points", &TreeSamplerT::n_points);
+      bind_sampler_sample<T>(tree_cls);
 
-            if (py::isinstance<Gaussian>(dist_obj))
-              return do_sample(dist_obj.cast<const Gaussian&>());
-            if (py::isinstance<Uniform>(dist_obj))
-              return do_sample(dist_obj.cast<const Uniform&>());
-            if (py::isinstance<DefaultMixture>(dist_obj))
-              return do_sample(dist_obj.cast<const DefaultMixture&>());
+      // NaiveSampler
+      auto naive_cls = py::class_<NaiveSamplerT>(m, ("NaiveSampler" + suffix).c_str())
+          .def(py::init<PCloud>(), py::arg("source"))
+          .def_property_readonly("dim", &NaiveSamplerT::dim)
+          .def_property_readonly("n_points", &NaiveSamplerT::n_points);
+      bind_sampler_sample<T>(naive_cls);
 
-            throw py::type_error("dist must be Gaussian, Uniform, or Mixture");
-          },
-          py::arg("vantage"), py::arg("k"), py::arg("dist"),
-          py::arg("replace"),
-          py::arg("generator").none(true) = py::none(),
-          py::arg("radius") = inf,
-          py::arg("stages") = std::vector<T>{T(0), T(0.1), T(0.5), T(1.0)},
-          py::arg("escalation_threshold") = SamplerT::default_escalation_threshold,
-          py::arg("max_attempts") = SamplerT::default_max_attempts)
-          .def_property_readonly("dim", &SamplerT::dim)
-          .def_property_readonly("n_points", &SamplerT::n_points);
     }
   };
 

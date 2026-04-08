@@ -322,11 +322,24 @@ class SamplingResult:
         return self._samples.source
 
 
+_SAMPLER_CLASSES = {
+    ('tree', pcloud32): lambda: cpp.TreeSampler32,
+    ('tree', pcloud64): lambda: cpp.TreeSampler64,
+    ('naive', pcloud32): lambda: cpp.NaiveSampler32,
+    ('naive', pcloud64): lambda: cpp.NaiveSampler64,
+}
+
+
 class DistanceWeightedSampler:
     """Precomputed sampling state for distance-weighted point cloud sampling.
 
-    Builds a KD-tree over the source cloud once, then supports efficient
-    repeated sampling with different vantage points and/or weight functions.
+    Creates the appropriate sampler backend on first use:
+
+    - ``algorithm="tree"`` (default): builds a KD-tree for O(log N) per-sample cost.
+    - ``algorithm="naive"``: brute-force O(Nk) per vantage, no tree build.
+
+    The algorithm can be changed between ``sample()`` calls; the corresponding
+    backend is created lazily and cached.
 
     Parameters
     ----------
@@ -337,7 +350,7 @@ class DistanceWeightedSampler:
         ``pcloud32`` or ``pcloud64``. Inferred from source if not given.
     """
 
-    __slots__ = ('_cpp', '_dtype')
+    __slots__ = ('_source_inner', '_dtype', '_samplers')
 
     def __init__(self, source, dtype=None):
         if dtype is None:
@@ -346,23 +359,26 @@ class DistanceWeightedSampler:
         self._dtype = dtype
 
         if isinstance(source, PointCloudTensor):
-            source_inner = source._data._get_element([0])
+            self._source_inner = source._data._get_element([0])
         else:
-            source_inner = source
+            self._source_inner = source
 
-        cpp_cls = {pcloud32: cpp.DistanceWeightedSampler32,
-                   pcloud64: cpp.DistanceWeightedSampler64}[dtype]
-        self._cpp = cpp_cls(source_inner)
+        self._samplers = {}
+
+    def _get_sampler(self, algorithm):
+        if algorithm not in self._samplers:
+            key = (algorithm, self._dtype)
+            if key not in _SAMPLER_CLASSES:
+                raise ValueError(f"algorithm must be 'tree' or 'naive', got '{algorithm}'")
+            self._samplers[algorithm] = _SAMPLER_CLASSES[key]()(self._source_inner)
+        return self._samplers[algorithm]
 
     def sample(self, vantage, k, *, dist, radius=None, replace=True,
                generator=None, stages=_DEFAULT_STAGES,
                escalation_threshold=_DEFAULT_ESCALATION_THRESHOLD,
-               max_attempts=_DEFAULT_MAX_ATTEMPTS):
+               max_attempts=_DEFAULT_MAX_ATTEMPTS,
+               algorithm="tree"):
         r"""Sample k points around each vantage point, weighted by a weight function of distance.
-
-        Uses adaptive escalation: starts with exact (unbiased) sampling and
-        automatically introduces bounded bias if acceptance rates are too low.
-        Check :attr:`SamplingResult.diagnostics` to assess sampling quality.
 
         Parameters
         ----------
@@ -387,12 +403,19 @@ class DistanceWeightedSampler:
             Default: 100.
         max_attempts : int, optional
             Maximum proposal attempts per requested sample. Default: 1000.
+        algorithm : str, optional
+            ``"tree"`` (default) for KD-tree importance sampling, or ``"naive"``
+            for brute-force distance computation. The naive algorithm computes
+            all N distances per vantage point and samples via CDF inversion —
+            always exact but O(Nk) per vantage.
 
         Returns
         -------
         SamplingResult
             Contains the sampled point clouds and post-hoc diagnostics.
         """
+        sampler = self._get_sampler(algorithm)
+
         if isinstance(vantage, PointCloudTensor):
             vantage_inner = vantage._data._get_element([0])
         else:
@@ -415,15 +438,15 @@ class DistanceWeightedSampler:
         if radius is not None:
             kwargs['radius'] = float(radius)
 
-        cpp_result = self._cpp.sample(**kwargs)
+        cpp_result = sampler.sample(**kwargs)
         return SamplingResult(cpp_result, self._dtype)
 
     @property
     def dim(self):
         """Dimensionality of the source point cloud."""
-        return self._cpp.dim
+        return self._get_sampler("naive").dim
 
     @property
     def n_points(self):
         """Number of points in the source cloud."""
-        return self._cpp.n_points
+        return self._get_sampler("naive").n_points
