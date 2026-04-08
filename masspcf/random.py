@@ -96,6 +96,51 @@ def noisy_sin(shape, n_points=20, dtype=pcf32, generator=None):
     return A
 
 
+def random_pcf(shape, n_range=(10, 1000), alpha=0, dtype=pcf32, generator=None):
+    r"""Generate random PCFs following Algorithm 1 from [Wehlin 2024].
+
+    Each generated PCF has:
+
+    - A random number of breakpoints drawn from :math:`\mathcal{U}[\text{n\_range}]`
+    - Breakpoint times drawn from :math:`|\mathcal{N}(0, \alpha^2)|`
+    - Random values drawn from :math:`\mathcal{N}(0, 1)`
+    - Final value equal to :math:`0`
+
+    Parameters
+    ----------
+    shape : tuple of int
+        Shape of the output tensor.
+    n_range : int or tuple of (int, int), optional
+        Number of breakpoints.  A single ``int`` fixes *n* for every
+        PCF; a ``(min, max)`` tuple draws *n* uniformly per PCF.
+        Default ``(10, 1000)``.
+    alpha : float, optional
+        Controls the variance of the normal distribution used to
+        generate breakpoint times.  When ``0`` (the default), alpha
+        is drawn from :math:`|\mathcal{N}(0, 1)|` independently per
+        PCF.  A positive value fixes the scale for all PCFs.
+    dtype : type, optional
+        ``pcf32`` or ``pcf64``, by default ``pcf32``.
+    generator : Generator, optional
+        Random number generator.  If ``None``, the global generator
+        is used.
+
+    Returns
+    -------
+    PcfTensor
+        Tensor of random PCFs with the given shape.
+    """
+    backend = _get_backend(dtype)
+
+    A = zeros(shape, dtype=dtype)
+    gen = generator._gen if generator is not None else None
+    if isinstance(n_range, int):
+        n_range = (n_range, n_range)
+    backend.random_pcf(A._data, n_range[0], n_range[1], float(alpha), gen)
+
+    return A
+
+
 def noisy_cos(shape, n_points=20, dtype=pcf32, generator=None):
     r"""Generate a tensor of noisy :math:`\cos(2\pi t)` PCFs.
 

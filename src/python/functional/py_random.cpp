@@ -18,6 +18,7 @@
 
 #include <mpcf/random.hpp>
 #include <mpcf/random_generator.hpp>
+#include <mpcf/executor.hpp>
 
 #include <pybind11/numpy.h>
 
@@ -42,7 +43,7 @@ namespace
     {
       auto func = [](Tv t) { return sin(static_cast<Tv>(2. * M_PI) * t); };
       if (gen)
-        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen);
+        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen, mpcf::default_executor());
       else
         mpcf::noisy_function(out, nPoints, func);
     }
@@ -51,9 +52,19 @@ namespace
     {
       auto func = [](Tv t) { return cos(static_cast<Tv>(2. * M_PI) * t); };
       if (gen)
-        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen);
+        mpcf::noisy_function(out, nPoints, func, static_cast<Tv>(0.1), *gen, mpcf::default_executor());
       else
         mpcf::noisy_function(out, nPoints, func);
+    }
+
+    static void random_pcf(TensorT& out, size_t nMin, size_t nMax,
+                           Tt fixedAlpha, const mpcf::DefaultRandomGenerator* gen)
+    {
+      if (gen)
+        mpcf::random_pcf(out, nMin, nMax, fixedAlpha, *gen, mpcf::default_executor());
+      else
+        mpcf::random_pcf(out, nMin, nMax, fixedAlpha,
+                         mpcf::default_generator(), mpcf::default_executor());
     }
 
     static void register_bindings(py::handle m, const std::string& suffix)
@@ -65,6 +76,9 @@ namespace
                        py::arg("out"), py::arg("n_points"), py::arg("generator").none(true) = py::none())
           .def_static("noisy_cos", &PyRandomBindings::noisy_cos,
                        py::arg("out"), py::arg("n_points"), py::arg("generator").none(true) = py::none())
+          .def_static("random_pcf", &PyRandomBindings::random_pcf,
+                       py::arg("out"), py::arg("n_min"), py::arg("n_max"),
+                       py::arg("fixed_alpha"), py::arg("generator").none(true) = py::none())
           ;
     }
   };
