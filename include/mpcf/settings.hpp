@@ -33,6 +33,12 @@ namespace mpcf
     /// Minimum block side length for the block scheduler.
     /// 0 = auto-detect from GPU hardware (SM count).
     size_t minBlockSide = 0;
+
+    /// Number of breakpoint intervals per chunk for tail acceleration.
+    /// When all PCFs share the same final value, precomputed chunk
+    /// integrals let the kernel skip remaining breakpoints after one
+    /// PCF exhausts.  0 = disable tail acceleration.
+    size_t tailAccelChunkSize = 64;
   };
 
   inline Settings& settings()

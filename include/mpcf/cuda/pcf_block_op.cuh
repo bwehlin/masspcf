@@ -23,6 +23,7 @@
 
 #include <cuda_runtime.h>
 
+#include "../algorithms/pcf_chunk_precompute.hpp"
 #include "../task.hpp"
 #include "../executor.hpp"
 #include "../settings.hpp"
@@ -58,6 +59,12 @@ namespace mpcf
       CudaDeviceArray<size_t> colOffsets;
       CudaDeviceArray<point_type> colPoints;
 
+      // Tail-acceleration chunk data (globally indexed, uploaded once)
+      CudaDeviceArray<Tv> rowChunkValues;
+      CudaDeviceArray<size_t> rowChunkOffsets;
+      CudaDeviceArray<Tv> colChunkValues;
+      CudaDeviceArray<size_t> colChunkOffsets;
+
       GpuStorage() = default;
       GpuStorage(GpuStorage&&) = default;
       GpuStorage& operator=(GpuStorage&&) = default;
@@ -73,6 +80,13 @@ namespace mpcf
       , m_b(b)
       , m_skipMode(skipMode)
     { }
+
+    void enable_chunk_accel(PcfChunkData<Tv> rowChunks, PcfChunkData<Tv> colChunks)
+    {
+      m_chunkAccelEnabled = true;
+      m_rowChunkData = std::move(rowChunks);
+      m_colChunkData = std::move(colChunks);
+    }
 
     GpuStorage init_gpu_storage(size_t gpuId, const CudaBlockScheduler& scheduler)
     {
@@ -94,6 +108,15 @@ namespace mpcf
       storage.rowPoints = CudaDeviceArray<point_type>(maxRowPoints);
       storage.colOffsets = CudaDeviceArray<size_t>(maxColWidth + 1);
       storage.colPoints = CudaDeviceArray<point_type>(maxColPoints);
+
+      if (m_chunkAccelEnabled)
+      {
+        storage.rowChunkValues = CudaDeviceArray<Tv>(m_rowChunkData.values);
+        storage.rowChunkOffsets = CudaDeviceArray<size_t>(m_rowChunkData.offsets);
+        storage.colChunkValues = CudaDeviceArray<Tv>(m_colChunkData.values);
+        storage.colChunkOffsets = CudaDeviceArray<size_t>(m_colChunkData.offsets);
+      }
+
       return storage;
     }
 
@@ -123,6 +146,26 @@ namespace mpcf
       params.globalColStart = block.colStart;
       params.skipMode = m_skipMode;
 
+      params.chunkAccelEnabled = m_chunkAccelEnabled;
+      if (m_chunkAccelEnabled)
+      {
+        params.rowChunkValues = storage.rowChunkValues.get();
+        params.rowChunkOffsets = storage.rowChunkOffsets.get();
+        params.colChunkValues = storage.colChunkValues.get();
+        params.colChunkOffsets = storage.colChunkOffsets.get();
+        params.chunkSize = m_rowChunkData.chunkSize;
+        params.commonFinalValue = m_rowChunkData.commonFinalValue;
+      }
+      else
+      {
+        params.rowChunkValues = nullptr;
+        params.rowChunkOffsets = nullptr;
+        params.colChunkValues = nullptr;
+        params.colChunkOffsets = nullptr;
+        params.chunkSize = 0;
+        params.commonFinalValue = Tv(0);
+      }
+
       dim3 gridDim = internal::get_grid_dims(blockDim, block.rowHeight, block.colWidth);
 
       internal::launch_pcf_block_integrate<Tt, Tv>(gridDim, blockDim, params, m_a, m_b, m_op);
@@ -136,6 +179,10 @@ namespace mpcf
     Tt m_a;
     Tt m_b;
     TriangleSkipMode m_skipMode;
+
+    bool m_chunkAccelEnabled = false;
+    PcfChunkData<Tv> m_rowChunkData;
+    PcfChunkData<Tv> m_colChunkData;
   };
 
   /// CUDA pairwise integration task (pdist / l2_kernel).
@@ -190,10 +237,27 @@ namespace mpcf
 
       using block_op_t = PcfBlockOp<time_type, value_type, ComboOp>;
 
+      // Tail acceleration: precompute chunk integrals if all PCFs share a final value
+      std::optional<PcfChunkData<value_type>> chunkData;
+      if (s.tailAccelChunkSize > 0)
+      {
+        auto const& hd = m_dataManager.host_data();
+        auto cv = find_common_final_value<value_type>(hd.offsets, hd.elements, n);
+        if (cv)
+        {
+          chunkData = precompute_chunks<value_type>(
+              hd.offsets, hd.elements, n, m_op, *cv, s.tailAccelChunkSize);
+        }
+      }
+
       dim3 blockDim(s.blockDimX, s.blockDimY, 1);
       tf::Taskflow flow;
-      flow.emplace([this, scheduler = std::move(scheduler), blockDim] {
+      flow.emplace([this, scheduler = std::move(scheduler), blockDim,
+                    chunkData = std::move(chunkData)] {
         block_op_t blockOp(m_dataManager, m_dataManager, m_op, m_a, m_b, m_skipMode);
+
+        if (chunkData)
+          blockOp.enable_chunk_accel(*chunkData, *chunkData);
 
         CudaBlockPipeline<value_type, block_op_t, ResultWriter> pipeline(
             m_cudaThreads, blockOp, scheduler, m_writer,
@@ -272,10 +336,33 @@ namespace mpcf
 
       using block_op_t = PcfBlockOp<time_type, value_type, ComboOp>;
 
+      // Tail acceleration: both sets must share the same final value
+      std::optional<PcfChunkData<value_type>> rowChunkData;
+      std::optional<PcfChunkData<value_type>> colChunkData;
+      if (s.tailAccelChunkSize > 0)
+      {
+        auto const& rhd = m_rowDataManager.host_data();
+        auto const& chd = m_colDataManager.host_data();
+        auto rcv = find_common_final_value<value_type>(rhd.offsets, rhd.elements, nRows);
+        auto ccv = find_common_final_value<value_type>(chd.offsets, chd.elements, nCols);
+        if (rcv && ccv && *rcv == *ccv)
+        {
+          rowChunkData = precompute_chunks<value_type>(
+              rhd.offsets, rhd.elements, nRows, m_op, *rcv, s.tailAccelChunkSize);
+          colChunkData = precompute_chunks<value_type>(
+              chd.offsets, chd.elements, nCols, m_op, *ccv, s.tailAccelChunkSize);
+        }
+      }
+
       dim3 blockDim(s.blockDimX, s.blockDimY, 1);
       tf::Taskflow flow;
-      flow.emplace([this, scheduler = std::move(scheduler), blockDim] {
+      flow.emplace([this, scheduler = std::move(scheduler), blockDim,
+                    rowChunkData = std::move(rowChunkData),
+                    colChunkData = std::move(colChunkData)] {
         block_op_t blockOp(m_rowDataManager, m_colDataManager, m_op, m_a, m_b, TriangleSkipMode::None);
+
+        if (rowChunkData && colChunkData)
+          blockOp.enable_chunk_accel(*rowChunkData, *colChunkData);
 
         CudaBlockPipeline<value_type, block_op_t, ResultWriter> pipeline(
             m_cudaThreads, blockOp, scheduler, m_writer,

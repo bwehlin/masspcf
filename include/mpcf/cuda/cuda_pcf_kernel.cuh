@@ -45,6 +45,15 @@ namespace mpcf
       size_t globalRowStart;
       size_t globalColStart;
       TriangleSkipMode skipMode;
+
+      // Tail acceleration (globally-indexed chunk arrays)
+      const Tv* __restrict__ rowChunkValues;
+      const size_t* __restrict__ rowChunkOffsets;
+      const Tv* __restrict__ colChunkValues;
+      const size_t* __restrict__ colChunkOffsets;
+      size_t chunkSize;
+      Tv commonFinalValue;
+      bool chunkAccelEnabled;
     };
 
     /// Walk two PCFs simultaneously through their breakpoints,
@@ -149,6 +158,55 @@ namespace mpcf
           });
 
       params.matrix[iLocal * params.nCols + jLocal] = op(ret);
+    }
+
+    /// Compute the remaining integral when one PCF has exhausted at
+    /// value cv, using precomputed chunk integrals to skip the bulk of
+    /// the other PCF's remaining breakpoints.
+    ///
+    /// 1. Step breakpoint-by-breakpoint to the first chunk boundary
+    ///    that is past the exhausted PCF's last time (clipping point).
+    /// 2. Sum precomputed chunk values for all remaining full chunks.
+    /// 3. Add the final interval to b.
+    template <typename Tt, typename Tv, typename ComboOp>
+    __device__ Tv compute_tail_chunk_sum(
+        const SimplePoint<Tt, Tv>* pts, size_t idx, size_t sz,
+        Tt t, Tt exhaustedTime, Tt b, Tv cv,
+        const Tv* chunkVals, size_t nChunks, size_t chunkSize,
+        ComboOp op)
+    {
+      Tv tail = Tv(0);
+
+      // Step to a chunk boundary past the clipping point
+      while (idx + 1 < sz)
+      {
+        if (idx % chunkSize == 0 && pts[idx].t >= exhaustedTime)
+          break;
+
+        Tt tprev = t;
+        Tv gv = pts[idx].v;
+        ++idx;
+        t = exhaustedTime > pts[idx].t ? exhaustedTime : pts[idx].t;
+        if (t > b) t = b;
+        tail += (t - tprev) * op(cv, gv);
+
+        if (t >= b) return tail;
+      }
+
+      // Sum full precomputed chunks
+      if (idx + 1 < sz)
+      {
+        size_t firstChunk = idx / chunkSize;
+        for (size_t c = firstChunk; c < nChunks; ++c)
+        {
+          tail += chunkVals[c];
+        }
+      }
+
+      // Final interval to b
+      tail += (b - pts[sz - 1].t) * op(cv, pts[sz - 1].v);
+
+      return tail;
     }
 
     /// Chunk size for shared-memory tiling of row PCF breakpoints.
@@ -318,6 +376,41 @@ namespace mpcf
             {
               t = max(myRowPts[fi - chunkStart].t, gpts[gi].t);
               ret += (t - tprev) * op(fv, gv);
+
+              // --- Tail acceleration ---
+              if (params.chunkAccelEnabled)
+              {
+                if (fi + 1 >= fsz && gi + 1 < gsz)
+                {
+                  // f (row) exhausted — skip remaining g via column chunks
+                  size_t jGlobal = jLocal + params.globalColStart;
+                  size_t cOff = params.colChunkOffsets[jGlobal];
+                  size_t nc = params.colChunkOffsets[jGlobal + 1] - cOff;
+                  ret += compute_tail_chunk_sum<Tt, Tv>(
+                      gpts, gi, gsz, t,
+                      myRowPts[fi - chunkStart].t, b,
+                      params.commonFinalValue,
+                      params.colChunkValues + cOff, nc,
+                      params.chunkSize, op);
+                  done = true;
+                  break;
+                }
+                if (gi + 1 >= gsz && fi + 1 < fsz)
+                {
+                  // g (col) exhausted — skip remaining f via row chunks
+                  size_t iGlobal = iLocal + params.globalRowStart;
+                  size_t cOff = params.rowChunkOffsets[iGlobal];
+                  size_t nc = params.rowChunkOffsets[iGlobal + 1] - cOff;
+                  ret += compute_tail_chunk_sum<Tt, Tv>(
+                      params.rowPoints + fOffset, fi, fsz, t,
+                      gpts[gi].t, b,
+                      params.commonFinalValue,
+                      params.rowChunkValues + cOff, nc,
+                      params.chunkSize, op);
+                  done = true;
+                  break;
+                }
+              }
             }
           }
         }
