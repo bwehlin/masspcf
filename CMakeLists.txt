@@ -454,6 +454,7 @@ SET(MPCF_PY_SOURCES
     py_io.hpp py_io.cpp
     py_symmetric_matrix.hpp py_symmetric_matrix.cpp
     py_distance_matrix.hpp py_distance_matrix.cpp
+    py_timeseries.hpp py_timeseries.cpp
     ${MPCF_PY_PERSISTENCE_SOURCES}
     ${MPCF_PY_POINT_PROCESS_SOURCES}
 )

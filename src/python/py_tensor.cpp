@@ -18,6 +18,7 @@
 
 #include <mpcf/tensor.hpp>
 #include <mpcf/functional/pcf.hpp>
+#include <mpcf/timeseries.hpp>
 
 #include <sstream>
 
@@ -157,5 +158,8 @@ namespace mpcf_py
 
     register_typed_tensor_bindings<mpcf::PointCloud<mpcf::float32_t>>(m, "PointCloud32", "");
     register_typed_tensor_bindings<mpcf::PointCloud<mpcf::float64_t>>(m, "PointCloud64", "");
+
+    register_typed_tensor_bindings<mpcf::TimeSeries_f32>(m, "TimeSeries32", "");
+    register_typed_tensor_bindings<mpcf::TimeSeries_f64>(m, "TimeSeries64", "");
   }
 }

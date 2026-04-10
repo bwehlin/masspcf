@@ -208,6 +208,9 @@ There are several concrete tensor types, each corresponding to a dtype:
    * - ``DistanceMatrixTensor``
      - ``distmat32`` / ``distmat64``
      - Distance matrices
+   * - ``TimeSeriesTensor``
+     - ``ts32`` / ``ts64``
+     - Time series (PCF with epoch and time step metadata)
    * - ``BoolTensor``
      - ``boolean``
      - Boolean values (returned by comparison operators)
@@ -271,6 +274,9 @@ The ``dtype`` parameter controls the element type of a tensor, analogous to NumP
    * - ``int32`` / ``int64`` / ``uint32`` / ``uint64``
      - int
      - Scalar integer values (signed and unsigned)
+   * - ``ts32`` / ``ts64``
+     - float
+     - Time series (PCFs with real-world time metadata)
    * - ``pcloud32`` / ``pcloud64``
      - float
      - Point clouds
@@ -295,6 +301,16 @@ PCF types
 Use ``pcf32`` for most work. Use ``pcf64`` when you need higher numerical precision.
 ``pcf32i`` and ``pcf64i`` provide integer-valued PCFs. They support construction,
 evaluation, arithmetic, and serialization, but not norms or distances.
+
+Time series types
+-----------------
+
+- :py:class:`~masspcf.ts32` -- 32-bit time series (PCF + epoch + time step)
+- :py:class:`~masspcf.ts64` -- 64-bit time series
+
+A ``TimeSeries`` wraps a PCF with real-world time metadata (an epoch and a
+time step), so that evaluation can use timestamps or arbitrary time scales.
+See :doc:`timeseries` for details.
 
 Numeric types
 -------------

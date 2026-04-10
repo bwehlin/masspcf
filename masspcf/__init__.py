@@ -27,6 +27,7 @@ from .reductions import max_time, mean
 from .serialize import from_serial_content
 from .distance_matrix import DistanceMatrix, DistanceMatrixTensor
 from .symmetric_matrix import SymmetricMatrix, SymmetricMatrixTensor
+from .timeseries import TimeSeries, TimeSeriesTensor
 from .tensor import (
     BoolTensor,
     FloatTensor,
@@ -55,6 +56,8 @@ from .typing import (
     pcloud64,
     symmat32,
     symmat64,
+    ts32,
+    ts64,
     uint32,
     uint64,
 )

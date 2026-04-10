@@ -27,6 +27,7 @@
 #include <mpcf/tensor.hpp>
 #include <mpcf/concepts.hpp>
 #include <mpcf/functional/pcf.hpp>
+#include <mpcf/timeseries.hpp>
 #include "functional/py_pcf_tensor_eval.hpp"
 
 #include <algorithm>
@@ -474,7 +475,7 @@ namespace mpcf_py
       });
     }
 
-    if constexpr (mpcf::PcfLike<T>)
+    if constexpr (mpcf::Evaluable<T, Tt, Tv>)
     {
       cls.def("__call__", [](const TTensor& self, Tt t) {
         return mpcf_py::pcf_tensor_eval_scalar<Tt, Tv>(self, t);

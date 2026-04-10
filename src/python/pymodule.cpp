@@ -32,6 +32,7 @@
 #include "py_np_tensor_convert.hpp"
 #include "py_symmetric_matrix.hpp"
 #include "py_distance_matrix.hpp"
+#include "py_timeseries.hpp"
 
 #include "persistence/pymodule_persistence.hpp"
 #include "point_process/pymodule_point_process.hpp"
@@ -189,6 +190,8 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
   mpcf_py::register_norms(m);
   mpcf_py::register_symmetric_matrix(m);
   mpcf_py::register_distance_matrix(m);
+
+  mpcf_py::register_timeseries(m);
 
   mpcf_py::register_module_persistence(m);
   mpcf_py::register_module_point_process(m);
