@@ -356,6 +356,10 @@ namespace
           return result;
         })
 
+        .def_property("interpolation",
+            &TTimeSeries::interpolation,
+            &TTimeSeries::set_interpolation)
+
         .def("__eq__", &TTimeSeries::operator==)
         .def("__ne__", &TTimeSeries::operator!=)
         .def("__repr__", [](const TTimeSeries& self) { return self.to_string(); })
@@ -368,6 +372,10 @@ namespace
 
 void mpcf_py::register_timeseries(pybind11::module_& m)
 {
+  py::enum_<mpcf::InterpolationMode>(m, "InterpolationMode")
+      .value("nearest", mpcf::InterpolationMode::Nearest)
+      .value("linear", mpcf::InterpolationMode::Linear);
+
   PyTimeSeriesBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
   PyTimeSeriesBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
 

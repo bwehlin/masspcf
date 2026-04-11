@@ -500,6 +500,96 @@ class TestTimeSeriesDtype:
         assert ts.dtype == mpcf.ts64
 
 
+class TestInterpolation:
+    """Tests for TimeSeries interpolation modes."""
+
+    def test_default_is_nearest(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]))
+        assert ts.interpolation == 'nearest'
+
+    def test_nearest_step_function(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]))
+        assert ts(0.5) == 0.0
+        assert ts(1.5) == 10.0
+
+    def test_linear_basic(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]),
+                             interpolation='linear')
+        assert ts(0.5) == pytest.approx(5.0)
+        assert ts(1.5) == pytest.approx(15.0)
+
+    def test_linear_at_breakpoints(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]),
+                             interpolation='linear')
+        assert ts(0.0) == pytest.approx(0.0)
+        assert ts(1.0) == pytest.approx(10.0)
+        assert ts(2.0) == pytest.approx(20.0)
+
+    def test_linear_out_of_bounds_nan(self):
+        ts = mpcf.TimeSeries(
+            np.array([0.0, 10.0, 20.0]),
+            start_time=1.0, time_step=1.0,
+            interpolation='linear')
+        assert np.isnan(ts(0.5))
+        assert np.isnan(ts(4.0))
+
+    def test_linear_multi_channel(self):
+        times = np.array([0.0, 1.0, 2.0])
+        values = np.array([
+            [0.0, 100.0],
+            [10.0, 200.0],
+            [20.0, 300.0],
+        ])
+        ts = mpcf.TimeSeries(times, values, interpolation='linear')
+        result = ts(0.5)
+        np.testing.assert_allclose(result, [5.0, 150.0])
+
+    def test_linear_last_breakpoint(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]),
+                             interpolation='linear')
+        assert ts(2.0) == pytest.approx(20.0)
+
+    def test_settable(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]))
+        assert ts.interpolation == 'nearest'
+        assert ts(0.5) == 0.0
+
+        ts.interpolation = 'linear'
+        assert ts.interpolation == 'linear'
+        assert ts(0.5) == pytest.approx(5.0)
+
+    def test_constructor_param(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]),
+                             interpolation='linear')
+        assert ts.interpolation == 'linear'
+
+    def test_equality_different_modes(self):
+        ts1 = mpcf.TimeSeries(np.array([0.0, 10.0]))
+        ts2 = mpcf.TimeSeries(np.array([0.0, 10.0]),
+                              interpolation='linear')
+        assert ts1 != ts2
+
+    def test_invalid_raises(self):
+        with pytest.raises(ValueError):
+            mpcf.TimeSeries(np.array([0.0, 10.0]),
+                            interpolation='cubic')
+
+    def test_linear_array_eval(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0, 20.0]),
+                             interpolation='linear')
+        result = ts(np.array([0.5, 1.0, 1.5]))
+        np.testing.assert_allclose(result, [5.0, 10.0, 15.0])
+
+    def test_repr_shows_linear(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0]),
+                             interpolation='linear')
+        assert "interpolation='linear'" in repr(ts)
+
+    def test_repr_hides_nearest(self):
+        ts = mpcf.TimeSeries(np.array([0.0, 10.0]))
+        assert 'interpolation' not in repr(ts)
+
+
 class TestEmbedTimeDelay:
     """Tests for mpcf.embed_time_delay (Takens time delay embedding).
 

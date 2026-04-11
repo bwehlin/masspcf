@@ -267,11 +267,152 @@ def _save_themed(plot_func, style, bg_color, fg_color, line_color, outfile):
 LIGHT = ("default", "white", "black", "steelblue")
 DARK = ("dark_background", "#1a1a2e", "#e0e0e0", "#5dade2")
 
+# -- included in docs via literalinclude :pyobject: --
+def plot_multichannel():
+    times = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    values = np.array([
+        [22.1, 45.0],
+        [22.5, 44.0],
+        [23.0, 43.5],
+        [23.8, 42.0],
+        [23.2, 43.0],
+    ])
+    ts = mpcf.TimeSeries(times, values)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7, 4), sharex=True)
+
+    _plot_ts_segments(ax1, mpcf.TimeSeries(times, values[:, 0]),
+                      color="steelblue")
+    ax1.set_ylabel("Temperature (°C)")
+    ax1.set_title("Channel 0: Temperature", fontsize=10)
+
+    _plot_ts_segments(ax2, mpcf.TimeSeries(times, values[:, 1]),
+                      color="#e67e22")
+    ax2.set_ylabel("Humidity (%)")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_title("Channel 1: Humidity", fontsize=10)
+
+    # Mark evaluation at t=1.5
+    t_q = 1.5
+    result = ts(t_q)
+    for ax, val, color in [(ax1, result[0], "steelblue"),
+                            (ax2, result[1], "#e67e22")]:
+        ax.axvline(t_q, color="red", linestyle="--", linewidth=1, alpha=0.7)
+        ax.plot(t_q, val, "ro", markersize=6, zorder=5)
+        ax.annotate(f"{val:.1f}", (t_q, val),
+                    textcoords="offset points", xytext=(6, 5), fontsize=9)
+
+    fig.suptitle(f"Multi-channel TimeSeries: ts({t_q}) = "
+                 f"[{result[0]:.1f}, {result[1]:.1f}]", fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+# -- included in docs via literalinclude :pyobject: --
+def plot_embed_basic():
+    # A simple signal: noisy sinusoid
+    np.random.seed(42)
+    t = np.linspace(0, 4 * np.pi, 200)
+    values = np.sin(t) + 0.1 * np.random.randn(len(t))
+    ts = mpcf.TimeSeries(values, start_time=0.0, time_step=t[1] - t[0])
+
+    cloud = mpcf.embed_time_delay(ts, dimension=2, delay=0.4)
+    pts = np.asarray(cloud[0])
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5))
+
+    # Left: original time series
+    ax1.step(t, values, where="post", linewidth=1.5, color="steelblue")
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("x(t)")
+    ax1.set_title("Original time series", fontsize=10)
+
+    # Right: 2D embedding
+    ax2.scatter(pts[:, 0], pts[:, 1], s=4, alpha=0.6, color="steelblue")
+    ax2.set_xlabel(r"$x(t - \tau)$")
+    ax2.set_ylabel(r"$x(t)$")
+    ax2.set_title(r"Time delay embedding ($d=2, \tau=0.4$)", fontsize=10)
+    ax2.set_aspect("equal")
+
+    fig.tight_layout()
+    return fig
+
+
+# -- included in docs via literalinclude :pyobject: --
+def plot_embed_windowed():
+    # Longer signal with distinct phases
+    np.random.seed(7)
+    n = 300
+    t = np.linspace(0, 6 * np.pi, n)
+    values = np.sin(t) + 0.5 * np.sin(3 * t) + 0.08 * np.random.randn(n)
+    ts = mpcf.TimeSeries(values, start_time=0.0, time_step=t[1] - t[0])
+
+    clouds = mpcf.embed_time_delay(
+        ts, dimension=2, delay=0.3, window=4.0, stride=4.0)
+
+    n_win = clouds.shape[0]
+    fig, axes = plt.subplots(1, min(n_win, 4), figsize=(12, 3),
+                              sharex=True, sharey=True)
+    if not hasattr(axes, "__len__"):
+        axes = [axes]
+    colors = ["steelblue", "#e67e22", "#27ae60", "#8e44ad"]
+    for i, ax in enumerate(axes[:n_win]):
+        pts = np.asarray(clouds[i])
+        ax.scatter(pts[:, 0], pts[:, 1], s=6, alpha=0.6, color=colors[i % 4])
+        ax.set_title(f"Window {i}", fontsize=10)
+        ax.set_xlabel(r"$x(t-\tau)$")
+        if i == 0:
+            ax.set_ylabel(r"$x(t)$")
+        ax.set_aspect("equal")
+    fig.suptitle(r"Windowed embedding ($d=2, \tau=0.3$, window=4.0)",
+                 fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+# -- included in docs via literalinclude :pyobject: --
+def plot_interpolation():
+    values = np.array([1.0, 3.0, 2.0, 4.0, 1.5])
+    ts_nearest = mpcf.TimeSeries(values, start_time=10.0, time_step=2.0)
+    ts_linear = mpcf.TimeSeries(values, start_time=10.0, time_step=2.0,
+                                interpolation='linear')
+
+    t_dense = np.linspace(10.0, 18.0, 200)
+    y_nearest = ts_nearest(t_dense)
+    y_linear = ts_linear(t_dense)
+    times = ts_nearest.times
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.5),
+                                    sharey=True)
+
+    # Left: nearest (step function)
+    ax1.step(t_dense, y_nearest, where="post", linewidth=2,
+             color="steelblue")
+    ax1.plot(times, values, "o", markersize=5, color="steelblue")
+    ax1.set_title("interpolation='nearest'", fontsize=10)
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("Value")
+
+    # Right: linear
+    ax2.plot(t_dense, y_linear, linewidth=2, color="#e67e22")
+    ax2.plot(times, values, "o", markersize=5, color="#e67e22")
+    ax2.set_title("interpolation='linear'", fontsize=10)
+    ax2.set_xlabel("Time")
+
+    fig.suptitle("Interpolation modes", fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
 if __name__ == "__main__":
     for name, plot_func in [("timeseries_basic", plot_timeseries_basic),
                              ("timeseries_eval", plot_timeseries_eval),
                              ("timeseries_tensor", plot_timeseries_tensor),
                              ("timeseries_different_scales", plot_different_scales),
-                             ("timeseries_datetime", plot_datetime_example)]:
+                             ("timeseries_datetime", plot_datetime_example),
+                             ("timeseries_multichannel", plot_multichannel),
+                             ("timeseries_embed_basic", plot_embed_basic),
+                             ("timeseries_embed_windowed", plot_embed_windowed),
+                             ("timeseries_interpolation", plot_interpolation)]:
         _save_themed(plot_func, *LIGHT, HERE / f"{name}_light.png")
         _save_themed(plot_func, *DARK, HERE / f"{name}_dark.png")

@@ -83,6 +83,13 @@ _TS_CPP_TO_DTYPE = {
 }
 
 
+_INTERP_STR_TO_CPP = {
+    'nearest': cpp.InterpolationMode.nearest,
+    'linear': cpp.InterpolationMode.linear,
+}
+_INTERP_CPP_TO_STR = {v: k for k, v in _INTERP_STR_TO_CPP.items()}
+
+
 class TimeSeries:
     """A time series stored as a piecewise constant function with time metadata.
 
@@ -113,6 +120,10 @@ class TimeSeries:
         Default 1.0. Not used when *times* is provided.
     dtype : masspcf.dtype, optional
         ``ts32`` or ``ts64``. If ``None``, inferred from data.
+    interpolation : str, optional
+        Interpolation mode: ``'nearest'`` (default) returns the value of
+        the left breakpoint (piecewise constant), ``'linear'`` linearly
+        interpolates between adjacent breakpoints.
     """
 
     _NP_TO_CPP_TS = {
@@ -131,7 +142,13 @@ class TimeSeries:
     }
 
     def __init__(self, times_or_values, values=None, *,
-                 start_time=None, time_step=1.0, dtype=None):
+                 start_time=None, time_step=1.0, dtype=None,
+                 interpolation='nearest'):
+        if interpolation not in _INTERP_STR_TO_CPP:
+            raise ValueError(
+                f"interpolation must be 'nearest' or 'linear', "
+                f"got {interpolation!r}")
+
         # --- Copy / C++ wrap ---
         if values is None and start_time is None:
             if isinstance(times_or_values, TimeSeries):
@@ -139,6 +156,7 @@ class TimeSeries:
                 self.dtype = times_or_values.dtype
                 self._start_time_raw = times_or_values._start_time_raw
                 self._dt_converter = times_or_values._dt_converter
+                self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
                 return
             if isinstance(times_or_values, tuple(self._CPP_TO_DTYPE.keys())):
                 self._data = times_or_values
@@ -230,6 +248,7 @@ class TimeSeries:
         self.dtype = self._CPP_TO_DTYPE.get(type(self._data), ts64)
         self._start_time_raw = start_time_raw
         self._dt_converter = dt_converter
+        self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
 
     def __call__(self, t):
         """Evaluate the time series at the given time(s).
@@ -270,6 +289,19 @@ class TimeSeries:
     def end_time(self):
         """The real-world time of the last sample."""
         return self._data.end_time
+
+    @property
+    def interpolation(self):
+        """Interpolation mode: ``'nearest'`` or ``'linear'``."""
+        return _INTERP_CPP_TO_STR[self._data.interpolation]
+
+    @interpolation.setter
+    def interpolation(self, value):
+        if value not in _INTERP_STR_TO_CPP:
+            raise ValueError(
+                f"interpolation must be 'nearest' or 'linear', "
+                f"got {value!r}")
+        self._data.interpolation = _INTERP_STR_TO_CPP[value]
 
     @property
     def n_channels(self):
@@ -315,9 +347,12 @@ class TimeSeries:
     def __repr__(self):
         nc = self.n_channels
         chan_str = f", n_channels={nc}" if nc > 1 else ""
+        interp = self.interpolation
+        interp_str = f", interpolation='{interp}'" if interp != 'nearest' else ""
         return (
             f"TimeSeries(start_time={self.start_time}, "
-            f"n_times={self.n_times}{chan_str}, dtype={self.dtype})"
+            f"n_times={self.n_times}{chan_str}, "
+            f"dtype={self.dtype}{interp_str})"
         )
 
     def __len__(self):

@@ -27,6 +27,8 @@
 
 namespace mpcf
 {
+  enum class InterpolationMode : uint8_t { Nearest = 0, Linear = 1 };
+
   template <typename Tt, typename Tv = Tt>
   class TimeSeries
   {
@@ -43,10 +45,12 @@ namespace mpcf
 
     /// Construct from times, values (flattened row-major), and n_channels.
     TimeSeries(std::vector<Tt> times, std::vector<Tv> values,
-               size_t n_channels, Tt start_time, Tt time_step)
+               size_t n_channels, Tt start_time, Tt time_step,
+               InterpolationMode interpolation = InterpolationMode::Nearest)
       : m_times(std::move(times)), m_values(std::move(values)),
         m_n_channels(n_channels),
-        m_start_time(start_time), m_time_step(time_step)
+        m_start_time(start_time), m_time_step(time_step),
+        m_interpolation(interpolation)
     {
       if (m_time_step <= 0)
         throw std::invalid_argument("time_step must be positive");
@@ -59,11 +63,13 @@ namespace mpcf
     TimeSeries(std::vector<Tt> times, std::vector<Tv> values,
                size_t n_channels,
                std::chrono::duration<Rep1, Period1> start,
-               std::chrono::duration<Rep2, Period2> step)
+               std::chrono::duration<Rep2, Period2> step,
+               InterpolationMode interpolation = InterpolationMode::Nearest)
       : m_times(std::move(times)), m_values(std::move(values)),
         m_n_channels(n_channels),
         m_start_time(std::chrono::duration<Tt>(start).count()),
-        m_time_step(std::chrono::duration<Tt>(step).count())
+        m_time_step(std::chrono::duration<Tt>(step).count()),
+        m_interpolation(interpolation)
     {
       if (m_time_step <= 0)
         throw std::invalid_argument("time_step must be positive");
@@ -110,6 +116,9 @@ namespace mpcf
       return evaluate_at_pcf_t(pcf_t);
     }
 
+    [[nodiscard]] InterpolationMode interpolation() const noexcept { return m_interpolation; }
+    void set_interpolation(InterpolationMode mode) noexcept { m_interpolation = mode; }
+
     [[nodiscard]] size_t n_channels() const noexcept { return m_n_channels; }
     [[nodiscard]] size_t n_times() const noexcept { return m_times.size(); }
     [[nodiscard]] const std::vector<Tt>& times() const noexcept { return m_times; }
@@ -134,7 +143,8 @@ namespace mpcf
       return m_times == rhs.m_times && m_values == rhs.m_values
           && m_n_channels == rhs.m_n_channels
           && m_start_time == rhs.m_start_time
-          && m_time_step == rhs.m_time_step;
+          && m_time_step == rhs.m_time_step
+          && m_interpolation == rhs.m_interpolation;
     }
 
     bool operator!=(const TimeSeries& rhs) const
@@ -147,7 +157,10 @@ namespace mpcf
       std::stringstream ss;
       ss << "TimeSeries(start_time=" << m_start_time
          << ", n_times=" << m_times.size()
-         << ", n_channels=" << m_n_channels << ")";
+         << ", n_channels=" << m_n_channels;
+      if (m_interpolation != InterpolationMode::Nearest)
+        ss << ", interpolation=linear";
+      ss << ")";
       return ss.str();
     }
 
@@ -172,8 +185,25 @@ namespace mpcf
         return result;
       }
       size_t idx = find_interval(pcf_t);
-      for (size_t c = 0; c < m_n_channels; ++c)
-        result(std::vector<size_t>{c}) = m_values[idx * m_n_channels + c];
+
+      if (m_interpolation == InterpolationMode::Linear
+          && idx + 1 < m_times.size())
+      {
+        Tt alpha = (pcf_t - m_times[idx])
+                 / (m_times[idx + 1] - m_times[idx]);
+        for (size_t c = 0; c < m_n_channels; ++c)
+        {
+          Tv v0 = m_values[idx * m_n_channels + c];
+          Tv v1 = m_values[(idx + 1) * m_n_channels + c];
+          result(std::vector<size_t>{c}) =
+              static_cast<Tv>((Tt(1) - alpha) * v0 + alpha * v1);
+        }
+      }
+      else
+      {
+        for (size_t c = 0; c < m_n_channels; ++c)
+          result(std::vector<size_t>{c}) = m_values[idx * m_n_channels + c];
+      }
       return result;
     }
 
@@ -182,6 +212,7 @@ namespace mpcf
     size_t m_n_channels;
     Tt m_start_time;
     Tt m_time_step;
+    InterpolationMode m_interpolation = InterpolationMode::Nearest;
   };
 
   using TimeSeries_f32 = TimeSeries<float32_t, float32_t>;
