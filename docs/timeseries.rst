@@ -58,6 +58,11 @@ When samples are equally spaced, pass just the values with
    ts.times    # array([10., 12., 14., 16., 18.])
    ts.values   # array([1. , 3. , 2. , 4. , 1.5])
 
+When using numeric (float) times, the default ``start_time`` is ``0.0``
+and the default ``time_step`` is ``1.0``. Internally, float times are
+interpreted as seconds since the Unix epoch (1970-01-01T00:00:00), which
+is also how ``datetime64`` times are represented under the hood.
+
 Datetime support
 ----------------
 
