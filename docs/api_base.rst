@@ -19,14 +19,6 @@ tensor
    :undoc-members:
    :show-inheritance:
 
-timeseries
-----------
-
-.. automodule:: masspcf.timeseries
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 tensor_create
 -------------
 

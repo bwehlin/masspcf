@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from . import _mpcf_cpp as cpp
-from ._tensor_base import FunctionTensorMixin, Tensor, _tensor_from_nested
-from .functional.pcf import Pcf
-from .typing import (
+from .. import _mpcf_cpp as cpp
+from .._tensor_base import FunctionTensorMixin, Tensor, _tensor_from_nested
+from ..functional.pcf import Pcf
+from ..typing import (
     ts32,
     ts64,
 )
