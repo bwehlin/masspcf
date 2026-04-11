@@ -17,11 +17,13 @@
 #ifndef MPCF_TIMESERIES_H
 #define MPCF_TIMESERIES_H
 
-#include "functional/pcf.hpp"
+#include "tensor.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <limits>
 #include <sstream>
+#include <vector>
 
 namespace mpcf
 {
@@ -33,39 +35,50 @@ namespace mpcf
     using value_type = Tv;
 
     TimeSeries()
-      : m_start_time(0), m_time_step(1)
-    { }
-
-    explicit TimeSeries(Pcf<Tt, Tv> pcf, Tt start_time = 0, Tt time_step = 1)
-      : m_pcf(std::move(pcf)), m_start_time(start_time), m_time_step(time_step)
+      : m_n_channels(1), m_start_time(0), m_time_step(1)
     {
-      if (m_time_step <= 0)
-      {
-        throw std::invalid_argument("time_step must be positive");
-      }
+      m_times.push_back(Tt(0));
+      m_values.push_back(Tv(0));
     }
 
-    /// Construct from chrono durations -- converts to float seconds.
+    /// Construct from times, values (flattened row-major), and n_channels.
+    TimeSeries(std::vector<Tt> times, std::vector<Tv> values,
+               size_t n_channels, Tt start_time, Tt time_step)
+      : m_times(std::move(times)), m_values(std::move(values)),
+        m_n_channels(n_channels),
+        m_start_time(start_time), m_time_step(time_step)
+    {
+      if (m_time_step <= 0)
+        throw std::invalid_argument("time_step must be positive");
+      if (m_values.size() != m_times.size() * m_n_channels)
+        throw std::invalid_argument("values size must equal times size * n_channels");
+    }
+
+    /// Construct from chrono durations.
     template <typename Rep1, typename Period1, typename Rep2, typename Period2>
-    TimeSeries(Pcf<Tt, Tv> pcf,
+    TimeSeries(std::vector<Tt> times, std::vector<Tv> values,
+               size_t n_channels,
                std::chrono::duration<Rep1, Period1> start,
                std::chrono::duration<Rep2, Period2> step)
-      : m_pcf(std::move(pcf)),
+      : m_times(std::move(times)), m_values(std::move(values)),
+        m_n_channels(n_channels),
         m_start_time(std::chrono::duration<Tt>(start).count()),
         m_time_step(std::chrono::duration<Tt>(step).count())
     {
       if (m_time_step <= 0)
-      {
         throw std::invalid_argument("time_step must be positive");
-      }
+      if (m_values.size() != m_times.size() * m_n_channels)
+        throw std::invalid_argument("values size must equal times size * n_channels");
     }
 
-    [[nodiscard]] value_type evaluate(time_type real_t) const
+    /// Evaluate all channels at a real time. Returns Tensor<Tv> of shape (n_channels,).
+    [[nodiscard]] Tensor<Tv> evaluate(time_type real_t) const
     {
       time_type pcf_t = (real_t - m_start_time) / m_time_step;
       return evaluate_at_pcf_t(pcf_t);
     }
 
+    /// Batch evaluate (generic container interface for tensor_eval).
     template <typename TIn, typename TOut>
     void evaluate(const TIn& sorted_real_times, TOut& out, size_t n) const
     {
@@ -77,10 +90,8 @@ namespace mpcf
     }
 
     /// Evaluate at a chrono time point.
-    /// Reconstructs start and step in the query's tick unit, subtracts
-    /// in integer chrono space (exact), then divides in float.
     template <typename Rep, typename Period>
-    [[nodiscard]] value_type evaluate(
+    [[nodiscard]] Tensor<Tv> evaluate(
         std::chrono::duration<Rep, Period> query) const
     {
       using D = std::chrono::duration<Rep, Period>;
@@ -92,7 +103,6 @@ namespace mpcf
       Rep step_count = step.count();
       if (step_count == 0)
       {
-        // Query unit too coarse for this time_step; fall back to float
         return evaluate(std::chrono::duration<Tt>(query).count());
       }
       time_type pcf_t = static_cast<time_type>(offset)
@@ -100,22 +110,31 @@ namespace mpcf
       return evaluate_at_pcf_t(pcf_t);
     }
 
-    [[nodiscard]] const Pcf<Tt, Tv>& pcf() const noexcept { return m_pcf; }
+    [[nodiscard]] size_t n_channels() const noexcept { return m_n_channels; }
+    [[nodiscard]] size_t n_times() const noexcept { return m_times.size(); }
+    [[nodiscard]] const std::vector<Tt>& times() const noexcept { return m_times; }
+    [[nodiscard]] const std::vector<Tv>& values() const noexcept { return m_values; }
     [[nodiscard]] Tt start_time() const noexcept { return m_start_time; }
     [[nodiscard]] Tt time_step() const noexcept { return m_time_step; }
 
-    [[nodiscard]] Tt end_time() const noexcept
+    [[nodiscard]] Tv value(size_t time_idx, size_t channel) const
     {
-      if (m_pcf.size() == 0)
-        return m_start_time;
-      return m_start_time + m_pcf.points().back().t * m_time_step;
+      return m_values[time_idx * m_n_channels + channel];
     }
 
-    [[nodiscard]] size_t size() const noexcept { return m_pcf.size(); }
+    [[nodiscard]] Tt end_time() const noexcept
+    {
+      if (m_times.empty())
+        return m_start_time;
+      return m_start_time + m_times.back() * m_time_step;
+    }
 
     bool operator==(const TimeSeries& rhs) const
     {
-      return m_pcf == rhs.m_pcf && m_start_time == rhs.m_start_time && m_time_step == rhs.m_time_step;
+      return m_times == rhs.m_times && m_values == rhs.m_values
+          && m_n_channels == rhs.m_n_channels
+          && m_start_time == rhs.m_start_time
+          && m_time_step == rhs.m_time_step;
     }
 
     bool operator!=(const TimeSeries& rhs) const
@@ -126,22 +145,41 @@ namespace mpcf
     [[nodiscard]] std::string to_string() const
     {
       std::stringstream ss;
-      ss << "TimeSeries(start_time=" << m_start_time << ", time_step=" << m_time_step
-         << ", pcf=" << m_pcf.to_string() << ")";
+      ss << "TimeSeries(start_time=" << m_start_time
+         << ", n_times=" << m_times.size()
+         << ", n_channels=" << m_n_channels << ")";
       return ss.str();
     }
 
   private:
-    [[nodiscard]] value_type evaluate_at_pcf_t(time_type pcf_t) const
+    /// Find the interval index for a pcf time (binary search on m_times).
+    [[nodiscard]] size_t find_interval(time_type pcf_t) const
     {
-      if (pcf_t < 0)
-        return std::numeric_limits<value_type>::quiet_NaN();
-      if (m_pcf.size() > 0 && pcf_t > m_pcf.points().back().t)
-        return std::numeric_limits<value_type>::quiet_NaN();
-      return m_pcf.evaluate(pcf_t);
+      auto it = std::upper_bound(m_times.begin(), m_times.end(), pcf_t);
+      if (it == m_times.begin())
+        return 0; // before first breakpoint
+      --it;
+      return static_cast<size_t>(it - m_times.begin());
     }
 
-    Pcf<Tt, Tv> m_pcf;
+    [[nodiscard]] Tensor<Tv> evaluate_at_pcf_t(time_type pcf_t) const
+    {
+      Tensor<Tv> result(std::vector<size_t>{m_n_channels});
+      if (pcf_t < 0 || (m_times.size() > 0 && pcf_t > m_times.back()))
+      {
+        for (size_t c = 0; c < m_n_channels; ++c)
+          result(std::vector<size_t>{c}) = std::numeric_limits<Tv>::quiet_NaN();
+        return result;
+      }
+      size_t idx = find_interval(pcf_t);
+      for (size_t c = 0; c < m_n_channels; ++c)
+        result(std::vector<size_t>{c}) = m_values[idx * m_n_channels + c];
+      return result;
+    }
+
+    std::vector<Tt> m_times;
+    std::vector<Tv> m_values;  // row-major (n_times, n_channels)
+    size_t m_n_channels;
     Tt m_start_time;
     Tt m_time_step;
   };

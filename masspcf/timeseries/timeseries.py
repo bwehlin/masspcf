@@ -158,11 +158,13 @@ class TimeSeries:
             # --- (times, values) form ---
             times = np.asarray(times_or_values)
             values = np.asarray(values)
-            if times.ndim != 1 or values.ndim != 1:
-                raise ValueError("times and values must be 1-D arrays")
-            if len(times) != len(values):
+            if times.ndim != 1:
+                raise ValueError("times must be a 1-D array")
+            if values.ndim not in (1, 2):
+                raise ValueError("values must be 1-D or 2-D")
+            if len(times) != values.shape[0]:
                 raise ValueError(
-                    "times and values must have the same length")
+                    "times length must match values first dimension")
             if len(times) < 2:
                 raise ValueError(
                     "times must have at least 2 elements")
@@ -189,8 +191,8 @@ class TimeSeries:
         else:
             # --- (values, start_time=, time_step=) form ---
             vals = np.asarray(times_or_values)
-            if vals.ndim != 1:
-                raise ValueError("values must be a 1-D array")
+            if vals.ndim not in (1, 2):
+                raise ValueError("values must be 1-D or 2-D")
 
             np_dtype = _resolve_dtype(vals)
             vals = vals.astype(np_dtype)
@@ -257,11 +259,6 @@ class TimeSeries:
         raise TypeError(f"Cannot evaluate TimeSeries at type {type(t)}")
 
     @property
-    def pcf(self):
-        """The underlying :class:`~masspcf.Pcf`."""
-        return Pcf(self._data.pcf)
-
-    @property
     def start_time(self):
         """The real-world time of the first sample."""
         return self._start_time_raw
@@ -269,44 +266,59 @@ class TimeSeries:
     @property
     def end_time(self):
         """The real-world time of the last sample."""
-        dtc = self._dt_converter
-        if dtc is not None:
-            arr = np.asarray(self._data.pcf)
-            n_steps = int(arr[-1, 0]) if len(arr) > 0 else 0
-            return dtc.start_time_dt + n_steps * dtc.time_step_td
         return self._data.end_time
 
     @property
-    def size(self):
-        """Number of breakpoints in the underlying PCF."""
-        return self._data.size
+    def n_channels(self):
+        """Number of channels."""
+        return self._data.n_channels
+
+    @property
+    def n_times(self):
+        """Number of time points (breakpoints)."""
+        return self._data.n_times
 
     @property
     def values(self):
-        """The PCF values as a 1-D numpy array."""
-        arr = np.asarray(self._data.pcf)
-        return arr[:, 1]
+        """Sample values. Shape ``(n_times,)`` for single-channel,
+        ``(n_times, n_channels)`` for multi-channel."""
+        # TODO: expose values directly from C++ without copy
+        nc = self._data.n_channels
+        nt = self._data.n_times
+        if nc == 1:
+            return np.array([self._data(float(self._data.start_time
+                             + self._data.time_step * i))
+                             for i in range(nt)])
+        # For now, evaluate at each breakpoint time
+        result = np.empty((nt, nc))
+        for i in range(nt):
+            t = self._data.start_time + self._data.time_step * i
+            vals = self._data(float(t))
+            if isinstance(vals, np.ndarray):
+                result[i] = vals
+            else:
+                result[i, 0] = vals
+        return result
 
     @property
     def times(self):
         """The real-world times for each sample."""
-        arr = np.asarray(self._data.pcf)
-        pcf_times = arr[:, 0]
         dtc = self._dt_converter
         if dtc is not None:
-            steps = pcf_times.astype("int64")
+            steps = np.arange(self._data.n_times)
             return dtc.start_time_dt + steps * dtc.time_step_td
-        # PCF breakpoints are real offsets; start_time is at pcf_t=0
-        return self._data.start_time + pcf_times
+        return self._data.start_time + self._data._internal_times
 
     def __repr__(self):
+        nc = self.n_channels
+        chan_str = f", n_channels={nc}" if nc > 1 else ""
         return (
             f"TimeSeries(start_time={self.start_time}, "
-            f"size={self.size}, dtype={self.dtype})"
+            f"n_times={self.n_times}{chan_str}, dtype={self.dtype})"
         )
 
     def __len__(self):
-        return self.size
+        return self.n_times
 
     def __eq__(self, other):
         if not isinstance(other, TimeSeries):

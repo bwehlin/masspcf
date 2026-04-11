@@ -130,6 +130,43 @@ different times and sample at different rates::
       :language: python
 
 
+Multi-channel time series
+=========================
+
+When the data has multiple channels (e.g. a 3-axis accelerometer or
+multi-sensor readings), pass a 2-D values array of shape
+``(n_times, n_channels)``::
+
+   # 3 time points, 2 channels (e.g. temperature + humidity)
+   times = np.array([0.0, 1.0, 2.0])
+   values = np.array([
+       [22.1, 45.0],   # t=0: temp=22.1, humidity=45.0
+       [22.5, 44.0],   # t=1
+       [23.0, 43.5],   # t=2
+   ])
+   ts = mpcf.TimeSeries(times, values)
+   ts.n_channels  # 2
+
+Evaluating at a single time returns one value per channel::
+
+   ts(0.5)  # array([22.1, 45.0])
+
+Evaluating at multiple times returns shape ``(n_channels, n_times)``::
+
+   ts(np.array([0.5, 1.5]))
+   # array([[22.1, 22.5],    # channel 0 at t=0.5, t=1.5
+   #        [45.0, 44.0]])   # channel 1 at t=0.5, t=1.5
+
+The regularly-sampled form also accepts 2-D values::
+
+   values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
+   ts = mpcf.TimeSeries(values, start_time=0.0, time_step=0.5)
+   ts.n_channels  # 2
+
+Single-channel time series (1-D values) behave exactly as before --
+scalar evaluation returns a float, array evaluation returns a 1-D array.
+
+
 Evaluation
 ==========
 
