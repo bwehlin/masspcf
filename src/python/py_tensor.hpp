@@ -504,50 +504,40 @@ namespace mpcf_py
       // Scalar datetime: int64 ticks + unit string
       cls.def("__call__", [](const TTensor& self,
                              int64_t ticks, const std::string& unit) {
-        const auto& sh = self.shape();
-        std::vector<py::ssize_t> out_shape(sh.begin(), sh.end());
-        py::array_t<Tv> result(out_shape);
-        NumpyTensor<Tv> out(result);
-
-        dispatch_datetime_unit(unit, [&](auto duration_tag) {
+        return dispatch_datetime_unit(unit, [&](auto duration_tag) {
           using Duration = decltype(duration_tag);
-          mpcf::walk(self, [&](const std::vector<size_t>& idx) {
-            out(idx) = self(idx).evaluate(Duration(ticks));
-          });
-          return 0;
+          return mpcf_py::pcf_tensor_eval_scalar<Duration, Tv>(
+              self, Duration(ticks));
         });
-
-        return result;
       }, py::arg("ticks"), py::arg("unit"));
 
       // Array datetime: int64 numpy array + unit string
       cls.def("__call__", [](const TTensor& self,
                              py::array_t<int64_t> ticks_arr,
                              const std::string& unit) {
-        auto m = static_cast<size_t>(ticks_arr.size());
-        auto t_in = ticks_arr.template unchecked<1>();
-
-        auto sh = self.shape();
-        std::vector<py::ssize_t> out_shape(sh.begin(), sh.end());
-        out_shape.push_back(static_cast<py::ssize_t>(m));
-        py::array_t<Tv> result(out_shape);
-        NumpyTensor<Tv> out(result);
-
-        dispatch_datetime_unit(unit, [&](auto duration_tag) {
+        return dispatch_datetime_unit(unit, [&](auto duration_tag) {
           using Duration = decltype(duration_tag);
-          mpcf::walk(self, [&](const std::vector<size_t>& elem_idx) {
-            const auto& elem = self(elem_idx);
-            auto combined = elem_idx;
-            combined.push_back(0);
-            for (size_t j = 0; j < m; ++j) {
-              combined.back() = j;
-              out(combined) = elem.evaluate(Duration(t_in(j)));
-            }
-          });
-          return 0;
-        });
+          auto m = static_cast<size_t>(ticks_arr.size());
 
-        return result;
+          // Build a Tensor<Duration> from the int64 array
+          mpcf::Tensor<Duration> domain(std::vector<size_t>{m});
+          auto t_in = ticks_arr.template unchecked<1>();
+          for (size_t i = 0; i < m; ++i)
+            domain(std::vector<size_t>{i}) = Duration(t_in(i));
+
+          mpcf::Tensor<Tv> out(mpcf_py::eval_out_shape(self, domain));
+          mpcf::tensor_eval<Duration, Tv>(self, domain, out);
+
+          // Convert to numpy
+          auto sh = out.shape();
+          std::vector<py::ssize_t> out_shape(sh.begin(), sh.end());
+          py::array_t<Tv> result(out_shape);
+          NumpyTensor<Tv> np_out(result);
+          mpcf::walk(out, [&](const std::vector<size_t>& idx) {
+            np_out(idx) = out(idx);
+          });
+          return result;
+        });
       }, py::arg("ticks"), py::arg("unit"));
     }
 

@@ -71,7 +71,7 @@ namespace mpcf
     {
       for (size_t i = 0; i < n; ++i)
       {
-        time_type real_t = sorted_real_times(std::vector<size_t>{i});
+        auto real_t = sorted_real_times(std::vector<size_t>{i});
         out(std::vector<size_t>{i}) = evaluate(real_t);
       }
     }
