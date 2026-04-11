@@ -6,52 +6,35 @@ A :py:class:`~masspcf.TimeSeries` wraps a piecewise constant function with
 real-world time metadata, making it easy to work with sensor readings,
 sampled signals, and other time-stamped data in the masspcf framework.
 
-Each ``TimeSeries`` stores:
-
-- A :py:class:`~masspcf.Pcf` holding the actual values.
-- A **start_time** -- the real-world time corresponding to the start of the series.
-- A **time_step** -- the real-world duration of each PCF time unit.
-
-Internally, the conversion is:
-
-.. math::
-
-   t_{\text{pcf}} = \frac{t_{\text{real}} - \text{start time}}{\text{time step}}
-
-Evaluating outside the series domain (before the start or after the last
-breakpoint) returns ``NaN``.
+Evaluating outside the series domain (before the first sample or after the
+last) returns ``NaN``.
 
 
 Creating a time series
 ======================
 
-From a 1-D array of values
---------------------------
+From times and values
+---------------------
 
-The simplest construction: supply an array of values. Each value becomes one
-step of the resulting piecewise constant function::
+Pass separate arrays of sample times and values::
 
    import numpy as np
    import masspcf as mpcf
 
-   # Five measurements taken every 2 seconds, starting at t=10
-   ts = mpcf.TimeSeries(
-       np.array([1.0, 3.0, 2.0, 4.0, 1.5]),
-       start_time=10.0,
-       time_step=2.0,
-   )
-   ts.times    # array([10., 12., 14., 16., 18.])
-   ts.values   # array([1. , 3. , 2. , 4. , 1.5])
+   times = np.array([10.0, 12.0, 14.0, 16.0, 18.0])
+   values = np.array([1.0, 3.0, 2.0, 4.0, 1.5])
+   ts = mpcf.TimeSeries(times, values)
+   ts.start_time  # 10.0
 
 .. image:: _static/timeseries_basic_light.png
    :width: 80%
    :class: only-light
-   :alt: A basic time series with start_time=10 and time_step=2
+   :alt: A time series created from explicit times and values
 
 .. image:: _static/timeseries_basic_dark.png
    :width: 80%
    :class: only-dark
-   :alt: A basic time series with start_time=10 and time_step=2
+   :alt: A time series created from explicit times and values
 
 .. dropdown:: Show plotting code
    :color: secondary
@@ -61,57 +44,46 @@ step of the resulting piecewise constant function::
       :language: python
 
 
-From time-value pairs
----------------------
+From regularly-sampled values
+-----------------------------
 
-Pass an ``(n, 2)`` array where each row is a ``(time, value)`` pair. The
-start_time is automatically inferred from the first time::
+When samples are equally spaced, pass just the values with
+``start_time`` and ``time_step``::
 
-   data = np.array([
-       [5.0, 100.0],
-       [6.0, 200.0],
-       [8.0, 300.0],
-   ])
-   ts = mpcf.TimeSeries(data, time_step=1.0)
-   ts.start_time  # 5.0  (inferred from first time)
-   ts.end_time    # 8.0
-
-From an existing Pcf
---------------------
-
-Wrap a :py:class:`~masspcf.Pcf` directly by supplying the time metadata::
-
-   pcf = mpcf.Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [3.0, 0.5]]))
-   ts = mpcf.TimeSeries(pcf, start_time=10.0, time_step=2.0)
-   ts(12.0)  # 2.0  (pcf_t = 1.0)
+   ts = mpcf.TimeSeries(
+       np.array([1.0, 3.0, 2.0, 4.0, 1.5]),
+       start_time=10.0,
+       time_step=2.0,
+   )
+   ts.times    # array([10., 12., 14., 16., 18.])
+   ts.values   # array([1. , 3. , 2. , 4. , 1.5])
 
 Datetime support
 ----------------
 
-Use :class:`numpy.datetime64` for the start_time and :class:`numpy.timedelta64`
-for the time step when working with real timestamps::
+Both construction forms accept ``datetime64`` times. Pass ``datetime64``
+arrays directly, or use ``start_time`` / ``time_step`` with
+``datetime64`` / ``timedelta64``::
 
-   start_time = np.datetime64("2024-06-15T08:00:00")
-   step = np.timedelta64(10, "ms")   # 10 milliseconds
+   # From datetime arrays
+   times = np.array([
+       "2024-06-15T08:00:00.000",
+       "2024-06-15T08:00:00.010",
+       "2024-06-15T08:00:00.020",
+       "2024-06-15T08:00:00.030",
+   ], dtype="datetime64[ms]")
+   ts = mpcf.TimeSeries(times, np.array([22.1, 22.3, 23.0, 22.8]))
 
-   readings = np.array([22.1, 22.3, 23.0, 22.8])
-   ts = mpcf.TimeSeries(readings, start_time=start_time, time_step=step)
-
-   ts.times
-   # array(['2024-06-15T08:00:00.000', '2024-06-15T08:00:00.010',
-   #        '2024-06-15T08:00:00.020', '2024-06-15T08:00:00.030'],
-   #       dtype='datetime64[ms]')
+   # Or from regularly-sampled values
+   ts = mpcf.TimeSeries(
+       np.array([22.1, 22.3, 23.0, 22.8]),
+       start_time=np.datetime64("2024-06-15T08:00:00"),
+       time_step=np.timedelta64(10, "ms"),
+   )
 
 Query times can also be ``datetime64``::
 
    ts(np.datetime64("2024-06-15T08:00:00.015"))  # 23.0
-
-.. note::
-
-   Datetime arithmetic is performed in the native resolution of the
-   ``timedelta64`` step (e.g. milliseconds), avoiding the floating-point
-   precision loss that would occur when converting large start_time values to
-   seconds.
 
 Here is a more complete example with two datetime-based sensors that start at
 different times and sample at different rates::
@@ -131,9 +103,9 @@ different times and sample at different rates::
    )
 
    # Query both at the same wall-clock time
-   t = np.datetime64("2024-06-15T08:00:03")
+   t = np.datetime64("2024-06-15T08:00:02.700")
    ts1(t)  # 23.2
-   ts2(t)  # 21.8
+   ts2(t)  # 21.0
 
 .. image:: _static/timeseries_datetime_light.png
    :width: 90%
@@ -161,17 +133,14 @@ Time series are callable. Pass a single time or an array of times::
    ts = mpcf.TimeSeries(np.array([1.0, 3.0, 2.0, 4.0, 1.5]),
                          start_time=10.0, time_step=2.0)
 
-   ts(10.0)                       # 1.0 (at the start_time)
-   ts(13.0)                       # 3.0 (in the second interval)
+   ts(10.0)                       # 1.0
+   ts(13.0)                       # 3.0
    ts(np.array([10.0, 14.0]))     # array([1.0, 2.0])
 
-Out-of-range evaluation
------------------------
+Times before the start or after the last sample return ``NaN``::
 
-Times before the start or after the last breakpoint return ``NaN``::
-
-   ts(9.0)    # nan  (before start_time)
-   ts(20.0)   # nan  (after end_time)
+   ts(9.0)    # nan
+   ts(20.0)   # nan
 
 .. image:: _static/timeseries_eval_light.png
    :width: 80%
@@ -194,44 +163,8 @@ Times before the start or after the last breakpoint return ``NaN``::
 TimeSeriesTensor
 ================
 
-A :py:class:`~masspcf.TimeSeriesTensor` holds a collection of time series,
-each with its own start_time and time step. This allows series sampled at
-different rates or starting at different times to coexist in one tensor::
-
-   ts1 = mpcf.TimeSeries(np.array([1.0, 3.0, 2.0, 4.0]),
-                          start_time=0.0, time_step=1.0)
-   ts2 = mpcf.TimeSeries(np.array([2.0, 1.0, 3.0]),
-                          start_time=1.0, time_step=1.5)
-
-   tensor = mpcf.TimeSeriesTensor([ts1, ts2])
-   tensor.shape  # (2,)
-
-.. image:: _static/timeseries_tensor_light.png
-   :width: 80%
-   :class: only-light
-   :alt: A tensor of two time series with different start_times and time steps
-
-.. image:: _static/timeseries_tensor_dark.png
-   :width: 80%
-   :class: only-dark
-   :alt: A tensor of two time series with different start_times and time steps
-
-.. dropdown:: Show plotting code
-   :color: secondary
-
-   .. literalinclude:: _static/gen_timeseries_fig.py
-      :pyobject: plot_timeseries_tensor
-      :language: python
-
-Different scales and start times
---------------------------------
-
-A common scenario: sensors sampling at different rates, coming online at
-different times. Each ``TimeSeries`` carries its own ``start_time`` and
-``time_step``, so they can all live in the same tensor::
-
-   import numpy as np
-   import masspcf as mpcf
+A :py:class:`~masspcf.TimeSeriesTensor` holds a collection of time series.
+Each series can have its own start time and sampling rate::
 
    # Fast sensor: 0.5s intervals, starts at t=1
    fast = mpcf.TimeSeries(
@@ -265,44 +198,25 @@ different times. Each ``TimeSeries`` carries its own ``start_time`` and
       :pyobject: plot_different_scales
       :language: python
 
-Tensor evaluation
------------------
-
-Evaluating a ``TimeSeriesTensor`` queries every series at the given time.
-Each series converts the query time using its own start_time and time step::
+Evaluating a tensor queries every series at the given time. Series
+where the query falls outside their domain return ``NaN``::
 
    tensor(0.5)
-   # array([1., nan])
-   # ts1: pcf_t = 0.5 -> 1.0
-   # ts2: pcf_t = (0.5 - 1.0) / 1.5 < 0 -> NaN
-
-   tensor(2.0)
-   # array([3., 1.])
-   # ts1: pcf_t = 2.0 -> 3.0 (third value)
-   # ts2: pcf_t = (2.0 - 1.0) / 1.5 = 0.67 -> 2.0 (first value)
+   # array([ 2.1,  nan])
+   # fast: t=0.5 is before start (1.0) -> NaN... wait, 0.5 < 1.0 -> NaN
+   # slow: t=0.5 is in [0, 1.5) -> 10.0
 
 Array evaluation appends the time dimensions to the tensor shape, just like
 PCF tensor evaluation::
 
-   tensor(np.array([0.5, 2.0]))
+   tensor(np.array([1.5, 3.5]))
    # shape (2, 2) -- tensor shape (2,) + times shape (2,)
 
-Slicing
--------
+The ``start_times`` and ``end_times`` properties give the time domain
+of each series::
 
-Indexing a ``TimeSeriesTensor`` returns a ``TimeSeries`` (scalar index) or
-a ``TimeSeriesTensor`` (slice)::
-
-   tensor[0]      # TimeSeries (ts1)
-   tensor[0:2]    # TimeSeriesTensor of shape (2,)
-
-Properties
-----------
-
-Inspect the time domains of all series in the tensor::
-
-   tensor.start_times  # array([0., 1.])
-   tensor.end_times    # array([3. , 4. ])
+   tensor.start_times  # array([1. , 0. ])
+   tensor.end_times    # array([5.5, 6. ])
 
 
 Dtypes
@@ -310,10 +224,12 @@ Dtypes
 
 Time series tensors use the ``ts32`` and ``ts64`` dtypes::
 
-   ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float32))
+   ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float32),
+                         start_time=0.0, time_step=1.0)
    ts.dtype  # masspcf.ts32
 
-   ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float64))
+   ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float64),
+                         start_time=0.0, time_step=1.0)
    ts.dtype  # masspcf.ts64
 
 Use ``ts32`` for lower memory usage, ``ts64`` (the default) for higher

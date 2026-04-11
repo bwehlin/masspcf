@@ -29,71 +29,54 @@ from .typing import (
 )
 
 
-def _timedelta64_to_float(val):
-    """Convert numpy.timedelta64 to float seconds."""
-    return val / np.timedelta64(1, "s")
-
-
-def _infer_datetime_unit(time_step):
-    """Infer the base unit for datetime conversions from a timedelta64.
-
-    Returns a numpy.timedelta64 representing one unit, used to convert
-    datetime64 values to integer counts of that unit. This avoids
-    precision loss from large float epoch values.
-    """
-    # Use the resolution of the timedelta itself as our unit
-    # e.g. timedelta64(10, 'ms') -> unit is timedelta64(1, 'ms')
+def _infer_unit_str(time_step):
+    """Extract the unit string from a timedelta64 (e.g. 'ms' from timedelta64(10, 'ms'))."""
     dtype_str = str(time_step.dtype)  # e.g. "timedelta64[ms]"
-    unit = dtype_str.split("[")[1].rstrip("]")
-    return np.timedelta64(1, unit)
+    return dtype_str.split("[")[1].rstrip("]")
 
 
 class _DateTimeConverter:
-    """Handles conversion between datetime64 domain and float domain.
+    """Converts between numpy datetime64 and int64 ticks for the C++ chrono path.
 
-    Uses the time_step's native unit (e.g. milliseconds for
-    ``timedelta64(10, 'ms')``) as the float coordinate system.
-    This preserves full precision because values like
-    ``1704067200000.0`` (ms since Unix epoch for 2024) fit exactly
-    in float64 (well within the 2^53 integer range).
+    The C++ side stores start_time/time_step as float seconds. Query times
+    are passed as int64 ticks + unit string so that C++ can construct the
+    appropriate std::chrono::duration and perform exact integer subtraction
+    before converting to float.
     """
 
     def __init__(self, start_time, time_step):
         self.start_time_dt = start_time
         self.time_step_td = time_step
-        self._unit = _infer_datetime_unit(time_step)
-        unit_str = str(self._unit.dtype).split("[")[1].rstrip("]")
-        self._zero = np.datetime64(0, unit_str)
+        self._unit_str = _infer_unit_str(time_step)
+        self._unit_td = np.timedelta64(1, self._unit_str)
 
-    def start_time_float(self):
-        """Return start_time as a float in the native unit."""
-        return float((self.start_time_dt - self._zero) / self._unit)
+    def start_ticks(self):
+        """Return start_time as int64 ticks in the native unit."""
+        return int(self.start_time_dt.astype(
+            f"datetime64[{self._unit_str}]").view("int64"))
 
-    def time_step_float(self):
-        """Return time_step as a float in the native unit."""
-        return float(self.time_step_td / self._unit)
+    def step_ticks(self):
+        """Return time_step as int64 ticks in the native unit."""
+        return int(self.time_step_td / self._unit_td)
 
-    def convert_scalar(self, t):
-        """Convert a datetime64 scalar to a float in the native unit."""
-        return float((t - self._zero) / self._unit)
+    def to_int64(self, dt):
+        """Convert a datetime64 scalar to int64 ticks."""
+        return int(np.datetime64(dt, self._unit_str).view("int64"))
 
-    def convert_array(self, t):
-        """Convert a datetime64 array to floats in the native unit."""
-        return ((t - self._zero) / self._unit).astype(np.float64)
-
-
-def _convert_start_time(start_time):
-    """Convert start_time to float, handling datetime64."""
-    if isinstance(start_time, np.datetime64):
-        raise ValueError("datetime64 start_time requires a _DateTimeConverter")
-    return float(start_time)
+    def array_to_int64(self, arr):
+        """Convert a datetime64 array to int64 ticks."""
+        return arr.astype(
+            f"datetime64[{self._unit_str}]").view("int64").astype("int64")
 
 
-def _convert_time_step(time_step):
-    """Convert time_step to float, handling timedelta64."""
-    if isinstance(time_step, np.timedelta64):
-        raise ValueError("timedelta64 time_step requires a _DateTimeConverter")
-    return float(time_step)
+def _datetime64_unit(dt):
+    """Extract unit string from a datetime64 scalar (e.g. 'ms', 'us')."""
+    return np.datetime_data(dt.dtype)[0]
+
+
+def _datetime64_array_unit(arr):
+    """Extract unit string from a datetime64 array dtype."""
+    return np.datetime_data(arr.dtype)[0]
 
 
 _TS_CPP_TO_DTYPE = {
@@ -106,29 +89,32 @@ class TimeSeries:
     """A time series stored as a piecewise constant function with time metadata.
 
     Each ``TimeSeries`` wraps a :class:`~masspcf.Pcf` together with a
-    ``start_time`` (the real-world time corresponding to PCF t=0) and a
-    ``time_step`` (the real-world duration per PCF time unit).
+    ``start_time`` (the real-world time of the first sample) and a
+    ``time_step`` (the duration between samples).
+
+    Construction forms:
+
+    ``TimeSeries(times, values)``
+        Explicit time points. *times* is a 1-D array of sample times
+        (float or ``datetime64``), *values* a 1-D array of sample values.
+        ``start_time`` is inferred from ``times[0]``.
+
+    ``TimeSeries(values, *, start_time=0.0, time_step=1.0)``
+        Regular sampling. *values* is a 1-D array; sample *i* is placed
+        at ``start_time + i * time_step``.
+
+    ``TimeSeries(existing)``
+        Copy an existing ``TimeSeries``.
 
     Parameters
     ----------
-    data : numpy.ndarray, Pcf, or TimeSeries
-        Input data.
-
-        * **1-D array of values**: breakpoints placed at PCF times 0, 1, 2, ...
-          Each value lasts for one ``time_step``.
-        * **(n, 2) array of (time, value) pairs**: ``start_time`` is inferred
-          from the first time value. Times are converted to PCF-internal
-          coordinates using ``time_step``.
-        * **Pcf**: wrap an existing PCF directly (must also supply
-          start_time/time_step).
-        * **TimeSeries**: copy.
     start_time : float, int, or numpy.datetime64, optional
-        The real-world time corresponding to PCF t=0. For (n, 2) arrays
-        this is overridden by the first time value. Default 0.0.
+        Start time for regularly-sampled construction. Default 0.0.
     time_step : float, int, or numpy.timedelta64, optional
-        The real-world duration per PCF time unit. Default 1.0.
+        Spacing between samples for regularly-sampled construction.
+        Default 1.0. Not used when *times* is provided.
     dtype : masspcf.dtype, optional
-        ``ts32`` or ``ts64``. If ``None``, inferred from input data.
+        ``ts32`` or ``ts64``. If ``None``, inferred from data.
     """
 
     _NP_TO_CPP_TS = {
@@ -146,67 +132,105 @@ class TimeSeries:
         ts64: np.float64,
     }
 
-    def __init__(self, data, *, start_time=0.0, time_step=1.0, dtype=None):
-        if isinstance(data, TimeSeries):
-            self._data = data._data
-            self.dtype = data.dtype
-            self._start_time_raw = data._start_time_raw
-            self._time_step_raw = data._time_step_raw
-            self._dt_converter = data._dt_converter
-            return
+    def __init__(self, times_or_values, values=None, *,
+                 start_time=None, time_step=1.0, dtype=None):
+        # --- Copy / C++ wrap ---
+        if values is None and start_time is None:
+            if isinstance(times_or_values, TimeSeries):
+                self._data = times_or_values._data
+                self.dtype = times_or_values.dtype
+                self._start_time_raw = times_or_values._start_time_raw
+                self._dt_converter = times_or_values._dt_converter
+                return
+            if isinstance(times_or_values, tuple(self._CPP_TO_DTYPE.keys())):
+                self._data = times_or_values
+                self.dtype = self._CPP_TO_DTYPE[type(times_or_values)]
+                self._start_time_raw = times_or_values.start_time
+                self._dt_converter = None
+                return
 
-        start_time_raw = start_time
-        time_step_raw = time_step
         dt_converter = None
 
-        if isinstance(start_time, np.datetime64) and isinstance(time_step, np.timedelta64):
-            dt_converter = _DateTimeConverter(start_time, time_step)
-            start_time_f = dt_converter.start_time_float()
-            time_step_f = dt_converter.time_step_float()
-        else:
-            start_time_f = _convert_start_time(start_time)
-            time_step_f = _convert_time_step(time_step)
-
-        if isinstance(data, Pcf):
-            np_dtype = self._DTYPE_TO_NP.get(dtype) if dtype else None
-            if np_dtype is None:
-                np_dtype = _MPCF_TO_NP.get(data.ttype, np.float64)
-            cpp_cls = self._NP_TO_CPP_TS[np_dtype]
-            self._data = cpp_cls(data._data, np_dtype(start_time_f), np_dtype(time_step_f))
-
-        elif isinstance(data, tuple(self._CPP_TO_DTYPE.keys())):
-            self._data = data
-            start_time_raw = data.start_time
-            time_step_raw = data.time_step
-
-        elif isinstance(data, np.ndarray):
+        # Resolve dtype for values
+        def _resolve_dtype(arr):
             if dtype is not None:
-                np_dtype = self._DTYPE_TO_NP.get(dtype)
-                if np_dtype and data.dtype != np_dtype:
-                    data = data.astype(np_dtype)
-            np_dtype = data.dtype.type
-            if np_dtype not in self._NP_TO_CPP_TS:
-                data = data.astype(np.float64)
-                np_dtype = np.float64
-            cpp_cls = self._NP_TO_CPP_TS[np_dtype]
-            self._data = cpp_cls(data, np_dtype(start_time_f), np_dtype(time_step_f))
-            # For (n,2) input, start_time is inferred by C++ from the first time
-            if dt_converter is None:
-                start_time_raw = self._data.start_time
-                time_step_raw = self._data.time_step
+                return self._DTYPE_TO_NP.get(dtype, np.float64)
+            if arr.dtype.type in self._NP_TO_CPP_TS:
+                return arr.dtype.type
+            return np.float64
 
-        elif isinstance(data, list):
-            arr = np.array(data, dtype=np.float64 if dtype is None else self._DTYPE_TO_NP.get(dtype, np.float64))
-            np_dtype = arr.dtype.type
-            cpp_cls = self._NP_TO_CPP_TS.get(np_dtype, cpp.TimeSeries_f64_f64)
-            self._data = cpp_cls(arr, np_dtype(start_time_f), np_dtype(time_step_f))
+        if values is not None:
+            # --- (times, values) form ---
+            times = np.asarray(times_or_values)
+            values = np.asarray(values)
+            if times.ndim != 1 or values.ndim != 1:
+                raise ValueError("times and values must be 1-D arrays")
+            if len(times) != len(values):
+                raise ValueError(
+                    "times and values must have the same length")
+            if len(times) < 2:
+                raise ValueError(
+                    "times must have at least 2 elements")
+
+            np_dtype = _resolve_dtype(values)
+            values = values.astype(np_dtype)
+            cpp_cls = self._NP_TO_CPP_TS[np_dtype]
+
+            if np.issubdtype(times.dtype, np.datetime64):
+                inferred_step = times[1] - times[0]
+                dt_converter = _DateTimeConverter(times[0], inferred_step)
+                ticks = dt_converter.array_to_int64(times)
+                self._data = cpp_cls(
+                    ticks, values,
+                    dt_converter.step_ticks(), dt_converter._unit_str)
+                start_time_raw = times[0]
+            else:
+                # Store real offsets from start as PCF breakpoints,
+                # time_step=1 so evaluate is just pcf_t = query - start
+                times_f = times.astype(np_dtype)
+                self._data = cpp_cls(times_f, values)
+                start_time_raw = float(times_f[0])
 
         else:
-            raise TypeError(f"Cannot create TimeSeries from {type(data)}")
+            # --- (values, start_time=, time_step=) form ---
+            vals = np.asarray(times_or_values)
+            if vals.ndim != 1:
+                raise ValueError("values must be a 1-D array")
+
+            np_dtype = _resolve_dtype(vals)
+            vals = vals.astype(np_dtype)
+            cpp_cls = self._NP_TO_CPP_TS[np_dtype]
+
+            if start_time is None:
+                start_time = 0.0
+
+            if isinstance(start_time, np.datetime64):
+                if not isinstance(time_step, np.timedelta64):
+                    raise TypeError(
+                        "time_step must be timedelta64 when start_time "
+                        "is datetime64")
+                if time_step <= np.timedelta64(0):
+                    raise ValueError("time_step must be positive")
+                dt_converter = _DateTimeConverter(start_time, time_step)
+                self._data = cpp_cls(
+                    vals, dt_converter.start_ticks(),
+                    dt_converter.step_ticks(), dt_converter._unit_str)
+                start_time_raw = start_time
+            else:
+                # Build explicit times: start + i * step
+                start_f = float(start_time)
+                step_f = float(time_step)
+                if step_f <= 0:
+                    raise ValueError("time_step must be positive")
+                n = len(vals)
+                times_arr = np.array(
+                    [start_f + i * step_f for i in range(n)],
+                    dtype=np_dtype)
+                self._data = cpp_cls(times_arr, vals)
+                start_time_raw = start_f
 
         self.dtype = self._CPP_TO_DTYPE.get(type(self._data), ts64)
         self._start_time_raw = start_time_raw
-        self._time_step_raw = time_step_raw
         self._dt_converter = dt_converter
 
     def __call__(self, t):
@@ -225,17 +249,15 @@ class TimeSeries:
             Value(s) at the queried time(s). NaN for times outside the
             series domain.
         """
-        dtc = self._dt_converter
         if isinstance(t, np.datetime64):
-            if dtc is not None:
-                return self._data(dtc.convert_scalar(t))
-            return self._data(float(t))
+            unit = _datetime64_unit(t)
+            ticks = int(t.astype(f"datetime64[{unit}]").view("int64"))
+            return self._data(ticks, unit)
+        if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
+            unit = _datetime64_array_unit(t)
+            ticks = t.astype(f"datetime64[{unit}]").view("int64").astype("int64")
+            return self._data(ticks, unit)
         if isinstance(t, np.ndarray):
-            if np.issubdtype(t.dtype, np.datetime64):
-                if dtc is not None:
-                    t = dtc.convert_array(t)
-                else:
-                    t = t.astype(np.float64)
             return self._data(t)
         if isinstance(t, (int, float)):
             return self._data(t)
@@ -250,23 +272,17 @@ class TimeSeries:
 
     @property
     def start_time(self):
-        """The real-world time corresponding to PCF t=0."""
+        """The real-world time of the first sample."""
         return self._start_time_raw
 
     @property
-    def time_step(self):
-        """The real-world duration per PCF time unit."""
-        return self._time_step_raw
-
-    @property
     def end_time(self):
-        """End time of the series (start_time + last_breakpoint * time_step)."""
+        """The real-world time of the last sample."""
         dtc = self._dt_converter
         if dtc is not None:
-            # C++ end_time is in the converter's native unit (e.g. ms)
-            return dtc.start_time_dt + int(round(
-                self._data.end_time - self._data.start_time
-            )) * dtc._unit
+            arr = np.asarray(self._data.pcf)
+            n_steps = int(arr[-1, 0]) if len(arr) > 0 else 0
+            return dtc.start_time_dt + n_steps * dtc.time_step_td
         return self._data.end_time
 
     @property
@@ -282,19 +298,19 @@ class TimeSeries:
 
     @property
     def times(self):
-        """Reconstructed real-world times for each breakpoint."""
+        """The real-world times for each sample."""
         arr = np.asarray(self._data.pcf)
         pcf_times = arr[:, 0]
         dtc = self._dt_converter
         if dtc is not None:
-            # PCF times * time_step_float gives offsets in the native unit
-            offsets = np.round(pcf_times * dtc.time_step_float()).astype("int64")
-            return dtc.start_time_dt + offsets * dtc._unit
-        return self._data.start_time + pcf_times * self._data.time_step
+            steps = pcf_times.astype("int64")
+            return dtc.start_time_dt + steps * dtc.time_step_td
+        # PCF breakpoints are real offsets; start_time is at pcf_t=0
+        return self._data.start_time + pcf_times
 
     def __repr__(self):
         return (
-            f"TimeSeries(start_time={self.start_time}, time_step={self.time_step}, "
+            f"TimeSeries(start_time={self.start_time}, "
             f"size={self.size}, dtype={self.dtype})"
         )
 
@@ -327,18 +343,9 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
 
     def __init__(self, data):
         super().__init__()
-        dt_converter = None
         if isinstance(data, TimeSeriesTensor):
-            dt_converter = data._dt_converter
             data = data._data
         elif isinstance(data, (list, tuple)):
-            from ._tensor_base import _infer_shape_and_flatten
-            _, flat_ts = _infer_shape_and_flatten(data)
-            if flat_ts:
-                for ts in flat_ts:
-                    if getattr(ts, "_dt_converter", None) is not None:
-                        dt_converter = ts._dt_converter
-                        break
             data = _tensor_from_nested(data, {
                 cpp.TimeSeries_f32_f32: cpp.TimeSeries32Tensor,
                 cpp.TimeSeries_f64_f64: cpp.TimeSeries64Tensor,
@@ -347,27 +354,22 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
             raise TypeError(f"Cannot create TimeSeriesTensor from {type(data)}")
         self._data = data
         self.dtype = _TS_CPP_TO_DTYPE[type(self._data)]
-        self._dt_converter = dt_converter
 
     def __call__(self, t):
         """Evaluate every series at the given time(s).
 
-        Supports ``datetime64`` scalars and arrays in addition to the
-        numeric types handled by the base class. Datetime values are
-        converted to floats in the time_step's native unit and passed
-        directly to C++ tensor evaluation -- no Python loop.
+        Supports ``datetime64`` scalars and arrays. Datetime values are
+        passed as int64 ticks + unit string to C++, where each element's
+        chrono evaluate converts to seconds independently.
         """
-        dtc = self._dt_converter
         if isinstance(t, np.datetime64):
-            if dtc is not None:
-                t = dtc.convert_scalar(t)
-            else:
-                t = float(t)
-        elif isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
-            if dtc is not None:
-                t = dtc.convert_array(t)
-            else:
-                t = t.astype(np.float64)
+            unit = _datetime64_unit(t)
+            ticks = int(t.astype(f"datetime64[{unit}]").view("int64"))
+            return np.asarray(self._data(ticks, unit))
+        if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
+            unit = _datetime64_array_unit(t)
+            ticks = t.astype(f"datetime64[{unit}]").view("int64").astype("int64")
+            return np.asarray(self._data(ticks, unit))
         return super().__call__(t)
 
     def _to_py_tensor(self, data):

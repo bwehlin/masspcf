@@ -19,6 +19,7 @@
 
 #include "functional/pcf.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <sstream>
@@ -45,6 +46,21 @@ namespace mpcf
       }
     }
 
+    /// Construct from chrono durations -- converts to float seconds.
+    template <typename Rep1, typename Period1, typename Rep2, typename Period2>
+    TimeSeries(Pcf<Tt, Tv> pcf,
+               std::chrono::duration<Rep1, Period1> start,
+               std::chrono::duration<Rep2, Period2> step)
+      : m_pcf(std::move(pcf)),
+        m_start_time(std::chrono::duration<Tt>(start).count()),
+        m_time_step(std::chrono::duration<Tt>(step).count())
+    {
+      if (m_time_step <= 0)
+      {
+        throw std::invalid_argument("time_step must be positive");
+      }
+    }
+
     [[nodiscard]] value_type evaluate(time_type real_t) const
     {
       time_type pcf_t = (real_t - m_start_time) / m_time_step;
@@ -63,6 +79,37 @@ namespace mpcf
         time_type real_t = sorted_real_times(std::vector<size_t>{i});
         out(std::vector<size_t>{i}) = evaluate(real_t);
       }
+    }
+
+    /// Evaluate at a chrono time point.
+    /// Reconstructs start and step in the query's tick unit, subtracts
+    /// in integer chrono space (exact), then divides in float.
+    template <typename Rep, typename Period>
+    [[nodiscard]] value_type evaluate(
+        std::chrono::duration<Rep, Period> query) const
+    {
+      using D = std::chrono::duration<Rep, Period>;
+      // Cast float seconds -> integer ticks in the query's unit
+      auto start = std::chrono::duration_cast<D>(
+          std::chrono::duration<Tt>(m_start_time));
+      auto step = std::chrono::duration_cast<D>(
+          std::chrono::duration<Tt>(m_time_step));
+      // Integer subtraction -- exact, result is small
+      Rep offset = (query - start).count();
+      Rep step_count = step.count();
+      if (step_count == 0)
+      {
+        // Query unit too coarse for this time_step; fall back to float
+        return evaluate(std::chrono::duration<Tt>(query).count());
+      }
+      // Small integer -> float division
+      time_type pcf_t = static_cast<time_type>(offset)
+                      / static_cast<time_type>(step_count);
+      if (pcf_t < 0)
+        return std::numeric_limits<value_type>::quiet_NaN();
+      if (m_pcf.size() > 0 && pcf_t > m_pcf.points().back().t)
+        return std::numeric_limits<value_type>::quiet_NaN();
+      return m_pcf.evaluate(pcf_t);
     }
 
     [[nodiscard]] const Pcf<Tt, Tv>& pcf() const noexcept { return m_pcf; }
@@ -104,6 +151,15 @@ namespace mpcf
 
   using TimeSeries_f32 = TimeSeries<float32_t, float32_t>;
   using TimeSeries_f64 = TimeSeries<float64_t, float64_t>;
+
+  template <typename T>
+  struct is_timeseries : std::false_type {};
+
+  template <typename Tt, typename Tv>
+  struct is_timeseries<TimeSeries<Tt, Tv>> : std::true_type {};
+
+  template <typename T>
+  inline constexpr bool is_timeseries_v = is_timeseries<T>::value;
 
   template <typename Tt, typename Tv>
   void PrintTo(const TimeSeries<Tt, Tv>& ts, std::ostream* os)

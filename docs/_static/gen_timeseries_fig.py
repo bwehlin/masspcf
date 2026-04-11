@@ -75,16 +75,17 @@ def plot_timeseries_eval():
         ax.annotate(f"ts({t}) = {val}", (t, val), textcoords="offset points",
                     xytext=(5, 8), fontsize=9)
 
-    # NaN region
-    ax.axvspan(8, 10, alpha=0.15, color="gray", label="NaN (before epoch)")
-    ax.axvspan(18, 20, alpha=0.15, color="gray", label="NaN (after end)")
+    # NaN regions
+    ax.axvspan(8, 10, alpha=0.3, color="gray")
+    ax.axvspan(18, 20, alpha=0.3, color="gray")
+    ax.text(9, 4.5, "NaN", ha="center", fontsize=9, fontstyle="italic", alpha=0.7)
+    ax.text(19, 4.5, "NaN", ha="center", fontsize=9, fontstyle="italic", alpha=0.7)
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Value")
     ax.set_title("Evaluation with out-of-range NaN")
     ax.set_xlim(8, 20)
     ax.set_ylim(0, 5)
-    ax.legend(fontsize=8, loc="upper right")
     fig.tight_layout()
     return fig
 
@@ -107,7 +108,7 @@ def plot_timeseries_tensor():
         values = ts.values
         for i in range(len(times)):
             t_start = times[i]
-            t_end = times[i + 1] if i + 1 < len(times) else times[i] + ts.time_step
+            t_end = times[i + 1] if i + 1 < len(times) else times[i] + (times[1] - times[0])
             ax.plot([t_start, t_end], [values[i], values[i]], linewidth=2, color="steelblue")
             if i + 1 < len(times):
                 ax.plot(t_end, values[i], "o", markersize=4, color="steelblue",
@@ -126,7 +127,7 @@ def _plot_ts_segments(ax, ts, color="steelblue"):
     """Helper: draw a piecewise-constant time series on an axes."""
     times = ts.times
     values = ts.values
-    step = ts.time_step
+    step = times[1] - times[0] if len(times) > 1 else 1
     for i in range(len(times)):
         t_start = times[i]
         t_end = times[i + 1] if i + 1 < len(times) else times[i] + step
@@ -219,19 +220,25 @@ def plot_datetime_example():
         ax.step(t_sec[mask], vals[mask], where="post", linewidth=2, color=color)
         ax.set_ylabel("Temp (C)")
         ax.set_title(title, fontsize=10)
+        # Pad y-axis so annotations at extremes aren't clipped
+        ymin, ymax = ax.get_ylim()
+        ax.set_ylim(ymin - 0.3, ymax + 0.3)
 
     ax2.set_xlabel("Seconds after 08:00:00")
 
     # Mark a query time -- evaluate both at once via the tensor
-    t_q = np.datetime64("2024-06-15T08:00:03")
+    t_q = np.datetime64("2024-06-15T08:00:02.700")
     t_q_sec = (t_q - ref) / np.timedelta64(1, "ms") / 1000
-    result = tensor(t_q)  # array([val1, val2])
+    result = tensor(t_q)  # array([23.2, 21.0])
     for ax, val in [(ax1, result[0]), (ax2, result[1])]:
         ax.axvline(t_q_sec, color="red", linestyle="--", linewidth=1, alpha=0.7)
         if not np.isnan(val):
             ax.plot(t_q_sec, val, "ro", markersize=6, zorder=5)
             ax.annotate(f"{val:.1f}", (t_q_sec, val),
-                        textcoords="offset points", xytext=(6, 5), fontsize=9)
+                        textcoords="offset points", xytext=(8, 10), fontsize=9,
+                        zorder=10, bbox=dict(boxstyle="round,pad=0.15",
+                                             fc=ax.get_facecolor(), ec="none",
+                                             alpha=0.8))
 
     fig.suptitle("Datetime time series with different start times and rates",
                  fontsize=11)

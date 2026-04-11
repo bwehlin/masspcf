@@ -31,6 +31,7 @@
 #include "functional/py_pcf_tensor_eval.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <numeric>
 
 namespace mpcf_py
@@ -496,6 +497,69 @@ namespace mpcf_py
         mpcf::tensor_eval<Tt, Tv>(self, times, out);
         return out;
       });
+    }
+
+    // Datetime evaluation for TimeSeries tensor types
+    if constexpr (mpcf::is_timeseries_v<T>)
+    {
+      // Scalar datetime: int64 ticks + unit string
+      cls.def("__call__", [](const TTensor& self,
+                             int64_t ticks, const std::string& unit) {
+        const auto& sh = self.shape();
+        std::vector<py::ssize_t> out_shape(sh.begin(), sh.end());
+        py::array_t<Tv> result(out_shape);
+        NumpyTensor<Tv> out(result);
+
+        auto eval = [&](auto duration_tag) {
+          using Duration = decltype(duration_tag);
+          mpcf::walk(self, [&](const std::vector<size_t>& idx) {
+            out(idx) = self(idx).evaluate(Duration(ticks));
+          });
+        };
+
+        if (unit == "s")       eval(std::chrono::seconds{});
+        else if (unit == "ms") eval(std::chrono::milliseconds{});
+        else if (unit == "us") eval(std::chrono::microseconds{});
+        else if (unit == "ns") eval(std::chrono::nanoseconds{});
+        else throw py::value_error("Unsupported datetime unit: " + unit);
+
+        return result;
+      }, py::arg("ticks"), py::arg("unit"));
+
+      // Array datetime: int64 numpy array + unit string
+      cls.def("__call__", [](const TTensor& self,
+                             py::array_t<int64_t> ticks_arr,
+                             const std::string& unit) {
+        auto m = static_cast<size_t>(ticks_arr.size());
+        auto t_in = ticks_arr.template unchecked<1>();
+
+        auto sh = self.shape();
+        std::vector<py::ssize_t> out_shape(sh.begin(), sh.end());
+        out_shape.push_back(static_cast<py::ssize_t>(m));
+        py::array_t<Tv> result(out_shape);
+        NumpyTensor<Tv> out(result);
+
+        auto eval = [&](auto duration_tag) {
+          using Duration = decltype(duration_tag);
+          mpcf::walk(self, [&](const std::vector<size_t>& elem_idx) {
+            const auto& elem = self(elem_idx);
+            auto combined = elem_idx;
+            combined.push_back(0);
+            for (size_t j = 0; j < m; ++j) {
+              combined.back() = j;
+              out(combined) = elem.evaluate(Duration(t_in(j)));
+            }
+          });
+        };
+
+        if (unit == "s")       eval(std::chrono::seconds{});
+        else if (unit == "ms") eval(std::chrono::milliseconds{});
+        else if (unit == "us") eval(std::chrono::microseconds{});
+        else if (unit == "ns") eval(std::chrono::nanoseconds{});
+        else throw py::value_error("Unsupported datetime unit: " + unit);
+
+        return result;
+      }, py::arg("ticks"), py::arg("unit"));
     }
 
   }
