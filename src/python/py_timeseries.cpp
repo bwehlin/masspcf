@@ -18,6 +18,7 @@
 #include "py_np_support.hpp"
 
 #include <mpcf/timeseries.hpp>
+#include <mpcf/algorithms/embed_time_delay.hpp>
 
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
@@ -369,4 +370,44 @@ void mpcf_py::register_timeseries(pybind11::module_& m)
 {
   PyTimeSeriesBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
   PyTimeSeriesBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
+
+  // Time delay embedding: single TimeSeries
+  m.def("embed_time_delay_f32",
+      [](const mpcf::TimeSeries_f32& ts, size_t dimension,
+         mpcf::float32_t delay, mpcf::float32_t window,
+         mpcf::float32_t stride) {
+        return mpcf::embed_time_delay(ts, dimension, delay, window, stride);
+      },
+      py::arg("ts"), py::arg("dimension"), py::arg("delay"),
+      py::arg("window") = 0.0f, py::arg("stride") = 0.0f);
+
+  m.def("embed_time_delay_f64",
+      [](const mpcf::TimeSeries_f64& ts, size_t dimension,
+         mpcf::float64_t delay, mpcf::float64_t window,
+         mpcf::float64_t stride) {
+        return mpcf::embed_time_delay(ts, dimension, delay, window, stride);
+      },
+      py::arg("ts"), py::arg("dimension"), py::arg("delay"),
+      py::arg("window") = 0.0, py::arg("stride") = 0.0);
+
+  // Time delay embedding: tensor of TimeSeries
+  m.def("embed_time_delay_tensor_f32",
+      [](const mpcf::Tensor<mpcf::TimeSeries_f32>& ts_tensor,
+         size_t dimension, mpcf::float32_t delay,
+         mpcf::float32_t window, mpcf::float32_t stride) {
+        return mpcf::embed_time_delay(ts_tensor, dimension, delay,
+                                       window, stride);
+      },
+      py::arg("ts_tensor"), py::arg("dimension"), py::arg("delay"),
+      py::arg("window") = 0.0f, py::arg("stride") = 0.0f);
+
+  m.def("embed_time_delay_tensor_f64",
+      [](const mpcf::Tensor<mpcf::TimeSeries_f64>& ts_tensor,
+         size_t dimension, mpcf::float64_t delay,
+         mpcf::float64_t window, mpcf::float64_t stride) {
+        return mpcf::embed_time_delay(ts_tensor, dimension, delay,
+                                       window, stride);
+      },
+      py::arg("ts_tensor"), py::arg("dimension"), py::arg("delay"),
+      py::arg("window") = 0.0, py::arg("stride") = 0.0);
 }

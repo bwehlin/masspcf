@@ -19,7 +19,10 @@ import numpy as np
 from .. import _mpcf_cpp as cpp
 from .._tensor_base import FunctionTensorMixin, Tensor, _tensor_from_nested
 from ..functional.pcf import Pcf
+from ..tensor import PointCloudTensor
 from ..typing import (
+    pcloud32,
+    pcloud64,
     ts32,
     ts64,
 )
@@ -398,3 +401,75 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
         flat = self._data.flatten()
         n = flat.shape[0]
         return np.array([flat._get_element([i]).end_time for i in range(n)])
+
+
+_TS_DTYPE_TO_EMBED = {
+    ts32: (cpp.embed_time_delay_f32, cpp.embed_time_delay_tensor_f32, pcloud32),
+    ts64: (cpp.embed_time_delay_f64, cpp.embed_time_delay_tensor_f64, pcloud64),
+}
+
+
+def embed_time_delay(ts, dimension, delay, *, window=None, stride=None):
+    """Compute time delay embedding of a time series.
+
+    At each valid time *t*, the embedding vector looks backward::
+
+        [x(t-(d-1)*tau), ..., x(t-tau), x(t)]
+
+    where *d* is the embedding ``dimension`` and *tau* is the ``delay``.
+
+    Parameters
+    ----------
+    ts : TimeSeries or TimeSeriesTensor
+        Input time series.
+    dimension : int
+        Embedding dimension (>= 1).
+    delay : float or numpy.timedelta64
+        Real-time delay between embedding components.
+    window : float, numpy.timedelta64, or None
+        If given, split the valid time range into windows of this duration.
+        Windows are anchored at the end of the range and extend backward,
+        so the first window may be shorter than *window*.
+    stride : float, numpy.timedelta64, or None
+        Step between window starts. Defaults to *window* (non-overlapping).
+
+    Returns
+    -------
+    PointCloudTensor
+        For a single ``TimeSeries`` without windowing, shape ``(1,)``
+        containing one point cloud.  With windowing, shape
+        ``(n_windows,)``.  For a ``TimeSeriesTensor`` of shape *S*,
+        shape *S* (no windowing) or *S* + ``(n_windows,)`` (windowed).
+        Each point cloud has shape ``(n_points, dimension * n_channels)``.
+    """
+    if dimension < 1:
+        raise ValueError("dimension must be >= 1")
+
+    def _to_float(val, label):
+        if val is None:
+            return 0.0
+        if isinstance(val, np.timedelta64):
+            return val / np.timedelta64(1, 's')
+        v = float(val)
+        if label == "delay" and v <= 0:
+            raise ValueError("delay must be positive")
+        return v
+
+    delay_f = _to_float(delay, "delay")
+    if delay_f <= 0:
+        raise ValueError("delay must be positive")
+    window_f = _to_float(window, "window")
+    stride_f = _to_float(stride, "stride")
+
+    if isinstance(ts, TimeSeries):
+        embed_fn, _, _ = _TS_DTYPE_TO_EMBED[ts.dtype]
+        result = embed_fn(ts._data, dimension, delay_f, window_f, stride_f)
+        return PointCloudTensor(result)
+    elif isinstance(ts, TimeSeriesTensor):
+        _, embed_tensor_fn, _ = _TS_DTYPE_TO_EMBED[ts.dtype]
+        result = embed_tensor_fn(
+            ts._data, dimension, delay_f, window_f, stride_f)
+        return PointCloudTensor(result)
+    else:
+        raise TypeError(
+            f"Expected TimeSeries or TimeSeriesTensor, got {type(ts)}")

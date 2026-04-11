@@ -498,3 +498,278 @@ class TestTimeSeriesDtype:
     def test_dtype_inference_float64(self):
         ts = mpcf.TimeSeries(np.array([1.0, 2.0], dtype=np.float64))
         assert ts.dtype == mpcf.ts64
+
+
+class TestEmbedTimeDelay:
+    """Tests for mpcf.embed_time_delay (Takens time delay embedding).
+
+    Embedding vector at time t (backward-looking):
+        [x(t-(d-1)*tau), ..., x(t-tau), x(t)]
+    Valid times: t >= start + (d-1)*tau.
+    """
+
+    # --- Univariate, no windowing ---
+
+    def test_univariate_basic(self):
+        # values [1,2,3,4,5] at times 0..4, d=2, delay=1.0
+        # Valid t: [1, 4]. Base times: 1, 2, 3, 4.
+        # Vectors: [x(0),x(1)], [x(1),x(2)], [x(2),x(3)], [x(3),x(4)]
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        assert isinstance(result, mpcf.PointCloudTensor)
+        assert result.shape == (1,)
+        cloud = np.asarray(result[0])
+        expected = np.array([
+            [1.0, 2.0],
+            [2.0, 3.0],
+            [3.0, 4.0],
+            [4.0, 5.0],
+        ])
+        np.testing.assert_allclose(cloud, expected)
+
+    def test_univariate_delay_2(self):
+        # values [1,2,3,4,5] at times 0..4, d=2, delay=2.0
+        # Valid t: [2, 4]. Base times: 2, 3, 4.
+        # Vectors: [x(0),x(2)], [x(1),x(3)], [x(2),x(4)]
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=2.0)
+        cloud = np.asarray(result[0])
+        expected = np.array([
+            [1.0, 3.0],
+            [2.0, 4.0],
+            [3.0, 5.0],
+        ])
+        np.testing.assert_allclose(cloud, expected)
+
+    def test_higher_dimension(self):
+        # values [1,2,3,4,5] at times 0..4, d=3, delay=1.0
+        # Valid t: [2, 4]. Base times: 2, 3, 4.
+        # Vectors: [x(0),x(1),x(2)], [x(1),x(2),x(3)], [x(2),x(3),x(4)]
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+        result = mpcf.embed_time_delay(ts, dimension=3, delay=1.0)
+        cloud = np.asarray(result[0])
+        expected = np.array([
+            [1.0, 2.0, 3.0],
+            [2.0, 3.0, 4.0],
+            [3.0, 4.0, 5.0],
+        ])
+        np.testing.assert_allclose(cloud, expected)
+
+    def test_dimension_1(self):
+        # d=1, no lookback. Every time point is valid.
+        # Each embedding vector is just [x(t)].
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]))
+        result = mpcf.embed_time_delay(ts, dimension=1, delay=1.0)
+        cloud = np.asarray(result[0])
+        expected = np.array([[10.0], [20.0], [30.0]])
+        np.testing.assert_allclose(cloud, expected)
+
+    # --- Multivariate ---
+
+    def test_multivariate(self):
+        # 5-point, 2-channel series, d=2, delay=1.0
+        # channels: ch0=[1,2,3,4,5], ch1=[10,20,30,40,50]
+        # Valid t: [1, 4]. Base times: 1, 2, 3, 4.
+        # At t=1: [x(0,:), x(1,:)] = [1, 10, 2, 20]
+        # At t=2: [x(1,:), x(2,:)] = [2, 20, 3, 30]
+        # etc.
+        times = np.arange(5, dtype=np.float64)
+        values = np.column_stack([
+            [1.0, 2.0, 3.0, 4.0, 5.0],
+            [10.0, 20.0, 30.0, 40.0, 50.0],
+        ])
+        ts = mpcf.TimeSeries(times, values)
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        cloud = np.asarray(result[0])
+        expected = np.array([
+            [1.0, 10.0, 2.0, 20.0],
+            [2.0, 20.0, 3.0, 30.0],
+            [3.0, 30.0, 4.0, 40.0],
+            [4.0, 40.0, 5.0, 50.0],
+        ])
+        np.testing.assert_allclose(cloud, expected)
+
+    # --- Non-unit time_step ---
+
+    def test_non_unit_time_step(self):
+        # time_step=0.5, times=[0, 0.5, 1.0, 1.5, 2.0], delay=1.0
+        # delay=1.0 spans 2 time steps. d=2.
+        # Valid t: [1.0, 2.0]. Base times at: 1.0, 1.5, 2.0.
+        # At t=1.0: [x(0.0), x(1.0)] = [1, 3]
+        # At t=1.5: [x(0.5), x(1.5)] = [2, 4]
+        # At t=2.0: [x(1.0), x(2.0)] = [3, 5]
+        ts = mpcf.TimeSeries(
+            np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+            start_time=0.0, time_step=0.5)
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        cloud = np.asarray(result[0])
+        expected = np.array([
+            [1.0, 3.0],
+            [2.0, 4.0],
+            [3.0, 5.0],
+        ])
+        np.testing.assert_allclose(cloud, expected)
+
+    # --- Windowing (backward from end) ---
+
+    def test_windowing_basic(self):
+        # 10 points at times 0..9, d=2, delay=1.0, window=3.0
+        # Valid t: [1, 9]. Valid range length = 8.
+        # stride defaults to window=3.0.
+        # Windows backward from end:
+        #   win 2 (last):  [9-3, 9] = [6, 9] -> base times 6,7,8,9
+        #   win 1:         [3, 6)           -> base times 3,4,5
+        #   win 0 (first): [1, 3)           -> base times 1,2 (partial)
+        vals = np.arange(1.0, 11.0)
+        ts = mpcf.TimeSeries(vals)
+        result = mpcf.embed_time_delay(
+            ts, dimension=2, delay=1.0, window=3.0)
+        assert result.shape == (3,)
+
+        # Last window: [6, 9], base times 6,7,8,9
+        cloud2 = np.asarray(result[2])
+        assert cloud2.shape[1] == 2
+        # t=6: [x(5),x(6)]=[6,7]; t=7: [7,8]; t=8: [8,9]; t=9: [9,10]
+        expected2 = np.array([
+            [6.0, 7.0], [7.0, 8.0], [8.0, 9.0], [9.0, 10.0]])
+        np.testing.assert_allclose(cloud2, expected2)
+
+    def test_windowing_with_stride(self):
+        # 10 points at times 0..9, d=2, delay=1.0
+        # window=4.0, stride=2.0 (overlapping)
+        # Valid t: [1, 9]. Valid range = [1, 9].
+        # Windows backward from 9:
+        #   last:  [5, 9] -> base 5,6,7,8,9
+        #   prev:  [3, 7) -> base 3,4,5,6
+        #   first: [1, 5) -> base 1,2,3,4
+        vals = np.arange(1.0, 11.0)
+        ts = mpcf.TimeSeries(vals)
+        result = mpcf.embed_time_delay(
+            ts, dimension=2, delay=1.0, window=4.0, stride=2.0)
+        assert result.shape == (3,)
+
+    # --- Validation ---
+
+    def test_dimension_zero_raises(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError):
+            mpcf.embed_time_delay(ts, dimension=0, delay=1.0)
+
+    def test_delay_zero_raises(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError):
+            mpcf.embed_time_delay(ts, dimension=2, delay=0.0)
+
+    def test_delay_negative_raises(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError):
+            mpcf.embed_time_delay(ts, dimension=2, delay=-1.0)
+
+    def test_insufficient_time_range_raises(self):
+        # 2 points, d=3, delay=1.0 needs valid t >= 2 but end=1
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0]))
+        with pytest.raises(ValueError):
+            mpcf.embed_time_delay(ts, dimension=3, delay=1.0)
+
+    # --- TimeSeriesTensor ---
+
+    def test_tensor_common_domain(self):
+        # ts1: times [0..4], ts2: times [2..6]
+        # Common domain: [2, 4]. With d=2, delay=1.0:
+        # Valid t: [3, 4] within common domain.
+        ts1 = mpcf.TimeSeries(
+            np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+            start_time=0.0, time_step=1.0)
+        ts2 = mpcf.TimeSeries(
+            np.array([10.0, 20.0, 30.0, 40.0, 50.0]),
+            start_time=2.0, time_step=1.0)
+        tensor = mpcf.TimeSeriesTensor([ts1, ts2])
+        result = mpcf.embed_time_delay(tensor, dimension=2, delay=1.0)
+        assert isinstance(result, mpcf.PointCloudTensor)
+        assert result.shape == (2,)
+
+        # ts1 base times in [3, 4]: t=3, t=4
+        cloud0 = np.asarray(result[0])
+        expected0 = np.array([
+            [3.0, 4.0],  # t=3: [x(2), x(3)]
+            [4.0, 5.0],  # t=4: [x(3), x(4)]
+        ])
+        np.testing.assert_allclose(cloud0, expected0)
+
+        # ts2 base times in [3, 4]: t=3, t=4
+        # ts2 values: time 2->10, 3->20, 4->30
+        cloud1 = np.asarray(result[1])
+        expected1 = np.array([
+            [10.0, 20.0],  # t=3: [ts2(2), ts2(3)] = [10, 20]
+            [20.0, 30.0],  # t=4: [ts2(3), ts2(4)] = [20, 30]
+        ])
+        np.testing.assert_allclose(cloud1, expected1)
+
+    def test_tensor_different_sampling_rates(self):
+        # ts1: time_step=1.0, times [0,1,2,3,4]
+        # ts2: time_step=0.5, times [0,0.5,1,1.5,2,2.5,3,3.5,4]
+        # Common domain: [0, 4]. d=2, delay=1.0.
+        # Valid t: [1, 4].
+        # ts1 has base times 1,2,3,4 -> 4 points
+        # ts2 has base times 1,1.5,2,2.5,3,3.5,4 -> 7 points
+        ts1 = mpcf.TimeSeries(
+            np.arange(5, dtype=np.float64),
+            start_time=0.0, time_step=1.0)
+        ts2 = mpcf.TimeSeries(
+            np.arange(9, dtype=np.float64),
+            start_time=0.0, time_step=0.5)
+        tensor = mpcf.TimeSeriesTensor([ts1, ts2])
+        result = mpcf.embed_time_delay(tensor, dimension=2, delay=1.0)
+        assert result.shape == (2,)
+
+        cloud0 = np.asarray(result[0])
+        assert cloud0.shape == (4, 2)
+
+        cloud1 = np.asarray(result[1])
+        assert cloud1.shape == (7, 2)
+
+    def test_tensor_with_windowing(self):
+        # 2 series, windowed -> output shape (2, n_windows)
+        ts1 = mpcf.TimeSeries(np.arange(10, dtype=np.float64))
+        ts2 = mpcf.TimeSeries(np.arange(10, dtype=np.float64) * 10)
+        tensor = mpcf.TimeSeriesTensor([ts1, ts2])
+        result = mpcf.embed_time_delay(
+            tensor, dimension=2, delay=1.0, window=3.0)
+        assert result.shape[0] == 2
+        assert result.shape[1] >= 2
+
+    # --- dtype ---
+
+    def test_ts32_produces_pcloud32(self):
+        ts = mpcf.TimeSeries(
+            np.array([1.0, 2.0, 3.0], dtype=np.float32))
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        assert result.dtype == mpcf.pcloud32
+
+    def test_ts64_produces_pcloud64(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]))
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        assert result.dtype == mpcf.pcloud64
+
+    # --- Datetime ---
+
+    def test_datetime_delay(self):
+        times = np.array([
+            "2024-01-01T00:00:00",
+            "2024-01-01T00:00:01",
+            "2024-01-01T00:00:02",
+            "2024-01-01T00:00:03",
+            "2024-01-01T00:00:04",
+        ], dtype="datetime64[s]")
+        values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        ts = mpcf.TimeSeries(times, values)
+        result = mpcf.embed_time_delay(
+            ts, dimension=2, delay=np.timedelta64(1, 's'))
+        cloud = np.asarray(result[0])
+        expected = np.array([
+            [1.0, 2.0],
+            [2.0, 3.0],
+            [3.0, 4.0],
+            [4.0, 5.0],
+        ])
+        np.testing.assert_allclose(cloud, expected)

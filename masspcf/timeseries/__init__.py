@@ -14,7 +14,7 @@
 
 __before = set(dir())
 
-from .timeseries import TimeSeries, TimeSeriesTensor
+from .timeseries import TimeSeries, TimeSeriesTensor, embed_time_delay
 
 import types as _types
 __all__ = sorted(
