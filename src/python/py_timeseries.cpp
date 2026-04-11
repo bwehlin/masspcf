@@ -23,24 +23,10 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include <chrono>
-#include <sstream>
-
 namespace py = pybind11;
 
 namespace
 {
-
-  // Map numpy datetime unit string to chrono constructor + evaluate dispatch.
-  template <typename Tt, typename Tv, typename F>
-  auto dispatch_datetime_unit(const std::string& unit, F&& func)
-  {
-    if (unit == "s")  return func(std::chrono::seconds{});
-    if (unit == "ms") return func(std::chrono::milliseconds{});
-    if (unit == "us") return func(std::chrono::microseconds{});
-    if (unit == "ns") return func(std::chrono::nanoseconds{});
-    throw py::value_error("Unsupported datetime unit: " + unit);
-  }
 
   template <typename Tt, typename Tv>
   class PyTimeSeriesBindings
@@ -81,7 +67,7 @@ namespace
           {
             points.emplace_back(static_cast<Tt>(i), v(i));
           }
-          return dispatch_datetime_unit<Tt, Tv>(unit, [&](auto duration_tag) {
+          return dispatch_datetime_unit(unit, [&](auto duration_tag) {
             using Duration = decltype(duration_tag);
             return TTimeSeries(TPcf(std::move(points)),
                                Duration(start_ticks), Duration(step_ticks));
@@ -128,7 +114,7 @@ namespace
                      / static_cast<Tt>(step_ticks);
             points.emplace_back(pcf_t, v(i));
           }
-          return dispatch_datetime_unit<Tt, Tv>(unit, [&](auto duration_tag) {
+          return dispatch_datetime_unit(unit, [&](auto duration_tag) {
             using Duration = decltype(duration_tag);
             return TTimeSeries(TPcf(std::move(points)),
                                Duration(start_ticks), Duration(step_ticks));
@@ -143,7 +129,7 @@ namespace
         // Datetime scalar: int64 ticks + unit string
         .def("__call__", [](const TTimeSeries& self,
                             int64_t ticks, const std::string& unit) -> Tv {
-          return dispatch_datetime_unit<Tt, Tv>(unit, [&](auto duration_tag) {
+          return dispatch_datetime_unit(unit, [&](auto duration_tag) {
             using Duration = decltype(duration_tag);
             return self.evaluate(Duration(ticks));
           });
@@ -163,7 +149,7 @@ namespace
           py::array_t<Tv> flat_result({static_cast<py::ssize_t>(n)});
           NumpyTensor<Tv> out(flat_result);
 
-          dispatch_datetime_unit<Tt, Tv>(unit, [&](auto duration_tag) {
+          dispatch_datetime_unit(unit, [&](auto duration_tag) {
             using Duration = decltype(duration_tag);
             for (size_t i = 0; i < n; ++i)
             {

@@ -31,7 +31,6 @@
 #include "functional/py_pcf_tensor_eval.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <numeric>
 
 namespace mpcf_py
@@ -510,18 +509,13 @@ namespace mpcf_py
         py::array_t<Tv> result(out_shape);
         NumpyTensor<Tv> out(result);
 
-        auto eval = [&](auto duration_tag) {
+        dispatch_datetime_unit(unit, [&](auto duration_tag) {
           using Duration = decltype(duration_tag);
           mpcf::walk(self, [&](const std::vector<size_t>& idx) {
             out(idx) = self(idx).evaluate(Duration(ticks));
           });
-        };
-
-        if (unit == "s")       eval(std::chrono::seconds{});
-        else if (unit == "ms") eval(std::chrono::milliseconds{});
-        else if (unit == "us") eval(std::chrono::microseconds{});
-        else if (unit == "ns") eval(std::chrono::nanoseconds{});
-        else throw py::value_error("Unsupported datetime unit: " + unit);
+          return 0;
+        });
 
         return result;
       }, py::arg("ticks"), py::arg("unit"));
@@ -539,7 +533,7 @@ namespace mpcf_py
         py::array_t<Tv> result(out_shape);
         NumpyTensor<Tv> out(result);
 
-        auto eval = [&](auto duration_tag) {
+        dispatch_datetime_unit(unit, [&](auto duration_tag) {
           using Duration = decltype(duration_tag);
           mpcf::walk(self, [&](const std::vector<size_t>& elem_idx) {
             const auto& elem = self(elem_idx);
@@ -550,13 +544,8 @@ namespace mpcf_py
               out(combined) = elem.evaluate(Duration(t_in(j)));
             }
           });
-        };
-
-        if (unit == "s")       eval(std::chrono::seconds{});
-        else if (unit == "ms") eval(std::chrono::milliseconds{});
-        else if (unit == "us") eval(std::chrono::microseconds{});
-        else if (unit == "ns") eval(std::chrono::nanoseconds{});
-        else throw py::value_error("Unsupported datetime unit: " + unit);
+          return 0;
+        });
 
         return result;
       }, py::arg("ticks"), py::arg("unit"));

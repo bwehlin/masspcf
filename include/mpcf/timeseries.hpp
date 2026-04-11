@@ -20,7 +20,6 @@
 #include "functional/pcf.hpp"
 
 #include <chrono>
-#include <cmath>
 #include <limits>
 #include <sstream>
 
@@ -64,11 +63,7 @@ namespace mpcf
     [[nodiscard]] value_type evaluate(time_type real_t) const
     {
       time_type pcf_t = (real_t - m_start_time) / m_time_step;
-      if (pcf_t < 0)
-        return std::numeric_limits<value_type>::quiet_NaN();
-      if (m_pcf.size() > 0 && pcf_t > m_pcf.points().back().t)
-        return std::numeric_limits<value_type>::quiet_NaN();
-      return m_pcf.evaluate(pcf_t);
+      return evaluate_at_pcf_t(pcf_t);
     }
 
     template <typename TIn, typename TOut>
@@ -89,12 +84,10 @@ namespace mpcf
         std::chrono::duration<Rep, Period> query) const
     {
       using D = std::chrono::duration<Rep, Period>;
-      // Cast float seconds -> integer ticks in the query's unit
       auto start = std::chrono::duration_cast<D>(
           std::chrono::duration<Tt>(m_start_time));
       auto step = std::chrono::duration_cast<D>(
           std::chrono::duration<Tt>(m_time_step));
-      // Integer subtraction -- exact, result is small
       Rep offset = (query - start).count();
       Rep step_count = step.count();
       if (step_count == 0)
@@ -102,14 +95,9 @@ namespace mpcf
         // Query unit too coarse for this time_step; fall back to float
         return evaluate(std::chrono::duration<Tt>(query).count());
       }
-      // Small integer -> float division
       time_type pcf_t = static_cast<time_type>(offset)
                       / static_cast<time_type>(step_count);
-      if (pcf_t < 0)
-        return std::numeric_limits<value_type>::quiet_NaN();
-      if (m_pcf.size() > 0 && pcf_t > m_pcf.points().back().t)
-        return std::numeric_limits<value_type>::quiet_NaN();
-      return m_pcf.evaluate(pcf_t);
+      return evaluate_at_pcf_t(pcf_t);
     }
 
     [[nodiscard]] const Pcf<Tt, Tv>& pcf() const noexcept { return m_pcf; }
@@ -144,6 +132,15 @@ namespace mpcf
     }
 
   private:
+    [[nodiscard]] value_type evaluate_at_pcf_t(time_type pcf_t) const
+    {
+      if (pcf_t < 0)
+        return std::numeric_limits<value_type>::quiet_NaN();
+      if (m_pcf.size() > 0 && pcf_t > m_pcf.points().back().t)
+        return std::numeric_limits<value_type>::quiet_NaN();
+      return m_pcf.evaluate(pcf_t);
+    }
+
     Pcf<Tt, Tv> m_pcf;
     Tt m_start_time;
     Tt m_time_step;

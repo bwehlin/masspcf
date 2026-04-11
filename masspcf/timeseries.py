@@ -20,19 +20,14 @@ from . import _mpcf_cpp as cpp
 from ._tensor_base import FunctionTensorMixin, Tensor, _tensor_from_nested
 from .functional.pcf import Pcf
 from .typing import (
-    _MPCF_TO_NP,
-    _NP_TO_MPCF,
-    float32,
-    float64,
     ts32,
     ts64,
 )
 
 
-def _infer_unit_str(time_step):
-    """Extract the unit string from a timedelta64 (e.g. 'ms' from timedelta64(10, 'ms'))."""
-    dtype_str = str(time_step.dtype)  # e.g. "timedelta64[ms]"
-    return dtype_str.split("[")[1].rstrip("]")
+def _datetime_unit(dt_or_arr):
+    """Extract the unit string from a datetime64/timedelta64 scalar or array."""
+    return np.datetime_data(np.dtype(dt_or_arr.dtype))[0]
 
 
 class _DateTimeConverter:
@@ -47,7 +42,7 @@ class _DateTimeConverter:
     def __init__(self, start_time, time_step):
         self.start_time_dt = start_time
         self.time_step_td = time_step
-        self._unit_str = _infer_unit_str(time_step)
+        self._unit_str = _datetime_unit(time_step)
         self._unit_td = np.timedelta64(1, self._unit_str)
 
     def start_ticks(self):
@@ -59,24 +54,24 @@ class _DateTimeConverter:
         """Return time_step as int64 ticks in the native unit."""
         return int(self.time_step_td / self._unit_td)
 
-    def to_int64(self, dt):
-        """Convert a datetime64 scalar to int64 ticks."""
-        return int(np.datetime64(dt, self._unit_str).view("int64"))
-
     def array_to_int64(self, arr):
         """Convert a datetime64 array to int64 ticks."""
         return arr.astype(
             f"datetime64[{self._unit_str}]").view("int64").astype("int64")
 
 
-def _datetime64_unit(dt):
-    """Extract unit string from a datetime64 scalar (e.g. 'ms', 'us')."""
-    return np.datetime_data(dt.dtype)[0]
+def _dt64_to_ticks(t):
+    """Convert a datetime64 scalar to (int64_ticks, unit_string)."""
+    unit = _datetime_unit(t)
+    ticks = int(t.astype(f"datetime64[{unit}]").view("int64"))
+    return ticks, unit
 
 
-def _datetime64_array_unit(arr):
-    """Extract unit string from a datetime64 array dtype."""
-    return np.datetime_data(arr.dtype)[0]
+def _dt64_array_to_ticks(arr):
+    """Convert a datetime64 array to (int64_ticks_array, unit_string)."""
+    unit = _datetime_unit(arr)
+    ticks = arr.astype(f"datetime64[{unit}]").view("int64").astype("int64")
+    return ticks, unit
 
 
 _TS_CPP_TO_DTYPE = {
@@ -223,9 +218,7 @@ class TimeSeries:
                 if step_f <= 0:
                     raise ValueError("time_step must be positive")
                 n = len(vals)
-                times_arr = np.array(
-                    [start_f + i * step_f for i in range(n)],
-                    dtype=np_dtype)
+                times_arr = (start_f + np.arange(n, dtype=np_dtype) * step_f)
                 self._data = cpp_cls(times_arr, vals)
                 start_time_raw = start_f
 
@@ -250,12 +243,10 @@ class TimeSeries:
             series domain.
         """
         if isinstance(t, np.datetime64):
-            unit = _datetime64_unit(t)
-            ticks = int(t.astype(f"datetime64[{unit}]").view("int64"))
+            ticks, unit = _dt64_to_ticks(t)
             return self._data(ticks, unit)
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
-            unit = _datetime64_array_unit(t)
-            ticks = t.astype(f"datetime64[{unit}]").view("int64").astype("int64")
+            ticks, unit = _dt64_array_to_ticks(t)
             return self._data(ticks, unit)
         if isinstance(t, np.ndarray):
             return self._data(t)
@@ -363,12 +354,10 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
         chrono evaluate converts to seconds independently.
         """
         if isinstance(t, np.datetime64):
-            unit = _datetime64_unit(t)
-            ticks = int(t.astype(f"datetime64[{unit}]").view("int64"))
+            ticks, unit = _dt64_to_ticks(t)
             return np.asarray(self._data(ticks, unit))
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
-            unit = _datetime64_array_unit(t)
-            ticks = t.astype(f"datetime64[{unit}]").view("int64").astype("int64")
+            ticks, unit = _dt64_array_to_ticks(t)
             return np.asarray(self._data(ticks, unit))
         return super().__call__(t)
 

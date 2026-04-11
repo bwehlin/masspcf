@@ -21,6 +21,7 @@
 
 #include <mpcf/concepts.hpp>
 
+#include <chrono>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -122,5 +123,18 @@ private:
 };
 
 static_assert(mpcf::IsTensor<NumpyTensor<int>>);
+
+/// Dispatch a numpy datetime unit string to the corresponding chrono duration type.
+/// F is called with a zero-valued duration of the matching type; its return type
+/// must be consistent across all branches.
+template <typename F>
+auto dispatch_datetime_unit(const std::string& unit, F&& func)
+{
+  if (unit == "s")  return func(std::chrono::seconds{});
+  if (unit == "ms") return func(std::chrono::milliseconds{});
+  if (unit == "us") return func(std::chrono::microseconds{});
+  if (unit == "ns") return func(std::chrono::nanoseconds{});
+  throw pybind11::value_error("Unsupported datetime unit: " + unit);
+}
 
 #endif //MASSPCF_PY_NP_SUPPORT_H
