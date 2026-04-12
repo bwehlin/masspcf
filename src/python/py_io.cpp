@@ -18,6 +18,7 @@
 
 #include <mpcf/tensor.hpp>
 #include <mpcf/io.hpp>
+#include <mpcf/timeseries.hpp>
 
 #include <pybind11/stl.h>
 
@@ -94,6 +95,9 @@ namespace mpcf_py
         .def_static("save_distance_matrix32_tensor", &IoOps::save_tensor_to_file<mpcf::DistanceMatrix<mpcf::float32_t>>)
         .def_static("save_distance_matrix64_tensor", &IoOps::save_tensor_to_file<mpcf::DistanceMatrix<mpcf::float64_t>>)
 
+        .def_static("save_timeseries32_tensor", &IoOps::save_tensor_to_file<mpcf::TimeSeries_f32>)
+        .def_static("save_timeseries64_tensor", &IoOps::save_tensor_to_file<mpcf::TimeSeries_f64>)
+
         .def_static("load_tensor_from_file", &IoOps::load_tensor_from_file)
 
         .def_static("save_pcf32_object",         &IoOps::save_object_to_file<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>)
@@ -109,6 +113,9 @@ namespace mpcf_py
 
         .def_static("save_distance_matrix32_object", &IoOps::save_object_to_file<mpcf::DistanceMatrix<mpcf::float32_t>>)
         .def_static("save_distance_matrix64_object", &IoOps::save_object_to_file<mpcf::DistanceMatrix<mpcf::float64_t>>)
+
+        .def_static("save_timeseries32_object", &IoOps::save_object_to_file<mpcf::TimeSeries_f32>)
+        .def_static("save_timeseries64_object", &IoOps::save_object_to_file<mpcf::TimeSeries_f64>)
 
         .def_static("load_object_from_file", &IoOps::load_object_from_file)
 

@@ -18,6 +18,7 @@ import numpy as np
 
 import masspcf as mpcf
 from masspcf.persistence import Barcode
+from masspcf.timeseries import TimeSeries, TimeSeriesTensor
 
 
 # --- Helpers ---
@@ -174,3 +175,60 @@ def test_pickle_symmetric_matrix():
     assert restored[0, 0] == 1.0
     assert restored[0, 1] == 2.0
     assert restored[1, 1] == 3.0
+
+
+# --- TimeSeries ---
+
+
+def test_pickle_timeseries_f32():
+    ts = TimeSeries(np.array([1.0, 2.0, 3.0], dtype=np.float32),
+                    start_time=0.0, time_step=1.0, dtype=mpcf.ts32)
+    restored = _pickle_roundtrip(ts)
+    assert isinstance(restored, TimeSeries)
+    assert restored == ts
+
+
+def test_pickle_timeseries_f64():
+    ts = TimeSeries(np.array([10.0, 20.0, 30.0], dtype=np.float64),
+                    start_time=5.0, time_step=0.5, dtype=mpcf.ts64)
+    restored = _pickle_roundtrip(ts)
+    assert isinstance(restored, TimeSeries)
+    assert restored == ts
+
+
+def test_pickle_timeseries_multichannel():
+    vals = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float64)
+    ts = TimeSeries(vals, start_time=0.0, time_step=1.0)
+    restored = _pickle_roundtrip(ts)
+    assert isinstance(restored, TimeSeries)
+    assert restored == ts
+    assert restored.n_channels == 2
+
+
+def test_pickle_timeseries_linear_interpolation():
+    ts = TimeSeries(np.array([1.0, 2.0, 3.0]),
+                    start_time=0.0, time_step=1.0,
+                    interpolation='linear')
+    restored = _pickle_roundtrip(ts)
+    assert isinstance(restored, TimeSeries)
+    assert restored.interpolation == 'linear'
+    assert restored == ts
+
+
+# --- TimeSeriesTensor ---
+
+
+def test_pickle_timeseries32_tensor():
+    ts1 = TimeSeries(np.array([1.0, 2.0], dtype=np.float32),
+                     start_time=0.0, time_step=1.0, dtype=mpcf.ts32)
+    ts2 = TimeSeries(np.array([3.0, 4.0], dtype=np.float32),
+                     start_time=0.0, time_step=1.0, dtype=mpcf.ts32)
+    _assert_tensor_roundtrip(TimeSeriesTensor([ts1, ts2]))
+
+
+def test_pickle_timeseries64_tensor():
+    ts1 = TimeSeries(np.array([1.0, 2.0], dtype=np.float64),
+                     start_time=0.0, time_step=1.0, dtype=mpcf.ts64)
+    ts2 = TimeSeries(np.array([3.0, 4.0], dtype=np.float64),
+                     start_time=0.0, time_step=1.0, dtype=mpcf.ts64)
+    _assert_tensor_roundtrip(TimeSeriesTensor([ts1, ts2]))

@@ -18,9 +18,11 @@
 #include "io_stream_base.hpp"
 #include "barcode_io.hpp"
 #include "compressed_matrix_io.hpp"
+#include "timeseries_io.hpp"
 #include "../tensor.hpp"
 #include "../functional/pcf.hpp"
 #include "../persistence/barcode.hpp"
+#include "../timeseries.hpp"
 
 namespace mpcf::io::detail
 {
@@ -71,7 +73,10 @@ namespace mpcf::io::detail
       Tensor<SymmetricMatrix<float64_t>>,
 
       Tensor<DistanceMatrix<float32_t>>,
-      Tensor<DistanceMatrix<float64_t>>
+      Tensor<DistanceMatrix<float64_t>>,
+
+      Tensor<TimeSeries_f32>,
+      Tensor<TimeSeries_f64>
       >;
 
   using StreamableObject = std::variant<
@@ -88,7 +93,10 @@ namespace mpcf::io::detail
       SymmetricMatrix<float64_t>,
 
       DistanceMatrix<float32_t>,
-      DistanceMatrix<float64_t>
+      DistanceMatrix<float64_t>,
+
+      TimeSeries_f32,
+      TimeSeries_f64
       >;
 
   struct TensorFormat
@@ -139,6 +147,9 @@ namespace mpcf::io::detail
 
     else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>) { return TensorFormat{ .baseFormat = 10000, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>) { return TensorFormat{ .baseFormat = 10000, .subFormat = 64 }; }
+
+    else if constexpr (std::is_same_v<T, TimeSeries<float32_t, float32_t>>) { return TensorFormat{ .baseFormat = 20000, .subFormat = 32 }; }
+    else if constexpr (std::is_same_v<T, TimeSeries<float64_t, float64_t>>) { return TensorFormat{ .baseFormat = 20000, .subFormat = 64 }; }
 
     throw std::runtime_error("Tensor type "s + mpcf::detail::unmangled_typename<T>() +  " not supported.");
   }
@@ -251,6 +262,8 @@ namespace mpcf::io::detail
         *elem = read_barcode<typename is_barcode<T>::scalar_type>(is);
       else if constexpr (is_compressed_matrix_v<T>)
         *elem = read_compressed_matrix<T>(is);
+      else if constexpr (is_timeseries_v<T>)
+        *elem = read_timeseries<T>(is);
       else
         *elem = read_element<T>(is);
     }

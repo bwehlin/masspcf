@@ -368,6 +368,13 @@ class TimeSeries:
             return NotImplemented
         return self._data != other._data
 
+    def __reduce__(self):
+        import io as _io
+        from ..io import _save_object, _unpickle_object
+        buf = _io.BytesIO()
+        _save_object(self, buf)
+        return _unpickle_object, (buf.getvalue(),)
+
 
 class TimeSeriesTensor(Tensor, FunctionTensorMixin):
     """A tensor of :class:`TimeSeries` objects.

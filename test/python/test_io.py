@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 
 import masspcf as mpcf
+from masspcf.timeseries import TimeSeries, TimeSeriesTensor
 
 
 def test_float32_tensor_roundtrip():
@@ -126,3 +127,41 @@ def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
     assert type(restored) is type(T)
     assert restored.shape == T.shape
     assert restored[0].size == 0
+
+
+# --- TimeSeries ---
+
+
+@pytest.mark.parametrize("ts_dtype", [mpcf.ts32, mpcf.ts64])
+def test_timeseries_tensor_roundtrip(ts_dtype):
+    np_dtype = np.float32 if ts_dtype == mpcf.ts32 else np.float64
+    ts1 = TimeSeries(np.array([1.0, 2.0, 3.0], dtype=np_dtype),
+                     start_time=0.0, time_step=1.0, dtype=ts_dtype)
+    ts2 = TimeSeries(np.array([4.0, 5.0, 6.0], dtype=np_dtype),
+                     start_time=10.0, time_step=0.5, dtype=ts_dtype)
+    T = TimeSeriesTensor([ts1, ts2])
+
+    buf = io.BytesIO()
+    mpcf.save(T, buf)
+
+    buf.seek(0)
+    restored = mpcf.load(buf)
+
+    assert type(restored) is type(T)
+    assert restored.dtype == T.dtype
+    assert restored.shape == T.shape
+    assert T.array_equal(restored)
+
+
+def test_timeseries_object_roundtrip():
+    ts = TimeSeries(np.array([10.0, 20.0, 30.0]),
+                    start_time=5.0, time_step=0.25)
+
+    buf = io.BytesIO()
+    mpcf.save(ts, buf)
+
+    buf.seek(0)
+    restored = mpcf.load(buf)
+
+    assert isinstance(restored, TimeSeries)
+    assert restored == ts

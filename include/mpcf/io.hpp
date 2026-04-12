@@ -24,6 +24,7 @@
 #include "symmetric_matrix.hpp"
 #include "distance_matrix.hpp"
 #include "persistence/barcode.hpp"
+#include "timeseries.hpp"
 
 #include <variant>
 #include <cstdint>
@@ -273,6 +274,9 @@ namespace mpcf
     else if (format == io::detail::tensorFormat<ph::Barcode<float32_t>>()) { return io::detail::read_tensor<ph::Barcode<float32_t>>(is); }
     else if (format == io::detail::tensorFormat<ph::Barcode<float64_t>>()) { return io::detail::read_tensor<ph::Barcode<float64_t>>(is); }
 
+    else if (format == io::detail::tensorFormat<TimeSeries_f32>()) { return io::detail::read_tensor<TimeSeries_f32>(is); }
+    else if (format == io::detail::tensorFormat<TimeSeries_f64>()) { return io::detail::read_tensor<TimeSeries_f64>(is); }
+
     else
     {
       throw std::runtime_error("Unhandled tensor type (" + std::to_string(format.baseFormat) + ", " + std::to_string(format.subFormat) + ")");
@@ -318,6 +322,9 @@ namespace mpcf
 
     else if (format == io::detail::tensorFormat<DistanceMatrix<float32_t>>()) { return io::detail::read_compressed_matrix<DistanceMatrix<float32_t>>(is); }
     else if (format == io::detail::tensorFormat<DistanceMatrix<float64_t>>()) { return io::detail::read_compressed_matrix<DistanceMatrix<float64_t>>(is); }
+
+    else if (format == io::detail::tensorFormat<TimeSeries_f32>()) { return io::detail::read_timeseries<TimeSeries_f32>(is); }
+    else if (format == io::detail::tensorFormat<TimeSeries_f64>()) { return io::detail::read_timeseries<TimeSeries_f64>(is); }
 
     else
     {

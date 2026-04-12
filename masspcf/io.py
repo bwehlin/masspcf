@@ -28,6 +28,7 @@ from .tensor import (
     PointCloudTensor,
     Tensor,
 )
+from .timeseries import TimeSeries, TimeSeriesTensor
 from .typing import (
     barcode32,
     barcode64,
@@ -46,6 +47,8 @@ from .typing import (
     pcloud64,
     symmat32,
     symmat64,
+    ts32,
+    ts64,
     uint32,
     uint64,
 )
@@ -72,6 +75,8 @@ def _save(item: Tensor, file):
         symmat64: cpp.IoOps.save_symmetric_matrix64_tensor,
         distmat32: cpp.IoOps.save_distance_matrix32_tensor,
         distmat64: cpp.IoOps.save_distance_matrix64_tensor,
+        ts32: cpp.IoOps.save_timeseries32_tensor,
+        ts64: cpp.IoOps.save_timeseries64_tensor,
     }
 
     fn = _SAVE_DISPATCH.get(item.dtype)
@@ -103,6 +108,8 @@ def _load(file):
         cpp.SymmetricMatrix64Tensor: SymmetricMatrixTensor,
         cpp.DistanceMatrix32Tensor: DistanceMatrixTensor,
         cpp.DistanceMatrix64Tensor: DistanceMatrixTensor,
+        cpp.TimeSeries32Tensor: TimeSeriesTensor,
+        cpp.TimeSeries64Tensor: TimeSeriesTensor,
     }
 
     cpp_tensor = cpp.IoOps.load_tensor_from_file(file)
@@ -131,6 +138,8 @@ def _init_object_save_dispatch():
         cpp.SymmetricMatrix_f64: cpp.IoOps.save_symmetric_matrix64_object,
         cpp.DistanceMatrix_f32: cpp.IoOps.save_distance_matrix32_object,
         cpp.DistanceMatrix_f64: cpp.IoOps.save_distance_matrix64_object,
+        cpp.TimeSeries_f32_f32: cpp.IoOps.save_timeseries32_object,
+        cpp.TimeSeries_f64_f64: cpp.IoOps.save_timeseries64_object,
     }
 
 
@@ -153,6 +162,8 @@ def _init_object_load_dispatch():
         cpp.SymmetricMatrix_f64: SymmetricMatrix,
         cpp.DistanceMatrix_f32: DistanceMatrix,
         cpp.DistanceMatrix_f64: DistanceMatrix,
+        cpp.TimeSeries_f32_f32: TimeSeries,
+        cpp.TimeSeries_f64_f64: TimeSeries,
     }
 
 
@@ -181,12 +192,12 @@ def save(item, file):
 
     Parameters
     ----------
-    item : Tensor or Pcf or Barcode or DistanceMatrix or SymmetricMatrix
+    item : Tensor or Pcf or Barcode or DistanceMatrix or SymmetricMatrix or TimeSeries
         The item to save.
     file : str or file-like
         A file path or an open file object in binary write mode.
     """
-    is_object = isinstance(item, (Pcf, Barcode, DistanceMatrix, SymmetricMatrix))
+    is_object = isinstance(item, (Pcf, Barcode, DistanceMatrix, SymmetricMatrix, TimeSeries))
     save_fn = _save_object if is_object else _save
     if isinstance(file, str):
         with open(file, "wb") as f:
@@ -207,7 +218,7 @@ def load(file):
 
     Returns
     -------
-    Tensor or Pcf or Barcode or DistanceMatrix or SymmetricMatrix
+    Tensor or Pcf or Barcode or DistanceMatrix or SymmetricMatrix or TimeSeries
         The loaded item.
     """
     if isinstance(file, str):
