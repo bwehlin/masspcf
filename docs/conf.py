@@ -86,6 +86,9 @@ html_theme = "pydata_sphinx_theme"
 # html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     "header_links_before_dropdown": 4,
+    "show_nav_level": 1,
+    "navigation_depth": 4,
+    "collapse_navigation": False,
 }
 html_static_path = ["_static"]
 html_css_files = ["lightbox.css"]

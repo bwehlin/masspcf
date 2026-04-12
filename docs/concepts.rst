@@ -310,7 +310,7 @@ Time series types
 
 A ``TimeSeries`` wraps a PCF with real-world time metadata (an epoch and a
 time step), so that evaluation can use timestamps or arbitrary time scales.
-See :doc:`timeseries` for details.
+See :doc:`ts_creating` for details.
 
 Numeric types
 -------------

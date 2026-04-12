@@ -8,3 +8,4 @@ Python API reference
    api_timeseries
    api_point_process
    api_persistence
+   api_sklearn

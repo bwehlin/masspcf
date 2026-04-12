@@ -28,6 +28,9 @@ classifiers = [
 ]
 dependencies = [ "numpy>=2.0", "tqdm", "matplotlib" ]
 
+[project.optional-dependencies]
+sklearn = ["scikit-learn>=1.0"]
+
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 wheel.packages = ["masspcf"]

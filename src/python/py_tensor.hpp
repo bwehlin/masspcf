@@ -91,13 +91,14 @@ namespace mpcf_py
       return data == rhs.data;
     }
 
-    [[nodiscard]] size_t dunder_getitem(size_t idx) const
+    [[nodiscard]] size_t dunder_getitem(pybind11::ssize_t idx) const
     {
-      if (idx >= data.size())
-      {
-        throw pybind11::index_error("Attempted to get index >= len");
-      }
-      return data[idx];
+      auto n = static_cast<pybind11::ssize_t>(data.size());
+      if (idx < 0)
+        idx += n;
+      if (idx < 0 || idx >= n)
+        throw pybind11::index_error("Shape index out of range");
+      return data[static_cast<size_t>(idx)];
     }
 
     [[nodiscard]] size_t dunder_len() const noexcept
