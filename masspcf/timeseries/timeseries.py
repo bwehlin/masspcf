@@ -153,13 +153,11 @@ class TimeSeries:
         if values is None and start_time is None:
             if isinstance(times_or_values, TimeSeries):
                 self._data = times_or_values._data
-                self.dtype = times_or_values.dtype
                 self._dt_converter = times_or_values._dt_converter
                 self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
                 return
             if isinstance(times_or_values, tuple(self._CPP_TO_DTYPE.keys())):
                 self._data = times_or_values
-                self.dtype = self._CPP_TO_DTYPE[type(times_or_values)]
                 self._dt_converter = None
                 return
 
@@ -239,7 +237,6 @@ class TimeSeries:
                 times_arr = (start_f + np.arange(n, dtype=np_dtype) * step_f)
                 self._data = cpp_cls(times_arr, vals)
 
-        self.dtype = self._CPP_TO_DTYPE.get(type(self._data), ts64)
         self._dt_converter = dt_converter
         self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
 
@@ -272,6 +269,11 @@ class TimeSeries:
         if isinstance(t, list):
             return self._data(np.asarray(t, dtype=np.float64))
         raise TypeError(f"Cannot evaluate TimeSeries at type {type(t)}")
+
+    @property
+    def dtype(self):
+        """The dtype of this time series (``ts32`` or ``ts64``)."""
+        return self._CPP_TO_DTYPE[type(self._data)]
 
     @property
     def start_time(self):
@@ -396,7 +398,11 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
         elif not isinstance(data, (cpp.TimeSeries32Tensor, cpp.TimeSeries64Tensor)):
             raise TypeError(f"Cannot create TimeSeriesTensor from {type(data)}")
         self._data = data
-        self.dtype = _TS_CPP_TO_DTYPE[type(self._data)]
+
+    @property
+    def dtype(self):
+        """The dtype of this tensor (``ts32`` or ``ts64``)."""
+        return _TS_CPP_TO_DTYPE[type(self._data)]
 
     def __call__(self, t):
         """Evaluate every series at the given time(s).
