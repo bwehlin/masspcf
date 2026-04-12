@@ -45,7 +45,9 @@ class TestTimeSeriesConstruction:
         ], dtype="datetime64[ms]")
         values = np.array([1.0, 2.0, 3.0])
         ts = mpcf.TimeSeries(times, values)
-        assert ts.start_time == times[0]
+        # start_time is seconds since Unix epoch
+        epoch_s = float(times[0].astype("datetime64[s]").astype("int64"))
+        assert ts.start_time == pytest.approx(epoch_s)
         assert ts(times[1]) == 2.0
 
     def test_from_existing_timeseries(self):
@@ -65,7 +67,9 @@ class TestTimeSeriesConstruction:
         step = np.timedelta64(10, "ms")
         ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
                              start_time=epoch, time_step=step)
-        assert ts.start_time == epoch
+        # start_time is seconds since Unix epoch
+        epoch_s = float(epoch.astype("datetime64[s]").astype("int64"))
+        assert ts.start_time == pytest.approx(epoch_s)
 
     def test_invalid_time_step(self):
         with pytest.raises(Exception):
@@ -296,12 +300,11 @@ class TestTimeSeriesDatetime:
         step = np.timedelta64(10, "ms")
         ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
                              start_time=epoch, time_step=step)
-        expected = np.array([
-            "2024-01-01T00:00:00.000",
-            "2024-01-01T00:00:00.010",
-            "2024-01-01T00:00:00.020",
-        ], dtype="datetime64[ms]")
-        np.testing.assert_array_equal(ts.times, expected)
+        # times are seconds since Unix epoch
+        epoch_s = float(epoch.astype("datetime64[s]").astype("int64"))
+        step_s = 0.01  # 10 ms
+        expected = np.array([epoch_s, epoch_s + step_s, epoch_s + 2 * step_s])
+        np.testing.assert_allclose(ts.times, expected)
 
     def test_tensor_eval_datetime(self):
         epoch1 = np.datetime64("2024-06-15T08:00:00")

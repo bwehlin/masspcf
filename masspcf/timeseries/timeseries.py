@@ -115,9 +115,12 @@ class TimeSeries:
     ----------
     start_time : float, int, or numpy.datetime64, optional
         Start time for regularly-sampled construction. Default 0.0.
+        When ``datetime64``, times are stored internally as seconds
+        since the Unix epoch.
     time_step : float, int, or numpy.timedelta64, optional
         Spacing between samples for regularly-sampled construction.
-        Default 1.0. Not used when *times* is provided.
+        Default 1.0. When ``timedelta64``, converted to seconds.
+        Not used when *times* is provided.
     dtype : masspcf.dtype, optional
         ``ts32`` or ``ts64``. If ``None``, inferred from data.
     interpolation : str, optional
@@ -153,15 +156,11 @@ class TimeSeries:
         if values is None and start_time is None:
             if isinstance(times_or_values, TimeSeries):
                 self._data = times_or_values._data
-                self._dt_converter = times_or_values._dt_converter
                 self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
                 return
             if isinstance(times_or_values, tuple(self._CPP_TO_DTYPE.keys())):
                 self._data = times_or_values
-                self._dt_converter = None
                 return
-
-        dt_converter = None
 
         # Resolve dtype for values
         def _resolve_dtype(arr):
@@ -237,7 +236,6 @@ class TimeSeries:
                 times_arr = (start_f + np.arange(n, dtype=np_dtype) * step_f)
                 self._data = cpp_cls(times_arr, vals)
 
-        self._dt_converter = dt_converter
         self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
 
     def __call__(self, t):
@@ -277,9 +275,8 @@ class TimeSeries:
 
     @property
     def start_time(self):
-        """The real-world time of the first sample."""
-        if self._dt_converter is not None:
-            return self._dt_converter.start_time_dt
+        """The real-world time of the first sample (seconds since Unix epoch
+        when constructed from ``datetime64``)."""
         return self._data.start_time
 
     @property
@@ -334,11 +331,8 @@ class TimeSeries:
 
     @property
     def times(self):
-        """The real-world times for each sample."""
-        dtc = self._dt_converter
-        if dtc is not None:
-            steps = np.arange(self._data.n_times)
-            return dtc.start_time_dt + steps * dtc.time_step_td
+        """The real-world times for each sample (seconds since Unix epoch
+        when constructed from ``datetime64``)."""
         return self._data.start_time + self._data._internal_times
 
     def __repr__(self):
