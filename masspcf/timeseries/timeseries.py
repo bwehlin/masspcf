@@ -154,14 +154,12 @@ class TimeSeries:
             if isinstance(times_or_values, TimeSeries):
                 self._data = times_or_values._data
                 self.dtype = times_or_values.dtype
-                self._start_time_raw = times_or_values._start_time_raw
                 self._dt_converter = times_or_values._dt_converter
                 self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
                 return
             if isinstance(times_or_values, tuple(self._CPP_TO_DTYPE.keys())):
                 self._data = times_or_values
                 self.dtype = self._CPP_TO_DTYPE[type(times_or_values)]
-                self._start_time_raw = times_or_values.start_time
                 self._dt_converter = None
                 return
 
@@ -201,13 +199,11 @@ class TimeSeries:
                 self._data = cpp_cls(
                     ticks, values,
                     dt_converter.step_ticks(), dt_converter._unit_str)
-                start_time_raw = times[0]
             else:
                 # Store real offsets from start as PCF breakpoints,
                 # time_step=1 so evaluate is just pcf_t = query - start
                 times_f = times.astype(np_dtype)
                 self._data = cpp_cls(times_f, values)
-                start_time_raw = float(times_f[0])
 
         else:
             # --- (values, start_time=, time_step=) form ---
@@ -233,7 +229,6 @@ class TimeSeries:
                 self._data = cpp_cls(
                     vals, dt_converter.start_ticks(),
                     dt_converter.step_ticks(), dt_converter._unit_str)
-                start_time_raw = start_time
             else:
                 # Build explicit times: start + i * step
                 start_f = float(start_time)
@@ -243,10 +238,8 @@ class TimeSeries:
                 n = len(vals)
                 times_arr = (start_f + np.arange(n, dtype=np_dtype) * step_f)
                 self._data = cpp_cls(times_arr, vals)
-                start_time_raw = start_f
 
         self.dtype = self._CPP_TO_DTYPE.get(type(self._data), ts64)
-        self._start_time_raw = start_time_raw
         self._dt_converter = dt_converter
         self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
 
@@ -283,7 +276,9 @@ class TimeSeries:
     @property
     def start_time(self):
         """The real-world time of the first sample."""
-        return self._start_time_raw
+        if self._dt_converter is not None:
+            return self._dt_converter.start_time_dt
+        return self._data.start_time
 
     @property
     def end_time(self):
