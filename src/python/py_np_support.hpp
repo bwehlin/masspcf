@@ -130,10 +130,21 @@ static_assert(mpcf::IsTensor<NumpyTensor<int>>);
 template <typename F>
 auto dispatch_datetime_unit(const std::string& unit, F&& func)
 {
-  if (unit == "s")  return func(std::chrono::seconds{});
-  if (unit == "ms") return func(std::chrono::milliseconds{});
-  if (unit == "us") return func(std::chrono::microseconds{});
+  using picoseconds  = std::chrono::duration<int64_t, std::pico>;
+  using femtoseconds = std::chrono::duration<int64_t, std::femto>;
+  using attoseconds  = std::chrono::duration<int64_t, std::atto>;
+
+  if (unit == "as") return func(attoseconds{});
+  if (unit == "fs") return func(femtoseconds{});
+  if (unit == "ps") return func(picoseconds{});
   if (unit == "ns") return func(std::chrono::nanoseconds{});
+  if (unit == "us") return func(std::chrono::microseconds{});
+  if (unit == "ms") return func(std::chrono::milliseconds{});
+  if (unit == "s")  return func(std::chrono::seconds{});
+  if (unit == "m")  return func(std::chrono::minutes{});
+  if (unit == "h")  return func(std::chrono::hours{});
+  if (unit == "D")  return func(std::chrono::days{});
+  if (unit == "W")  return func(std::chrono::weeks{});
   throw pybind11::value_error("Unsupported datetime unit: " + unit);
 }
 

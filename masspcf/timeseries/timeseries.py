@@ -33,13 +33,38 @@ def _datetime_unit(dt_or_arr):
     return np.datetime_data(np.dtype(dt_or_arr.dtype))[0]
 
 
+# Variable-length datetime units that cannot use the C++ chrono path directly.
+# Absolute times are converted to true seconds via numpy; steps use conventional
+# approximations: 1 month = 30 days, 1 year = 365.25 days.
+_VARIABLE_LENGTH_UNITS = {'M', 'Y'}
+_APPROX_STEP_SECONDS = {
+    'M': 30.0 * 86400.0,
+    'Y': 365.25 * 86400.0,
+}
+
+
+def _dt64_to_float_seconds(t):
+    """Convert a datetime64 scalar to float seconds since Unix epoch."""
+    return float(t.astype('datetime64[us]').astype('int64')) / 1e6
+
+
+def _dt64_array_to_float_seconds(arr):
+    """Convert a datetime64 array to float64 seconds since Unix epoch."""
+    return arr.astype('datetime64[us]').astype('int64').astype('float64') / 1e6
+
+
 class _DateTimeConverter:
     """Converts between numpy datetime64 and int64 ticks for the C++ chrono path.
 
-    The C++ side stores start_time/time_step as float seconds. Query times
-    are passed as int64 ticks + unit string so that C++ can construct the
-    appropriate std::chrono::duration and perform exact integer subtraction
-    before converting to float.
+    The C++ side stores start_time/time_step as float seconds. For
+    fixed-length units (as through W), query times are passed as int64 ticks
+    + unit string so that C++ can construct the appropriate
+    ``std::chrono::duration`` and perform exact integer arithmetic before
+    converting to float.
+
+    For variable-length units (M, Y), absolute times are converted to true
+    seconds since epoch via numpy's datetime arithmetic.  The step uses a
+    conventional approximation (1 month = 30 days, 1 year = 365.25 days).
     """
 
     def __init__(self, start_time, time_step):
@@ -47,6 +72,7 @@ class _DateTimeConverter:
         self.time_step_td = time_step
         self._unit_str = _datetime_unit(time_step)
         self._unit_td = np.timedelta64(1, self._unit_str)
+        self._variable_length = self._unit_str in _VARIABLE_LENGTH_UNITS
 
     def start_ticks(self):
         """Return start_time as int64 ticks in the native unit."""
@@ -64,15 +90,25 @@ class _DateTimeConverter:
 
 
 def _dt64_to_ticks(t):
-    """Convert a datetime64 scalar to (int64_ticks, unit_string)."""
+    """Convert a datetime64 scalar to (int64_ticks, unit_string).
+
+    For variable-length units (M, Y), returns ``(float_seconds, None)``.
+    """
     unit = _datetime_unit(t)
+    if unit in _VARIABLE_LENGTH_UNITS:
+        return _dt64_to_float_seconds(t), None
     ticks = int(t.astype(f"datetime64[{unit}]").view("int64"))
     return ticks, unit
 
 
 def _dt64_array_to_ticks(arr):
-    """Convert a datetime64 array to (int64_ticks_array, unit_string)."""
+    """Convert a datetime64 array to (int64_ticks_array, unit_string).
+
+    For variable-length units (M, Y), returns ``(float_seconds_array, None)``.
+    """
     unit = _datetime_unit(arr)
+    if unit in _VARIABLE_LENGTH_UNITS:
+        return _dt64_array_to_float_seconds(arr), None
     ticks = arr.astype(f"datetime64[{unit}]").view("int64").astype("int64")
     return ticks, unit
 
@@ -116,7 +152,11 @@ class TimeSeries:
     start_time : float, int, or numpy.datetime64, optional
         Start time for regularly-sampled construction. Default 0.0.
         When ``datetime64``, times are stored internally as seconds
-        since the Unix epoch.
+        since the Unix epoch. All numpy datetime64 units are supported
+        (``as`` through ``Y``). For variable-length units (``M``, ``Y``),
+        absolute times are converted to true seconds since epoch; steps
+        use conventional approximations (1 month = 30 days,
+        1 year = 365.25 days).
     time_step : float, int, or numpy.timedelta64, optional
         Spacing between samples for regularly-sampled construction.
         Default 1.0. When ``timedelta64``, converted to seconds.
@@ -192,10 +232,15 @@ class TimeSeries:
             if np.issubdtype(times.dtype, np.datetime64):
                 inferred_step = times[1] - times[0]
                 dt_converter = _DateTimeConverter(times[0], inferred_step)
-                ticks = dt_converter.array_to_int64(times)
-                self._data = cpp_cls(
-                    ticks, values,
-                    dt_converter.step_ticks(), dt_converter._unit_str)
+                if dt_converter._variable_length:
+                    times_s = _dt64_array_to_float_seconds(times).astype(
+                        np_dtype)
+                    self._data = cpp_cls(times_s, values)
+                else:
+                    ticks = dt_converter.array_to_int64(times)
+                    self._data = cpp_cls(
+                        ticks, values,
+                        dt_converter.step_ticks(), dt_converter._unit_str)
             else:
                 # Store real offsets from start as PCF breakpoints,
                 # time_step=1 so evaluate is just pcf_t = query - start
@@ -223,9 +268,19 @@ class TimeSeries:
                 if time_step <= np.timedelta64(0):
                     raise ValueError("time_step must be positive")
                 dt_converter = _DateTimeConverter(start_time, time_step)
-                self._data = cpp_cls(
-                    vals, dt_converter.start_ticks(),
-                    dt_converter.step_ticks(), dt_converter._unit_str)
+                if dt_converter._variable_length:
+                    start_s = np_dtype(_dt64_to_float_seconds(start_time))
+                    step_s = np_dtype(
+                        dt_converter.step_ticks()
+                        * _APPROX_STEP_SECONDS[dt_converter._unit_str])
+                    n = len(vals)
+                    times_arr = (start_s + np.arange(n, dtype=np_dtype)
+                                 * step_s)
+                    self._data = cpp_cls(times_arr, vals)
+                else:
+                    self._data = cpp_cls(
+                        vals, dt_converter.start_ticks(),
+                        dt_converter.step_ticks(), dt_converter._unit_str)
             else:
                 # Build explicit times: start + i * step
                 start_f = float(start_time)
@@ -256,9 +311,13 @@ class TimeSeries:
         """
         if isinstance(t, np.datetime64):
             ticks, unit = _dt64_to_ticks(t)
+            if unit is None:
+                return self._data(float(ticks))
             return self._data(ticks, unit)
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
             ticks, unit = _dt64_array_to_ticks(t)
+            if unit is None:
+                return self._data(ticks)
             return self._data(ticks, unit)
         if isinstance(t, np.ndarray):
             return self._data(t)
@@ -333,7 +392,8 @@ class TimeSeries:
     def times(self):
         """The real-world times for each sample (seconds since Unix epoch
         when constructed from ``datetime64``)."""
-        return self._data.start_time + self._data._internal_times
+        return (self._data.start_time
+                + self._data._internal_times * self._data.time_step)
 
     def __repr__(self):
         nc = self.n_channels
@@ -407,9 +467,13 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
         """
         if isinstance(t, np.datetime64):
             ticks, unit = _dt64_to_ticks(t)
+            if unit is None:
+                return np.asarray(self._data(float(ticks)))
             return np.asarray(self._data(ticks, unit))
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
             ticks, unit = _dt64_array_to_ticks(t)
+            if unit is None:
+                return np.asarray(self._data(ticks))
             return np.asarray(self._data(ticks, unit))
         return super().__call__(t)
 

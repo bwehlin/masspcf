@@ -350,6 +350,36 @@ class TestTimeSeriesDatetime:
         # We can just check it's reasonable
         assert ts.end_time > 0
 
+    @pytest.mark.parametrize("unit,step_val", [
+        ("as", 1000000),
+        ("fs", 1000000),
+        ("ps", 1000000),
+        ("ns", 100),
+        ("us", 100),
+        ("ms", 100),
+        ("s", 1),
+        ("m", 1),
+        ("h", 1),
+        ("D", 1),
+        ("W", 1),
+        ("M", 1),
+        ("Y", 1),
+    ])
+    def test_datetime_unit_coverage(self, unit, step_val):
+        """All numpy datetime units roundtrip through construction
+        and evaluation."""
+        epoch = np.datetime64("1970-01-01", unit)
+        step = np.timedelta64(step_val, unit)
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=epoch, time_step=step)
+        assert ts.n_times == 3
+        # Evaluate at stored sample times (avoids variable-length unit
+        # mismatch between approximate step and true calendar offsets)
+        t = ts.times
+        assert ts(t[0]) == 10.0
+        assert ts(t[1]) == 20.0
+        assert ts(t[2]) == 30.0
+
 
 class TestTimeSeriesProperties:
     def test_values_1d(self):

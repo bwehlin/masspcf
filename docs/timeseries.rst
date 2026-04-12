@@ -66,9 +66,10 @@ is also how ``datetime64`` times are represented under the hood.
 Datetime support
 ----------------
 
-Both construction forms accept ``datetime64`` times. Pass ``datetime64``
-arrays directly, or use ``start_time`` / ``time_step`` with
-``datetime64`` / ``timedelta64``::
+Both construction forms accept ``datetime64`` times. All numpy datetime64
+units are supported, from attoseconds (``as``) through years (``Y``).
+Pass ``datetime64`` arrays directly, or use ``start_time`` / ``time_step``
+with ``datetime64`` / ``timedelta64``::
 
    # From datetime arrays
    times = np.array([
@@ -128,6 +129,14 @@ different times and sample at different rates::
    .. literalinclude:: _static/gen_timeseries_fig.py
       :pyobject: plot_datetime_example
       :language: python
+
+Internally, all datetime values are converted to seconds since the Unix
+epoch (1970-01-01T00:00:00). The ``start_time`` and ``times`` properties
+return these float seconds. Fixed-length units (``as`` through ``W``) are
+converted exactly via ``std::chrono``. For variable-length units (``M``
+and ``Y``), absolute times are converted to true seconds since epoch; the
+``time_step`` uses a conventional approximation of **1 month = 30 days**
+and **1 year = 365.25 days**.
 
 
 Multi-channel time series
