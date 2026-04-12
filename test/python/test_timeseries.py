@@ -866,3 +866,115 @@ class TestEmbedTimeDelay:
             [4.0, 5.0],
         ])
         np.testing.assert_allclose(cloud, expected)
+
+
+# ============================================================================
+# Edge cases: construction
+# ============================================================================
+
+
+class TestTimeSeriesConstructionEdgeCases:
+    def test_3d_values_raises(self):
+        with pytest.raises(ValueError, match="1-D or 2-D"):
+            mpcf.TimeSeries(np.zeros((2, 3, 4)))
+
+    def test_datetime_start_with_float_step_raises(self):
+        with pytest.raises(TypeError, match="timedelta64"):
+            mpcf.TimeSeries(np.array([1.0, 2.0]),
+                            start_time=np.datetime64("2024-01-01"),
+                            time_step=1.0)
+
+    def test_datetime_step_zero_raises(self):
+        with pytest.raises(ValueError, match="positive"):
+            mpcf.TimeSeries(np.array([1.0, 2.0]),
+                            start_time=np.datetime64("2024-01-01"),
+                            time_step=np.timedelta64(0, "s"))
+
+    def test_datetime_step_negative_raises(self):
+        with pytest.raises(ValueError, match="positive"):
+            mpcf.TimeSeries(np.array([1.0, 2.0]),
+                            start_time=np.datetime64("2024-01-01"),
+                            time_step=np.timedelta64(-1, "s"))
+
+    def test_copy_with_interpolation_override(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]))
+        assert ts.interpolation == 'nearest'
+        ts2 = mpcf.TimeSeries(ts, interpolation='linear')
+        assert ts2.interpolation == 'linear'
+
+    def test_single_time_point_raises(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            mpcf.TimeSeries(np.array([0.0]), np.array([1.0]))
+
+
+# ============================================================================
+# Edge cases: evaluation
+# ============================================================================
+
+
+class TestTimeSeriesEvaluationEdgeCases:
+    def test_eval_invalid_type_raises(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(TypeError):
+            ts("not a number")
+
+    def test_eval_at_exact_end(self):
+        """Evaluation at the last breakpoint should return the last value."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        assert ts(2.0) == 30.0
+
+
+# ============================================================================
+# Edge cases: TimeSeriesTensor
+# ============================================================================
+
+
+class TestTimeSeriesTensorEdgeCases:
+    def test_construction_from_tensor_copy(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0]), start_time=0.0,
+                             time_step=1.0)
+        t1 = mpcf.TimeSeriesTensor([ts])
+        t2 = mpcf.TimeSeriesTensor(t1)
+        assert t2.shape == t1.shape
+        assert t2.dtype == t1.dtype
+        assert t1.array_equal(t2)
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(TypeError):
+            mpcf.TimeSeriesTensor(42)
+
+    def test_equality_with_non_timeseries(self):
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0]))
+        assert not (ts == "not a timeseries")
+        assert ts != "not a timeseries"
+
+
+# ============================================================================
+# Edge cases: embed_time_delay
+# ============================================================================
+
+
+class TestEmbedTimeDelayEdgeCases:
+    def test_invalid_input_type_raises(self):
+        with pytest.raises(TypeError):
+            mpcf.embed_time_delay(42, dimension=2, delay=1.0)
+
+    def test_minimum_valid_points(self):
+        """dimension=2, delay=1.0, 3 points at step=1 -> valid range [1,2],
+        should produce 2 embedded points."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        cloud = np.asarray(result[0])
+        assert cloud.shape[1] == 2
+        assert cloud.shape[0] >= 1
+
+    def test_window_exact_range(self):
+        """Window covering the entire valid range produces one window."""
+        ts = mpcf.TimeSeries(np.arange(10, dtype=np.float64),
+                             start_time=0.0, time_step=1.0)
+        # dimension=2, delay=1 -> valid range is [1, 9], length 8
+        result = mpcf.embed_time_delay(
+            ts, dimension=2, delay=1.0, window=8.0)
+        assert result.shape[0] == 1
