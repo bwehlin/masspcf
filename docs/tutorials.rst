@@ -7,6 +7,7 @@ Tutorials
    tutorial_notebooks/masspcf_intro_mnist_vis
    tutorial_notebooks/pytorch_tda_classifier
    tutorial_notebooks/lorenz_takens_embedding
+   tutorial_notebooks/motion_classification
 
 :doc:`Visualizing the space of handwritten digits using masspcf <tutorial_notebooks/masspcf_intro_mnist_vis>`
    Getting started with masspcf and doing basic topological data visualization on the MNIST dataset.
@@ -22,3 +23,6 @@ This notebook is described in the following video tutorial from the `Applied Alg
 
 :doc:`Takens embedding of the Lorenz attractor <tutorial_notebooks/lorenz_takens_embedding>`
    Simulating the Lorenz system, storing it as a multi-channel time series, and using time delay embedding to reconstruct the attractor from a single channel.
+
+:doc:`Classifying human activities with topological features <tutorial_notebooks/motion_classification>`
+   End-to-end classification pipeline: loading 6-axis motion data from sktime, windowed Takens embedding, stable rank features, and an L2 kernel SVM.

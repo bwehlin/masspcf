@@ -41,7 +41,7 @@ namespace
   }
 
   /// Build a TimeSeries from times (float) + values (1-D or 2-D) numpy arrays.
-  /// For 1-D values: n_channels=1. For 2-D: shape (n_times, n_channels).
+  /// For 1-D values: n_channels=1. For 2-D: shape (n_channels, n_times).
   /// Times are stored as offsets from times[0], time_step=1.
   template <typename Tt, typename Tv>
   mpcf::TimeSeries<Tt, Tv> build_from_times_values(
@@ -72,14 +72,14 @@ namespace
     }
     else if (values_arr.ndim() == 2)
     {
-      if (static_cast<size_t>(values_arr.shape(0)) != n_times)
-        throw py::value_error("values rows must match times length");
-      n_channels = static_cast<size_t>(values_arr.shape(1));
+      n_channels = static_cast<size_t>(values_arr.shape(0));
+      if (static_cast<size_t>(values_arr.shape(1)) != n_times)
+        throw py::value_error("values columns must match times length");
       auto v = values_arr.template unchecked<2>();
       values.resize(n_times * n_channels);
       for (size_t i = 0; i < n_times; ++i)
         for (size_t c = 0; c < n_channels; ++c)
-          values[i * n_channels + c] = v(i, c);
+          values[i * n_channels + c] = v(c, i);
     }
     else
     {
@@ -111,13 +111,13 @@ namespace
     }
     else if (values_arr.ndim() == 2)
     {
-      n_times = static_cast<size_t>(values_arr.shape(0));
-      n_channels = static_cast<size_t>(values_arr.shape(1));
+      n_channels = static_cast<size_t>(values_arr.shape(0));
+      n_times = static_cast<size_t>(values_arr.shape(1));
       auto v = values_arr.template unchecked<2>();
       values.resize(n_times * n_channels);
       for (size_t i = 0; i < n_times; ++i)
         for (size_t c = 0; c < n_channels; ++c)
-          values[i * n_channels + c] = v(i, c);
+          values[i * n_channels + c] = v(c, i);
     }
     else
     {
@@ -187,13 +187,13 @@ namespace
             }
             else
             {
-              n_times = static_cast<size_t>(values.shape(0));
-              n_channels = static_cast<size_t>(values.shape(1));
+              n_channels = static_cast<size_t>(values.shape(0));
+              n_times = static_cast<size_t>(values.shape(1));
               auto v = values.template unchecked<2>();
               vals.resize(n_times * n_channels);
               for (size_t i = 0; i < n_times; ++i)
                 for (size_t c = 0; c < n_channels; ++c)
-                  vals[i * n_channels + c] = v(i, c);
+                  vals[i * n_channels + c] = v(c, i);
             }
             std::vector<Tt> times(n_times);
             for (size_t i = 0; i < n_times; ++i)
@@ -232,14 +232,14 @@ namespace
           }
           else
           {
-            if (static_cast<size_t>(values.shape(0)) != n_times)
-              throw py::value_error("values rows must match times length");
-            n_channels = static_cast<size_t>(values.shape(1));
+            n_channels = static_cast<size_t>(values.shape(0));
+            if (static_cast<size_t>(values.shape(1)) != n_times)
+              throw py::value_error("values columns must match times length");
             auto v = values.template unchecked<2>();
             vals.resize(n_times * n_channels);
             for (size_t i = 0; i < n_times; ++i)
               for (size_t c = 0; c < n_channels; ++c)
-                vals[i * n_channels + c] = v(i, c);
+                vals[i * n_channels + c] = v(c, i);
           }
 
           return dispatch_datetime_unit(unit, [&](auto duration_tag) {

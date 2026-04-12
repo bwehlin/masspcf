@@ -137,11 +137,13 @@ class TimeSeries:
 
     ``TimeSeries(times, values)``
         Explicit time points. *times* is a 1-D array of sample times
-        (float or ``datetime64``), *values* a 1-D array of sample values.
+        (float or ``datetime64``), *values* a 1-D array of sample values
+        or a 2-D array of shape ``(n_channels, n_times)``.
         ``start_time`` is inferred from ``times[0]``.
 
     ``TimeSeries(values, *, start_time=0.0, time_step=1.0)``
-        Regular sampling. *values* is a 1-D array; sample *i* is placed
+        Regular sampling. *values* is a 1-D array or a 2-D array of
+        shape ``(n_channels, n_times)``; sample *i* is placed
         at ``start_time + i * time_step``.
 
     ``TimeSeries(existing)``
@@ -218,9 +220,12 @@ class TimeSeries:
                 raise ValueError("times must be a 1-D array")
             if values.ndim not in (1, 2):
                 raise ValueError("values must be 1-D or 2-D")
-            if len(times) != values.shape[0]:
+            if values.ndim == 1 and len(times) != len(values):
                 raise ValueError(
-                    "times length must match values first dimension")
+                    "times and values must have the same length")
+            if values.ndim == 2 and len(times) != values.shape[1]:
+                raise ValueError(
+                    "times length must match values second dimension")
             if len(times) < 2:
                 raise ValueError(
                     "times must have at least 2 elements")
@@ -260,6 +265,9 @@ class TimeSeries:
             if start_time is None:
                 start_time = 0.0
 
+            # Number of time points: last dimension for 2-D, length for 1-D
+            n = vals.shape[-1] if vals.ndim == 2 else len(vals)
+
             if isinstance(start_time, np.datetime64):
                 if not isinstance(time_step, np.timedelta64):
                     raise TypeError(
@@ -273,7 +281,6 @@ class TimeSeries:
                     step_s = np_dtype(
                         dt_converter.step_ticks()
                         * _APPROX_STEP_SECONDS[dt_converter._unit_str])
-                    n = len(vals)
                     times_arr = (start_s + np.arange(n, dtype=np_dtype)
                                  * step_s)
                     self._data = cpp_cls(times_arr, vals)
@@ -287,7 +294,6 @@ class TimeSeries:
                 step_f = float(time_step)
                 if step_f <= 0:
                     raise ValueError("time_step must be positive")
-                n = len(vals)
                 times_arr = (start_f + np.arange(n, dtype=np_dtype) * step_f)
                 self._data = cpp_cls(times_arr, vals)
 
@@ -369,7 +375,7 @@ class TimeSeries:
     @property
     def values(self):
         """Sample values. Shape ``(n_times,)`` for single-channel,
-        ``(n_times, n_channels)`` for multi-channel."""
+        ``(n_channels, n_times)`` for multi-channel."""
         # TODO: expose values directly from C++ without copy
         nc = self._data.n_channels
         nt = self._data.n_times
@@ -378,14 +384,15 @@ class TimeSeries:
                              + self._data.time_step * i))
                              for i in range(nt)])
         # For now, evaluate at each breakpoint time
-        result = np.empty((nt, nc))
+        # Evaluation already returns (n_channels,) per time step
+        result = np.empty((nc, nt))
         for i in range(nt):
             t = self._data.start_time + self._data.time_step * i
             vals = self._data(float(t))
             if isinstance(vals, np.ndarray):
-                result[i] = vals
+                result[:, i] = vals
             else:
-                result[i, 0] = vals
+                result[0, i] = vals
         return result
 
     @property

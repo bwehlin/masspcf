@@ -1,8 +1,13 @@
 build==1.4.2
 matplotlib==3.10.3
 numpy==2.2.6
+pandas==2.2.3
+pooch==1.9.0
+polars==1.30.0
 pytest==9.0.2
 pytest-cov==6.2.1
 scipy==1.15.3
+sktime==0.36.1
+xarray==2025.4.0
 tqdm==4.67.3
 ValgrindCI==0.3.0
