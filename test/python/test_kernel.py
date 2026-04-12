@@ -3,6 +3,7 @@ import pytest
 
 import masspcf as mpcf
 from masspcf.symmetric_matrix import SymmetricMatrix
+from masspcf.tensor import FloatTensor
 
 
 def test_l2_kernel_requires_1d_tensor():
@@ -78,3 +79,64 @@ def test_l2_kernel_to_dense(pcf_dtype, device):
     assert dense[0, 1] == pytest.approx(24.0, rel=1e-5)
     assert dense[1, 0] == dense[0, 1]
     assert dense[1, 1] == pytest.approx(12.0, rel=1e-5)
+
+
+# ============================================================================
+# Cross-kernel tests: l2_kernel(X, Y)
+# ============================================================================
+
+
+def test_l2_cross_kernel_shape(pcf_dtype, device):
+    np_dtype = np.float32 if pcf_dtype == mpcf.pcf32 else np.float64
+    X = mpcf.zeros((3,), dtype=pcf_dtype)
+    Y = mpcf.zeros((2,), dtype=pcf_dtype)
+
+    for i in range(3):
+        X[i] = mpcf.Pcf(np.array([[0.0, float(i + 1)], [1.0, 0.0]],
+                                  dtype=np_dtype))
+    for i in range(2):
+        Y[i] = mpcf.Pcf(np.array([[0.0, float(i + 10)], [1.0, 0.0]],
+                                  dtype=np_dtype))
+
+    Kxy = mpcf.l2_kernel(X, Y)
+    assert isinstance(Kxy, FloatTensor)
+    assert np.asarray(Kxy).shape == (3, 2)
+
+
+def test_l2_cross_kernel_values(pcf_dtype, device):
+    np_dtype = np.float32 if pcf_dtype == mpcf.pcf32 else np.float64
+    X = mpcf.zeros((2,), dtype=pcf_dtype)
+    Y = mpcf.zeros((2,), dtype=pcf_dtype)
+
+    # f0 = 4 on [0, 3), f1 = 2 on [0, 3)
+    X[0] = mpcf.Pcf(np.array([[0.0, 4.0], [3.0, 0.0]], dtype=np_dtype))
+    X[1] = mpcf.Pcf(np.array([[0.0, 2.0], [3.0, 0.0]], dtype=np_dtype))
+    # g0 = 3 on [0, 3), g1 = 5 on [0, 3)
+    Y[0] = mpcf.Pcf(np.array([[0.0, 3.0], [3.0, 0.0]], dtype=np_dtype))
+    Y[1] = mpcf.Pcf(np.array([[0.0, 5.0], [3.0, 0.0]], dtype=np_dtype))
+
+    Kxy = np.asarray(mpcf.l2_kernel(X, Y))
+
+    # <f0, g0> = 4*3*3 = 36
+    assert Kxy[0, 0] == pytest.approx(36.0, rel=1e-5)
+    # <f0, g1> = 4*5*3 = 60
+    assert Kxy[0, 1] == pytest.approx(60.0, rel=1e-5)
+    # <f1, g0> = 2*3*3 = 18
+    assert Kxy[1, 0] == pytest.approx(18.0, rel=1e-5)
+    # <f1, g1> = 2*5*3 = 30
+    assert Kxy[1, 1] == pytest.approx(30.0, rel=1e-5)
+
+
+def test_l2_cross_kernel_matches_concat(pcf_dtype, device):
+    """Cross-kernel must match the off-diagonal block of the full kernel."""
+    X = mpcf.random.noisy_sin(shape=(4,), dtype=pcf_dtype)
+    Y = mpcf.random.noisy_sin(shape=(3,), dtype=pcf_dtype)
+
+    Kxy = np.asarray(mpcf.l2_kernel(X, Y))
+
+    concat = mpcf.PcfTensor([X[i] for i in range(4)]
+                            + [Y[i] for i in range(3)])
+    K_all = mpcf.l2_kernel(concat).to_dense()
+    expected = K_all[:4, 4:]
+
+    np.testing.assert_allclose(Kxy, expected, rtol=1e-5)

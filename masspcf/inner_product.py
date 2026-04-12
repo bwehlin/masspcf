@@ -17,48 +17,61 @@ import numpy as np
 from . import _mpcf_cpp as cpp
 from .async_task import _run_task
 from .symmetric_matrix import SymmetricMatrix
-from .tensor import PcfContainerLike, _resolve_pcf_inputs
+from .tensor import FloatTensor, PcfContainerLike, _resolve_pcf_inputs
 from .typing import pcf32, pcf64
 
 
 _INNER_PRODUCT_BACKEND_MAP = {pcf32: cpp.InnerProduct_f32_f32, pcf64: cpp.InnerProduct_f64_f64}
 
 
-def l2_kernel(fs: PcfContainerLike, verbose=False) -> SymmetricMatrix:
-    r"""Compute the pairwise :math:`L_2` kernel matrix for a 1-D tensor of PCFs.
+def l2_kernel(X: PcfContainerLike, Y: PcfContainerLike = None, verbose=False):
+    r"""Compute the :math:`L_2` kernel matrix for one or two tensors of PCFs.
 
-    For a tensor :math:`(f_0, f_1, \ldots, f_{n-1})`, returns an
-    :math:`n \times n` matrix :math:`K` where
+    **Single tensor** (``Y`` omitted): returns the symmetric kernel matrix
 
     .. math::
-        K_{ij} = \langle f_i, f_j \rangle_{L_2}
-               = \int_0^\infty f_i(t) \, f_j(t) \, dt.
+        K_{ij} = \int_0^\infty f_i(t) \, f_j(t) \, dt.
+
+    **Two tensors**: returns the cross-kernel matrix
+
+    .. math::
+        K_{ij} = \int_0^\infty X_i(t) \, Y_j(t) \, dt
+
+    with shape ``(*X.shape, *Y.shape)``.
 
     Parameters
     ----------
-    fs : PcfContainerLike
+    X : PcfContainerLike
         A 1-D tensor of PCFs.
+    Y : PcfContainerLike, optional
+        A second tensor of PCFs. When provided, the cross-kernel is
+        computed instead of the self-kernel.
     verbose : bool, optional
         Show progress information during computation, by default False.
 
     Returns
     -------
-    SymmetricMatrix
-        A compressed symmetric kernel matrix.
-
-    Raises
-    ------
-    ValueError
-        If ``fs`` is not 1-dimensional.
+    SymmetricMatrix or FloatTensor
+        A ``SymmetricMatrix`` when ``Y`` is omitted, or a ``FloatTensor``
+        of shape ``(*X.shape, *Y.shape)`` when ``Y`` is provided.
     """
-    backend, X = _resolve_pcf_inputs(_INNER_PRODUCT_BACKEND_MAP, fs)
+    if Y is None:
+        backend, Xt = _resolve_pcf_inputs(_INNER_PRODUCT_BACKEND_MAP, X)
 
-    if len(X.shape) != 1:
-        raise ValueError("1d tensor expected.")
-    task, sm_or_dense = backend.l2(X._data)
-    _run_task(lambda: task, verbose=verbose)
+        if len(Xt.shape) != 1:
+            raise ValueError("1d tensor expected.")
+        task, sm_or_dense = backend.l2(Xt._data)
+        _run_task(lambda: task, verbose=verbose)
 
-    if isinstance(sm_or_dense, np.ndarray):
-        return SymmetricMatrix.from_dense(sm_or_dense)
+        if isinstance(sm_or_dense, np.ndarray):
+            return SymmetricMatrix.from_dense(sm_or_dense)
+        else:
+            return SymmetricMatrix(sm_or_dense)
     else:
-        return SymmetricMatrix(sm_or_dense)
+        backend, Xt, Yt = _resolve_pcf_inputs(
+            _INNER_PRODUCT_BACKEND_MAP, X, Y)
+
+        task, out = backend.l2_cross(Xt._data, Yt._data)
+        _run_task(lambda: task, verbose=verbose)
+
+        return FloatTensor(out)

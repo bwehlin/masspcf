@@ -82,12 +82,106 @@ namespace
       return py::make_tuple(std::move(task), symmat);
     }
 
+    template <typename TOperation>
+    class CrossKernelTask : public mpcf::StoppableTask<void>
+    {
+    public:
+      CrossKernelTask(TensorT X, TensorT Y, mpcf::Tensor<Tv> out, TOperation op)
+        : m_X(std::move(X)), m_Y(std::move(Y)), m_out(std::move(out)), m_op(op)
+      { }
+
+    private:
+      tf::Future<void> run_async(mpcf::Executor& exec) override
+      {
+        auto xTotal = m_X.size();
+        auto yTotal = m_Y.size();
+        next_step(xTotal * yTotal, "Computing cross-kernel.", "integral");
+
+        m_flow.for_each_index<size_t, size_t, size_t>(0ul, xTotal, 1ul, [this, yTotal](size_t xi) {
+          if (stop_requested()) return;
+
+          for (size_t yi = 0; yi < yTotal; ++yi)
+          {
+            m_out.flat(xi * yTotal + yi) =
+                m_op(mpcf::integrate<Tt, Tv>(m_X.flat(xi), m_Y.flat(yi), m_op));
+          }
+
+          add_progress(yTotal);
+        });
+
+        return exec.cpu()->run(std::move(m_flow));
+      }
+
+      TensorT m_X;
+      TensorT m_Y;
+      mpcf::Tensor<Tv> m_out;
+      TOperation m_op;
+      tf::Taskflow m_flow;
+    };
+
+    static std::vector<PcfT> collect_all_pcfs(TensorT& tensor)
+    {
+      std::vector<PcfT> pcfs;
+      auto total = tensor.size();
+      pcfs.reserve(total);
+      for (size_t i = 0; i < total; ++i)
+        pcfs.push_back(tensor.flat(i));
+      return pcfs;
+    }
+
+    static py::tuple l2_cross(TensorT X, TensorT Y)
+    {
+      auto op = mpcf::OperationL2InnerProduct<Tt, Tv>();
+
+      std::vector<size_t> outShape;
+      for (auto d : X.shape()) outShape.push_back(d);
+      for (auto d : Y.shape()) outShape.push_back(d);
+
+      auto outTensor = mpcf::Tensor<Tv>(outShape, Tv(0));
+
+      auto xTotal = X.size();
+      auto yTotal = Y.size();
+
+      if (xTotal == 0 || yTotal == 0)
+      {
+        std::unique_ptr<mpcf::StoppableTask<void>> empty_task = mpcf_py::execute_empty_task();
+        return py::make_tuple(std::move(empty_task), outTensor);
+      }
+
+#ifdef BUILD_WITH_CUDA
+      if (!mpcf::settings().forceCpu
+          && xTotal * yTotal >= mpcf::settings().cudaThreshold * mpcf::settings().cudaThreshold)
+      {
+        if (mpcf::settings().deviceVerbose)
+        {
+          std::cout << "Cross-kernel computation on CUDA device(s)" << std::endl;
+        }
+
+        auto rowPcfs = collect_all_pcfs(X);
+        auto colPcfs = collect_all_pcfs(Y);
+        auto task = mpcf::create_cuda_block_cdist_l2_kernel_task(outTensor, rowPcfs, colPcfs, Tv(0), std::numeric_limits<Tv>::max());
+        task->start_async(mpcf::default_executor());
+        return py::make_tuple(std::move(task), outTensor);
+      }
+#endif
+
+      if (mpcf::settings().deviceVerbose)
+      {
+        std::cout << "Cross-kernel computation on CPU(s)" << std::endl;
+      }
+
+      std::unique_ptr<mpcf::StoppableTask<void>> task =
+          mpcf_py::execute_stoppable_task<CrossKernelTask<decltype(op)>>(X, Y, outTensor, op);
+      return py::make_tuple(std::move(task), outTensor);
+    }
+
     static void register_bindings(py::handle m, const std::string& suffix)
     {
       py::class_<PyInnerProductBindings> cls(m, ("InnerProduct" + suffix).c_str());
 
       cls
           .def_static("l2", &PyInnerProductBindings::l2)
+          .def_static("l2_cross", &PyInnerProductBindings::l2_cross)
       ;
     }
   };

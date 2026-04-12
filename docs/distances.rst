@@ -130,7 +130,15 @@ L2 kernel matrices
 
 The kernel matrix is symmetric and includes diagonal entries (self inner products). To use it with scikit-learn, convert to a dense NumPy array::
 
-   K_dense = mpcf.l2_kernel(X, verbose=False).to_dense()
+   K_dense = mpcf.l2_kernel(X).to_dense()
+
+Pass two tensors to compute the cross-kernel -- useful for
+train/test splits with precomputed kernels::
+
+   K_train = mpcf.l2_kernel(X_train)              # SymmetricMatrix (n x n)
+   K_test = mpcf.l2_kernel(X_test, X_train)        # FloatTensor (m x n)
+
+The cross-kernel has shape ``(*X_test.shape, *X_train.shape)``.
 
 
 Distance matrices
