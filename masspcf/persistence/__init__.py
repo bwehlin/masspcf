@@ -20,6 +20,7 @@ from .barcode_summary import (
     barcode_to_betti_curve,
     barcode_to_stable_rank,
 )
+from .filter_significant import filter_significant_bars
 from .homology import ComplexType, DistanceType, compute_persistent_homology
 from .ph_tensor import BarcodeTensor
 

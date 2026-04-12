@@ -22,6 +22,7 @@
 #include <mpcf/persistence/accumulated_persistence.hpp>
 #include <mpcf/persistence/stable_rank.hpp>
 #include <mpcf/persistence/betti_curve.hpp>
+#include <mpcf/persistence/filter_significant.hpp>
 
 namespace py = pybind11;
 
@@ -65,6 +66,15 @@ namespace
             task->start_async(mpcf::default_executor());
             return task;
           }, py::arg("barcodes"), py::arg("out"), py::arg("max_death") = std::numeric_limits<T>::infinity())
+          .def_static("filter_significant_bars", [](const BarcodeT& bc, T alpha) {
+            return mpcf::ph::filter_significant_bars(bc, alpha);
+          }, py::arg("barcode"), py::arg("alpha") = T(0.05))
+          .def_static("spawn_filter_significant_task", [](const mpcf::Tensor<BarcodeT>& bcs, mpcf::Tensor<BarcodeT>& out, T alpha)
+              -> std::unique_ptr<mpcf::StoppableTask<void>> {
+            auto task = mpcf::ph::make_filter_significant_task(bcs, out, alpha);
+            task->start_async(mpcf::default_executor());
+            return task;
+          }, py::arg("barcodes"), py::arg("out"), py::arg("alpha") = T(0.05))
           ;
     }
   };
