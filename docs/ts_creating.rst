@@ -131,9 +131,8 @@ Internally, all datetime values are converted to seconds since the Unix
 epoch (1970-01-01T00:00:00). The ``start_time`` and ``times`` properties
 return these float seconds. Fixed-length units (``as`` through ``W``) are
 converted exactly via ``std::chrono``. For variable-length units (``M``
-and ``Y``), absolute times are converted to true seconds since epoch; the
-``time_step`` uses a conventional approximation of **1 month = 30 days**
-and **1 year = 365.25 days**.
+and ``Y``), numpy's calendar-aware arithmetic computes exact dates, which
+are then converted to float seconds (no approximation).
 
 
 Multi-channel time series

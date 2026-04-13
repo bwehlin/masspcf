@@ -35,23 +35,41 @@ def _datetime_unit(dt_or_arr):
 
 
 # Variable-length datetime units that cannot use the C++ chrono path directly.
-# Absolute times are converted to true seconds via numpy; steps use conventional
-# approximations: 1 month = 30 days, 1 year = 365.25 days.
+# Actual calendar dates are computed via numpy and converted to exact float
+# seconds (no approximation).
 _VARIABLE_LENGTH_UNITS = {'M', 'Y'}
-_APPROX_STEP_SECONDS = {
-    'M': 30.0 * 86400.0,
-    'Y': 365.25 * 86400.0,
-}
 
 
 def _dt64_to_float_seconds(t):
-    """Convert a datetime64 scalar to float seconds since Unix epoch."""
-    return float(t.astype('datetime64[us]').astype('int64')) / 1e6
+    """Convert a datetime64 scalar to float seconds since Unix epoch.
+
+    Uses the input's native unit to avoid artificial precision loss.
+    For variable-length units (M, Y), casts to ``datetime64[s]`` first
+    since numpy cannot compute a tick-to-seconds ratio for those units.
+    The only limit is float64 (~15-16 significant digits).
+    """
+    unit = _datetime_unit(t)
+    if unit in _VARIABLE_LENGTH_UNITS:
+        t = t.astype('datetime64[s]')
+        unit = 's'
+    ticks = int(t.view('int64'))
+    sec_per_tick = np.timedelta64(1, unit) / np.timedelta64(1, 's')
+    return ticks * float(sec_per_tick)
 
 
 def _dt64_array_to_float_seconds(arr):
-    """Convert a datetime64 array to float64 seconds since Unix epoch."""
-    return arr.astype('datetime64[us]').astype('int64').astype('float64') / 1e6
+    """Convert a datetime64 array to float64 seconds since Unix epoch.
+
+    Uses the input's native unit to avoid artificial precision loss.
+    For variable-length units (M, Y), casts to ``datetime64[s]`` first.
+    """
+    unit = _datetime_unit(arr)
+    if unit in _VARIABLE_LENGTH_UNITS:
+        arr = arr.astype('datetime64[s]')
+        unit = 's'
+    ticks = arr.view('int64').astype('float64')
+    sec_per_tick = np.timedelta64(1, unit) / np.timedelta64(1, 's')
+    return ticks * float(sec_per_tick)
 
 
 class _DateTimeConverter:
@@ -63,9 +81,8 @@ class _DateTimeConverter:
     ``std::chrono::duration`` and perform exact integer arithmetic before
     converting to float.
 
-    For variable-length units (M, Y), absolute times are converted to true
-    seconds since epoch via numpy's datetime arithmetic.  The step uses a
-    conventional approximation (1 month = 30 days, 1 year = 365.25 days).
+    For variable-length units (M, Y), numpy's calendar-aware arithmetic
+    computes exact dates, which are then converted to float seconds.
     """
 
     def __init__(self, start_time, time_step):
@@ -157,9 +174,8 @@ class TimeSeries:
         When ``datetime64``, times are stored internally as seconds
         since the Unix epoch. All numpy datetime64 units are supported
         (``as`` through ``Y``). For variable-length units (``M``, ``Y``),
-        absolute times are converted to true seconds since epoch; steps
-        use conventional approximations (1 month = 30 days,
-        1 year = 365.25 days).
+        numpy's calendar-aware arithmetic computes exact dates, which
+        are then converted to float seconds.
     time_step : float, int, or numpy.timedelta64, optional
         Spacing between samples for regularly-sampled construction.
         Default 1.0. When ``timedelta64``, converted to seconds.
@@ -278,12 +294,11 @@ class TimeSeries:
                     raise ValueError("time_step must be positive")
                 dt_converter = _DateTimeConverter(start_time, time_step)
                 if dt_converter._variable_length:
-                    start_s = np_dtype(_dt64_to_float_seconds(start_time))
-                    step_s = np_dtype(
-                        dt_converter.step_ticks()
-                        * _APPROX_STEP_SECONDS[dt_converter._unit_str])
-                    times_arr = (start_s + np.arange(n, dtype=np_dtype)
-                                 * step_s)
+                    # Use numpy's calendar-aware arithmetic to compute
+                    # exact dates, then convert to float seconds.
+                    dates = start_time + np.arange(n) * time_step
+                    times_arr = _dt64_array_to_float_seconds(dates).astype(
+                        np_dtype)
                     self._data = cpp_cls(times_arr, vals)
                 else:
                     self._data = cpp_cls(

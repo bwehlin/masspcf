@@ -1160,24 +1160,25 @@ class TestValuesPropertyFromExplicitTimes:
 
 
 class TestVariableLengthDatetimeUnits:
-    def test_month_step_approximate_seconds(self):
-        """Monthly step uses ~30 days worth of seconds."""
+    def test_month_step_exact_calendar(self):
+        """Monthly step uses exact calendar dates (Jan->Feb = 31 days)."""
         epoch = np.datetime64("2020-01", "M")
         step = np.timedelta64(1, "M")
         ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
                              start_time=epoch, time_step=step)
-        # Step should approximate 30 days = 2592000 seconds
+        # Jan 2020 has 31 days
         actual_step = ts.times[1] - ts.times[0]
-        np.testing.assert_allclose(actual_step, 30.0 * 86400.0, rtol=1e-6)
+        np.testing.assert_allclose(actual_step, 31.0 * 86400.0, rtol=1e-9)
 
-    def test_year_step_approximate_seconds(self):
-        """Yearly step uses ~365.25 days worth of seconds."""
+    def test_year_step_exact_calendar(self):
+        """Yearly step uses exact calendar dates (2020 is a leap year)."""
         epoch = np.datetime64("2020", "Y")
         step = np.timedelta64(1, "Y")
         ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
                              start_time=epoch, time_step=step)
+        # 2020 is a leap year -> 366 days
         actual_step = ts.times[1] - ts.times[0]
-        np.testing.assert_allclose(actual_step, 365.25 * 86400.0, rtol=1e-6)
+        np.testing.assert_allclose(actual_step, 366.0 * 86400.0, rtol=1e-9)
 
     def test_month_eval_with_datetime64(self):
         """Evaluation with datetime64[M] query goes through float seconds
@@ -1186,7 +1187,7 @@ class TestVariableLengthDatetimeUnits:
         step = np.timedelta64(1, "M")
         ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
                              start_time=epoch, time_step=step)
-        # Evaluate at stored times to avoid calendar mismatch
+        # Evaluate at stored times
         result = ts(ts.times[1])
         assert result == 20.0
 
