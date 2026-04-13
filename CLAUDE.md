@@ -76,10 +76,22 @@ Each tensor class supports multiple precisions via a `dtype` parameter: `PcfTens
 ### Python module layers
 1. **Low**: `_mpcf_cpp` (backend dispatch) → `_mpcf_cpu` / `_mpcf_cudaXX` (pybind11)
 2. **Mid**: `pcf.py`, `tensor.py`, `_tensor_base.py` (Python wrappers)
-3. **High**: `distance.py` (`pdist`), `reductions.py` (`mean`, `max_time`), `norms.py`, `persistence/`
+3. **High**: `distance.py` (`pdist`), `reductions.py` (`mean`, `max_time`), `norms.py`, `persistence/`, `timeseries/`, `sklearn/`
+
+### TimeSeries (`masspcf/timeseries/`)
+`TimeSeries` wraps a PCF with real-world time metadata (start_time, time_step). Supports float and `datetime64` time axes, nearest and linear interpolation, multi-channel data (channels-first: shape `(n_channels, n_times)`), and save/load/pickle. `TimeSeriesTensor` is the corresponding N-dimensional container. `embed_time_delay()` computes Takens-style time delay embeddings, producing `PointCloudTensor` output with optional windowing. The C++ core lives in `include/mpcf/timeseries.hpp` and `include/mpcf/algorithms/embed_time_delay.hpp`; pybind11 bindings in `src/python/py_timeseries.cpp`.
+
+### sklearn integration (`masspcf/sklearn/`)
+Optional subpackage (requires scikit-learn). Transformers: `TimeDelayEmbedding`, `PersistentHomology`, `StableRank`, `Mean`, `PcfKernelTransformer`. All use `no_validation=True` and non-standard input shapes. `PcfKernelTransformer.fit_transform` has an optimized symmetric-kernel path distinct from `fit` + `transform`.
 
 ### GPU/CPU runtime control (`masspcf/system.py`)
-`force_cpu()`, `limit_cpus()`, `limit_gpus()`, `set_cuda_threshold()`, `set_device_verbose()` — all configure the backend at runtime.
+`force_cpu()`, `limit_cpus()`, `limit_gpus()`, `set_cuda_threshold()`, `set_device_verbose()`, `set_parallel_eval_threshold()` — all configure the backend at runtime.
+
+## Engineering philosophy
+
+Be direct and push back when something doesn't make sense or takes unnecessary shortcuts. Don't apply band-aid fixes — investigate and address root causes, even if that means more work. Ask before proceeding if the scope grows significantly, but be ready to execute on it. Correctness over velocity; let things take longer if they need to.
+
+When writing tests, think about the behaviors the code implements and the edge cases around them. Don't write tests that just verify "it ran and didn't crash," and don't chase 100% coverage through meaningless tests. Every test should assert something specific about a behavior.
 
 ## Third-party submodules (`3rd/`)
 - **pybind11** — Python/C++ bindings
