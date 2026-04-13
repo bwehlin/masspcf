@@ -532,6 +532,10 @@ class TestTimeSeriesDtype:
         ts = mpcf.TimeSeries(np.array([1.0, 2.0], dtype=np.float64))
         assert ts.dtype == mpcf.ts64
 
+    def test_invalid_dtype_raises(self):
+        with pytest.raises(TypeError):
+            mpcf.TimeSeries(np.array([1.0, 2.0]), dtype=mpcf.pcf64)
+
 
 class TestInterpolation:
     """Tests for TimeSeries interpolation modes."""

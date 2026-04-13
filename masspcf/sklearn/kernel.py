@@ -3,6 +3,7 @@
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils._tags import InputTags
+from sklearn.utils.validation import check_is_fitted
 
 from ..inner_product import l2_kernel
 
@@ -33,6 +34,7 @@ class PcfKernelTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
+        check_is_fitted(self, 'X_fit_')
         return np.asarray(
             l2_kernel(X, self.X_fit_, verbose=self.verbose))
 

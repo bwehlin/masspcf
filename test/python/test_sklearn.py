@@ -180,6 +180,13 @@ class TestPcfKernelTransformer:
         assert isinstance(K_cross, np.ndarray)
         assert K_cross.shape == (3, 5)
 
+    def test_transform_before_fit_raises(self):
+        from sklearn.exceptions import NotFittedError
+        kt = PcfKernelTransformer()
+        X = mpcf.random.noisy_sin(shape=(3,))
+        with pytest.raises(NotFittedError):
+            kt.transform(X)
+
     def test_cross_matches_full(self):
         X = mpcf.random.noisy_sin(shape=(4,))
         Y = mpcf.random.noisy_sin(shape=(3,))

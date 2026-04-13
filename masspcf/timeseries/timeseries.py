@@ -21,6 +21,7 @@ from .._tensor_base import FunctionTensorMixin, Tensor, _tensor_from_nested
 from ..functional.pcf import Pcf
 from ..tensor import PointCloudTensor
 from ..typing import (
+    _assert_valid_dtype,
     pcloud32,
     pcloud64,
     ts32,
@@ -207,7 +208,8 @@ class TimeSeries:
         # Resolve dtype for values
         def _resolve_dtype(arr):
             if dtype is not None:
-                return self._DTYPE_TO_NP.get(dtype, np.float64)
+                _assert_valid_dtype(dtype, (ts32, ts64))
+                return self._DTYPE_TO_NP[dtype]
             if arr.dtype.type in self._NP_TO_CPP_TS:
                 return arr.dtype.type
             return np.float64
@@ -566,21 +568,18 @@ def embed_time_delay(ts, dimension, delay, *, window=None, stride=None,
     if dimension < 1:
         raise ValueError("dimension must be >= 1")
 
-    def _to_float(val, label):
+    def _to_float(val):
         if val is None:
             return 0.0
         if isinstance(val, np.timedelta64):
             return val / np.timedelta64(1, 's')
-        v = float(val)
-        if label == "delay" and v <= 0:
-            raise ValueError("delay must be positive")
-        return v
+        return float(val)
 
-    delay_f = _to_float(delay, "delay")
+    delay_f = _to_float(delay)
     if delay_f <= 0:
         raise ValueError("delay must be positive")
-    window_f = _to_float(window, "window")
-    stride_f = _to_float(stride, "stride")
+    window_f = _to_float(window)
+    stride_f = _to_float(stride)
 
     kw = {} if snap_tol is None else {'snap_tol': snap_tol}
 
