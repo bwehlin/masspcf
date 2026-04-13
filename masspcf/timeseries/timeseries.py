@@ -385,24 +385,12 @@ class TimeSeries:
     def values(self):
         """Sample values. Shape ``(n_times,)`` for single-channel,
         ``(n_channels, n_times)`` for multi-channel."""
-        # TODO: expose values directly from C++ without copy
         nc = self._data.n_channels
         nt = self._data.n_times
+        flat = self._data._values  # row-major: n_times * n_channels
         if nc == 1:
-            return np.array([self._data(float(self._data.start_time
-                             + self._data.time_step * i))
-                             for i in range(nt)])
-        # For now, evaluate at each breakpoint time
-        # Evaluation already returns (n_channels,) per time step
-        result = np.empty((nc, nt))
-        for i in range(nt):
-            t = self._data.start_time + self._data.time_step * i
-            vals = self._data(float(t))
-            if isinstance(vals, np.ndarray):
-                result[:, i] = vals
-            else:
-                result[0, i] = vals
-        return result
+            return flat.copy()
+        return flat.reshape(nt, nc).T.copy()
 
     @property
     def times(self):

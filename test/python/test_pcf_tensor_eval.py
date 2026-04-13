@@ -229,3 +229,17 @@ class TestPcfTensorEvalErrors:
         X = make_1d_tensor(mpcf.pcf32, np.float32)
         with pytest.raises(Exception):
             X(np.array([0.5, -1.0], dtype=np.float32))
+
+
+class TestParallelEvalThreshold:
+    def test_get_set_roundtrip(self):
+        original = mpcf.system.get_parallel_eval_threshold()
+        try:
+            mpcf.system.set_parallel_eval_threshold(42)
+            assert mpcf.system.get_parallel_eval_threshold() == 42
+        finally:
+            mpcf.system.set_parallel_eval_threshold(original)
+
+    def test_default_value(self):
+        """Default threshold is 500."""
+        assert mpcf.system.get_parallel_eval_threshold() == 500

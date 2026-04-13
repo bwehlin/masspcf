@@ -202,7 +202,8 @@ def test_pickle_timeseries_multichannel():
     restored = _pickle_roundtrip(ts)
     assert isinstance(restored, TimeSeries)
     assert restored == ts
-    assert restored.n_channels == 2
+    assert restored.n_channels == 3
+    np.testing.assert_array_equal(restored.values, vals)
 
 
 def test_pickle_timeseries_linear_interpolation():

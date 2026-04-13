@@ -251,3 +251,64 @@ class TestPipeline:
         assert params["embed__delay"] == 0.3
         assert params["ph__max_dim"] == 1
         assert params["sr__dim"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Coverage gap tests
+# ---------------------------------------------------------------------------
+
+
+class TestMeanStandalone:
+    def test_default_dim_reduces_last(self, sample_arrays):
+        """Mean with default dim reduces the last axis."""
+        X, _ = sample_arrays
+        clouds = TimeDelayEmbedding(
+            dimension=2, delay=2.0, time_step=1.0,
+            window=8.0, stride=4.0).transform(X)
+        barcodes = PersistentHomology(max_dim=1).transform(clouds)
+        sranks = StableRank().transform(barcodes)
+        # sranks has shape (8, n_windows, 2) -- mean over last axis
+        n_dims = len(sranks.shape)
+        reduced = Mean().transform(sranks)
+        assert len(reduced.shape) == n_dims - 1
+        assert reduced.shape[0] == sranks.shape[0]
+
+    def test_dim_0_reduces_first(self, sample_arrays):
+        """Mean with dim=0 reduces the first axis."""
+        X, _ = sample_arrays
+        clouds = TimeDelayEmbedding(
+            dimension=2, delay=2.0, time_step=1.0).transform(X)
+        barcodes = PersistentHomology(max_dim=1).transform(clouds)
+        sranks = StableRank().transform(barcodes)
+        n_dims = len(sranks.shape)
+        reduced = Mean(dim=0).transform(sranks)
+        assert len(reduced.shape) == n_dims - 1
+        assert reduced.shape[0] == sranks.shape[1]
+
+
+class TestTimeDelayEmbeddingMultiChannel:
+    def test_from_numpy_multichannel(self, sample_arrays):
+        """Numpy input with shape (n_instances, n_channels, n_times)
+        converts each instance to a multi-channel TimeSeries."""
+        X, _ = sample_arrays  # shape (8, 2, 20)
+        emb = TimeDelayEmbedding(dimension=2, delay=2.0, time_step=1.0)
+        clouds = emb.transform(X)
+        assert clouds.shape[0] == 8
+        # Each cloud should have dimension * n_channels = 4 columns
+        cloud = np.asarray(clouds[0])
+        assert cloud.shape[1] == 2 * 2  # dimension * n_channels
+
+
+class TestPcfKernelFitTransformConsistency:
+    def test_fit_transform_matches_fit_then_transform(self):
+        """fit_transform (optimized symmetric path) should produce
+        the same values as fit + transform."""
+        X = mpcf.random.noisy_sin(shape=(5,))
+        kt1 = PcfKernelTransformer()
+        K_opt = kt1.fit_transform(X)
+
+        kt2 = PcfKernelTransformer()
+        kt2.fit(X)
+        K_seq = kt2.transform(X)
+
+        np.testing.assert_allclose(K_opt, K_seq, rtol=1e-5)

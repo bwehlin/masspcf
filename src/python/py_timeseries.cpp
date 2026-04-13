@@ -360,6 +360,15 @@ namespace
           return result;
         })
 
+        .def_property_readonly("_values", [](const TTimeSeries& self) {
+          const auto& v = self.values();
+          py::array_t<Tv> result({static_cast<py::ssize_t>(v.size())});
+          auto out = result.template mutable_unchecked<1>();
+          for (size_t i = 0; i < v.size(); ++i)
+            out(i) = v[i];
+          return result;
+        })
+
         .def_property("interpolation",
             &TTimeSeries::interpolation,
             &TTimeSeries::set_interpolation)

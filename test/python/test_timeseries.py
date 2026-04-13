@@ -1103,3 +1103,169 @@ class TestBreakpointSnapping:
         t_below = 1.0 - 1e-14
         result = tensor(t_below, snap_tol=0)
         assert result[0] == 10.0  # no snapping
+
+
+# ============================================================================
+# Coverage gap tests
+# ============================================================================
+
+
+class TestEvalWithListInput:
+    def test_list_scalar_times(self):
+        """Plain Python list is converted to float64 array for evaluation."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        result = ts([0.0, 1.0, 2.0])
+        np.testing.assert_array_equal(result, [10.0, 20.0, 30.0])
+
+    def test_list_with_out_of_bounds(self):
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0]),
+                             start_time=0.0, time_step=1.0)
+        result = ts([-1.0, 0.0, 1.0, 5.0])
+        assert math.isnan(result[0])
+        assert result[1] == 10.0
+        assert result[2] == 20.0
+        assert math.isnan(result[3])
+
+
+class TestValuesPropertyFromExplicitTimes:
+    def test_values_roundtrip_explicit_times(self):
+        """Values property on (times, values)-constructed series returns
+        the original values."""
+        times = np.array([0.0, 1.0, 2.0, 3.0])
+        values = np.array([10.0, 20.0, 30.0, 40.0])
+        ts = mpcf.TimeSeries(times, values)
+        np.testing.assert_allclose(ts.values, values)
+
+    def test_values_multichannel_explicit_times(self):
+        """Multichannel series constructed from (times, values) with unit
+        spacing returns values correctly."""
+        times = np.array([0.0, 1.0, 2.0])
+        values = np.array([[1.0, 2.0, 3.0],
+                           [10.0, 20.0, 30.0]])
+        ts = mpcf.TimeSeries(times, values)
+        np.testing.assert_allclose(ts.values, values)
+
+    def test_values_regular_sampling(self):
+        """Values property works for regularly-sampled construction."""
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
+                             start_time=5.0, time_step=2.0)
+        np.testing.assert_allclose(ts.values, [1.0, 2.0, 3.0])
+
+
+class TestVariableLengthDatetimeUnits:
+    def test_month_step_approximate_seconds(self):
+        """Monthly step uses ~30 days worth of seconds."""
+        epoch = np.datetime64("2020-01", "M")
+        step = np.timedelta64(1, "M")
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
+                             start_time=epoch, time_step=step)
+        # Step should approximate 30 days = 2592000 seconds
+        actual_step = ts.times[1] - ts.times[0]
+        np.testing.assert_allclose(actual_step, 30.0 * 86400.0, rtol=1e-6)
+
+    def test_year_step_approximate_seconds(self):
+        """Yearly step uses ~365.25 days worth of seconds."""
+        epoch = np.datetime64("2020", "Y")
+        step = np.timedelta64(1, "Y")
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
+                             start_time=epoch, time_step=step)
+        actual_step = ts.times[1] - ts.times[0]
+        np.testing.assert_allclose(actual_step, 365.25 * 86400.0, rtol=1e-6)
+
+    def test_month_eval_with_datetime64(self):
+        """Evaluation with datetime64[M] query goes through float seconds
+        path (variable-length unit)."""
+        epoch = np.datetime64("2020-01", "M")
+        step = np.timedelta64(1, "M")
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=epoch, time_step=step)
+        # Evaluate at stored times to avoid calendar mismatch
+        result = ts(ts.times[1])
+        assert result == 20.0
+
+
+class TestTimeSeriesTensorSetitem:
+    def test_assign_single_element(self):
+        ts1 = mpcf.TimeSeries(np.array([1.0, 2.0]))
+        ts2 = mpcf.TimeSeries(np.array([3.0, 4.0]))
+        tensor = mpcf.TimeSeriesTensor([ts1, ts1])
+        tensor[1] = ts2
+        assert tensor[1] == ts2
+
+    def test_assign_slice(self):
+        ts1 = mpcf.TimeSeries(np.array([1.0, 2.0]))
+        ts2 = mpcf.TimeSeries(np.array([3.0, 4.0]))
+        ts3 = mpcf.TimeSeries(np.array([5.0, 6.0]))
+        tensor = mpcf.TimeSeriesTensor([ts1, ts1, ts1])
+        tensor[0:2] = mpcf.TimeSeriesTensor([ts2, ts3])
+        assert tensor[0] == ts2
+        assert tensor[1] == ts3
+
+
+class TestEmbedTimeDeltaArgs:
+    def test_timedelta64_delay(self):
+        """delay as timedelta64 is converted to float seconds."""
+        ts = mpcf.TimeSeries(
+            np.arange(10, dtype=np.float64),
+            start_time=0.0, time_step=1.0)
+        result_f = mpcf.embed_time_delay(ts, dimension=2, delay=2.0)
+        result_td = mpcf.embed_time_delay(
+            ts, dimension=2, delay=np.timedelta64(2, 's'))
+        cloud_f = np.asarray(result_f[0])
+        cloud_td = np.asarray(result_td[0])
+        np.testing.assert_allclose(cloud_td, cloud_f)
+
+    def test_timedelta64_window_and_stride(self):
+        """window and stride as timedelta64."""
+        ts = mpcf.TimeSeries(
+            np.arange(10, dtype=np.float64),
+            start_time=0.0, time_step=1.0)
+        result = mpcf.embed_time_delay(
+            ts, dimension=2, delay=1.0,
+            window=np.timedelta64(4, 's'),
+            stride=np.timedelta64(2, 's'))
+        assert result.shape[0] >= 2
+
+
+class TestEmbedWindowBackwardAnchoring:
+    def test_first_window_shorter(self):
+        """When valid range doesn't divide evenly by window, the first
+        window (earliest in time) is shorter than subsequent ones."""
+        # 10 points: times 0..9, d=2, delay=1 -> valid range [1, 9], length=8
+        # window=3, stride=3: backward from 9:
+        #   [6,9] -> 4 base times (6,7,8,9)
+        #   [3,6) -> 3 base times (3,4,5)
+        #   [1,3) -> 2 base times (1,2)  <-- shorter
+        vals = np.arange(1.0, 11.0)
+        ts = mpcf.TimeSeries(vals)
+        result = mpcf.embed_time_delay(
+            ts, dimension=2, delay=1.0, window=3.0)
+        assert result.shape == (3,)
+        first_cloud = np.asarray(result[0])
+        last_cloud = np.asarray(result[2])
+        assert first_cloud.shape[0] < last_cloud.shape[0]
+
+
+class TestEmbedTensorNonOverlapping:
+    def test_non_overlapping_ranges_raises(self):
+        """Tensor with non-overlapping time ranges should fail."""
+        ts1 = mpcf.TimeSeries(np.array([1.0, 2.0]),
+                              start_time=0.0, time_step=1.0)
+        ts2 = mpcf.TimeSeries(np.array([3.0, 4.0]),
+                              start_time=100.0, time_step=1.0)
+        tensor = mpcf.TimeSeriesTensor([ts1, ts2])
+        with pytest.raises((ValueError, RuntimeError)):
+            mpcf.embed_time_delay(tensor, dimension=2, delay=0.5)
+
+
+class TestEmbedDim1MultiChannel:
+    def test_dimension_1_multichannel(self):
+        """dimension=1 with multi-channel produces clouds of width n_channels."""
+        values = np.array([[1.0, 2.0, 3.0, 4.0],
+                           [10.0, 20.0, 30.0, 40.0]])
+        ts = mpcf.TimeSeries(values)
+        result = mpcf.embed_time_delay(ts, dimension=1, delay=1.0)
+        cloud = np.asarray(result[0])
+        # dimension=1, n_channels=2 -> each point has 2 components
+        assert cloud.shape[1] == 2
