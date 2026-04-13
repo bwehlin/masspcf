@@ -24,6 +24,11 @@ Classes
    :undoc-members:
    :show-inheritance:
 
+.. autoclass:: masspcf.sklearn.Mean
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. autoclass:: masspcf.sklearn.PcfKernelTransformer
    :members:
    :undoc-members:

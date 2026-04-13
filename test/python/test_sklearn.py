@@ -7,6 +7,7 @@ from sklearn.svm import SVC
 
 import masspcf as mpcf
 from masspcf.sklearn import (
+    Mean,
     PcfKernelTransformer,
     PersistentHomology,
     StableRank,
@@ -129,7 +130,7 @@ class TestStableRank:
         # Should have dropped the last axis
         assert len(sranks.shape) == len(barcodes.shape) - 1
 
-    def test_dim_and_reduction(self, sample_arrays):
+    def test_dim_with_mean_reduction(self, sample_arrays):
         X, _ = sample_arrays
         clouds = TimeDelayEmbedding(
             dimension=2, delay=2.0, time_step=1.0,
@@ -137,21 +138,23 @@ class TestStableRank:
         barcodes = PersistentHomology(max_dim=1).transform(clouds)
 
         # Shape: (8, n_windows, 2)
-        sr = StableRank(dim=1, reduction="mean")
+        sr = StableRank(dim=1)
         sranks = sr.transform(barcodes)
+        # Shape: (8, n_windows)
+        reduced = Mean().transform(sranks)
         # Should be (8,) -- one PCF per instance
-        assert sranks.shape == (8,)
+        assert reduced.shape == (8,)
 
-    def test_explicit_reduction_dim(self, sample_arrays):
+    def test_mean_explicit_dim(self, sample_arrays):
         X, _ = sample_arrays
         clouds = TimeDelayEmbedding(
             dimension=2, delay=2.0, time_step=1.0,
             window=8.0, stride=4.0).transform(X)
         barcodes = PersistentHomology(max_dim=1).transform(clouds)
 
-        sr = StableRank(dim=1, reduction="mean", reduction_dim=1)
-        sranks = sr.transform(barcodes)
-        assert sranks.shape == (8,)
+        sranks = StableRank(dim=1).transform(barcodes)
+        reduced = Mean(dim=1).transform(sranks)
+        assert reduced.shape == (8,)
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +208,8 @@ class TestPipeline:
                 dimension=2, delay=2.0, time_step=1.0,
                 window=8.0, stride=4.0)),
             ("ph", PersistentHomology(max_dim=1)),
-            ("sr", StableRank(dim=1, reduction="mean")),
+            ("sr", StableRank(dim=1)),
+            ("mean", Mean()),
             ("kernel", PcfKernelTransformer()),
             ("svc", SVC(kernel="precomputed")),
         ])
@@ -224,7 +228,8 @@ class TestPipeline:
                 dimension=2, delay=2.0, time_step=1.0,
                 window=8.0, stride=4.0)),
             ("ph", PersistentHomology(max_dim=1)),
-            ("sr", StableRank(dim=1, reduction="mean")),
+            ("sr", StableRank(dim=1)),
+            ("mean", Mean()),
             ("kernel", PcfKernelTransformer()),
             ("svc", SVC(kernel="precomputed")),
         ])
@@ -236,7 +241,8 @@ class TestPipeline:
         pipe = Pipeline([
             ("embed", TimeDelayEmbedding(dimension=2, delay=0.3)),
             ("ph", PersistentHomology(max_dim=1)),
-            ("sr", StableRank(dim=1, reduction="mean")),
+            ("sr", StableRank(dim=1)),
+            ("mean", Mean()),
             ("kernel", PcfKernelTransformer()),
             ("svc", SVC(kernel="precomputed")),
         ])

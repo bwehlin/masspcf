@@ -17,7 +17,7 @@ separately::
 Transformers
 ============
 
-Four transformers cover the typical TDA pipeline:
+Five transformers cover the typical TDA pipeline:
 
 .. list-table::
    :header-rows: 1
@@ -35,6 +35,9 @@ Four transformers cover the typical TDA pipeline:
    * - :py:class:`~masspcf.sklearn.StableRank`
      - :py:func:`~masspcf.barcode_to_stable_rank`
      - ``BarcodeTensor`` |rarr| ``PcfTensor``
+   * - :py:class:`~masspcf.sklearn.Mean`
+     - :py:func:`~masspcf.mean`
+     - ``PcfTensor`` |rarr| ``PcfTensor`` (reduced)
    * - :py:class:`~masspcf.sklearn.PcfKernelTransformer`
      - :py:func:`~masspcf.l2_kernel`
      - ``PcfTensor`` |rarr| NumPy kernel matrix
@@ -54,6 +57,7 @@ scikit-learn estimator::
        TimeDelayEmbedding,
        PersistentHomology,
        StableRank,
+       Mean,
        PcfKernelTransformer,
    )
 
@@ -62,7 +66,8 @@ scikit-learn estimator::
            dimension=2, delay=0.3, time_step=0.1,
            window=3.0, stride=1.5)),
        ("ph", PersistentHomology(max_dim=1)),
-       ("sr", StableRank(dim=1, reduction="mean")),
+       ("sr", StableRank(dim=1)),
+       ("mean", Mean()),
        ("kernel", PcfKernelTransformer()),
        ("svc", SVC(kernel="precomputed")),
    ])
@@ -115,20 +120,31 @@ StableRank
 ----------
 
 :class:`~masspcf.sklearn.StableRank` converts barcodes to stable rank
-PCFs, with optional dimension selection and reduction::
+PCFs, with optional dimension selection::
 
-   # Extract H1 and average across windows
-   sr = StableRank(dim=1, reduction="mean")
+   # Extract H1 stable ranks
+   sr = StableRank(dim=1)
    features = sr.fit_transform(barcodes)  # PcfTensor
 
 Parameters:
 
 - ``dim``: select a specific homology dimension from the last axis
   (e.g. ``1`` for H1).
-- ``reduction``: ``"mean"`` averages across an axis (typically the
-  window axis), collapsing multiple stable ranks into one per instance.
-- ``reduction_dim``: which axis to reduce. Defaults to the last axis
-  after ``dim`` selection.
+
+
+Mean
+----
+
+:class:`~masspcf.sklearn.Mean` computes the pointwise mean of a PCF
+tensor along a specified axis. This is useful for collapsing a window
+axis after computing stable ranks::
+
+   mean = Mean()           # reduces along the last axis
+   reduced = mean.fit_transform(sranks)  # PcfTensor
+
+Parameters:
+
+- ``dim``: tensor axis to reduce. Defaults to the last axis.
 
 
 PcfKernelTransformer
