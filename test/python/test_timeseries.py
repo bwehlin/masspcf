@@ -88,14 +88,14 @@ class TestTimeSeriesConstruction:
             mpcf.TimeSeries(np.array([1.0]), np.array([1.0]))
 
     def test_from_2d_values(self):
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(values, start_time=0.0, time_step=1.0)
         assert ts.n_times == 3
         assert ts.n_channels == 2
 
     def test_from_times_and_2d_values(self):
         times = np.array([0.0, 1.0, 2.0])
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(times, values)
         assert ts.n_times == 3
         assert ts.n_channels == 2
@@ -155,32 +155,31 @@ class TestTimeSeriesEvaluation:
 class TestTimeSeriesMultiChannel:
     def test_eval_scalar_multi_channel(self):
         times = np.array([0.0, 1.0, 2.0])
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(times, values)
         result = ts(0.5)
         np.testing.assert_array_equal(result, [1.0, 10.0])
 
     def test_eval_array_multi_channel(self):
         times = np.array([0.0, 1.0, 2.0])
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(times, values)
         result = ts(np.array([0.5, 1.5]))
-        # Shape: (n_channels, n_times) = (2, 2)
+        # Shape: (n_times, n_channels) = (2, 2)
         assert result.shape == (2, 2)
-        # Channel 0 at times [0.5, 1.5] -> [1.0, 2.0]
-        np.testing.assert_array_equal(result[0], [1.0, 2.0])
-        # Channel 1 at times [0.5, 1.5] -> [10.0, 20.0]
-        np.testing.assert_array_equal(result[1], [10.0, 20.0])
+        # t=0.5 -> [1.0, 10.0], t=1.5 -> [2.0, 20.0]
+        np.testing.assert_array_equal(result[0], [1.0, 10.0])
+        np.testing.assert_array_equal(result[1], [2.0, 20.0])
 
     def test_eval_multi_channel_nan(self):
         times = np.array([0.0, 1.0, 2.0])
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(times, values)
         result = ts(-1.0)
         assert all(math.isnan(v) for v in result)
 
     def test_from_regular_2d(self):
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(values, start_time=5.0, time_step=0.5)
         assert ts.n_channels == 2
         assert ts.n_times == 3
@@ -195,15 +194,15 @@ class TestTimeSeriesMultiChannel:
 
     def test_values_property_2d(self):
         times = np.array([0.0, 1.0, 2.0])
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(times, values)
         result = ts.values
-        assert result.shape == (2, 3)
+        assert result.shape == (3, 2)
         np.testing.assert_array_equal(result, values)
 
     def test_three_channels(self):
         times = np.array([0.0, 1.0])
-        values = np.array([[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]])
+        values = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
         ts = mpcf.TimeSeries(times, values)
         assert ts.n_channels == 3
         result = ts(0.5)
@@ -212,7 +211,7 @@ class TestTimeSeriesMultiChannel:
     def test_datetime_multi_channel(self):
         epoch = np.datetime64("2024-01-01T00:00:00")
         step = np.timedelta64(1, "s")
-        values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(values, start_time=epoch, time_step=step)
         assert ts.n_channels == 2
         t = np.datetime64("2024-01-01T00:00:01.500")
@@ -222,10 +221,10 @@ class TestTimeSeriesMultiChannel:
     def test_tensor_of_multi_channel(self):
         ts1 = mpcf.TimeSeries(
             np.array([0.0, 1.0]),
-            np.array([[1.0, 2.0], [10.0, 20.0]]))
+            np.array([[1.0, 10.0], [2.0, 20.0]]))
         ts2 = mpcf.TimeSeries(
             np.array([0.0, 1.0]),
-            np.array([[3.0, 4.0], [30.0, 40.0]]))
+            np.array([[3.0, 30.0], [4.0, 40.0]]))
         tensor = mpcf.TimeSeriesTensor([ts1, ts2])
         result = tensor(0.5)
         # Shape: (2, 2) -- 2 series, 2 channels each
@@ -235,20 +234,20 @@ class TestTimeSeriesMultiChannel:
     def test_tensor_of_multi_channel_array_eval(self):
         ts1 = mpcf.TimeSeries(
             np.array([0.0, 1.0, 2.0]),
-            np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]]))
+            np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]]))
         ts2 = mpcf.TimeSeries(
             np.array([0.0, 1.0, 2.0]),
-            np.array([[4.0, 5.0, 6.0], [40.0, 50.0, 60.0]]))
+            np.array([[4.0, 40.0], [5.0, 50.0], [6.0, 60.0]]))
         tensor = mpcf.TimeSeriesTensor([ts1, ts2])
         result = tensor(np.array([0.5, 1.5]))
-        # Shape: (2, 2, 2) -- 2 series, 2 channels, 2 times
+        # Shape: (2, 2, 2) -- 2 series, 2 times, 2 channels
         assert result.shape == (2, 2, 2)
-        # series 0, channel 0 -> [1.0, 2.0], channel 1 -> [10.0, 20.0]
-        np.testing.assert_array_equal(result[0, 0], [1.0, 2.0])
-        np.testing.assert_array_equal(result[0, 1], [10.0, 20.0])
-        # series 1, channel 0 -> [4.0, 5.0], channel 1 -> [40.0, 50.0]
-        np.testing.assert_array_equal(result[1, 0], [4.0, 5.0])
-        np.testing.assert_array_equal(result[1, 1], [40.0, 50.0])
+        # series 0: t=0.5 -> [1.0, 10.0], t=1.5 -> [2.0, 20.0]
+        np.testing.assert_array_equal(result[0, 0], [1.0, 10.0])
+        np.testing.assert_array_equal(result[0, 1], [2.0, 20.0])
+        # series 1: t=0.5 -> [4.0, 40.0], t=1.5 -> [5.0, 50.0]
+        np.testing.assert_array_equal(result[1, 0], [4.0, 40.0])
+        np.testing.assert_array_equal(result[1, 1], [5.0, 50.0])
 
 
 class TestTimeSeriesDatetime:
@@ -573,8 +572,9 @@ class TestInterpolation:
     def test_linear_multi_channel(self):
         times = np.array([0.0, 1.0, 2.0])
         values = np.array([
-            [0.0, 10.0, 20.0],
-            [100.0, 200.0, 300.0],
+            [0.0, 100.0],
+            [10.0, 200.0],
+            [20.0, 300.0],
         ])
         ts = mpcf.TimeSeries(times, values, interpolation='linear')
         result = ts(0.5)
@@ -701,8 +701,11 @@ class TestEmbedTimeDelay:
         # etc.
         times = np.arange(5, dtype=np.float64)
         values = np.array([
-            [1.0, 2.0, 3.0, 4.0, 5.0],
-            [10.0, 20.0, 30.0, 40.0, 50.0],
+            [1.0, 10.0],
+            [2.0, 20.0],
+            [3.0, 30.0],
+            [4.0, 40.0],
+            [5.0, 50.0],
         ])
         ts = mpcf.TimeSeries(times, values)
         result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
@@ -1145,8 +1148,7 @@ class TestValuesPropertyFromExplicitTimes:
         """Multichannel series constructed from (times, values) with unit
         spacing returns values correctly."""
         times = np.array([0.0, 1.0, 2.0])
-        values = np.array([[1.0, 2.0, 3.0],
-                           [10.0, 20.0, 30.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
         ts = mpcf.TimeSeries(times, values)
         np.testing.assert_allclose(ts.values, values)
 
@@ -1266,8 +1268,8 @@ class TestEmbedTensorNonOverlapping:
 class TestEmbedDim1MultiChannel:
     def test_dimension_1_multichannel(self):
         """dimension=1 with multi-channel produces clouds of width n_channels."""
-        values = np.array([[1.0, 2.0, 3.0, 4.0],
-                           [10.0, 20.0, 30.0, 40.0]])
+        values = np.array([[1.0, 10.0], [2.0, 20.0],
+                           [3.0, 30.0], [4.0, 40.0]])
         ts = mpcf.TimeSeries(values)
         result = mpcf.embed_time_delay(ts, dimension=1, delay=1.0)
         cloud = np.asarray(result[0])

@@ -41,7 +41,7 @@ namespace
   }
 
   /// Build a TimeSeries from times (float) + values (1-D or 2-D) numpy arrays.
-  /// For 1-D values: n_channels=1. For 2-D: shape (n_channels, n_times).
+  /// For 1-D values: n_channels=1. For 2-D: shape (n_times, n_channels).
   /// Times are stored as offsets from times[0], time_step=1.
   template <typename Tt, typename Tv>
   mpcf::TimeSeries<Tt, Tv> build_from_times_values(
@@ -72,14 +72,14 @@ namespace
     }
     else if (values_arr.ndim() == 2)
     {
-      n_channels = static_cast<size_t>(values_arr.shape(0));
-      if (static_cast<size_t>(values_arr.shape(1)) != n_times)
-        throw py::value_error("values columns must match times length");
+      if (static_cast<size_t>(values_arr.shape(0)) != n_times)
+        throw py::value_error("values rows must match times length");
+      n_channels = static_cast<size_t>(values_arr.shape(1));
       auto v = values_arr.template unchecked<2>();
       values.resize(n_times * n_channels);
       for (size_t i = 0; i < n_times; ++i)
         for (size_t c = 0; c < n_channels; ++c)
-          values[i * n_channels + c] = v(c, i);
+          values[i * n_channels + c] = v(i, c);
     }
     else
     {
@@ -111,13 +111,13 @@ namespace
     }
     else if (values_arr.ndim() == 2)
     {
-      n_channels = static_cast<size_t>(values_arr.shape(0));
-      n_times = static_cast<size_t>(values_arr.shape(1));
+      n_times = static_cast<size_t>(values_arr.shape(0));
+      n_channels = static_cast<size_t>(values_arr.shape(1));
       auto v = values_arr.template unchecked<2>();
       values.resize(n_times * n_channels);
       for (size_t i = 0; i < n_times; ++i)
         for (size_t c = 0; c < n_channels; ++c)
-          values[i * n_channels + c] = v(c, i);
+          values[i * n_channels + c] = v(i, c);
     }
     else
     {
@@ -142,8 +142,7 @@ namespace
     auto result = self.evaluate(t, snap_tol);
     if (self.n_channels() == 1)
       return py::cast(result(std::vector<size_t>{0}));
-    py::array_t<Tv> arr = tensor_to_numpy(result);
-    return std::move(arr);
+    return tensor_to_numpy(result);
   }
 
   template <typename Tt, typename Tv>
@@ -187,13 +186,13 @@ namespace
             }
             else
             {
-              n_channels = static_cast<size_t>(values.shape(0));
-              n_times = static_cast<size_t>(values.shape(1));
+              n_times = static_cast<size_t>(values.shape(0));
+              n_channels = static_cast<size_t>(values.shape(1));
               auto v = values.template unchecked<2>();
               vals.resize(n_times * n_channels);
               for (size_t i = 0; i < n_times; ++i)
                 for (size_t c = 0; c < n_channels; ++c)
-                  vals[i * n_channels + c] = v(c, i);
+                  vals[i * n_channels + c] = v(i, c);
             }
             std::vector<Tt> times(n_times);
             for (size_t i = 0; i < n_times; ++i)
@@ -232,14 +231,14 @@ namespace
           }
           else
           {
-            n_channels = static_cast<size_t>(values.shape(0));
-            if (static_cast<size_t>(values.shape(1)) != n_times)
-              throw py::value_error("values columns must match times length");
+            if (static_cast<size_t>(values.shape(0)) != n_times)
+              throw py::value_error("values rows must match times length");
+            n_channels = static_cast<size_t>(values.shape(1));
             auto v = values.template unchecked<2>();
             vals.resize(n_times * n_channels);
             for (size_t i = 0; i < n_times; ++i)
               for (size_t c = 0; c < n_channels; ++c)
-                vals[i * n_channels + c] = v(c, i);
+                vals[i * n_channels + c] = v(i, c);
           }
 
           return dispatch_datetime_unit(unit, [&](auto duration_tag) {
@@ -257,7 +256,7 @@ namespace
 
         // Float array eval
         // Single channel: shape = times_shape
-        // Multi channel: shape = (n_channels,) + times_shape
+        // Multi channel: shape = times_shape + (n_channels,)
         .def("__call__", [](const TTimeSeries& self,
                             py::array_t<Tt> times, Tt snap_tol) -> py::array_t<Tv> {
           auto n = static_cast<size_t>(times.size());
@@ -265,15 +264,15 @@ namespace
           NumpyTensor<Tt> in(flat);
           auto nc = self.n_channels();
 
-          // Build as (nc, n) then reshape
-          py::array_t<Tv> result({static_cast<py::ssize_t>(nc),
-                                  static_cast<py::ssize_t>(n)});
+          // Build as (n, nc) then reshape
+          py::array_t<Tv> result({static_cast<py::ssize_t>(n),
+                                  static_cast<py::ssize_t>(nc)});
           auto out = result.template mutable_unchecked<2>();
           for (size_t i = 0; i < n; ++i)
           {
             auto vals = self.evaluate(in(i), snap_tol);
             for (size_t c = 0; c < nc; ++c)
-              out(c, i) = vals(std::vector<size_t>{c});
+              out(i, c) = vals(std::vector<size_t>{c});
           }
 
           if (nc == 1)
@@ -283,11 +282,11 @@ namespace
             return py::array_t<Tv>(result.reshape(original_shape));
           }
 
-          // Shape: (n_channels,) + times_shape
+          // Shape: times_shape + (n_channels,)
           std::vector<py::ssize_t> out_shape;
-          out_shape.push_back(static_cast<py::ssize_t>(nc));
           for (int d = 0; d < times.ndim(); ++d)
             out_shape.push_back(times.shape(d));
+          out_shape.push_back(static_cast<py::ssize_t>(nc));
           return py::array_t<Tv>(result.reshape(out_shape));
         }, py::arg("times"), py::arg("snap_tol") = TTimeSeries::default_snap_tol())
 
@@ -300,13 +299,12 @@ namespace
             auto result = self.evaluate(Duration(ticks), snap_tol);
             if (self.n_channels() == 1)
               return py::cast(result(std::vector<size_t>{0}));
-            py::array_t<Tv> arr = tensor_to_numpy(result);
-            return std::move(arr);
+            return tensor_to_numpy(result);
           });
         }, py::arg("ticks"), py::arg("unit"),
            py::arg("snap_tol") = TTimeSeries::default_snap_tol())
 
-        // Datetime array: (n_channels,) + times_shape for multi, times_shape for single
+        // Datetime array: times_shape + (n_channels,) for multi, times_shape for single
         .def("__call__", [](const TTimeSeries& self,
                             py::array_t<int64_t> ticks_arr,
                             const std::string& unit,
@@ -317,8 +315,8 @@ namespace
           auto ticks_data = flat_ticks.template unchecked<1>();
           auto nc = self.n_channels();
 
-          py::array_t<Tv> result({static_cast<py::ssize_t>(nc),
-                                  static_cast<py::ssize_t>(n)});
+          py::array_t<Tv> result({static_cast<py::ssize_t>(n),
+                                  static_cast<py::ssize_t>(nc)});
           auto out = result.template mutable_unchecked<2>();
 
           dispatch_datetime_unit(unit, [&](auto duration_tag) {
@@ -327,7 +325,7 @@ namespace
             {
               auto vals = self.evaluate(Duration(ticks_data(i)), snap_tol);
               for (size_t c = 0; c < nc; ++c)
-                out(c, i) = vals(std::vector<size_t>{c});
+                out(i, c) = vals(std::vector<size_t>{c});
             }
             return 0;
           });
@@ -339,9 +337,9 @@ namespace
             return py::array_t<Tv>(result.reshape(original_shape));
           }
           std::vector<py::ssize_t> out_shape;
-          out_shape.push_back(static_cast<py::ssize_t>(nc));
           for (int d = 0; d < ticks_arr.ndim(); ++d)
             out_shape.push_back(ticks_arr.shape(d));
+          out_shape.push_back(static_cast<py::ssize_t>(nc));
           return py::array_t<Tv>(result.reshape(out_shape));
         }, py::arg("ticks"), py::arg("unit"),
            py::arg("snap_tol") = TTimeSeries::default_snap_tol())

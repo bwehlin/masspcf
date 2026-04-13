@@ -11,7 +11,7 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     """Sklearn transformer wrapping :func:`~masspcf.embed_time_delay`.
 
     Accepts either a ``TimeSeriesTensor`` or a raw NumPy array of shape
-    ``(n_instances, n_channels, n_times)`` (channels-first).  In the
+    ``(n_instances, n_times, n_channels)`` (channels-last).  In the
     latter case, each instance is converted to a
     :class:`~masspcf.TimeSeries` with the given ``time_step``.
 

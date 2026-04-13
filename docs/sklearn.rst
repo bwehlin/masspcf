@@ -87,8 +87,8 @@ TimeDelayEmbedding
 :class:`~masspcf.sklearn.TimeDelayEmbedding` converts time series
 into point clouds via time delay embedding. It accepts either:
 
-- A NumPy array of shape ``(n_instances, n_channels, n_times)``
-  (channels-first), which is automatically converted to a
+- A NumPy array of shape ``(n_instances, n_times, n_channels)``
+  (channels-last), which is automatically converted to a
   ``TimeSeriesTensor`` using the ``time_step`` parameter.
 - A ``TimeSeriesTensor`` directly.
 

@@ -22,9 +22,9 @@ from masspcf.sklearn import (
 
 @pytest.fixture()
 def sample_arrays():
-    """Small synthetic dataset: 8 instances, 2 channels, 20 time steps."""
+    """Small synthetic dataset: 8 instances, 20 time steps, 2 channels."""
     rng = np.random.default_rng(42)
-    X = rng.standard_normal((8, 2, 20))
+    X = rng.standard_normal((8, 20, 2))
     y = np.array(["a", "a", "b", "b", "a", "a", "b", "b"])
     return X, y
 
@@ -295,9 +295,9 @@ class TestMeanStandalone:
 
 class TestTimeDelayEmbeddingMultiChannel:
     def test_from_numpy_multichannel(self, sample_arrays):
-        """Numpy input with shape (n_instances, n_channels, n_times)
+        """Numpy input with shape (n_instances, n_times, n_channels)
         converts each instance to a multi-channel TimeSeries."""
-        X, _ = sample_arrays  # shape (8, 2, 20)
+        X, _ = sample_arrays  # shape (8, 20, 2)
         emb = TimeDelayEmbedding(dimension=2, delay=2.0, time_step=1.0)
         clouds = emb.transform(X)
         assert clouds.shape[0] == 8

@@ -516,14 +516,14 @@ namespace mpcf_py
         size_t nc = nested(std::vector<size_t>(nested.rank(), 0)).size();
         auto sh = nested.shape();
 
-        // Build flat shape: tensor dims, then channels, then times dims
+        // Build flat shape: tensor dims, then times dims, then channels
         std::vector<size_t> flat_shape;
         for (size_t i = 0; i < tensor_shape_rank; ++i)
           flat_shape.push_back(sh[i]);
-        if (nc > 1)
-          flat_shape.push_back(nc);
         for (size_t i = tensor_shape_rank; i < sh.size(); ++i)
           flat_shape.push_back(sh[i]);
+        if (nc > 1)
+          flat_shape.push_back(nc);
 
         mpcf::Tensor<Tv> flat(flat_shape);
 
@@ -532,16 +532,16 @@ namespace mpcf_py
           if (nc == 1) {
             flat(idx) = chan_vals(std::vector<size_t>{0});
           } else {
-            // Build flat index: tensor_dims + channel + times_dims
+            // Build flat index: tensor_dims + times_dims + channel
             std::vector<size_t> flat_idx;
             for (size_t i = 0; i < tensor_shape_rank; ++i)
               flat_idx.push_back(idx[i]);
-            flat_idx.push_back(0); // channel placeholder
             for (size_t i = tensor_shape_rank; i < idx.size(); ++i)
               flat_idx.push_back(idx[i]);
+            flat_idx.push_back(0); // channel placeholder
 
             for (size_t c = 0; c < nc; ++c) {
-              flat_idx[tensor_shape_rank] = c;
+              flat_idx.back() = c;
               flat(flat_idx) = chan_vals(std::vector<size_t>{c});
             }
           }
@@ -549,7 +549,7 @@ namespace mpcf_py
         return flat;
       };
 
-      // Float scalar: output = tensor_shape + (n_channels,)
+      // Float scalar: output = tensor_shape + (n_channels,) for multi-channel
       cls.def("__call__", [flatten_result](const TTensor& self, Tt t,
                                             Tt snap_tol) {
         auto tsr = self.rank();
@@ -559,7 +559,7 @@ namespace mpcf_py
       }, py::arg("t"),
          py::arg("snap_tol") = T::default_snap_tol());
 
-      // Float array: output = tensor_shape + (n_channels,) + times_shape
+      // Float array: output = tensor_shape + times_shape + (n_channels,)
       cls.def("__call__", [flatten_result](const TTensor& self,
                                             py::array_t<Tt> times,
                                             Tt snap_tol) {

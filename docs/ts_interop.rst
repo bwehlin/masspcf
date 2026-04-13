@@ -49,12 +49,12 @@ Use a ``TimeSeriesTensor`` to group them::
    tensor = mpcf.TimeSeriesTensor(series)
 
 Alternatively, if the columns represent channels of the *same* signal,
-pass the full array as a multi-channel ``TimeSeries``. Transpose the
-DataFrame since ``TimeSeries`` expects ``(n_channels, n_times)``::
+pass the full array as a multi-channel ``TimeSeries``. The DataFrame's
+natural ``(n_times, n_columns)`` layout matches directly::
 
    ts = mpcf.TimeSeries(
        df.index.to_numpy(),
-       df.to_numpy().T,   # (n_times, n_cols) -> (n_channels, n_times)
+       df.to_numpy(),   # (n_times, n_channels) -- no transpose needed
    )
    ts.n_channels  # 3
 

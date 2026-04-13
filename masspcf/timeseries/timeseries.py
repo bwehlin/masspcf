@@ -139,12 +139,12 @@ class TimeSeries:
     ``TimeSeries(times, values)``
         Explicit time points. *times* is a 1-D array of sample times
         (float or ``datetime64``), *values* a 1-D array of sample values
-        or a 2-D array of shape ``(n_channels, n_times)``.
+        or a 2-D array of shape ``(n_times, n_channels)``.
         ``start_time`` is inferred from ``times[0]``.
 
     ``TimeSeries(values, *, start_time=0.0, time_step=1.0)``
         Regular sampling. *values* is a 1-D array or a 2-D array of
-        shape ``(n_channels, n_times)``; sample *i* is placed
+        shape ``(n_times, n_channels)``; sample *i* is placed
         at ``start_time + i * time_step``.
 
     ``TimeSeries(existing)``
@@ -225,9 +225,9 @@ class TimeSeries:
             if values.ndim == 1 and len(times) != len(values):
                 raise ValueError(
                     "times and values must have the same length")
-            if values.ndim == 2 and len(times) != values.shape[1]:
+            if values.ndim == 2 and len(times) != values.shape[0]:
                 raise ValueError(
-                    "times length must match values second dimension")
+                    "times length must match values first dimension")
             if len(times) < 2:
                 raise ValueError(
                     "times must have at least 2 elements")
@@ -267,8 +267,7 @@ class TimeSeries:
             if start_time is None:
                 start_time = 0.0
 
-            # Number of time points: last dimension for 2-D, length for 1-D
-            n = vals.shape[-1] if vals.ndim == 2 else len(vals)
+            n = vals.shape[0]
 
             if isinstance(start_time, np.datetime64):
                 if not isinstance(time_step, np.timedelta64):
@@ -386,13 +385,13 @@ class TimeSeries:
     @property
     def values(self):
         """Sample values. Shape ``(n_times,)`` for single-channel,
-        ``(n_channels, n_times)`` for multi-channel."""
+        ``(n_times, n_channels)`` for multi-channel."""
         nc = self._data.n_channels
         nt = self._data.n_times
         flat = self._data._values  # row-major: n_times * n_channels
         if nc == 1:
             return flat.copy()
-        return flat.reshape(nt, nc).T.copy()
+        return flat.reshape(nt, nc).copy()
 
     @property
     def times(self):

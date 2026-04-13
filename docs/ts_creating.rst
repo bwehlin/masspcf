@@ -141,13 +141,14 @@ Multi-channel time series
 
 When the data has multiple channels (e.g. a 3-axis accelerometer or
 multi-sensor readings), pass a 2-D values array of shape
-``(n_channels, n_times)``::
+``(n_times, n_channels)``::
 
    # 2 channels (e.g. temperature + humidity), 3 time points
    times = np.array([0.0, 1.0, 2.0])
    values = np.array([
-       [22.1, 22.5, 23.0],   # channel 0: temperature
-       [45.0, 44.0, 43.5],   # channel 1: humidity
+       [22.1, 45.0],   # t=0: temperature, humidity
+       [22.5, 44.0],   # t=1
+       [23.0, 43.5],   # t=2
    ])
    ts = mpcf.TimeSeries(times, values)
    ts.n_channels  # 2
@@ -156,15 +157,15 @@ Evaluating at a single time returns one value per channel::
 
    ts(0.5)  # array([22.1, 45.0])
 
-Evaluating at multiple times returns shape ``(n_channels, n_times)``::
+Evaluating at multiple times returns shape ``(n_times, n_channels)``::
 
    ts(np.array([0.5, 1.5]))
-   # array([[22.1, 22.5],    # channel 0 at t=0.5, t=1.5
-   #        [45.0, 44.0]])   # channel 1 at t=0.5, t=1.5
+   # array([[22.1, 45.0],    # t=0.5: temperature, humidity
+   #        [22.5, 44.0]])   # t=1.5
 
 The regularly-sampled form also accepts 2-D values::
 
-   values = np.array([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
+   values = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]])
    ts = mpcf.TimeSeries(values, start_time=0.0, time_step=0.5)
    ts.n_channels  # 2
 

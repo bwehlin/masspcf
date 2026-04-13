@@ -88,7 +88,7 @@ class TestPandasDataFrame:
 
         ts = mpcf.TimeSeries(
             df.index.to_numpy(),
-            df.to_numpy().T,   # (n_times, n_cols) -> (n_channels, n_times)
+            df.to_numpy(),   # (n_times, n_channels) -- no transpose needed
         )
 
         assert ts.n_channels == 2
