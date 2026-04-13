@@ -215,7 +215,7 @@ namespace mpcf
       // Snap to nearest breakpoint if within relative error
       if (snap_tol > 0)
       {
-        // Snap up to next breakpoint (drift left)
+        // FP rounding in (real_t - start) / step can land just below a breakpoint
         if (idx + 1 < m_times.size())
         {
           Tt diff = m_times[idx + 1] - pcf_t;
@@ -227,7 +227,7 @@ namespace mpcf
           }
         }
 
-        // Snap down to current breakpoint (drift right)
+        // Symmetric case: slightly above a breakpoint matters for linear interp
         Tt diff = pcf_t - m_times[idx];
         Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx])});
         if (diff > 0 && diff <= snap_tol * ref)
