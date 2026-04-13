@@ -299,7 +299,7 @@ class TimeSeries:
 
         self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
 
-    def __call__(self, t):
+    def __call__(self, t, *, snap_tol=None):
         """Evaluate the time series at the given time(s).
 
         Parameters
@@ -308,6 +308,14 @@ class TimeSeries:
             Query time(s). If ``start_time`` is a datetime64, *t* should
             also be datetime64 (converted to PCF-internal time via the
             datetime converter for full precision).
+        snap_tol : float or None, optional
+            Relative error tolerance for snapping query times to
+            breakpoints. When the relative difference between a query
+            time and the nearest breakpoint is below this threshold,
+            the query snaps to that breakpoint. Prevents floating-point
+            rounding from returning the wrong interval. ``None`` uses
+            the type-dependent default (``1e-9`` for float64, ``1e-5``
+            for float32). Set to ``0`` to disable snapping.
 
         Returns
         -------
@@ -315,22 +323,23 @@ class TimeSeries:
             Value(s) at the queried time(s). NaN for times outside the
             series domain.
         """
+        kw = {} if snap_tol is None else {'snap_tol': snap_tol}
         if isinstance(t, np.datetime64):
             ticks, unit = _dt64_to_ticks(t)
             if unit is None:
-                return self._data(float(ticks))
-            return self._data(ticks, unit)
+                return self._data(float(ticks), **kw)
+            return self._data(ticks, unit, **kw)
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
             ticks, unit = _dt64_array_to_ticks(t)
             if unit is None:
-                return self._data(ticks)
-            return self._data(ticks, unit)
+                return self._data(ticks, **kw)
+            return self._data(ticks, unit, **kw)
         if isinstance(t, np.ndarray):
-            return self._data(t)
+            return self._data(t, **kw)
         if isinstance(t, (int, float)):
-            return self._data(t)
+            return self._data(t, **kw)
         if isinstance(t, list):
-            return self._data(np.asarray(t, dtype=np.float64))
+            return self._data(np.asarray(t, dtype=np.float64), **kw)
         raise TypeError(f"Cannot evaluate TimeSeries at type {type(t)}")
 
     @property
@@ -465,23 +474,34 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
         """The dtype of this tensor (``ts32`` or ``ts64``)."""
         return _TS_CPP_TO_DTYPE[type(self._data)]
 
-    def __call__(self, t):
+    def __call__(self, t, *, snap_tol=None):
         """Evaluate every series at the given time(s).
+
+        Parameters
+        ----------
+        t : float, int, numpy.datetime64, or numpy.ndarray
+            Query time(s).
+        snap_tol : float or None, optional
+            Relative error tolerance for breakpoint snapping.
+            See :meth:`TimeSeries.__call__` for details.
 
         Supports ``datetime64`` scalars and arrays. Datetime values are
         passed as int64 ticks + unit string to C++, where each element's
         chrono evaluate converts to seconds independently.
         """
+        kw = {} if snap_tol is None else {'snap_tol': snap_tol}
         if isinstance(t, np.datetime64):
             ticks, unit = _dt64_to_ticks(t)
             if unit is None:
-                return np.asarray(self._data(float(ticks)))
-            return np.asarray(self._data(ticks, unit))
+                return np.asarray(self._data(float(ticks), **kw))
+            return np.asarray(self._data(ticks, unit, **kw))
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
             ticks, unit = _dt64_array_to_ticks(t)
             if unit is None:
-                return np.asarray(self._data(ticks))
-            return np.asarray(self._data(ticks, unit))
+                return np.asarray(self._data(ticks, **kw))
+            return np.asarray(self._data(ticks, unit, **kw))
+        if snap_tol is not None:
+            return np.asarray(self._data(t, snap_tol=snap_tol))
         return super().__call__(t)
 
     def _to_py_tensor(self, data):
@@ -517,7 +537,8 @@ _TS_DTYPE_TO_EMBED = {
 }
 
 
-def embed_time_delay(ts, dimension, delay, *, window=None, stride=None):
+def embed_time_delay(ts, dimension, delay, *, window=None, stride=None,
+                     snap_tol=None):
     """Compute time delay embedding of a time series.
 
     At each valid time *t*, the embedding vector looks backward::
@@ -540,6 +561,10 @@ def embed_time_delay(ts, dimension, delay, *, window=None, stride=None):
         so the first window may be shorter than *window*.
     stride : float, numpy.timedelta64, or None
         Step between window starts. Defaults to *window* (non-overlapping).
+    snap_tol : float or None, optional
+        Relative error tolerance for snapping evaluation times to
+        breakpoints. See :meth:`TimeSeries.__call__` for details.
+        ``None`` uses the type-dependent default.
 
     Returns
     -------
@@ -569,14 +594,17 @@ def embed_time_delay(ts, dimension, delay, *, window=None, stride=None):
     window_f = _to_float(window, "window")
     stride_f = _to_float(stride, "stride")
 
+    kw = {} if snap_tol is None else {'snap_tol': snap_tol}
+
     if isinstance(ts, TimeSeries):
         embed_fn, _, _ = _TS_DTYPE_TO_EMBED[ts.dtype]
-        result = embed_fn(ts._data, dimension, delay_f, window_f, stride_f)
+        result = embed_fn(ts._data, dimension, delay_f, window_f, stride_f,
+                          **kw)
         return PointCloudTensor(result)
     elif isinstance(ts, TimeSeriesTensor):
         _, embed_tensor_fn, _ = _TS_DTYPE_TO_EMBED[ts.dtype]
         result = embed_tensor_fn(
-            ts._data, dimension, delay_f, window_f, stride_f)
+            ts._data, dimension, delay_f, window_f, stride_f, **kw)
         return PointCloudTensor(result)
     else:
         raise TypeError(

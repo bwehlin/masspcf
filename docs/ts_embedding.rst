@@ -64,6 +64,57 @@ Higher dimensions work the same way -- the point dimension equals ``d``::
    np.asarray(cloud3d[0]).shape  # (n_points, 3)
 
 
+.. _snap-tol:
+
+Breakpoint snapping
+-------------------
+
+When the ``delay`` matches the ``time_step`` of a regularly sampled series,
+the backward stepping ``t − k·delay`` should land exactly on a breakpoint.
+In practice, accumulated floating-point error can place the query just
+below the breakpoint, causing the evaluation to return the *previous*
+interval's value.
+
+.. image:: _static/timeseries_snap_tol_light.png
+   :width: 90%
+   :class: only-light
+   :alt: Without snapping the query lands in the wrong interval
+
+.. image:: _static/timeseries_snap_tol_dark.png
+   :width: 90%
+   :class: only-dark
+   :alt: Without snapping the query lands in the wrong interval
+
+.. dropdown:: Show plotting code
+   :color: secondary
+
+   .. literalinclude:: _static/gen_timeseries_fig.py
+      :pyobject: plot_snap_tol
+      :language: python
+
+To prevent this, both :py:meth:`TimeSeries.__call__
+<masspcf.TimeSeries.__call__>` and
+:py:func:`~masspcf.embed_time_delay` accept a ``snap_tol`` parameter.
+When the relative error between a query time and the nearest breakpoint
+is below ``snap_tol``, the query snaps to that breakpoint::
+
+   ts = mpcf.TimeSeries(np.arange(5.0), start_time=0.0, time_step=1.0)
+
+   t_query = 2.0 - 1e-14          # tiny FP error
+   ts(t_query)                     # 2.0 — snaps to breakpoint (default)
+   ts(t_query, snap_tol=0)         # 1.0 — no snapping, wrong interval
+
+   # embed_time_delay also accepts snap_tol
+   cloud = mpcf.embed_time_delay(ts, dimension=2, delay=1.0, snap_tol=1e-9)
+
+The default ``snap_tol`` is type-dependent: ``1e-9`` for ``ts64``
+(float64) and ``1e-5`` for ``ts32`` (float32). Set ``snap_tol=0`` to
+disable snapping entirely. The tolerance is *relative*: a query snaps
+when ``|query − breakpoint| ≤ snap_tol × max(1, |query|, |breakpoint|)``,
+so it works correctly regardless of the time scale (seconds,
+years, femtoseconds, etc.).
+
+
 Multi-channel embedding
 -----------------------
 

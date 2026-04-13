@@ -550,40 +550,47 @@ namespace mpcf_py
       };
 
       // Float scalar: output = tensor_shape + (n_channels,)
-      cls.def("__call__", [flatten_result](const TTensor& self, Tt t) {
+      cls.def("__call__", [flatten_result](const TTensor& self, Tt t,
+                                            Tt snap_tol) {
         auto tsr = self.rank();
         mpcf::Tensor<TResult> out(self.shape());
-        mpcf::tensor_eval<Tt, TResult>(self, t, out);
+        mpcf::tensor_eval<Tt, TResult>(self, t, out, snap_tol);
         return flatten_result(out, tsr);
-      });
+      }, py::arg("t"),
+         py::arg("snap_tol") = T::default_snap_tol());
 
       // Float array: output = tensor_shape + (n_channels,) + times_shape
       cls.def("__call__", [flatten_result](const TTensor& self,
-                                            py::array_t<Tt> times) {
+                                            py::array_t<Tt> times,
+                                            Tt snap_tol) {
         auto tsr = self.rank();
         NumpyTensor<Tt> t_in(times);
         auto out_shape = mpcf_py::eval_out_shape(self, t_in);
         mpcf::Tensor<TResult> out(out_shape);
-        mpcf::tensor_eval<Tt, TResult>(self, t_in, out);
+        mpcf::tensor_eval<Tt, TResult>(self, t_in, out, snap_tol);
         return flatten_result(out, tsr);
-      });
+      }, py::arg("times"),
+         py::arg("snap_tol") = T::default_snap_tol());
 
       // Datetime scalar
       cls.def("__call__", [flatten_result](const TTensor& self,
-                             int64_t ticks, const std::string& unit) {
+                             int64_t ticks, const std::string& unit,
+                             Tt snap_tol) {
         auto tsr = self.rank();
         return dispatch_datetime_unit(unit, [&](auto duration_tag) {
           using Duration = decltype(duration_tag);
           mpcf::Tensor<TResult> out(self.shape());
-          mpcf::tensor_eval<Duration, TResult>(self, Duration(ticks), out);
+          mpcf::tensor_eval<Duration, TResult>(self, Duration(ticks), out, snap_tol);
           return flatten_result(out, tsr);
         });
-      }, py::arg("ticks"), py::arg("unit"));
+      }, py::arg("ticks"), py::arg("unit"),
+         py::arg("snap_tol") = T::default_snap_tol());
 
       // Datetime array
       cls.def("__call__", [flatten_result](const TTensor& self,
                              py::array_t<int64_t> ticks_arr,
-                             const std::string& unit) {
+                             const std::string& unit,
+                             Tt snap_tol) {
         auto tsr = self.rank();
         return dispatch_datetime_unit(unit, [&](auto duration_tag) {
           using Duration = decltype(duration_tag);
@@ -595,10 +602,11 @@ namespace mpcf_py
 
           auto out_shape = mpcf_py::eval_out_shape(self, domain);
           mpcf::Tensor<TResult> out(out_shape);
-          mpcf::tensor_eval<Duration, TResult>(self, domain, out);
+          mpcf::tensor_eval<Duration, TResult>(self, domain, out, snap_tol);
           return flatten_result(out, tsr);
         });
-      }, py::arg("ticks"), py::arg("unit"));
+      }, py::arg("ticks"), py::arg("unit"),
+         py::arg("snap_tol") = T::default_snap_tol());
     }
 
   }

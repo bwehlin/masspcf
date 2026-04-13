@@ -30,12 +30,15 @@ namespace mpcf
 
   // Evaluate every element of a tensor at a single point, writing results into out.
   // out must have the same shape as elems.
-  template <typename DomainT, typename CodomainT, IsTensor TElemTensor, IsTensor TOutTensor>
+  // ExtraArgs are forwarded to each element's evaluate() call.
+  template <typename DomainT, typename CodomainT, IsTensor TElemTensor,
+            IsTensor TOutTensor, typename... ExtraArgs>
   requires Evaluable<typename TElemTensor::value_type, DomainT, CodomainT>
-  void tensor_eval(const TElemTensor& elems, DomainT x, TOutTensor& out)
+  void tensor_eval(const TElemTensor& elems, DomainT x, TOutTensor& out,
+                   ExtraArgs&&... extra_args)
   {
     auto eval = [&](const std::vector<size_t>& idx) {
-      out(idx) = elems(idx).evaluate(x);
+      out(idx) = elems(idx).evaluate(x, extra_args...);
     };
 
     if (elems.size() >= settings().parallelEvalThreshold)
@@ -47,9 +50,12 @@ namespace mpcf
   // Evaluate every element of a tensor at a tensor of domain points, writing results into out.
   // out must have shape elems.shape() + domain.shape().
   // Domain points are sorted once; each element uses the linear-scan evaluate overload.
-  template <typename DomainT, typename CodomainT, IsTensor TElemTensor, IsTensor TDomainTensor, IsTensor TOutTensor>
+  // ExtraArgs are forwarded to each element's evaluate() call.
+  template <typename DomainT, typename CodomainT, IsTensor TElemTensor,
+            IsTensor TDomainTensor, IsTensor TOutTensor, typename... ExtraArgs>
   requires Evaluable<typename TElemTensor::value_type, DomainT, CodomainT>
-  void tensor_eval(const TElemTensor& elems, const TDomainTensor& domain, TOutTensor& out)
+  void tensor_eval(const TElemTensor& elems, const TDomainTensor& domain,
+                   TOutTensor& out, ExtraArgs&&... extra_args)
   {
     // Collect domain points and their multi-dim indices in walk (row-major) order
     std::vector<DomainT> domain_values;
@@ -77,7 +83,7 @@ namespace mpcf
     // Each element gets its own sorted_result buffer for thread safety.
     auto eval_elem = [&](const std::vector<size_t>& elem_idx) {
       Tensor<CodomainT> sorted_result(std::vector<size_t>{n});
-      elems(elem_idx).evaluate(sorted_domain, sorted_result, n);
+      elems(elem_idx).evaluate(sorted_domain, sorted_result, n, extra_args...);
 
       auto combined_idx = elem_idx;
       combined_idx.resize(elem_idx.size() + domain_indices[0].size());

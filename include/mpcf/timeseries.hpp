@@ -36,6 +36,11 @@ namespace mpcf
     using time_type = Tt;
     using value_type = Tv;
 
+    static constexpr Tt default_snap_tol()
+    {
+      return sizeof(Tt) <= 4 ? Tt(1e-5) : Tt(1e-9);
+    }
+
     TimeSeries()
       : m_n_channels(1), m_start_time(0), m_time_step(1)
     {
@@ -78,27 +83,31 @@ namespace mpcf
     }
 
     /// Evaluate all channels at a real time. Returns Tensor<Tv> of shape (n_channels,).
-    [[nodiscard]] Tensor<Tv> evaluate(time_type real_t) const
+    /// snap_tol is the relative error tolerance for snapping to breakpoints.
+    [[nodiscard]] Tensor<Tv> evaluate(time_type real_t,
+                                      Tt snap_tol = default_snap_tol()) const
     {
       time_type pcf_t = (real_t - m_start_time) / m_time_step;
-      return evaluate_at_pcf_t(pcf_t);
+      return evaluate_at_pcf_t(pcf_t, snap_tol);
     }
 
     /// Batch evaluate (generic container interface for tensor_eval).
     template <typename TIn, typename TOut>
-    void evaluate(const TIn& sorted_real_times, TOut& out, size_t n) const
+    void evaluate(const TIn& sorted_real_times, TOut& out, size_t n,
+                  Tt snap_tol = default_snap_tol()) const
     {
       for (size_t i = 0; i < n; ++i)
       {
         auto real_t = sorted_real_times(std::vector<size_t>{i});
-        out(std::vector<size_t>{i}) = evaluate(real_t);
+        out(std::vector<size_t>{i}) = evaluate(real_t, snap_tol);
       }
     }
 
     /// Evaluate at a chrono time point.
     template <typename Rep, typename Period>
     [[nodiscard]] Tensor<Tv> evaluate(
-        std::chrono::duration<Rep, Period> query) const
+        std::chrono::duration<Rep, Period> query,
+        Tt snap_tol = default_snap_tol()) const
     {
       using D = std::chrono::duration<Rep, Period>;
       auto start = std::chrono::duration_cast<D>(
@@ -109,11 +118,11 @@ namespace mpcf
       Rep step_count = step.count();
       if (step_count == 0)
       {
-        return evaluate(std::chrono::duration<Tt>(query).count());
+        return evaluate(std::chrono::duration<Tt>(query).count(), snap_tol);
       }
       time_type pcf_t = static_cast<time_type>(offset)
                       / static_cast<time_type>(step_count);
-      return evaluate_at_pcf_t(pcf_t);
+      return evaluate_at_pcf_t(pcf_t, snap_tol);
     }
 
     [[nodiscard]] InterpolationMode interpolation() const noexcept { return m_interpolation; }
@@ -175,16 +184,55 @@ namespace mpcf
       return static_cast<size_t>(it - m_times.begin());
     }
 
-    [[nodiscard]] Tensor<Tv> evaluate_at_pcf_t(time_type pcf_t) const
+    [[nodiscard]] Tensor<Tv> evaluate_at_pcf_t(time_type pcf_t,
+                                               Tt snap_tol = default_snap_tol()) const
     {
       Tensor<Tv> result(std::vector<size_t>{m_n_channels});
+
+      // Snap to domain boundaries if within relative error
+      if (snap_tol > 0 && !m_times.empty())
+      {
+        auto near = [snap_tol](Tt a, Tt b) {
+          return std::abs(a - b)
+              <= snap_tol * std::max({Tt(1), std::abs(a), std::abs(b)});
+        };
+
+        if (pcf_t < m_times.front() && near(pcf_t, m_times.front()))
+          pcf_t = m_times.front();
+        else if (pcf_t > m_times.back() && near(pcf_t, m_times.back()))
+          pcf_t = m_times.back();
+      }
+
       if (pcf_t < 0 || (m_times.size() > 0 && pcf_t > m_times.back()))
       {
         for (size_t c = 0; c < m_n_channels; ++c)
           result(std::vector<size_t>{c}) = std::numeric_limits<Tv>::quiet_NaN();
         return result;
       }
+
       size_t idx = find_interval(pcf_t);
+
+      // Snap to nearest breakpoint if within relative error
+      if (snap_tol > 0)
+      {
+        // Snap up to next breakpoint (drift left)
+        if (idx + 1 < m_times.size())
+        {
+          Tt diff = m_times[idx + 1] - pcf_t;
+          Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx + 1])});
+          if (diff > 0 && diff <= snap_tol * ref)
+          {
+            pcf_t = m_times[idx + 1];
+            idx = idx + 1;
+          }
+        }
+
+        // Snap down to current breakpoint (drift right)
+        Tt diff = pcf_t - m_times[idx];
+        Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx])});
+        if (diff > 0 && diff <= snap_tol * ref)
+          pcf_t = m_times[idx];
+      }
 
       if (m_interpolation == InterpolationMode::Linear
           && idx + 1 < m_times.size())

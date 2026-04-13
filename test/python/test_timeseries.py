@@ -1007,3 +1007,99 @@ class TestEmbedTimeDelayEdgeCases:
         result = mpcf.embed_time_delay(
             ts, dimension=2, delay=1.0, window=8.0)
         assert result.shape[0] == 1
+
+
+# ============================================================================
+# Breakpoint snapping
+# ============================================================================
+
+
+class TestBreakpointSnapping:
+    def test_snap_just_below_breakpoint(self):
+        """A query time just below a breakpoint should snap to it."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        # Exact evaluation at breakpoint 1.0 should give 20.0
+        assert ts(1.0) == 20.0
+        # Introduce tiny FP error just below the breakpoint
+        t_below = 1.0 - 1e-14
+        assert ts(t_below) == 20.0  # should snap
+
+    def test_no_snap_for_meaningful_offset(self):
+        """A query well below a breakpoint should NOT snap."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        # 0.5 is halfway between breakpoints 0 and 1 — no snapping
+        assert ts(0.5) == 10.0
+
+    def test_snap_disabled_with_zero_tol(self):
+        """snap_tol=0 disables snapping."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        t_below = 1.0 - 1e-14
+        # With snapping disabled, should return previous interval value
+        assert ts(t_below, snap_tol=0) == 10.0
+
+    def test_custom_snap_tol(self):
+        """A larger snap_tol snaps from farther away."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        # With default tol (1e-9), 1e-5 offset should NOT snap
+        assert ts(1.0 - 1e-5) == 10.0
+        # With larger tol, it should snap
+        assert ts(1.0 - 1e-5, snap_tol=1e-4) == 20.0
+
+    def test_snap_at_domain_boundary(self):
+        """Tiny overshoot past end should snap back instead of NaN."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        # Tiny past the last breakpoint
+        t_past = 2.0 + 1e-14
+        assert ts(t_past) == 30.0  # should snap, not NaN
+        # Tiny before the first breakpoint
+        t_before = 0.0 - 1e-14
+        assert ts(t_before) == 10.0
+
+    def test_embed_delay_equals_step(self):
+        """Embedding with delay == time_step should produce correct values."""
+        values = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        ts = mpcf.TimeSeries(values, start_time=0.0, time_step=1.0)
+        result = mpcf.embed_time_delay(ts, dimension=2, delay=1.0)
+        cloud = np.asarray(result[0])
+        # Each row should be [x(t-1), x(t)] for t in [1, 2, 3, 4]
+        for i, t in enumerate(range(1, 5)):
+            np.testing.assert_array_equal(
+                cloud[i], [float(t - 1), float(t)])
+
+    def test_snap_on_tensor_eval(self):
+        """Snapping should work through TimeSeriesTensor evaluation."""
+        ts1 = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                              start_time=0.0, time_step=1.0)
+        ts2 = mpcf.TimeSeries(np.array([100.0, 200.0, 300.0]),
+                              start_time=0.0, time_step=1.0)
+        tensor = mpcf.TimeSeriesTensor([ts1, ts2])
+        t_below = 1.0 - 1e-14
+        result = tensor(t_below)
+        np.testing.assert_array_equal(result, [20.0, 200.0])
+
+    def test_snap_just_above_breakpoint_linear(self):
+        """A query just above a breakpoint should snap down to it
+        so linear interpolation returns the exact breakpoint value."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0,
+                             interpolation='linear')
+        # Exact evaluation at breakpoint 1.0 should give 20.0
+        assert ts(1.0) == 20.0
+        # Tiny FP error just above the breakpoint
+        t_above = 1.0 + 1e-14
+        # Without snapping, linear interpolation would give ~20.0000000000001
+        assert ts(t_above) == 20.0  # should snap down
+
+    def test_snap_tol_forwarded_to_tensor(self):
+        """snap_tol=0 on tensor eval should disable snapping."""
+        ts = mpcf.TimeSeries(np.array([10.0, 20.0, 30.0]),
+                             start_time=0.0, time_step=1.0)
+        tensor = mpcf.TimeSeriesTensor([ts])
+        t_below = 1.0 - 1e-14
+        result = tensor(t_below, snap_tol=0)
+        assert result[0] == 10.0  # no snapping

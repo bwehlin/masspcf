@@ -35,7 +35,8 @@ namespace mpcf
     template <typename Tt, typename Tv>
     PointCloud<Tv> embed_time_delay_range(
         const TimeSeries<Tt, Tv>& ts, size_t dimension, Tt delay,
-        Tt valid_start, Tt valid_end)
+        Tt valid_start, Tt valid_end,
+        Tt snap_tol = TimeSeries<Tt, Tv>::default_snap_tol())
     {
       auto const& internal_times = ts.times();
       auto start = ts.start_time();
@@ -68,7 +69,7 @@ namespace mpcf
         {
           // j=0 is the oldest (t - (d-1)*delay), j=d-1 is current (t)
           Tt eval_t = t - static_cast<Tt>(dimension - 1 - j) * delay;
-          auto vals = ts.evaluate(eval_t);
+          auto vals = ts.evaluate(eval_t, snap_tol);
           for (size_t ch = 0; ch < nc; ++ch)
           {
             cloud(std::vector<size_t>{i, j * nc + ch}) =
@@ -116,7 +117,8 @@ namespace mpcf
   template <typename Tt, typename Tv>
   Tensor<PointCloud<Tv>> embed_time_delay(
       const TimeSeries<Tt, Tv>& ts, size_t dimension, Tt delay,
-      Tt window = Tt(0), Tt stride = Tt(0))
+      Tt window = Tt(0), Tt stride = Tt(0),
+      Tt snap_tol = TimeSeries<Tt, Tv>::default_snap_tol())
   {
     if (dimension < 1)
       throw std::invalid_argument("dimension must be >= 1");
@@ -135,7 +137,7 @@ namespace mpcf
     {
       // No windowing: single point cloud
       auto cloud = detail::embed_time_delay_range(
-          ts, dimension, delay, valid_start, valid_end);
+          ts, dimension, delay, valid_start, valid_end, snap_tol);
       Tensor<PointCloud<Tv>> result(std::vector<size_t>{1});
       result(std::vector<size_t>{0}) = std::move(cloud);
       return result;
@@ -154,7 +156,7 @@ namespace mpcf
       auto [ws, we] = windows[i];
       result(std::vector<size_t>{i}) =
           detail::embed_time_delay_range(
-              ts, dimension, delay, ws, we);
+              ts, dimension, delay, ws, we, snap_tol);
     }
     return result;
   }
@@ -167,7 +169,8 @@ namespace mpcf
   Tensor<PointCloud<Tv>> embed_time_delay(
       const Tensor<TimeSeries<Tt, Tv>>& ts_tensor,
       size_t dimension, Tt delay,
-      Tt window = Tt(0), Tt stride = Tt(0))
+      Tt window = Tt(0), Tt stride = Tt(0),
+      Tt snap_tol = TimeSeries<Tt, Tv>::default_snap_tol())
   {
     if (dimension < 1)
       throw std::invalid_argument("dimension must be >= 1");
@@ -202,7 +205,7 @@ namespace mpcf
       walk(ts_tensor, [&](const std::vector<size_t>& idx) {
         result(idx) = detail::embed_time_delay_range(
             ts_tensor(idx), dimension, delay,
-            valid_start, valid_end);
+            valid_start, valid_end, snap_tol);
       });
       return result;
     }
@@ -226,7 +229,7 @@ namespace mpcf
         auto out_idx = idx;
         out_idx.push_back(w);
         result(out_idx) = detail::embed_time_delay_range(
-            ts_tensor(idx), dimension, delay, ws, we);
+            ts_tensor(idx), dimension, delay, ws, we, snap_tol);
       }
     });
 

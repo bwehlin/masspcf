@@ -404,6 +404,118 @@ def plot_interpolation():
     return fig
 
 
+# -- included in docs via literalinclude :pyobject: --
+def plot_snap_tol():
+    from matplotlib.patches import FancyArrowPatch
+
+    ts = mpcf.TimeSeries(
+        np.array([1.0, 3.0, 2.0, 4.0]),
+        start_time=0.0, time_step=1.0,
+    )
+    times = ts.times
+    values = ts.values
+    delay = 1.0
+
+    # Pick colors that are readable on both light and dark backgrounds
+    bg = plt.rcParams["axes.facecolor"]
+    is_dark = (sum(int(bg.lstrip("#")[i:i+2], 16)
+                   for i in (0, 2, 4)) < 384
+               if bg.startswith("#") else False)
+    col_err = "#ff6b6b" if is_dark else "#e74c3c"
+    col_ok = "#2ecc71" if is_dark else "#27ae60"
+    col_aux = "#aaaaaa" if is_dark else "gray"
+    col_line = plt.rcParams.get("lines.color", "steelblue")
+    col_bg = plt.rcParams.get("axes.facecolor", "white")
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.0), sharey=True)
+
+    for ax in (ax1, ax2):
+        # Draw step function
+        for i in range(len(times)):
+            t_start = times[i]
+            t_end = (times[i + 1] if i + 1 < len(times)
+                     else times[i] + 1.0)
+            ax.plot([t_start, t_end], [values[i], values[i]],
+                    linewidth=2, color=col_line)
+            if i + 1 < len(times):
+                ax.plot(t_end, values[i], "o", markersize=4,
+                        color=col_line, markerfacecolor=col_bg,
+                        markeredgewidth=1.5)
+        ax.plot(times, values, "o", markersize=4, color=col_line)
+        ax.set_xlabel("Time")
+        ax.set_ylim(-0.3, 4.8)
+        ax.set_xlim(-0.3, 4.3)
+
+        # Curved arrows along the bottom showing backward steps
+        # (drawn per-panel below so the left panel can show the shifted landing)
+        arrow_y = -0.15
+
+        # Mark the base time at t=3
+        ax.plot(3.0, ts(3.0), "D", markersize=5, color=col_aux, zorder=5)
+        ax.text(3.05, ts(3.0) + 0.2, "t", fontsize=9, color=col_aux)
+
+    # -- Left panel: no snapping --
+    # The second hop lands at 2.0 - epsilon.
+    # Use a visually exaggerated offset so the gap is visible in the plot.
+    t_bad_visual = 1.85
+
+    # Arrows: 3 -> 2-ε, 2-ε -> 1-2ε (accumulated error)
+    for t_from, t_to in [(3.0, t_bad_visual),
+                          (t_bad_visual, t_bad_visual - delay)]:
+        arrow = FancyArrowPatch(
+            (t_from, arrow_y), (t_to, arrow_y),
+            connectionstyle="arc3,rad=0.35",
+            arrowstyle="->,head_length=5,head_width=3",
+            color=col_aux, lw=1.2)
+        ax1.add_patch(arrow)
+    ax1.text((3.0 + t_bad_visual) / 2, -0.55, "−delay",
+             ha="center", fontsize=7, color=col_aux)
+    ax1.text((t_bad_visual + t_bad_visual - delay) / 2, -0.55, "−delay",
+             ha="center", fontsize=7, color=col_aux)
+    v_no_snap = ts(t_bad_visual, snap_tol=0)
+    # Vertical line at the landing spot (just left of breakpoint)
+    ax1.axvline(t_bad_visual, color=col_err, linewidth=1, linestyle=":",
+                alpha=0.7, ymin=0.06, ymax=0.75)
+    ax1.plot(t_bad_visual, v_no_snap, "x", markersize=10, color=col_err,
+             markeredgewidth=2.5, zorder=5)
+    ax1.annotate(
+        "t − 2·delay = 2.0 − ε\nlands in [1, 2) → wrong value",
+        xy=(t_bad_visual, v_no_snap),
+        xytext=(0.15, 3.9), fontsize=8, color=col_err,
+        arrowprops=dict(arrowstyle="->", color=col_err))
+    ax1.set_title("snap_tol = 0  (no snapping)", fontsize=10)
+    ax1.set_ylabel("Value")
+
+    # -- Right panel: with snapping --
+    # Arrows land on exact breakpoints (snapping corrects the error)
+    for t_from, t_to in [(3.0, 2.0), (2.0, 1.0)]:
+        arrow = FancyArrowPatch(
+            (t_from, arrow_y), (t_to, arrow_y),
+            connectionstyle="arc3,rad=0.35",
+            arrowstyle="->,head_length=5,head_width=3",
+            color=col_aux, lw=1.2)
+        ax2.add_patch(arrow)
+    ax2.text(2.5, -0.55, "−delay", ha="center", fontsize=7, color=col_aux)
+    ax2.text(1.5, -0.55, "−delay", ha="center", fontsize=7, color=col_aux)
+
+    v_snap = ts(2.0)
+    ax2.axvline(2.0, color=col_ok, linewidth=1, linestyle=":",
+                alpha=0.7, ymin=0.06, ymax=0.55)
+    ax2.plot(2.0, v_snap, "o", markersize=8, color=col_ok, zorder=5)
+    ax2.annotate(
+        "t − 2·delay = 2.0 − ε\nsnaps to 2.0 → correct value",
+        xy=(2.0, v_snap),
+        xytext=(0.15, 0.5), fontsize=8, color=col_ok,
+        arrowprops=dict(arrowstyle="->", color=col_ok))
+    ax2.set_title("Nonzero snap_tol  (snapping on)", fontsize=10)
+
+    fig.suptitle(
+        "Stepping back by delay: floating-point error vs. snapping",
+        fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
 if __name__ == "__main__":
     for name, plot_func in [("timeseries_basic", plot_timeseries_basic),
                              ("timeseries_eval", plot_timeseries_eval),
@@ -413,6 +525,7 @@ if __name__ == "__main__":
                              ("timeseries_multichannel", plot_multichannel),
                              ("timeseries_embed_basic", plot_embed_basic),
                              ("timeseries_embed_windowed", plot_embed_windowed),
-                             ("timeseries_interpolation", plot_interpolation)]:
+                             ("timeseries_interpolation", plot_interpolation),
+                             ("timeseries_snap_tol", plot_snap_tol)]:
         _save_themed(plot_func, *LIGHT, HERE / f"{name}_light.png")
         _save_themed(plot_func, *DARK, HERE / f"{name}_dark.png")

@@ -137,9 +137,9 @@ namespace
   /// Evaluate a TimeSeries and return a numpy array.
   /// Single channel: returns scalar. Multi-channel: returns (n_channels,).
   template <typename Tt, typename Tv>
-  py::object eval_scalar(const mpcf::TimeSeries<Tt, Tv>& self, Tt t)
+  py::object eval_scalar(const mpcf::TimeSeries<Tt, Tv>& self, Tt t, Tt snap_tol)
   {
-    auto result = self.evaluate(t);
+    auto result = self.evaluate(t, snap_tol);
     if (self.n_channels() == 1)
       return py::cast(result(std::vector<size_t>{0}));
     py::array_t<Tv> arr = tensor_to_numpy(result);
@@ -251,15 +251,15 @@ namespace
             py::arg("step_ticks"), py::arg("unit"))
 
         // Float scalar eval
-        .def("__call__", [](const TTimeSeries& self, Tt t) {
-          return eval_scalar(self, t);
-        })
+        .def("__call__", [](const TTimeSeries& self, Tt t, Tt snap_tol) {
+          return eval_scalar(self, t, snap_tol);
+        }, py::arg("t"), py::arg("snap_tol") = TTimeSeries::default_snap_tol())
 
         // Float array eval
         // Single channel: shape = times_shape
         // Multi channel: shape = (n_channels,) + times_shape
         .def("__call__", [](const TTimeSeries& self,
-                            py::array_t<Tt> times) -> py::array_t<Tv> {
+                            py::array_t<Tt> times, Tt snap_tol) -> py::array_t<Tv> {
           auto n = static_cast<size_t>(times.size());
           auto flat = times.reshape({static_cast<py::ssize_t>(n)});
           NumpyTensor<Tt> in(flat);
@@ -271,7 +271,7 @@ namespace
           auto out = result.template mutable_unchecked<2>();
           for (size_t i = 0; i < n; ++i)
           {
-            auto vals = self.evaluate(in(i));
+            auto vals = self.evaluate(in(i), snap_tol);
             for (size_t c = 0; c < nc; ++c)
               out(c, i) = vals(std::vector<size_t>{c});
           }
@@ -289,25 +289,28 @@ namespace
           for (int d = 0; d < times.ndim(); ++d)
             out_shape.push_back(times.shape(d));
           return py::array_t<Tv>(result.reshape(out_shape));
-        })
+        }, py::arg("times"), py::arg("snap_tol") = TTimeSeries::default_snap_tol())
 
         // Datetime scalar: int64 ticks + unit string
         .def("__call__", [](const TTimeSeries& self,
-                            int64_t ticks, const std::string& unit) {
+                            int64_t ticks, const std::string& unit,
+                            Tt snap_tol) {
           return dispatch_datetime_unit(unit, [&](auto duration_tag) -> py::object {
             using Duration = decltype(duration_tag);
-            auto result = self.evaluate(Duration(ticks));
+            auto result = self.evaluate(Duration(ticks), snap_tol);
             if (self.n_channels() == 1)
               return py::cast(result(std::vector<size_t>{0}));
             py::array_t<Tv> arr = tensor_to_numpy(result);
             return std::move(arr);
           });
-        }, py::arg("ticks"), py::arg("unit"))
+        }, py::arg("ticks"), py::arg("unit"),
+           py::arg("snap_tol") = TTimeSeries::default_snap_tol())
 
         // Datetime array: (n_channels,) + times_shape for multi, times_shape for single
         .def("__call__", [](const TTimeSeries& self,
                             py::array_t<int64_t> ticks_arr,
-                            const std::string& unit) -> py::array_t<Tv> {
+                            const std::string& unit,
+                            Tt snap_tol) -> py::array_t<Tv> {
           auto n = static_cast<size_t>(ticks_arr.size());
           auto flat_ticks = py::array_t<int64_t>(
               ticks_arr.reshape({static_cast<py::ssize_t>(n)}));
@@ -322,7 +325,7 @@ namespace
             using Duration = decltype(duration_tag);
             for (size_t i = 0; i < n; ++i)
             {
-              auto vals = self.evaluate(Duration(ticks_data(i)));
+              auto vals = self.evaluate(Duration(ticks_data(i)), snap_tol);
               for (size_t c = 0; c < nc; ++c)
                 out(c, i) = vals(std::vector<size_t>{c});
             }
@@ -340,7 +343,8 @@ namespace
           for (int d = 0; d < ticks_arr.ndim(); ++d)
             out_shape.push_back(ticks_arr.shape(d));
           return py::array_t<Tv>(result.reshape(out_shape));
-        }, py::arg("ticks"), py::arg("unit"))
+        }, py::arg("ticks"), py::arg("unit"),
+           py::arg("snap_tol") = TTimeSeries::default_snap_tol())
 
         .def_property_readonly("start_time", &TTimeSeries::start_time)
         .def_property_readonly("time_step", &TTimeSeries::time_step)
@@ -383,39 +387,47 @@ void mpcf_py::register_timeseries(pybind11::module_& m)
   m.def("embed_time_delay_f32",
       [](const mpcf::TimeSeries_f32& ts, size_t dimension,
          mpcf::float32_t delay, mpcf::float32_t window,
-         mpcf::float32_t stride) {
-        return mpcf::embed_time_delay(ts, dimension, delay, window, stride);
+         mpcf::float32_t stride, mpcf::float32_t snap_tol) {
+        return mpcf::embed_time_delay(ts, dimension, delay, window, stride,
+                                       snap_tol);
       },
       py::arg("ts"), py::arg("dimension"), py::arg("delay"),
-      py::arg("window") = 0.0f, py::arg("stride") = 0.0f);
+      py::arg("window") = 0.0f, py::arg("stride") = 0.0f,
+      py::arg("snap_tol") = mpcf::TimeSeries_f32::default_snap_tol());
 
   m.def("embed_time_delay_f64",
       [](const mpcf::TimeSeries_f64& ts, size_t dimension,
          mpcf::float64_t delay, mpcf::float64_t window,
-         mpcf::float64_t stride) {
-        return mpcf::embed_time_delay(ts, dimension, delay, window, stride);
+         mpcf::float64_t stride, mpcf::float64_t snap_tol) {
+        return mpcf::embed_time_delay(ts, dimension, delay, window, stride,
+                                       snap_tol);
       },
       py::arg("ts"), py::arg("dimension"), py::arg("delay"),
-      py::arg("window") = 0.0, py::arg("stride") = 0.0);
+      py::arg("window") = 0.0, py::arg("stride") = 0.0,
+      py::arg("snap_tol") = mpcf::TimeSeries_f64::default_snap_tol());
 
   // Time delay embedding: tensor of TimeSeries
   m.def("embed_time_delay_tensor_f32",
       [](const mpcf::Tensor<mpcf::TimeSeries_f32>& ts_tensor,
          size_t dimension, mpcf::float32_t delay,
-         mpcf::float32_t window, mpcf::float32_t stride) {
+         mpcf::float32_t window, mpcf::float32_t stride,
+         mpcf::float32_t snap_tol) {
         return mpcf::embed_time_delay(ts_tensor, dimension, delay,
-                                       window, stride);
+                                       window, stride, snap_tol);
       },
       py::arg("ts_tensor"), py::arg("dimension"), py::arg("delay"),
-      py::arg("window") = 0.0f, py::arg("stride") = 0.0f);
+      py::arg("window") = 0.0f, py::arg("stride") = 0.0f,
+      py::arg("snap_tol") = mpcf::TimeSeries_f32::default_snap_tol());
 
   m.def("embed_time_delay_tensor_f64",
       [](const mpcf::Tensor<mpcf::TimeSeries_f64>& ts_tensor,
          size_t dimension, mpcf::float64_t delay,
-         mpcf::float64_t window, mpcf::float64_t stride) {
+         mpcf::float64_t window, mpcf::float64_t stride,
+         mpcf::float64_t snap_tol) {
         return mpcf::embed_time_delay(ts_tensor, dimension, delay,
-                                       window, stride);
+                                       window, stride, snap_tol);
       },
       py::arg("ts_tensor"), py::arg("dimension"), py::arg("delay"),
-      py::arg("window") = 0.0, py::arg("stride") = 0.0);
+      py::arg("window") = 0.0, py::arg("stride") = 0.0,
+      py::arg("snap_tol") = mpcf::TimeSeries_f64::default_snap_tol());
 }
