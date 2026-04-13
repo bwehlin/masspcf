@@ -17,12 +17,14 @@ from .embedding import TimeDelayEmbedding
 from .homology import PersistentHomology
 from .kernel import PcfKernelTransformer
 from .reductions import Mean
+from .select import Select
 from .stable_rank import StableRank
 
 __all__ = [
     "TimeDelayEmbedding",
     "PersistentHomology",
     "StableRank",
+    "Select",
     "Mean",
     "PcfKernelTransformer",
 ]

@@ -10,6 +10,7 @@ from masspcf.sklearn import (
     Mean,
     PcfKernelTransformer,
     PersistentHomology,
+    Select,
     StableRank,
     TimeDelayEmbedding,
 )
@@ -119,18 +120,18 @@ class TestStableRank:
         sranks = sr.fit_transform(barcodes)
         assert sranks.shape == barcodes.shape
 
-    def test_dim_selection(self, sample_arrays):
+    def test_select_dim(self, sample_arrays):
         X, _ = sample_arrays
         clouds = TimeDelayEmbedding(
             dimension=2, delay=2.0, time_step=1.0).transform(X)
         barcodes = PersistentHomology(max_dim=1).transform(clouds)
 
-        sr = StableRank(dim=1)
-        sranks = sr.transform(barcodes)
+        sranks = StableRank().transform(barcodes)
+        selected = Select((..., 1)).transform(sranks)
         # Should have dropped the last axis
-        assert len(sranks.shape) == len(barcodes.shape) - 1
+        assert len(selected.shape) == len(barcodes.shape) - 1
 
-    def test_dim_with_mean_reduction(self, sample_arrays):
+    def test_select_dim_with_mean_reduction(self, sample_arrays):
         X, _ = sample_arrays
         clouds = TimeDelayEmbedding(
             dimension=2, delay=2.0, time_step=1.0,
@@ -138,10 +139,10 @@ class TestStableRank:
         barcodes = PersistentHomology(max_dim=1).transform(clouds)
 
         # Shape: (8, n_windows, 2)
-        sr = StableRank(dim=1)
-        sranks = sr.transform(barcodes)
+        sranks = StableRank().transform(barcodes)
+        selected = Select((..., 1)).transform(sranks)
         # Shape: (8, n_windows)
-        reduced = Mean().transform(sranks)
+        reduced = Mean().transform(selected)
         # Should be (8,) -- one PCF per instance
         assert reduced.shape == (8,)
 
@@ -152,8 +153,9 @@ class TestStableRank:
             window=8.0, stride=4.0).transform(X)
         barcodes = PersistentHomology(max_dim=1).transform(clouds)
 
-        sranks = StableRank(dim=1).transform(barcodes)
-        reduced = Mean(dim=1).transform(sranks)
+        sranks = StableRank().transform(barcodes)
+        selected = Select((..., 1)).transform(sranks)
+        reduced = Mean(dim=1).transform(selected)
         assert reduced.shape == (8,)
 
 
@@ -215,7 +217,8 @@ class TestPipeline:
                 dimension=2, delay=2.0, time_step=1.0,
                 window=8.0, stride=4.0)),
             ("ph", PersistentHomology(max_dim=1)),
-            ("sr", StableRank(dim=1)),
+            ("sr", StableRank()),
+            ("sel", Select((..., 1))),
             ("mean", Mean()),
             ("kernel", PcfKernelTransformer()),
             ("svc", SVC(kernel="precomputed")),
@@ -235,7 +238,8 @@ class TestPipeline:
                 dimension=2, delay=2.0, time_step=1.0,
                 window=8.0, stride=4.0)),
             ("ph", PersistentHomology(max_dim=1)),
-            ("sr", StableRank(dim=1)),
+            ("sr", StableRank()),
+            ("sel", Select((..., 1))),
             ("mean", Mean()),
             ("kernel", PcfKernelTransformer()),
             ("svc", SVC(kernel="precomputed")),
@@ -248,7 +252,8 @@ class TestPipeline:
         pipe = Pipeline([
             ("embed", TimeDelayEmbedding(dimension=2, delay=0.3)),
             ("ph", PersistentHomology(max_dim=1)),
-            ("sr", StableRank(dim=1)),
+            ("sr", StableRank()),
+            ("sel", Select((..., 1))),
             ("mean", Mean()),
             ("kernel", PcfKernelTransformer()),
             ("svc", SVC(kernel="precomputed")),
@@ -257,7 +262,7 @@ class TestPipeline:
         assert params["embed__dimension"] == 2
         assert params["embed__delay"] == 0.3
         assert params["ph__max_dim"] == 1
-        assert params["sr__dim"] == 1
+        assert params["sel__index"] == (..., 1)
 
 
 # ---------------------------------------------------------------------------
@@ -319,3 +324,102 @@ class TestPcfKernelFitTransformConsistency:
         K_seq = kt2.transform(X)
 
         np.testing.assert_allclose(K_opt, K_seq, rtol=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# Clone compatibility
+# ---------------------------------------------------------------------------
+
+
+class TestCloneCompatibility:
+    def test_clone_time_delay_embedding(self):
+        from sklearn.base import clone
+        emb = TimeDelayEmbedding(dimension=3, delay=0.5, time_step=0.1)
+        cloned = clone(emb)
+        assert cloned.dimension == 3
+        assert cloned.delay == 0.5
+        assert cloned.time_step == 0.1
+
+    def test_clone_persistent_homology(self):
+        from sklearn.base import clone
+        ph = PersistentHomology(max_dim=2, reduced=True)
+        cloned = clone(ph)
+        assert cloned.max_dim == 2
+        assert cloned.reduced is True
+
+    def test_clone_stable_rank(self):
+        from sklearn.base import clone
+        sr = StableRank(verbose=True)
+        cloned = clone(sr)
+        assert cloned.verbose is True
+
+    def test_clone_select(self):
+        from sklearn.base import clone
+        s = Select(index=(..., 1))
+        cloned = clone(s)
+        assert cloned.index == (..., 1)
+
+    def test_clone_mean(self):
+        from sklearn.base import clone
+        m = Mean(dim=0)
+        cloned = clone(m)
+        assert cloned.dim == 0
+
+    def test_clone_pcf_kernel(self):
+        from sklearn.base import clone
+        kt = PcfKernelTransformer(verbose=True)
+        cloned = clone(kt)
+        assert cloned.verbose is True
+
+
+# ---------------------------------------------------------------------------
+# PersistentHomology reduced parameter
+# ---------------------------------------------------------------------------
+
+
+class TestPersistentHomologyReduced:
+    def test_reduced_homology(self, sample_arrays):
+        """reduced=True produces different output than reduced=False."""
+        X, _ = sample_arrays
+        clouds = TimeDelayEmbedding(
+            dimension=2, delay=2.0, time_step=1.0).transform(X)
+        barcodes_full = PersistentHomology(
+            max_dim=1, reduced=False).transform(clouds)
+        barcodes_reduced = PersistentHomology(
+            max_dim=1, reduced=True).transform(clouds)
+        # Both should produce valid output
+        assert barcodes_full.shape[0] == 8
+        assert barcodes_reduced.shape[0] == 8
+
+
+# ---------------------------------------------------------------------------
+# End-to-end pipeline from TimeSeries objects
+# ---------------------------------------------------------------------------
+
+
+class TestTimeSeriesPipeline:
+    def test_timeseries_to_classification(self):
+        """Full pipeline starting from TimeSeries objects through to
+        kernel classification."""
+        rng = np.random.default_rng(123)
+        series = []
+        for _ in range(6):
+            series.append(mpcf.TimeSeries(
+                rng.standard_normal(30), start_time=0.0, time_step=0.1))
+        tensor = mpcf.TimeSeriesTensor(series)
+        y = np.array(["a", "a", "a", "b", "b", "b"])
+
+        pipe = Pipeline([
+            ("embed", TimeDelayEmbedding(
+                dimension=2, delay=0.3, window=1.0, stride=0.5)),
+            ("ph", PersistentHomology(max_dim=1)),
+            ("sr", StableRank()),
+            ("sel", Select((..., 1))),
+            ("mean", Mean()),
+            ("kernel", PcfKernelTransformer()),
+            ("svc", SVC(kernel="precomputed")),
+        ])
+        pipe.fit(tensor, y)
+        preds = pipe.predict(tensor)
+        assert len(preds) == 6
+        assert set(preds).issubset({"a", "b"})

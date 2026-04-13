@@ -67,6 +67,40 @@ class TestScalarIndexing:
         assert t[1, 2] == np_arr[1, 2]
 
 
+class TestEllipsis:
+    def test_ellipsis_select_last_axis(self):
+        arr = _populate(np.zeros((2, 3, 4), dtype=np.float64))
+        _assert_extract(arr, (..., 1))
+
+    def test_ellipsis_select_first_axis(self):
+        arr = _populate(np.zeros((2, 3, 4), dtype=np.float64))
+        _assert_extract(arr, (0, ...))
+
+    def test_ellipsis_middle(self):
+        arr = _populate(np.zeros((2, 3, 4), dtype=np.float64))
+        _assert_extract(arr, (0, ..., 2))
+
+    def test_ellipsis_all_axes(self):
+        """Ellipsis alone is equivalent to [:, :, :]."""
+        arr = _populate(np.zeros((2, 3), dtype=np.float64))
+        _assert_extract(arr, (...,))
+
+    def test_ellipsis_with_slice(self):
+        arr = _populate(np.zeros((2, 3, 4), dtype=np.float64))
+        _assert_extract(arr, np.s_[..., 1:3])
+
+    def test_ellipsis_1d(self):
+        arr = np.array([10.0, 20.0, 30.0])
+        t = mpcf.FloatTensor(arr)
+        assert t[..., 1] == arr[..., 1]
+
+    def test_double_ellipsis_raises(self):
+        arr = np.array([[1.0, 2.0], [3.0, 4.0]])
+        t = mpcf.FloatTensor(arr)
+        with pytest.raises(IndexError, match="only one ellipsis"):
+            t[..., ..., 0]
+
+
 @pytest.mark.parametrize("TensorType, np_dtype", _NUMERIC_TYPES)
 class TestCopy:
     def test_copy(self, TensorType, np_dtype):

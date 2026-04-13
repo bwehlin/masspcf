@@ -57,6 +57,7 @@ scikit-learn estimator::
        TimeDelayEmbedding,
        PersistentHomology,
        StableRank,
+       Select,
        Mean,
        PcfKernelTransformer,
    )
@@ -66,7 +67,8 @@ scikit-learn estimator::
            dimension=2, delay=0.3, time_step=0.1,
            window=3.0, stride=1.5)),
        ("ph", PersistentHomology(max_dim=1)),
-       ("sr", StableRank(dim=1)),
+       ("sr", StableRank()),
+       ("sel", Select((..., 1))),
        ("mean", Mean()),
        ("kernel", PcfKernelTransformer()),
        ("svc", SVC(kernel="precomputed")),
@@ -120,16 +122,25 @@ StableRank
 ----------
 
 :class:`~masspcf.sklearn.StableRank` converts barcodes to stable rank
-PCFs, with optional dimension selection::
+PCFs::
+
+   sr = StableRank()
+   features = sr.fit_transform(barcodes)  # PcfTensor
+
+
+Select
+------
+
+:class:`~masspcf.sklearn.Select` applies an index expression to a
+tensor (equivalent to ``X[index]``).  Useful for picking a homology
+dimension or slicing axes::
 
    # Extract H1 stable ranks
-   sr = StableRank(dim=1)
-   features = sr.fit_transform(barcodes)  # PcfTensor
+   Select((..., 1)).transform(sranks)
 
 Parameters:
 
-- ``dim``: select a specific homology dimension from the last axis
-  (e.g. ``1`` for H1).
+- ``index``: index expression to apply, e.g. ``(..., 1)``.
 
 
 Mean

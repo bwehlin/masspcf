@@ -137,6 +137,18 @@ class Tensor(ABC):
             f"can be converted to NumPy arrays."
         )
 
+    def _expand_ellipsis(self, slices):
+        """Replace ``Ellipsis`` with the right number of ``slice(None)``."""
+        if Ellipsis not in slices:
+            return slices
+        n_ellipsis = slices.count(Ellipsis)
+        if n_ellipsis > 1:
+            raise IndexError("only one ellipsis allowed in an index")
+        pos = slices.index(Ellipsis)
+        n_explicit = len(slices) - 1  # everything except the Ellipsis
+        n_fill = len(self.shape) - n_explicit
+        return slices[:pos] + (slice(None),) * n_fill + slices[pos + 1:]
+
     @staticmethod
     def _coerce_index_arrays(slices):
         """Convert numpy bool/int arrays in an index tuple to BoolTensor/IntTensor."""
@@ -161,6 +173,7 @@ class Tensor(ABC):
         from .tensor import BoolTensor, IntTensor
 
         slices = self._coerce_index_arrays(slices)
+        slices = self._expand_ellipsis(slices)
 
         # Collect advanced index positions (BoolTensor or IntTensor)
         advanced = [(i, s) for i, s in enumerate(slices) if isinstance(s, (BoolTensor, IntTensor))]
