@@ -186,6 +186,18 @@ class TimeSeries:
         Interpolation mode: ``'nearest'`` (default) returns the value of
         the left breakpoint (piecewise constant), ``'linear'`` linearly
         interpolates between adjacent breakpoints.
+
+    Notes
+    -----
+    **Datetime precision.** Times are stored internally as float64
+    seconds. Float64 has about 15--16 significant digits, so precision
+    degrades for times far from zero. Near the current epoch (~1.7e9 s),
+    the smallest representable difference is roughly 200 ns. Near time
+    zero, the full precision of the input unit is preserved.
+
+    **Timezone handling.** All ``datetime64`` values must be
+    timezone-naive. If you have timezone-aware timestamps, convert to
+    UTC and strip the timezone before constructing a ``TimeSeries``.
     """
 
     _NP_TO_CPP_TS = {

@@ -134,6 +134,19 @@ converted exactly via ``std::chrono``. For variable-length units (``M``
 and ``Y``), numpy's calendar-aware arithmetic computes exact dates, which
 are then converted to float seconds (no approximation).
 
+.. note::
+
+   **Precision.** Times are stored as float64 seconds. Float64 has
+   about 15--16 significant digits, so precision degrades for times far
+   from zero. Near the current epoch (~1.7 × 10\ :sup:`9` s), the
+   smallest representable difference is roughly 200 ns. Near time zero,
+   the full precision of the input unit is preserved.
+
+   **Timezones.** All ``datetime64`` values must be timezone-naive
+   (numpy's ``datetime64`` does not carry timezone information). If you
+   have timezone-aware timestamps, convert to UTC and strip the timezone
+   before constructing a ``TimeSeries``.
+
 
 Multi-channel time series
 =========================
