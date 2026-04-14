@@ -21,15 +21,17 @@ import masspcf as mpcf
 from masspcf.timeseries import TimeSeries, TimeSeriesTensor
 
 
+def _save_load(obj):
+    """Save *obj* to an in-memory buffer and load it back."""
+    buf = io.BytesIO()
+    mpcf.save(obj, buf)
+    buf.seek(0)
+    return mpcf.load(buf)
+
+
 def test_float32_tensor_roundtrip():
     original = mpcf.FloatTensor(np.random.randn(2, 3))
-
-    buf = io.BytesIO()
-    mpcf.save(original, buf)
-
-    buf.seek(0)  # rewind before reading!
-    restored = mpcf.load(buf)
-
+    restored = _save_load(original)
     assert original.array_equal(restored)
 
 
@@ -50,11 +52,7 @@ def test_symmetric_matrix_tensor_roundtrip(symmat_dtype, scalar_dtype):
     T[0] = _make_symmetric_matrix(3, scalar_dtype)
     T[1] = _make_symmetric_matrix(4, scalar_dtype)
 
-    buf = io.BytesIO()
-    mpcf.save(T, buf)
-
-    buf.seek(0)
-    restored = mpcf.load(buf)
+    restored = _save_load(T)
 
     assert type(restored) is type(T)
     assert restored.shape == T.shape
@@ -70,11 +68,7 @@ def test_symmetric_matrix_tensor_roundtrip_empty(symmat_dtype, scalar_dtype):
     T = mpcf.zeros((1,), dtype=symmat_dtype)
     T[0] = mpcf.SymmetricMatrix(0, dtype=scalar_dtype)
 
-    buf = io.BytesIO()
-    mpcf.save(T, buf)
-
-    buf.seek(0)
-    restored = mpcf.load(buf)
+    restored = _save_load(T)
 
     assert type(restored) is type(T)
     assert restored.shape == T.shape
@@ -98,11 +92,7 @@ def test_distance_matrix_tensor_roundtrip(distmat_dtype, scalar_dtype):
     T[0] = _make_distance_matrix(3, scalar_dtype)
     T[1] = _make_distance_matrix(4, scalar_dtype)
 
-    buf = io.BytesIO()
-    mpcf.save(T, buf)
-
-    buf.seek(0)
-    restored = mpcf.load(buf)
+    restored = _save_load(T)
 
     assert type(restored) is type(T)
     assert restored.shape == T.shape
@@ -118,11 +108,7 @@ def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
     T = mpcf.zeros((1,), dtype=distmat_dtype)
     T[0] = mpcf.DistanceMatrix(0, dtype=scalar_dtype)
 
-    buf = io.BytesIO()
-    mpcf.save(T, buf)
-
-    buf.seek(0)
-    restored = mpcf.load(buf)
+    restored = _save_load(T)
 
     assert type(restored) is type(T)
     assert restored.shape == T.shape
@@ -141,11 +127,7 @@ def test_timeseries_tensor_roundtrip(ts_dtype):
                      start_time=10.0, time_step=0.5, dtype=ts_dtype)
     T = TimeSeriesTensor([ts1, ts2])
 
-    buf = io.BytesIO()
-    mpcf.save(T, buf)
-
-    buf.seek(0)
-    restored = mpcf.load(buf)
+    restored = _save_load(T)
 
     assert type(restored) is type(T)
     assert restored.dtype == T.dtype
@@ -157,11 +139,7 @@ def test_timeseries_object_roundtrip():
     ts = TimeSeries(np.array([10.0, 20.0, 30.0]),
                     start_time=5.0, time_step=0.25)
 
-    buf = io.BytesIO()
-    mpcf.save(ts, buf)
-
-    buf.seek(0)
-    restored = mpcf.load(buf)
+    restored = _save_load(ts)
 
     assert isinstance(restored, TimeSeries)
     assert restored == ts
