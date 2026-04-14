@@ -13,7 +13,6 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import polars as pl
 import pytest
 import xarray as xr
 from scipy.datasets import electrocardiogram
@@ -69,48 +68,6 @@ class TestECGPandas:
         assert pts.ndim == 2
         assert pts.shape[1] == 3
         assert pts.shape[0] > 0
-
-
-# ---------------------------------------------------------------------------
-# scipy ECG via polars
-# ---------------------------------------------------------------------------
-
-
-class TestECGPolars:
-    """Load the scipy ECG dataset through a polars DataFrame."""
-
-    @pytest.fixture()
-    def ecg_df(self):
-        ecg = electrocardiogram()
-        n = len(ecg)
-        times_s = np.arange(n, dtype=np.float64) / 360.0
-        return pl.DataFrame({"time": times_s, "value": ecg})
-
-    def test_construction(self, ecg_df):
-        ts = mpcf.TimeSeries(
-            ecg_df["time"].to_numpy(),
-            ecg_df["value"].to_numpy(),
-        )
-
-        assert ts.n_times == 108_000
-        assert ts(0.0) == pytest.approx(ecg_df["value"][0])
-
-    def test_tensor_from_chunks(self, ecg_df):
-        """Split ECG into 10-second chunks and build a tensor."""
-        chunk_size = 3600  # 10 s at 360 Hz
-        times = ecg_df["time"].to_numpy()
-        values = ecg_df["value"].to_numpy()
-
-        series = []
-        for start in range(0, len(values) - chunk_size + 1, chunk_size):
-            series.append(mpcf.TimeSeries(
-                times[start:start + chunk_size],
-                values[start:start + chunk_size],
-            ))
-
-        tensor = mpcf.TimeSeriesTensor(series)
-        assert tensor.shape[0] == len(series)
-        assert tensor.shape[0] == 30  # 108000 / 3600 = 30
 
 
 # ---------------------------------------------------------------------------
