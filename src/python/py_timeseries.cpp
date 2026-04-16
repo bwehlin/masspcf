@@ -22,6 +22,7 @@
 #include <mpcf/algorithms/embed_time_delay.hpp>
 #include <mpcf/functional/pcf.hpp>
 #include <mpcf/persistence/barcode.hpp>
+#include <mpcf/tensor.hpp>
 
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
@@ -549,6 +550,23 @@ void mpcf_py::register_timeseries(pybind11::module_& m)
       m, "_f32_barcode32");
   register_interpolation_strategies<mpcf::float64_t, mpcf::ph::Barcode<mpcf::float64_t>>(
       m, "_f64_barcode64");
+  // Tensor-valued element types (point cloud, PcfTensor, BarcodeTensor).
+  register_interpolation_strategies<mpcf::float32_t, mpcf::PointCloud<mpcf::float32_t>>(
+      m, "_f32_pcloud32");
+  register_interpolation_strategies<mpcf::float64_t, mpcf::PointCloud<mpcf::float64_t>>(
+      m, "_f64_pcloud64");
+  register_interpolation_strategies<mpcf::float32_t,
+      mpcf::Tensor<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>>(
+          m, "_f32_pcftensor32");
+  register_interpolation_strategies<mpcf::float64_t,
+      mpcf::Tensor<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>>(
+          m, "_f64_pcftensor64");
+  register_interpolation_strategies<mpcf::float32_t,
+      mpcf::Tensor<mpcf::ph::Barcode<mpcf::float32_t>>>(
+          m, "_f32_bctensor32");
+  register_interpolation_strategies<mpcf::float64_t,
+      mpcf::Tensor<mpcf::ph::Barcode<mpcf::float64_t>>>(
+          m, "_f64_bctensor64");
 
   PyTimeSeriesBindings<mpcf::float32_t, mpcf::float32_t>::register_bindings(m, "_f32_f32");
   PyTimeSeriesBindings<mpcf::float64_t, mpcf::float64_t>::register_bindings(m, "_f64_f64");
@@ -560,6 +578,23 @@ void mpcf_py::register_timeseries(pybind11::module_& m)
       register_bindings(m, "_f32_barcode32");
   PyTimeSeriesBindings<mpcf::float64_t, mpcf::ph::Barcode<mpcf::float64_t>>::
       register_bindings(m, "_f64_barcode64");
+  // Tensor-valued element types.
+  PyTimeSeriesBindings<mpcf::float32_t, mpcf::PointCloud<mpcf::float32_t>>::
+      register_bindings(m, "_f32_pcloud32");
+  PyTimeSeriesBindings<mpcf::float64_t, mpcf::PointCloud<mpcf::float64_t>>::
+      register_bindings(m, "_f64_pcloud64");
+  PyTimeSeriesBindings<mpcf::float32_t,
+      mpcf::Tensor<mpcf::Pcf<mpcf::float32_t, mpcf::float32_t>>>::
+          register_bindings(m, "_f32_pcftensor32");
+  PyTimeSeriesBindings<mpcf::float64_t,
+      mpcf::Tensor<mpcf::Pcf<mpcf::float64_t, mpcf::float64_t>>>::
+          register_bindings(m, "_f64_pcftensor64");
+  PyTimeSeriesBindings<mpcf::float32_t,
+      mpcf::Tensor<mpcf::ph::Barcode<mpcf::float32_t>>>::
+          register_bindings(m, "_f32_bctensor32");
+  PyTimeSeriesBindings<mpcf::float64_t,
+      mpcf::Tensor<mpcf::ph::Barcode<mpcf::float64_t>>>::
+          register_bindings(m, "_f64_bctensor64");
 
   // Time delay embedding: single TimeSeries (scalar only)
   m.def("embed_time_delay_f32",

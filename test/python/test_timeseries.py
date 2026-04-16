@@ -12,7 +12,7 @@ class TestTimeSeriesConstruction:
         assert ts.n_times == 3
         assert ts.n_channels == 1
         assert ts.start_time == 0.0
-        assert ts.dtype == mpcf.ts64
+        assert ts.dtype == mpcf.float64
 
     def test_from_values_custom_start_and_step(self):
         ts = mpcf.TimeSeries(np.array([10.0, 20.0]),
@@ -22,11 +22,11 @@ class TestTimeSeriesConstruction:
 
     def test_from_values_float32(self):
         ts = mpcf.TimeSeries(np.array([1.0, 2.0], dtype=np.float32))
-        assert ts.dtype == mpcf.ts32
+        assert ts.dtype == mpcf.float32
 
     def test_from_values_explicit_dtype(self):
-        ts = mpcf.TimeSeries(np.array([1.0, 2.0]), dtype=mpcf.ts32)
-        assert ts.dtype == mpcf.ts32
+        ts = mpcf.TimeSeries(np.array([1.0, 2.0]), dtype=mpcf.float32)
+        assert ts.dtype == mpcf.float32
 
     def test_from_times_and_values(self):
         times = np.array([5.0, 6.0, 8.0])
@@ -60,7 +60,7 @@ class TestTimeSeriesConstruction:
     def test_from_list(self):
         ts = mpcf.TimeSeries([5.0, 10.0, 15.0])
         assert ts.n_times == 3
-        assert ts.dtype == mpcf.ts64
+        assert ts.dtype == mpcf.float64
 
     def test_from_values_datetime_start(self):
         epoch = np.datetime64("2024-01-01T00:00:00")
@@ -503,7 +503,7 @@ class TestTimeSeriesTensor:
     def test_dtype(self):
         ts = mpcf.TimeSeries(np.array([1.0, 2.0]))
         tensor = mpcf.TimeSeriesTensor([ts])
-        assert tensor.dtype == mpcf.ts64
+        assert tensor.dtype == mpcf.float64
 
     def test_eval_array(self):
         ts1 = mpcf.TimeSeries(np.array([1.0, 2.0, 3.0]),
@@ -517,19 +517,13 @@ class TestTimeSeriesTensor:
 
 
 class TestTimeSeriesDtype:
-    def test_ts32_dtype(self):
-        assert str(mpcf.ts32) == "ts32"
-
-    def test_ts64_dtype(self):
-        assert str(mpcf.ts64) == "ts64"
-
     def test_dtype_inference_float32(self):
         ts = mpcf.TimeSeries(np.array([1.0, 2.0], dtype=np.float32))
-        assert ts.dtype == mpcf.ts32
+        assert ts.dtype == mpcf.float32
 
     def test_dtype_inference_float64(self):
         ts = mpcf.TimeSeries(np.array([1.0, 2.0], dtype=np.float64))
-        assert ts.dtype == mpcf.ts64
+        assert ts.dtype == mpcf.float64
 
     def test_invalid_dtype_raises(self):
         with pytest.raises(TypeError):

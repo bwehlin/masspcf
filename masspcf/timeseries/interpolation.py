@@ -31,24 +31,38 @@ from __future__ import annotations
 
 from .. import _mpcf_cpp as cpp
 from ..typing import (
-    ts32, ts64,
-    ts_pcf32, ts_pcf64,
-    ts_barcode32, ts_barcode64,
+    barcode32, barcode64,
+    float32, float64,
+    pcf32, pcf64,
 )
 
 
-_DTYPE_SUFFIX = {
-    ts32: "_f32_f32",
-    ts64: "_f64_f64",
-    ts_pcf32: "_f32_pcf32",
-    ts_pcf64: "_f64_pcf64",
-    ts_barcode32: "_f32_barcode32",
-    ts_barcode64: "_f64_barcode64",
+# Map (TimeSeries-class-tag, element-dtype) -> C++ suffix for looking up
+# the right CallableInterpolation_<suffix> class. The class tag lets us
+# distinguish scalar-per-timestep TimeSeries (float32 -> _f32_f32) from
+# tensor-per-timestep TensorTimeSeries (float32 -> _f32_pcloud32).
+_SCALAR_DTYPE_SUFFIX = {
+    float32: "_f32_f32",
+    float64: "_f64_f64",
+    pcf32: "_f32_pcf32",
+    pcf64: "_f64_pcf64",
+    barcode32: "_f32_barcode32",
+    barcode64: "_f64_barcode64",
+}
+
+_TENSOR_DTYPE_SUFFIX = {
+    float32: "_f32_pcloud32",
+    float64: "_f64_pcloud64",
+    pcf32: "_f32_pcftensor32",
+    pcf64: "_f64_pcftensor64",
+    barcode32: "_f32_bctensor32",
+    barcode64: "_f64_bctensor64",
 }
 
 
-def _cpp_class(prefix, dt):
-    suffix = _DTYPE_SUFFIX.get(dt)
+def _cpp_class(prefix, dt, *, tensor_valued=False):
+    suffix_map = _TENSOR_DTYPE_SUFFIX if tensor_valued else _SCALAR_DTYPE_SUFFIX
+    suffix = suffix_map.get(dt)
     if suffix is None:
         raise TypeError(f"Unsupported TimeSeries dtype {dt}")
     name = prefix + suffix
@@ -65,8 +79,12 @@ class InterpolationStrategy:
     strategy for a given :class:`TimeSeries` dtype.
     """
 
-    def _cpp_for(self, dtype):
-        """Return the C++ strategy instance appropriate for *dtype*."""
+    def _cpp_for(self, dtype, *, tensor_valued=False):
+        """Return the C++ strategy instance appropriate for *dtype*.
+
+        `tensor_valued` distinguishes ``TimeSeries`` (scalar/Pcf/Barcode
+        per timestep) from ``TensorTimeSeries`` (Tensor per timestep).
+        """
         raise NotImplementedError
 
 
@@ -91,6 +109,7 @@ class CallableInterpolation(InterpolationStrategy):
             raise TypeError("CallableInterpolation requires a callable")
         self._func = func
 
-    def _cpp_for(self, dtype):
-        cls = _cpp_class("CallableInterpolation", dtype)
+    def _cpp_for(self, dtype, *, tensor_valued=False):
+        cls = _cpp_class("CallableInterpolation", dtype,
+                         tensor_valued=tensor_valued)
         return cls(self._func)

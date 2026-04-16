@@ -23,14 +23,14 @@ from ..persistence.barcode import Barcode
 from ..tensor import PointCloudTensor
 from ..typing import (
     _assert_valid_dtype,
+    barcode32,
+    barcode64,
+    float32,
+    float64,
+    pcf32,
+    pcf64,
     pcloud32,
     pcloud64,
-    ts32,
-    ts64,
-    ts_barcode32,
-    ts_barcode64,
-    ts_pcf32,
-    ts_pcf64,
 )
 from .interpolation import InterpolationStrategy
 
@@ -138,8 +138,8 @@ def _dt64_array_to_ticks(arr):
 
 
 _TS_CPP_TO_DTYPE = {
-    cpp.TimeSeries32Tensor: ts32,
-    cpp.TimeSeries64Tensor: ts64,
+    cpp.TimeSeries32Tensor: float32,
+    cpp.TimeSeries64Tensor: float64,
 }
 
 
@@ -187,7 +187,9 @@ class TimeSeries:
         Default 1.0. When ``timedelta64``, converted to seconds.
         Not used when *times* is provided.
     dtype : masspcf.dtype, optional
-        ``ts32`` or ``ts64``. If ``None``, inferred from data.
+        For scalar series, ``float32`` or ``float64``. If ``None``,
+        inferred from the values array. For object-valued series (PCFs,
+        barcodes), the dtype is always inferred from the first element.
     interpolation : str, optional
         Interpolation mode: ``'nearest'`` (default) returns the value of
         the left breakpoint (piecewise constant), ``'linear'`` linearly
@@ -211,18 +213,20 @@ class TimeSeries:
         np.float64: cpp.TimeSeries_f64_f64,
     }
 
+    # Scalar / Pcf / Barcode per-timestep series. `.dtype` reports the
+    # per-timestep element dtype (float32/64, pcf32/64, barcode32/64).
     _CPP_TO_DTYPE = {
-        cpp.TimeSeries_f32_f32: ts32,
-        cpp.TimeSeries_f64_f64: ts64,
-        cpp.TimeSeries_f32_pcf32: ts_pcf32,
-        cpp.TimeSeries_f64_pcf64: ts_pcf64,
-        cpp.TimeSeries_f32_barcode32: ts_barcode32,
-        cpp.TimeSeries_f64_barcode64: ts_barcode64,
+        cpp.TimeSeries_f32_f32: float32,
+        cpp.TimeSeries_f64_f64: float64,
+        cpp.TimeSeries_f32_pcf32: pcf32,
+        cpp.TimeSeries_f64_pcf64: pcf64,
+        cpp.TimeSeries_f32_barcode32: barcode32,
+        cpp.TimeSeries_f64_barcode64: barcode64,
     }
 
     _DTYPE_TO_NP = {
-        ts32: np.float32,
-        ts64: np.float64,
+        float32: np.float32,
+        float64: np.float64,
     }
 
     # Element C++ type -> (cpp_ts_class, time_np_dtype, element_python_class)
@@ -271,7 +275,7 @@ class TimeSeries:
         # Resolve dtype for values
         def _resolve_dtype(arr):
             if dtype is not None:
-                _assert_valid_dtype(dtype, (ts32, ts64))
+                _assert_valid_dtype(dtype, (float32, float64))
                 return self._DTYPE_TO_NP[dtype]
             if arr.dtype.type in self._NP_TO_CPP_TS:
                 return arr.dtype.type
@@ -420,20 +424,22 @@ class TimeSeries:
 
     def _finalize_interpolation(self, interpolation_enum, interpolation_strategy):
         if interpolation_strategy is not None:
-            cpp_strat = interpolation_strategy._cpp_for(self.dtype)
+            tensor_valued = isinstance(self, TensorTimeSeries)
+            cpp_strat = interpolation_strategy._cpp_for(
+                self.dtype, tensor_valued=tensor_valued)
             self._data.set_strategy(cpp_strat)
         elif interpolation_enum is not None:
             self._data.interpolation = interpolation_enum
 
-    _OBJECT_DTYPES = {ts_pcf32, ts_pcf64, ts_barcode32, ts_barcode64}
+    _OBJECT_DTYPES = {pcf32, pcf64, barcode32, barcode64}
     _OBJECT_PY_WRAPPER = {
-        ts_pcf32: Pcf, ts_pcf64: Pcf,
-        ts_barcode32: Barcode, ts_barcode64: Barcode,
+        pcf32: Pcf, pcf64: Pcf,
+        barcode32: Barcode, barcode64: Barcode,
     }
 
     def _wrap_value(self, v):
-        """Wrap a bare C++ element return (Pcf_*/Barcode*) in its Python
-        wrapper class. Numpy scalars / arrays pass through unchanged."""
+        """Wrap a bare C++ element return in its Python wrapper class.
+        Numpy scalars / arrays pass through unchanged."""
         dt = self.dtype
         if dt not in self._OBJECT_DTYPES:
             return v
@@ -488,7 +494,8 @@ class TimeSeries:
 
     @property
     def dtype(self):
-        """The dtype of this time series (``ts32`` or ``ts64``)."""
+        """The per-element dtype of this time series (``float32`` / ``float64``
+        for scalar series, ``pcf32/64`` for PCF-valued, etc.)."""
         return self._CPP_TO_DTYPE[type(self._data)]
 
     @property
@@ -517,7 +524,9 @@ class TimeSeries:
     @interpolation.setter
     def interpolation(self, value):
         if isinstance(value, InterpolationStrategy):
-            self._data.set_strategy(value._cpp_for(self.dtype))
+            tensor_valued = isinstance(self, TensorTimeSeries)
+            self._data.set_strategy(
+                value._cpp_for(self.dtype, tensor_valued=tensor_valued))
             return
         if value not in _INTERP_STR_TO_CPP:
             raise ValueError(
@@ -593,6 +602,82 @@ class TimeSeries:
         return _unpickle_object, (buf.getvalue(),)
 
 
+class TensorTimeSeries(TimeSeries):
+    """A time series where each sample is a whole ``Tensor`` rather than a
+    single scalar / PCF / barcode.
+
+    Each time step holds a full :class:`FloatTensor`, :class:`PcfTensor`,
+    or :class:`BarcodeTensor`. Common use cases:
+
+    * one point cloud per time step (``FloatTensor`` of shape ``(n_points,
+      n_coords)``): use with :func:`compute_persistent_homology` to get a
+      time series of barcode tensors indexed by homology dimension.
+    * one ``BarcodeTensor`` per time step (what
+      :func:`compute_persistent_homology` returns for a time series of
+      point clouds).
+
+    The :attr:`dtype` reports the element dtype of the per-time-step
+    tensor — ``float32`` / ``float64`` for point clouds, ``pcf32/64`` for
+    PCF tensors, ``barcode32/64`` for barcode tensors — the same dtype
+    you'd get from a bare :class:`FloatTensor`, :class:`PcfTensor`, or
+    :class:`BarcodeTensor`.
+
+    Construction takes ``(times, list_of_tensors)`` just like
+    :class:`TimeSeries`. A list of numpy arrays is accepted for
+    convenience — each array is coerced into a ``FloatTensor``.
+
+    Linear interpolation is explicitly disabled: blending two tensors of
+    different shapes is undefined. Use nearest or supply a
+    :class:`CallableInterpolation`.
+    """
+
+    # Lazy imports to avoid import cycles at module load time.
+    from ..persistence.ph_tensor import BarcodeTensor as _BarcodeTensor
+    from ..tensor import FloatTensor as _FloatTensor, PcfTensor as _PcfTensor
+
+    _CPP_TO_DTYPE = {
+        cpp.TimeSeries_f32_pcloud32: float32,
+        cpp.TimeSeries_f64_pcloud64: float64,
+        cpp.TimeSeries_f32_pcftensor32: pcf32,
+        cpp.TimeSeries_f64_pcftensor64: pcf64,
+        cpp.TimeSeries_f32_bctensor32: barcode32,
+        cpp.TimeSeries_f64_bctensor64: barcode64,
+    }
+
+    _ELEMENT_CPP_TO_CPP_TS = {
+        cpp.Float32Tensor: (cpp.TimeSeries_f32_pcloud32, np.float32, _FloatTensor),
+        cpp.Float64Tensor: (cpp.TimeSeries_f64_pcloud64, np.float64, _FloatTensor),
+        cpp.Pcf32Tensor: (cpp.TimeSeries_f32_pcftensor32, np.float32, _PcfTensor),
+        cpp.Pcf64Tensor: (cpp.TimeSeries_f64_pcftensor64, np.float64, _PcfTensor),
+        cpp.persistence.Barcode32Tensor: (cpp.TimeSeries_f32_bctensor32, np.float32, _BarcodeTensor),
+        cpp.persistence.Barcode64Tensor: (cpp.TimeSeries_f64_bctensor64, np.float64, _BarcodeTensor),
+    }
+
+    _OBJECT_DTYPES = {float32, float64, pcf32, pcf64, barcode32, barcode64}
+    _OBJECT_PY_WRAPPER = {
+        float32: _FloatTensor, float64: _FloatTensor,
+        pcf32: _PcfTensor, pcf64: _PcfTensor,
+        barcode32: _BarcodeTensor, barcode64: _BarcodeTensor,
+    }
+
+    def _init_object_valued(self, times_or_values, values, dtype,
+                            interpolation_enum, interpolation_strategy):
+        # Accept numpy arrays in the values list by wrapping them in a
+        # FloatTensor (dtype promotes integers to float64 by default).
+        values = [self._coerce_ndarray(v) for v in values]
+        return super()._init_object_valued(
+            times_or_values, values, dtype,
+            interpolation_enum, interpolation_strategy)
+
+    @classmethod
+    def _coerce_ndarray(cls, v):
+        if not isinstance(v, np.ndarray):
+            return v
+        if v.dtype == np.float32:
+            return cls._FloatTensor(v)
+        return cls._FloatTensor(v.astype(np.float64, copy=False))
+
+
 class TimeSeriesTensor(Tensor, FunctionTensorMixin):
     """A tensor of :class:`TimeSeries` objects.
 
@@ -621,7 +706,7 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
 
     @property
     def dtype(self):
-        """The dtype of this tensor (``ts32`` or ``ts64``)."""
+        """The dtype of this tensor's per-series element (``float32`` or ``float64``)."""
         return _TS_CPP_TO_DTYPE[type(self._data)]
 
     def __call__(self, t, *, snap_tol=None):
@@ -682,8 +767,8 @@ class TimeSeriesTensor(Tensor, FunctionTensorMixin):
 
 
 _TS_DTYPE_TO_EMBED = {
-    ts32: (cpp.embed_time_delay_f32, cpp.embed_time_delay_tensor_f32, pcloud32),
-    ts64: (cpp.embed_time_delay_f64, cpp.embed_time_delay_tensor_f64, pcloud64),
+    float32: (cpp.embed_time_delay_f32, cpp.embed_time_delay_tensor_f32, pcloud32),
+    float64: (cpp.embed_time_delay_f64, cpp.embed_time_delay_tensor_f64, pcloud64),
 }
 
 

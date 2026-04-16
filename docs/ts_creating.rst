@@ -365,7 +365,7 @@ as the values produces a time series whose values evolve over time::
 
    ts(0.0)   # returns p1 (a Pcf)
    ts(0.3)   # nearest: returns p1
-   ts.dtype  # masspcf.ts_pcf32
+   ts.dtype  # masspcf.pcf32 — the per-element dtype
 
 Evaluation returns a :py:class:`~masspcf.Pcf` (or
 :py:class:`~masspcf.Barcode`, etc.) wrapper rather than a scalar.
@@ -402,10 +402,7 @@ implements it.
 Limitations of the initial version
 ----------------------------------
 
-* The object-valued path always has ``n_channels == 1``. Instead of
-  multi-channel, use a :py:class:`~masspcf.TimeSeriesTensor` (one series
-  per channel) -- though the tensor container is currently scalar-only
-  and will grow object support later.
+* The object-valued path always has ``n_channels == 1``.
 * :py:func:`~masspcf.embed_time_delay` is defined only for scalar time
   series. Embedding a time series of PCFs or barcodes is a planned
   extension.
@@ -413,6 +410,11 @@ Limitations of the initial version
   series in this release.
 * ``datetime64`` time axes are only implemented for scalar series so
   far. Float time axes work for all value types.
+
+
+For per-time-step **tensor** values (point clouds, images, tensors of
+PCFs or barcodes) use :py:class:`~masspcf.TensorTimeSeries` — covered
+in :doc:`ts_tensor`.
 
 
 TimeSeriesTensor
@@ -477,28 +479,21 @@ of each series::
 Dtypes
 ======
 
-Scalar time series use the ``ts32`` and ``ts64`` dtypes::
+``TimeSeries.dtype`` reports the **per-element** dtype — the same dtype
+you'd see on a standalone sample value. Scalar series carry
+``float32`` / ``float64``; PCF-valued series carry ``pcf32`` / ``pcf64``;
+barcode-valued series carry ``barcode32`` / ``barcode64``::
 
    ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float32),
                          start_time=0.0, time_step=1.0)
-   ts.dtype  # masspcf.ts32
+   ts.dtype  # masspcf.float32
 
    ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float64),
                          start_time=0.0, time_step=1.0)
-   ts.dtype  # masspcf.ts64
+   ts.dtype  # masspcf.float64
 
-Use ``ts32`` for lower memory usage, ``ts64`` (the default) for higher
-precision.
+Use ``float32`` for lower memory usage, ``float64`` (the default) for
+higher precision.
 
-Object-valued time series have their own dtypes, determined by the
-element precision:
-
-================  ===========================================
-``ts_pcf32``      time series of 32-bit PCFs
-``ts_pcf64``      time series of 64-bit PCFs
-``ts_barcode32``  time series of 32-bit persistence barcodes
-``ts_barcode64``  time series of 64-bit persistence barcodes
-================  ===========================================
-
-The dtype is inferred from the precision of the first element in the
-list, so there is usually nothing explicit to pass.
+For object-valued series (PCFs, barcodes), the dtype is inferred from
+the first element, so there is usually nothing explicit to pass.

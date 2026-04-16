@@ -54,6 +54,26 @@ namespace mpcf
     { v + v } -> std::convertible_to<Tv>;
   };
 
+  // Forward declaration so the trait below can specialize on Tensor<X>
+  // without pulling in tensor.hpp here.
+  template <typename T>
+  class Tensor;
+
+  /// Trait to explicitly disable `LinearTag` for value types that
+  /// technically satisfy `LinearlyBlendable` but where pointwise blending
+  /// is semantically invalid (e.g., Tensor<X> — blending two tensors with
+  /// different shapes is undefined). `TimeSeries::set_interpolation(Linear)`
+  /// consults this and throws when it's true.
+  template <typename Tv>
+  struct disables_linear_interpolation : std::false_type {};
+
+  template <typename X>
+  struct disables_linear_interpolation<Tensor<X>> : std::true_type {};
+
+  template <typename Tv>
+  inline constexpr bool disables_linear_interpolation_v =
+      disables_linear_interpolation<Tv>::value;
+
   /// Extension point for user-defined interpolation (e.g., optimal transport
   /// for images). Subclass and override `evaluate`; wrap in `CustomStrategy`
   /// and attach via `TimeSeries::set_strategy`.

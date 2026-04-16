@@ -139,4 +139,25 @@ TEST(TimeSeriesBarcode, SetLinearInterpolationThrows)
                std::invalid_argument);
 }
 
+// ============================================================================
+// Tensor-valued TimeSeries: Linear explicitly disabled via trait
+// ============================================================================
+
+TEST(TimeSeriesPointCloud, SetLinearInterpolationThrows)
+{
+  // PointCloud<T> = Tensor<T> satisfies LinearlyBlendable syntactically,
+  // but blending two tensors with differing shapes is undefined. The
+  // disables_linear_interpolation trait suppresses the Linear path.
+  mpcf::TimeSeries<float, mpcf::PointCloud<float>> ts;
+  EXPECT_THROW(ts.set_interpolation(mpcf::InterpolationMode::Linear),
+               std::invalid_argument);
+}
+
+TEST(TimeSeriesBctensor, SetLinearInterpolationThrows)
+{
+  mpcf::TimeSeries<float, mpcf::Tensor<Barcode32>> ts;
+  EXPECT_THROW(ts.set_interpolation(mpcf::InterpolationMode::Linear),
+               std::invalid_argument);
+}
+
 }  // namespace

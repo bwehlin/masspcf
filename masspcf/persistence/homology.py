@@ -26,7 +26,12 @@ from ..tensor import (
     FloatTensor,
     PointCloudTensor,
 )
-from ..typing import barcode32, barcode64, distmat32, distmat64, float32, float64, pcloud32, pcloud64
+from ..typing import (
+    barcode32, barcode64,
+    distmat32, distmat64,
+    float32, float64,
+    pcloud32, pcloud64,
+)
 from .ph_tensor import BarcodeTensor
 
 cpp_p = cpp.persistence
@@ -98,7 +103,40 @@ def compute_persistent_homology(
     """
 
     from ..tensor_create import zeros
+    from ..timeseries import TensorTimeSeries
     from .ripser import _compute_barcodes_distmat_ripser, _compute_barcodes_euclidean_pcloud_ripser
+
+    # --- TensorTimeSeries of point clouds -> TensorTimeSeries of barcode tensors ---
+    if isinstance(X, TensorTimeSeries) and X.dtype in (float32, float64):
+        if X.n_channels != 1:
+            raise ValueError(
+                "compute_persistent_homology only accepts single-channel "
+                "TensorTimeSeries inputs")
+        if complex_type != ComplexType.VietorisRips:
+            raise ValueError(f"Unsupported complex type {complex_type}")
+        if distance_type != DistanceType.Euclidean:
+            raise ValueError(
+                f"Distance type {distance_type} not supported for complex type {complex_type}.")
+
+        clouds = X.values  # list of FloatTensor, one per timestep
+        n_times = len(clouds)
+        pcloud_dtype = pcloud32 if X.dtype is float32 else pcloud64
+        barcode_dtype = _PCLOUD_TO_BARCODE_DTYPE[pcloud_dtype]
+
+        # Bundle the per-timestep point clouds into a 1-D PointCloudTensor
+        # so we can make a single batched Ripser call.
+        pclouds = zeros((n_times,), dtype=pcloud_dtype)
+        for i, pc in enumerate(clouds):
+            pclouds[i] = pc
+
+        out = zeros((n_times, max_dim + 1), dtype=barcode_dtype)
+        task = _compute_barcodes_euclidean_pcloud_ripser(
+            pclouds, out, max_dim, reduced)
+        _run_task(lambda: task, verbose=verbose)
+
+        # Split row-wise: each timestep owns a BarcodeTensor of shape (max_dim+1,).
+        per_step = [out[i] for i in range(n_times)]
+        return TensorTimeSeries(X.times, per_step)
 
     # --- Distance matrix input path ---
     if isinstance(X, (DistanceMatrix, DistanceMatrixTensor)):

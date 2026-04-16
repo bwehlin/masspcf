@@ -182,7 +182,7 @@ def test_pickle_symmetric_matrix():
 
 def test_pickle_timeseries_f32():
     ts = TimeSeries(np.array([1.0, 2.0, 3.0], dtype=np.float32),
-                    start_time=0.0, time_step=1.0, dtype=mpcf.ts32)
+                    start_time=0.0, time_step=1.0, dtype=mpcf.float32)
     restored = _pickle_roundtrip(ts)
     assert isinstance(restored, TimeSeries)
     assert restored == ts
@@ -190,7 +190,7 @@ def test_pickle_timeseries_f32():
 
 def test_pickle_timeseries_f64():
     ts = TimeSeries(np.array([10.0, 20.0, 30.0], dtype=np.float64),
-                    start_time=5.0, time_step=0.5, dtype=mpcf.ts64)
+                    start_time=5.0, time_step=0.5, dtype=mpcf.float64)
     restored = _pickle_roundtrip(ts)
     assert isinstance(restored, TimeSeries)
     assert restored == ts
@@ -221,15 +221,15 @@ def test_pickle_timeseries_linear_interpolation():
 
 def test_pickle_timeseries32_tensor():
     ts1 = TimeSeries(np.array([1.0, 2.0], dtype=np.float32),
-                     start_time=0.0, time_step=1.0, dtype=mpcf.ts32)
+                     start_time=0.0, time_step=1.0, dtype=mpcf.float32)
     ts2 = TimeSeries(np.array([3.0, 4.0], dtype=np.float32),
-                     start_time=0.0, time_step=1.0, dtype=mpcf.ts32)
+                     start_time=0.0, time_step=1.0, dtype=mpcf.float32)
     _assert_tensor_roundtrip(TimeSeriesTensor([ts1, ts2]))
 
 
 def test_pickle_timeseries64_tensor():
     ts1 = TimeSeries(np.array([1.0, 2.0], dtype=np.float64),
-                     start_time=0.0, time_step=1.0, dtype=mpcf.ts64)
+                     start_time=0.0, time_step=1.0, dtype=mpcf.float64)
     ts2 = TimeSeries(np.array([3.0, 4.0], dtype=np.float64),
-                     start_time=0.0, time_step=1.0, dtype=mpcf.ts64)
+                     start_time=0.0, time_step=1.0, dtype=mpcf.float64)
     _assert_tensor_roundtrip(TimeSeriesTensor([ts1, ts2]))

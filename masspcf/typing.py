@@ -79,13 +79,8 @@ symmat64 = dtype("symmat64", "64-bit symmetric matrix dtype.")
 distmat32 = dtype("distmat32", "32-bit distance matrix dtype.")
 distmat64 = dtype("distmat64", "64-bit distance matrix dtype.")
 
-# Time series dtypes
-ts32 = dtype("ts32", "32-bit scalar time series dtype.")
-ts64 = dtype("ts64", "64-bit scalar time series dtype.")
-ts_pcf32 = dtype("ts_pcf32", "Time series of 32-bit PCFs.")
-ts_pcf64 = dtype("ts_pcf64", "Time series of 64-bit PCFs.")
-ts_barcode32 = dtype("ts_barcode32", "Time series of 32-bit persistence barcodes.")
-ts_barcode64 = dtype("ts_barcode64", "Time series of 64-bit persistence barcodes.")
+# TimeSeries and TensorTimeSeries don't get their own dtypes; their
+# `.dtype` reports the per-element dtype (float32 / pcf32 / barcode32 / ...).
 
 # Boolean
 boolean = dtype("boolean", "Boolean dtype.")
@@ -147,7 +142,6 @@ def _init_dtype_wrappers():
     if _DTYPE_TO_WRAPPER:
         return
     from .tensor import FloatTensor, IntTensor, PcfTensor, IntPcfTensor, PointCloudTensor
-    from .timeseries import TimeSeriesTensor
     _DTYPE_TO_WRAPPER.update({
         float32: FloatTensor, float64: FloatTensor,
         int32: IntTensor, int64: IntTensor,
@@ -155,5 +149,4 @@ def _init_dtype_wrappers():
         pcf32: PcfTensor, pcf64: PcfTensor,
         pcf32i: IntPcfTensor, pcf64i: IntPcfTensor,
         pcloud32: PointCloudTensor, pcloud64: PointCloudTensor,
-        ts32: TimeSeriesTensor, ts64: TimeSeriesTensor,
     })

@@ -14,6 +14,11 @@ Classes
    :undoc-members:
    :show-inheritance:
 
+.. autoclass:: masspcf.timeseries.TensorTimeSeries
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. autoclass:: masspcf.timeseries.TimeSeriesTensor
    :members:
    :undoc-members:

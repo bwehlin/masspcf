@@ -139,12 +139,16 @@ namespace mpcf
     }
 
     /// Set the built-in interpolation mode. Throws if `mode` is `Linear`
-    /// and `Tv` does not satisfy `LinearlyBlendable<Tt, Tv>` (e.g., Barcode).
+    /// and `Tv` does not satisfy `LinearlyBlendable<Tt, Tv>` (e.g., Barcode),
+    /// or if `Tv` is explicitly marked via `disables_linear_interpolation`
+    /// (e.g., Tensor<X> — syntactically blendable but semantically invalid
+    /// across tensors of different shapes).
     void set_interpolation(InterpolationMode mode)
     {
       if (mode == InterpolationMode::Linear)
       {
-        if constexpr (LinearlyBlendable<Tt, Tv>)
+        if constexpr (LinearlyBlendable<Tt, Tv>
+                      && !disables_linear_interpolation_v<Tv>)
         {
           m_interp = LinearTag{};
           return;

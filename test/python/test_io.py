@@ -118,9 +118,9 @@ def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
 # --- TimeSeries ---
 
 
-@pytest.mark.parametrize("ts_dtype", [mpcf.ts32, mpcf.ts64])
+@pytest.mark.parametrize("ts_dtype", [mpcf.float32, mpcf.float64])
 def test_timeseries_tensor_roundtrip(ts_dtype):
-    np_dtype = np.float32 if ts_dtype == mpcf.ts32 else np.float64
+    np_dtype = np.float32 if ts_dtype == mpcf.float32 else np.float64
     ts1 = TimeSeries(np.array([1.0, 2.0, 3.0], dtype=np_dtype),
                      start_time=0.0, time_step=1.0, dtype=ts_dtype)
     ts2 = TimeSeries(np.array([4.0, 5.0, 6.0], dtype=np_dtype),

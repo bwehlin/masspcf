@@ -14,7 +14,12 @@
 
 __before = set(dir())
 
-from .timeseries import TimeSeries, TimeSeriesTensor, embed_time_delay
+from .timeseries import (
+    TensorTimeSeries,
+    TimeSeries,
+    TimeSeriesTensor,
+    embed_time_delay,
+)
 from .interpolation import (
     CallableInterpolation,
     InterpolationStrategy,
