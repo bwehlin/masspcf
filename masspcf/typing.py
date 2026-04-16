@@ -80,8 +80,12 @@ distmat32 = dtype("distmat32", "32-bit distance matrix dtype.")
 distmat64 = dtype("distmat64", "64-bit distance matrix dtype.")
 
 # Time series dtypes
-ts32 = dtype("ts32", "32-bit time series dtype.")
-ts64 = dtype("ts64", "64-bit time series dtype.")
+ts32 = dtype("ts32", "32-bit scalar time series dtype.")
+ts64 = dtype("ts64", "64-bit scalar time series dtype.")
+ts_pcf32 = dtype("ts_pcf32", "Time series of 32-bit PCFs.")
+ts_pcf64 = dtype("ts_pcf64", "Time series of 64-bit PCFs.")
+ts_barcode32 = dtype("ts_barcode32", "Time series of 32-bit persistence barcodes.")
+ts_barcode64 = dtype("ts_barcode64", "Time series of 64-bit persistence barcodes.")
 
 # Boolean
 boolean = dtype("boolean", "Boolean dtype.")

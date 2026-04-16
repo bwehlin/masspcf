@@ -18,17 +18,20 @@
 #define MPCF_TIMESERIES_H
 
 #include "tensor.hpp"
+#include "timeseries/interpolation.hpp"
 
 #include <algorithm>
 #include <chrono>
-#include <limits>
+#include <memory>
+#include <span>
 #include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace mpcf
 {
-  enum class InterpolationMode : uint8_t { Nearest = 0, Linear = 1 };
-
   template <typename Tt, typename Tv = Tt>
   class TimeSeries
   {
@@ -44,8 +47,16 @@ namespace mpcf
     TimeSeries()
       : m_n_channels(1), m_start_time(0), m_time_step(1)
     {
-      m_times.push_back(Tt(0));
-      m_values.push_back(Tv(0));
+      if constexpr (std::is_arithmetic_v<Tv>)
+      {
+        m_times.push_back(Tt(0));
+        m_values.push_back(Tv(0));
+      }
+      else
+      {
+        m_times.push_back(Tt(0));
+        m_values.emplace_back();
+      }
     }
 
     /// Construct from times, values (flattened row-major), and n_channels.
@@ -54,13 +65,10 @@ namespace mpcf
                InterpolationMode interpolation = InterpolationMode::Nearest)
       : m_times(std::move(times)), m_values(std::move(values)),
         m_n_channels(n_channels),
-        m_start_time(start_time), m_time_step(time_step),
-        m_interpolation(interpolation)
+        m_start_time(start_time), m_time_step(time_step)
     {
-      if (m_time_step <= 0)
-        throw std::invalid_argument("time_step must be positive");
-      if (m_values.size() != m_times.size() * m_n_channels)
-        throw std::invalid_argument("values size must equal times size * n_channels");
+      validate_construction();
+      set_interpolation(interpolation);
     }
 
     /// Construct from chrono durations.
@@ -73,13 +81,10 @@ namespace mpcf
       : m_times(std::move(times)), m_values(std::move(values)),
         m_n_channels(n_channels),
         m_start_time(std::chrono::duration<Tt>(start).count()),
-        m_time_step(std::chrono::duration<Tt>(step).count()),
-        m_interpolation(interpolation)
+        m_time_step(std::chrono::duration<Tt>(step).count())
     {
-      if (m_time_step <= 0)
-        throw std::invalid_argument("time_step must be positive");
-      if (m_values.size() != m_times.size() * m_n_channels)
-        throw std::invalid_argument("values size must equal times size * n_channels");
+      validate_construction();
+      set_interpolation(interpolation);
     }
 
     /// Evaluate all channels at a real time. Returns Tensor<Tv> of shape (n_channels,).
@@ -125,8 +130,59 @@ namespace mpcf
       return evaluate_at_pcf_t(pcf_t, snap_tol);
     }
 
-    [[nodiscard]] InterpolationMode interpolation() const noexcept { return m_interpolation; }
-    void set_interpolation(InterpolationMode mode) noexcept { m_interpolation = mode; }
+    /// Current interpolation mode when the variant holds a built-in tag.
+    /// For a custom strategy, this returns `InterpolationMode::Nearest`
+    /// (not meaningful); check `has_custom_strategy()` first.
+    [[nodiscard]] InterpolationMode interpolation() const noexcept
+    {
+      return to_mode(m_interp);
+    }
+
+    /// Set the built-in interpolation mode. Throws if `mode` is `Linear`
+    /// and `Tv` does not satisfy `LinearlyBlendable<Tt, Tv>` (e.g., Barcode).
+    void set_interpolation(InterpolationMode mode)
+    {
+      if (mode == InterpolationMode::Linear)
+      {
+        if constexpr (LinearlyBlendable<Tt, Tv>)
+        {
+          m_interp = LinearTag{};
+          return;
+        }
+        else
+        {
+          throw std::invalid_argument(
+              "linear interpolation is not defined for this value type");
+        }
+      }
+      m_interp = NearestTag{};
+    }
+
+    /// Attach a custom interpolation strategy (shared, so the same
+    /// strategy instance can be reused across multiple TimeSeries). Pass
+    /// a null pointer to revert to nearest.
+    void set_strategy(std::shared_ptr<InterpolationStrategy<Tt, Tv>> strategy)
+    {
+      if (!strategy)
+      {
+        m_interp = NearestTag{};
+        return;
+      }
+      m_interp = CustomStrategy<Tt, Tv>{std::move(strategy)};
+    }
+
+    [[nodiscard]] std::shared_ptr<InterpolationStrategy<Tt, Tv>>
+    strategy() const noexcept
+    {
+      if (auto* c = std::get_if<CustomStrategy<Tt, Tv>>(&m_interp))
+        return c->ptr;
+      return {};
+    }
+
+    [[nodiscard]] bool has_custom_strategy() const noexcept
+    {
+      return holds_custom_strategy(m_interp);
+    }
 
     [[nodiscard]] size_t n_channels() const noexcept { return m_n_channels; }
     [[nodiscard]] size_t n_times() const noexcept { return m_times.size(); }
@@ -149,11 +205,18 @@ namespace mpcf
 
     bool operator==(const TimeSeries& rhs) const
     {
-      return m_times == rhs.m_times && m_values == rhs.m_values
-          && m_n_channels == rhs.m_n_channels
-          && m_start_time == rhs.m_start_time
-          && m_time_step == rhs.m_time_step
-          && m_interpolation == rhs.m_interpolation;
+      if (m_times != rhs.m_times || m_values != rhs.m_values
+          || m_n_channels != rhs.m_n_channels
+          || m_start_time != rhs.m_start_time
+          || m_time_step != rhs.m_time_step)
+        return false;
+      // Compare by interpolation mode; custom strategies are equal only
+      // when they share the same shared_ptr instance.
+      if (has_custom_strategy() != rhs.has_custom_strategy())
+        return false;
+      if (has_custom_strategy())
+        return strategy().get() == rhs.strategy().get();
+      return to_mode(m_interp) == to_mode(rhs.m_interp);
     }
 
     bool operator!=(const TimeSeries& rhs) const
@@ -167,13 +230,30 @@ namespace mpcf
       ss << "TimeSeries(start_time=" << m_start_time
          << ", n_times=" << m_times.size()
          << ", n_channels=" << m_n_channels;
-      if (m_interpolation != InterpolationMode::Nearest)
+      if (has_custom_strategy())
+        ss << ", interpolation=custom";
+      else if (to_mode(m_interp) == InterpolationMode::Linear)
         ss << ", interpolation=linear";
       ss << ")";
       return ss.str();
     }
 
   private:
+    void validate_construction()
+    {
+      if (m_time_step <= 0)
+        throw std::invalid_argument("time_step must be positive");
+      if (m_values.size() != m_times.size() * m_n_channels)
+        throw std::invalid_argument(
+            "values size must equal times size * n_channels");
+      if constexpr (!std::is_arithmetic_v<Tv>)
+      {
+        if (m_n_channels != 1)
+          throw std::invalid_argument(
+              "multi-channel is only supported for arithmetic value types");
+      }
+    }
+
     /// Find the interval index for a pcf time (binary search on m_times).
     [[nodiscard]] size_t find_interval(time_type pcf_t) const
     {
@@ -184,74 +264,185 @@ namespace mpcf
       return static_cast<size_t>(it - m_times.begin());
     }
 
+    /// Snap pcf_t to nearby breakpoints (domain boundaries and the bracketing
+    /// pair) within the given relative tolerance. Mirrors the pre-refactor
+    /// inline snapping logic.
+    void snap_in_place(time_type& pcf_t, size_t& idx, Tt snap_tol) const
+    {
+      if (snap_tol <= 0 || m_times.empty())
+        return;
+
+      auto near = [snap_tol](Tt a, Tt b) {
+        return std::abs(a - b)
+            <= snap_tol * std::max({Tt(1), std::abs(a), std::abs(b)});
+      };
+
+      if (pcf_t < m_times.front() && near(pcf_t, m_times.front()))
+        pcf_t = m_times.front();
+      else if (pcf_t > m_times.back() && near(pcf_t, m_times.back()))
+        pcf_t = m_times.back();
+
+      // Re-find interval in case the boundary snap changed domain membership
+      if (pcf_t < 0 || pcf_t > m_times.back())
+        return;
+      idx = find_interval(pcf_t);
+
+      if (idx + 1 < m_times.size())
+      {
+        Tt diff = m_times[idx + 1] - pcf_t;
+        Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx + 1])});
+        if (diff > 0 && diff <= snap_tol * ref)
+        {
+          pcf_t = m_times[idx + 1];
+          idx = idx + 1;
+        }
+      }
+
+      Tt diff = pcf_t - m_times[idx];
+      Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx])});
+      if (diff > 0 && diff <= snap_tol * ref)
+        pcf_t = m_times[idx];
+    }
+
+  public:
+    /// Batched evaluation at a span of pcf-time queries. Returns one Tv per
+    /// (query, channel). Queries outside the domain get OutOfDomainValue.
+    ///
+    /// Evaluation path:
+    ///   1) For each query, snap + binary-search to the bracketing interval.
+    ///   2) Delegate interpolation to m_strategy (creating the default
+    ///      strategy for m_interpolation on first use).
+    ///
+    /// Multi-channel: for scalar Tv with n_channels > 1, the same bracketing
+    /// interval is used for all channels; the strategy is called once per
+    /// channel with length-n spans for that channel.
+    [[nodiscard]] std::vector<Tv> evaluate_batch(
+        std::span<const Tt> pcf_queries,
+        Tt snap_tol = default_snap_tol()) const
+    {
+      const size_t n = pcf_queries.size();
+      std::vector<Tv> result(n * m_n_channels);
+      if (n == 0)
+        return result;
+
+      // Per-query bracketing: snap + find interval once, store idx.
+      // Out-of-domain queries are marked with idx == SIZE_MAX.
+      constexpr size_t OUT_OF_DOMAIN = static_cast<size_t>(-1);
+      std::vector<Tt> qs(n);
+      std::vector<Tt> t_lefts(n);
+      std::vector<Tt> t_rights(n);
+      std::vector<size_t> idxs(n, OUT_OF_DOMAIN);
+
+      for (size_t i = 0; i < n; ++i)
+      {
+        Tt q = pcf_queries[i];
+        size_t idx = 0;
+        if (!m_times.empty())
+          idx = find_interval(q);
+        snap_in_place(q, idx, snap_tol);
+
+        if (m_times.empty() || q < 0 || q > m_times.back())
+        {
+          qs[i] = q;
+          t_lefts[i] = Tt(0);
+          t_rights[i] = Tt(0);
+          continue;
+        }
+
+        qs[i] = q;
+        idxs[i] = idx;
+        t_lefts[i] = m_times[idx];
+        t_rights[i] = (idx + 1 < m_times.size())
+            ? m_times[idx + 1]
+            : m_times[idx];  // right boundary: left == right
+      }
+
+      // Per-channel interpolation via std::visit on the variant.
+      // Nearest / Linear are inlined; custom strategy dispatches through
+      // its virtual evaluate.
+      std::vector<Tv> v_lefts(n);
+      std::vector<Tv> v_rights(n);
+
+      for (size_t c = 0; c < m_n_channels; ++c)
+      {
+        for (size_t i = 0; i < n; ++i)
+        {
+          if (idxs[i] == OUT_OF_DOMAIN)
+            continue;
+          size_t idx = idxs[i];
+          v_lefts[i] = m_values[(idx * m_n_channels) + c];
+          v_rights[i] = (idx + 1 < m_times.size())
+              ? m_values[((idx + 1) * m_n_channels) + c]
+              : v_lefts[i];
+        }
+
+        std::visit([&](const auto& tag) {
+          using Mode = std::decay_t<decltype(tag)>;
+          if constexpr (std::is_same_v<Mode, NearestTag>)
+          {
+            for (size_t i = 0; i < n; ++i)
+              result[(i * m_n_channels) + c] = (idxs[i] == OUT_OF_DOMAIN)
+                  ? OutOfDomainValue<Tv>::get()
+                  : v_lefts[i];
+          }
+          else if constexpr (std::is_same_v<Mode, LinearTag>)
+          {
+            if constexpr (LinearlyBlendable<Tt, Tv>)
+            {
+              for (size_t i = 0; i < n; ++i)
+              {
+                if (idxs[i] == OUT_OF_DOMAIN)
+                {
+                  result[(i * m_n_channels) + c] = OutOfDomainValue<Tv>::get();
+                  continue;
+                }
+                Tt dt = t_rights[i] - t_lefts[i];
+                if (dt <= Tt(0))
+                {
+                  result[(i * m_n_channels) + c] = v_lefts[i];
+                  continue;
+                }
+                Tt alpha = (qs[i] - t_lefts[i]) / dt;
+                result[(i * m_n_channels) + c] = static_cast<Tv>(
+                    ((Tt(1) - alpha) * v_lefts[i]) + (alpha * v_rights[i]));
+              }
+            }
+            else
+            {
+              // Should be unreachable: set_interpolation(Linear) throws
+              // for non-blendable Tv.
+              throw std::logic_error(
+                  "LinearTag set for non-blendable value type");
+            }
+          }
+          else
+          {
+            auto out = tag.ptr->evaluate(
+                qs, t_lefts, t_rights, v_lefts, v_rights);
+            if (out.size() != n)
+              throw std::runtime_error(
+                  "InterpolationStrategy.evaluate returned wrong-length vector");
+            for (size_t i = 0; i < n; ++i)
+              result[(i * m_n_channels) + c] = (idxs[i] == OUT_OF_DOMAIN)
+                  ? OutOfDomainValue<Tv>::get()
+                  : out[i];
+          }
+        }, m_interp);
+      }
+      return result;
+    }
+
+  private:
     [[nodiscard]] Tensor<Tv> evaluate_at_pcf_t(time_type pcf_t,
                                                Tt snap_tol = default_snap_tol()) const
     {
+      Tt query_buf[1] = { pcf_t };
+      auto vals = evaluate_batch(
+          std::span<const Tt>(query_buf, 1), snap_tol);
+
       Tensor<Tv> result(std::vector<size_t>{m_n_channels});
-
-      // Snap to domain boundaries if within relative error
-      if (snap_tol > 0 && !m_times.empty())
-      {
-        auto near = [snap_tol](Tt a, Tt b) {
-          return std::abs(a - b)
-              <= snap_tol * std::max({Tt(1), std::abs(a), std::abs(b)});
-        };
-
-        if (pcf_t < m_times.front() && near(pcf_t, m_times.front()))
-          pcf_t = m_times.front();
-        else if (pcf_t > m_times.back() && near(pcf_t, m_times.back()))
-          pcf_t = m_times.back();
-      }
-
-      if (pcf_t < 0 || (m_times.size() > 0 && pcf_t > m_times.back()))
-      {
-        for (size_t c = 0; c < m_n_channels; ++c)
-          result(std::vector<size_t>{c}) = std::numeric_limits<Tv>::quiet_NaN();
-        return result;
-      }
-
-      size_t idx = find_interval(pcf_t);
-
-      // Snap to nearest breakpoint if within relative error
-      if (snap_tol > 0)
-      {
-        // FP rounding in (real_t - start) / step can land just below a breakpoint
-        if (idx + 1 < m_times.size())
-        {
-          Tt diff = m_times[idx + 1] - pcf_t;
-          Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx + 1])});
-          if (diff > 0 && diff <= snap_tol * ref)
-          {
-            pcf_t = m_times[idx + 1];
-            idx = idx + 1;
-          }
-        }
-
-        // Symmetric case: slightly above a breakpoint matters for linear interp
-        Tt diff = pcf_t - m_times[idx];
-        Tt ref = std::max({Tt(1), std::abs(pcf_t), std::abs(m_times[idx])});
-        if (diff > 0 && diff <= snap_tol * ref)
-          pcf_t = m_times[idx];
-      }
-
-      if (m_interpolation == InterpolationMode::Linear
-          && idx + 1 < m_times.size())
-      {
-        Tt alpha = (pcf_t - m_times[idx])
-                 / (m_times[idx + 1] - m_times[idx]);
-        for (size_t c = 0; c < m_n_channels; ++c)
-        {
-          Tv v0 = m_values[idx * m_n_channels + c];
-          Tv v1 = m_values[(idx + 1) * m_n_channels + c];
-          result(std::vector<size_t>{c}) =
-              static_cast<Tv>((Tt(1) - alpha) * v0 + alpha * v1);
-        }
-      }
-      else
-      {
-        for (size_t c = 0; c < m_n_channels; ++c)
-          result(std::vector<size_t>{c}) = m_values[idx * m_n_channels + c];
-      }
+      for (size_t c = 0; c < m_n_channels; ++c)
+        result(std::vector<size_t>{c}) = vals[c];
       return result;
     }
 
@@ -260,7 +451,7 @@ namespace mpcf
     size_t m_n_channels;
     Tt m_start_time;
     Tt m_time_step;
-    InterpolationMode m_interpolation = InterpolationMode::Nearest;
+    InterpolationChoice<Tt, Tv> m_interp = NearestTag{};
   };
 
   using TimeSeries_f32 = TimeSeries<float32_t, float32_t>;

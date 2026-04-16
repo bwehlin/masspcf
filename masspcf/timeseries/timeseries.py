@@ -19,6 +19,7 @@ import numpy as np
 from .. import _mpcf_cpp as cpp
 from .._tensor_base import FunctionTensorMixin, Tensor, _tensor_from_nested
 from ..functional.pcf import Pcf
+from ..persistence.barcode import Barcode
 from ..tensor import PointCloudTensor
 from ..typing import (
     _assert_valid_dtype,
@@ -26,7 +27,12 @@ from ..typing import (
     pcloud64,
     ts32,
     ts64,
+    ts_barcode32,
+    ts_barcode64,
+    ts_pcf32,
+    ts_pcf64,
 )
+from .interpolation import InterpolationStrategy
 
 
 def _datetime_unit(dt_or_arr):
@@ -208,6 +214,10 @@ class TimeSeries:
     _CPP_TO_DTYPE = {
         cpp.TimeSeries_f32_f32: ts32,
         cpp.TimeSeries_f64_f64: ts64,
+        cpp.TimeSeries_f32_pcf32: ts_pcf32,
+        cpp.TimeSeries_f64_pcf64: ts_pcf64,
+        cpp.TimeSeries_f32_barcode32: ts_barcode32,
+        cpp.TimeSeries_f64_barcode64: ts_barcode64,
     }
 
     _DTYPE_TO_NP = {
@@ -215,23 +225,48 @@ class TimeSeries:
         ts64: np.float64,
     }
 
+    # Element C++ type -> (cpp_ts_class, time_np_dtype, element_python_class)
+    _ELEMENT_CPP_TO_CPP_TS = {
+        cpp.Pcf_f32_f32: (cpp.TimeSeries_f32_pcf32, np.float32, Pcf),
+        cpp.Pcf_f64_f64: (cpp.TimeSeries_f64_pcf64, np.float64, Pcf),
+        cpp.persistence.Barcode32: (cpp.TimeSeries_f32_barcode32, np.float32, Barcode),
+        cpp.persistence.Barcode64: (cpp.TimeSeries_f64_barcode64, np.float64, Barcode),
+    }
+
     def __init__(self, times_or_values, values=None, *,
                  start_time=None, time_step=1.0, dtype=None,
-                 interpolation='nearest'):
-        if interpolation not in _INTERP_STR_TO_CPP:
-            raise ValueError(
-                f"interpolation must be 'nearest' or 'linear', "
-                f"got {interpolation!r}")
+                 interpolation=None):
+        # None means "use default (nearest) for new series, preserve
+        # existing setting when wrapping a C++ object or copying".
+        # Accept a string shortcut OR an InterpolationStrategy instance.
+        interpolation_strategy = None
+        if interpolation is None:
+            interpolation_enum = None
+        elif isinstance(interpolation, InterpolationStrategy):
+            interpolation_strategy = interpolation
+            interpolation_enum = None
+        else:
+            if interpolation not in _INTERP_STR_TO_CPP:
+                raise ValueError(
+                    f"interpolation must be 'nearest' or 'linear' or an "
+                    f"InterpolationStrategy instance, got {interpolation!r}")
+            interpolation_enum = _INTERP_STR_TO_CPP[interpolation]
 
         # --- Copy / C++ wrap ---
         if values is None and start_time is None:
             if isinstance(times_or_values, TimeSeries):
                 self._data = times_or_values._data
-                self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
+                self._finalize_interpolation(
+                    interpolation_enum, interpolation_strategy)
                 return
             if isinstance(times_or_values, tuple(self._CPP_TO_DTYPE.keys())):
                 self._data = times_or_values
+                self._finalize_interpolation(
+                    interpolation_enum, interpolation_strategy)
                 return
+            # Object-valued list form without explicit times is ambiguous;
+            # fall through to the normal parsing path (which will raise
+            # a helpful error if inputs are actually wrong).
 
         # Resolve dtype for values
         def _resolve_dtype(arr):
@@ -241,6 +276,17 @@ class TimeSeries:
             if arr.dtype.type in self._NP_TO_CPP_TS:
                 return arr.dtype.type
             return np.float64
+
+        # --- Object-valued (times, list-of-objects) form ---
+        # Detect a list/tuple of Pcf or Barcode wrapper objects. Numpy
+        # 1-D/2-D scalar arrays fall through to the numeric path below.
+        if values is not None and isinstance(values, (list, tuple)) \
+                and len(values) > 0 \
+                and not isinstance(values[0], (int, float, np.floating, np.integer)):
+            self._init_object_valued(
+                times_or_values, values, dtype,
+                interpolation_enum, interpolation_strategy)
+            return
 
         if values is not None:
             # --- (times, values) form ---
@@ -325,7 +371,76 @@ class TimeSeries:
                 times_arr = (start_f + np.arange(n, dtype=np_dtype) * step_f)
                 self._data = cpp_cls(times_arr, vals)
 
-        self._data.interpolation = _INTERP_STR_TO_CPP[interpolation]
+        self._finalize_interpolation(interpolation_enum, interpolation_strategy)
+
+    def _init_object_valued(self, times_or_values, values, dtype,
+                            interpolation_enum, interpolation_strategy):
+        """Construct from (times, list-of-objects) where objects are Pcf
+        or Barcode Python wrappers. Dispatches to the right C++ class."""
+        first = values[0]
+        inner = getattr(first, '_data', first)
+        for mapping in self._ELEMENT_CPP_TO_CPP_TS:
+            if isinstance(inner, mapping):
+                break
+        else:
+            raise TypeError(
+                f"Unsupported element type in values: {type(first)}. "
+                f"Expected Pcf or Barcode.")
+
+        cpp_ts_cls, time_np, py_elem_cls = \
+            self._ELEMENT_CPP_TO_CPP_TS[type(inner)]
+
+        # Extract C++ data from each wrapper; accept bare C++ objects too.
+        def _extract(v):
+            if isinstance(v, py_elem_cls):
+                return v._data
+            if isinstance(v, type(inner)):
+                return v
+            raise TypeError(
+                f"mixed element types in values: expected {py_elem_cls.__name__}, "
+                f"got {type(v).__name__}")
+
+        cpp_values = [_extract(v) for v in values]
+
+        times = np.asarray(times_or_values)
+        if times.ndim != 1:
+            raise ValueError("times must be a 1-D array")
+        if len(times) != len(values):
+            raise ValueError("times and values must have the same length")
+        if len(times) < 2:
+            raise ValueError("times must have at least 2 elements")
+        if np.issubdtype(times.dtype, np.datetime64):
+            raise NotImplementedError(
+                "datetime times are not yet supported for object-valued "
+                "time series")
+
+        times_f = times.astype(time_np)
+        self._data = cpp_ts_cls(times_f, cpp_values)
+        self._finalize_interpolation(interpolation_enum, interpolation_strategy)
+
+    def _finalize_interpolation(self, interpolation_enum, interpolation_strategy):
+        if interpolation_strategy is not None:
+            cpp_strat = interpolation_strategy._cpp_for(self.dtype)
+            self._data.set_strategy(cpp_strat)
+        elif interpolation_enum is not None:
+            self._data.interpolation = interpolation_enum
+
+    _OBJECT_DTYPES = {ts_pcf32, ts_pcf64, ts_barcode32, ts_barcode64}
+    _OBJECT_PY_WRAPPER = {
+        ts_pcf32: Pcf, ts_pcf64: Pcf,
+        ts_barcode32: Barcode, ts_barcode64: Barcode,
+    }
+
+    def _wrap_value(self, v):
+        """Wrap a bare C++ element return (Pcf_*/Barcode*) in its Python
+        wrapper class. Numpy scalars / arrays pass through unchanged."""
+        dt = self.dtype
+        if dt not in self._OBJECT_DTYPES:
+            return v
+        if isinstance(v, list):
+            wrapper = self._OBJECT_PY_WRAPPER[dt]
+            return [wrapper(x) for x in v]
+        return self._OBJECT_PY_WRAPPER[dt](v)
 
     def __call__(self, t, *, snap_tol=None):
         """Evaluate the time series at the given time(s).
@@ -355,19 +470,20 @@ class TimeSeries:
         if isinstance(t, np.datetime64):
             ticks, unit = _dt64_to_ticks(t)
             if unit is None:
-                return self._data(float(ticks), **kw)
-            return self._data(ticks, unit, **kw)
+                return self._wrap_value(self._data(float(ticks), **kw))
+            return self._wrap_value(self._data(ticks, unit, **kw))
         if isinstance(t, np.ndarray) and np.issubdtype(t.dtype, np.datetime64):
             ticks, unit = _dt64_array_to_ticks(t)
             if unit is None:
-                return self._data(ticks, **kw)
-            return self._data(ticks, unit, **kw)
+                return self._wrap_value(self._data(ticks, **kw))
+            return self._wrap_value(self._data(ticks, unit, **kw))
         if isinstance(t, np.ndarray):
-            return self._data(t, **kw)
+            return self._wrap_value(self._data(t, **kw))
         if isinstance(t, (int, float)):
-            return self._data(t, **kw)
+            return self._wrap_value(self._data(t, **kw))
         if isinstance(t, list):
-            return self._data(np.asarray(t, dtype=np.float64), **kw)
+            return self._wrap_value(
+                self._data(np.asarray(t, dtype=np.float64), **kw))
         raise TypeError(f"Cannot evaluate TimeSeries at type {type(t)}")
 
     @property
@@ -388,15 +504,25 @@ class TimeSeries:
 
     @property
     def interpolation(self):
-        """Interpolation mode: ``'nearest'`` or ``'linear'``."""
+        """Interpolation mode.
+
+        Returns ``'nearest'`` / ``'linear'`` when no custom strategy is
+        attached; returns ``'custom'`` otherwise. Set with a string or an
+        :class:`~masspcf.timeseries.InterpolationStrategy` instance.
+        """
+        if self._data.has_custom_strategy:
+            return 'custom'
         return _INTERP_CPP_TO_STR[self._data.interpolation]
 
     @interpolation.setter
     def interpolation(self, value):
+        if isinstance(value, InterpolationStrategy):
+            self._data.set_strategy(value._cpp_for(self.dtype))
+            return
         if value not in _INTERP_STR_TO_CPP:
             raise ValueError(
-                f"interpolation must be 'nearest' or 'linear', "
-                f"got {value!r}")
+                f"interpolation must be 'nearest' or 'linear' or an "
+                f"InterpolationStrategy instance, got {value!r}")
         self._data.interpolation = _INTERP_STR_TO_CPP[value]
 
     @property
@@ -411,11 +537,19 @@ class TimeSeries:
 
     @property
     def values(self):
-        """Sample values. Shape ``(n_times,)`` for single-channel,
-        ``(n_times, n_channels)`` for multi-channel."""
+        """Sample values.
+
+        For scalar-valued series: shape ``(n_times,)`` for single-channel,
+        ``(n_times, n_channels)`` for multi-channel. For object-valued
+        series (PCF- or barcode-valued): a list of Python wrapper objects
+        of length ``n_times``.
+        """
         nc = self._data.n_channels
         nt = self._data.n_times
-        flat = self._data._values  # row-major: n_times * n_channels
+        flat = self._data._values
+        if isinstance(flat, list):
+            wrapper = self._OBJECT_PY_WRAPPER[self.dtype]
+            return [wrapper(x) for x in flat]
         if nc == 1:
             return flat.copy()
         return flat.reshape(nt, nc).copy()

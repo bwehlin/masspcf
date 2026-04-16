@@ -15,6 +15,10 @@
 __before = set(dir())
 
 from .timeseries import TimeSeries, TimeSeriesTensor, embed_time_delay
+from .interpolation import (
+    CallableInterpolation,
+    InterpolationStrategy,
+)
 
 import types as _types
 __all__ = sorted(

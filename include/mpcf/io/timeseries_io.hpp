@@ -23,9 +23,18 @@ namespace mpcf::io::detail
   template <typename T>
   void write_element(std::ostream& os, const T& ts)
     requires is_timeseries_v<T>
+          && std::is_arithmetic_v<typename T::value_type>
   {
     using Tt = typename T::time_type;
     using Tv = typename T::value_type;
+
+    if (ts.has_custom_strategy())
+    {
+      throw std::runtime_error(
+          "TimeSeries with a custom interpolation strategy cannot be "
+          "serialized; only the built-in InterpolationMode (nearest/linear) "
+          "is persisted. Re-attach the strategy on load.");
+    }
 
     write_bytes<uint64_t>(os, ts.n_times());
     write_bytes<uint64_t>(os, ts.n_channels());
@@ -41,6 +50,7 @@ namespace mpcf::io::detail
   }
 
   template <typename TsT>
+    requires std::is_arithmetic_v<typename TsT::value_type>
   TsT read_timeseries(std::istream& is)
   {
     using Tt = typename TsT::time_type;
@@ -60,6 +70,7 @@ namespace mpcf::io::detail
     for (auto& v : values)
       v = read_bytes<Tv>(is);
 
+    // Strategy is null after load; materialized lazily from the enum on first eval.
     return TsT(std::move(times), std::move(values),
                n_channels, start_time, time_step, interp);
   }

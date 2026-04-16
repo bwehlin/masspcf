@@ -288,6 +288,133 @@ smoother point clouds than a nearest-neighbor one.
 Multi-channel time series interpolate each channel independently.
 
 
+Custom interpolation strategies
+-------------------------------
+
+When ``'nearest'`` and ``'linear'`` are not enough -- optimal transport
+between images, cubic splines, or any other scheme -- supply a Python
+callable via :py:class:`~masspcf.timeseries.CallableInterpolation`. The
+callable runs once per query batch; between calls the time series
+pre-computes the bracketing breakpoints, so you only have to implement
+the interpolation itself::
+
+   from masspcf.timeseries import CallableInterpolation
+   import numpy as np
+
+   def step_from_right(queries, t_lefts, t_rights, v_lefts, v_rights):
+       # Return one interpolated value per query (same length as queries).
+       return list(v_rights)
+
+   ts = mpcf.TimeSeries(
+       np.array([1.0, 2.0, 3.0]),
+       start_time=0.0, time_step=1.0,
+       interpolation=CallableInterpolation(step_from_right),
+   )
+
+The callback signature is always batched -- you receive five parallel
+sequences of length *n_queries* and return *n_queries* interpolated
+values:
+
+``queries``
+   Query times in the internal PCF parametrization (float).
+
+``t_lefts``, ``t_rights``
+   Times of the bracketing left/right breakpoints. At the right domain
+   boundary, ``t_rights[i] == t_lefts[i]``; treat that as "no right
+   neighbor" and return ``v_lefts[i]``.
+
+``v_lefts``, ``v_rights``
+   Values at the bracketing breakpoints. For scalar series these are
+   sequences of floats; for PCF- or barcode-valued series (below), they
+   are sequences of :py:class:`~masspcf.Pcf` / :py:class:`~masspcf.Barcode`
+   wrapper objects.
+
+Custom strategies are shared on the C++ side, so a single instance --
+potentially holding expensive state like a trained OT model -- can be
+attached to many time series::
+
+   ot_interp = CallableInterpolation(my_ot_model.interpolate)
+   ts_a = mpcf.TimeSeries(times_a, imgs_a, interpolation=ot_interp)
+   ts_b = mpcf.TimeSeries(times_b, imgs_b, interpolation=ot_interp)
+
+The ``interpolation`` property reports ``'custom'`` whenever a callable
+strategy is attached.
+
+.. note::
+
+   Python callbacks acquire the GIL once per batch, so custom strategies
+   serialize across threads. Built-in ``'nearest'`` and ``'linear'`` run
+   inline in C++ and are unaffected.
+
+
+Time series of PCFs and barcodes
+================================
+
+Each sample in a time series does not have to be a number. Passing a
+list of :py:class:`~masspcf.Pcf` or :py:class:`~masspcf.Barcode` objects
+as the values produces a time series whose values evolve over time::
+
+   from masspcf import Pcf, TimeSeries
+   import numpy as np
+
+   p1 = Pcf(np.array([[0.0, 1.0], [1.0, 2.0], [2.0, 0.0]], dtype=np.float32))
+   p2 = Pcf(np.array([[0.0, 3.0], [1.0, 1.0], [2.0, 0.0]], dtype=np.float32))
+
+   # One PCF per time point
+   ts = TimeSeries([0.0, 1.0], [p1, p2])
+
+   ts(0.0)   # returns p1 (a Pcf)
+   ts(0.3)   # nearest: returns p1
+   ts.dtype  # masspcf.ts_pcf32
+
+Evaluation returns a :py:class:`~masspcf.Pcf` (or
+:py:class:`~masspcf.Barcode`, etc.) wrapper rather than a scalar.
+
+Interpolation for PCFs
+----------------------
+
+PCFs support arithmetic (addition and scalar multiplication), so
+``'linear'`` interpolation is well defined and produces a pointwise blend::
+
+   ts = TimeSeries([0.0, 1.0], [p1, p2], interpolation='linear')
+   blended = ts(0.5)
+   blended(0.5)  # 0.5 * p1(0.5) + 0.5 * p2(0.5)
+
+Interpolation for barcodes
+--------------------------
+
+There is no canonical way to linearly interpolate two persistence
+barcodes, so only ``'nearest'`` is built in. Requesting ``'linear'`` on a
+barcode-valued time series raises::
+
+   from masspcf.persistence import Barcode
+
+   b1 = Barcode(np.array([[0.0, 1.0], [0.5, 2.0]], dtype=np.float32))
+   b2 = Barcode(np.array([[0.0, 2.0], [0.3, 3.0]], dtype=np.float32))
+
+   ts = TimeSeries([0.0, 1.0], [b1, b2])  # nearest is fine
+   ts(0.3)  # Barcode, equal to b1
+
+If a domain-specific interpolation scheme for barcodes is needed,
+supply a :py:class:`~masspcf.timeseries.CallableInterpolation` that
+implements it.
+
+Limitations of the initial version
+----------------------------------
+
+* The object-valued path always has ``n_channels == 1``. Instead of
+  multi-channel, use a :py:class:`~masspcf.TimeSeriesTensor` (one series
+  per channel) -- though the tensor container is currently scalar-only
+  and will grow object support later.
+* :py:func:`~masspcf.embed_time_delay` is defined only for scalar time
+  series. Embedding a time series of PCFs or barcodes is a planned
+  extension.
+* Pickling / ``save`` and ``load`` are only implemented for scalar
+  series in this release.
+* ``datetime64`` time axes are only implemented for scalar series so
+  far. Float time axes work for all value types.
+
+
 TimeSeriesTensor
 ================
 
@@ -350,7 +477,7 @@ of each series::
 Dtypes
 ======
 
-Time series tensors use the ``ts32`` and ``ts64`` dtypes::
+Scalar time series use the ``ts32`` and ``ts64`` dtypes::
 
    ts = mpcf.TimeSeries(np.array([1.0], dtype=np.float32),
                          start_time=0.0, time_step=1.0)
@@ -362,3 +489,16 @@ Time series tensors use the ``ts32`` and ``ts64`` dtypes::
 
 Use ``ts32`` for lower memory usage, ``ts64`` (the default) for higher
 precision.
+
+Object-valued time series have their own dtypes, determined by the
+element precision:
+
+================  ===========================================
+``ts_pcf32``      time series of 32-bit PCFs
+``ts_pcf64``      time series of 64-bit PCFs
+``ts_barcode32``  time series of 32-bit persistence barcodes
+``ts_barcode64``  time series of 64-bit persistence barcodes
+================  ===========================================
+
+The dtype is inferred from the precision of the first element in the
+list, so there is usually nothing explicit to pass.

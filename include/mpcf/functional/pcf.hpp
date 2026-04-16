@@ -328,6 +328,22 @@ namespace mpcf
     });
   }
 
+  template <typename Tt, typename Tv, Arithmetic T>
+  [[nodiscard]] Pcf<Tt, Tv> operator*(const Pcf<Tt, Tv>& f, T v)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret *= v;
+    return ret;
+  }
+
+  template <typename Tt, typename Tv, Arithmetic T>
+  [[nodiscard]] Pcf<Tt, Tv> operator*(T v, const Pcf<Tt, Tv>& f)
+  {
+    Pcf<Tt, Tv> ret = f;
+    ret *= v;
+    return ret;
+  }
+
   template <typename Tt, typename Tv>
   [[nodiscard]] Pcf<Tt, Tv> average(const std::vector<Pcf<Tt, Tv>>& fs, size_t chunksz = 2ul)
   {
