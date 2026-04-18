@@ -74,6 +74,7 @@
 #include <sparsehash/dense_hash_map>
 #include <parallel_hashmap/phmap.h>
 
+#include <mpcf/cuda/cuda_device_array.cuh>
 #include <mpcf/executor.hpp>
 #include <taskflow/algorithm/for_each.hpp>
 #include <thrust/fill.h>
@@ -1544,27 +1545,27 @@ private:
     //we are removing d_flagarray for a more general array: d_flagarray_OR_index_to_subindex
     //char* type is 3x faster for thrust::count than index_t*
 #ifndef ASSEMBLE_REDUCTION_SUBMATRIX
-    char* d_flagarray;//an array where d_flagarray[i]= 1 if i satisfies some property and d_flagarray[i]=0 otherwise
+    mpcf::CudaDeviceArray<char> d_flagarray;//an array where d_flagarray[i]= 1 if i satisfies some property and d_flagarray[i]=0 otherwise
 #endif
     index_t* h_pivot_column_index_array_OR_nonapparent_cols;//the pivot column index hashmap represented by an array OR the set of nonapparent column indices
 
-    value_t* d_distance_matrix;//GPU copy of the distance matrix
-    CSR_distance_matrix* d_CSR_distance_matrix;
-    index_t *h_d_offsets;
-    value_t *h_d_entries;
-    index_t *h_d_col_indices;
+    mpcf::CudaDeviceArray<value_t> d_distance_matrix;//GPU copy of the distance matrix
+    mpcf::CudaDeviceArray<CSR_distance_matrix> d_CSR_distance_matrix;
+    mpcf::CudaDeviceArray<index_t> h_d_offsets;
+    mpcf::CudaDeviceArray<value_t> h_d_entries;
+    mpcf::CudaDeviceArray<index_t> h_d_col_indices;
 
     //d_pivot_column_index_OR_nonapparent_cols is d_nonapparent_cols when used in gpuscan() and compute_pairs() and is d_pivot_column_index when in gpu_assemble_columns()
-    index_t* d_pivot_column_index_OR_nonapparent_cols;//the pivot column index hashmap represented on GPU as an array OR the set of nonapparent columns on GPU
+    mpcf::CudaDeviceArray<index_t> d_pivot_column_index_OR_nonapparent_cols;//the pivot column index hashmap represented on GPU as an array OR the set of nonapparent columns on GPU
 
     index_t max_num_simplices_forall_dims;//the total number of simplices of dimension dim_max possible (this assumes no threshold condition to sparsify the simplicial complex)
     //the total number of simplices in the dim_max+1 dimension (a factor n larger than max_num_simplices_forall_dims), infeasible to allocate with this number if max_num_simplices_forall_dims is already pushing the memory limits.
 
-    struct diameter_index_t_struct* d_columns_to_reduce;//GPU copy of the columns to reduce depending on the current dimension
+    mpcf::CudaDeviceArray<diameter_index_t_struct> d_columns_to_reduce;//GPU copy of the columns to reduce depending on the current dimension
     struct diameter_index_t_struct* h_columns_to_reduce;//columns to reduce depending on the current dimension
 
-    binomial_coeff_table* d_binomial_coeff;//GPU copy of the binomial coefficient table
-    index_t* h_d_binoms;
+    mpcf::CudaDeviceArray<binomial_coeff_table> d_binomial_coeff;//GPU copy of the binomial coefficient table
+    mpcf::CudaDeviceArray<index_t> h_d_binoms;
 
     index_t* d_num_columns_to_reduce=NULL;//use d_num_columns_to_reduce to keep track of the number of columns to reduce
     index_t* h_num_columns_to_reduce;//h_num_columns_to_reduce is tied to d_num_columns_to_reduce in pinned memory?
@@ -1574,23 +1575,23 @@ private:
 
     index_t num_apparent;//the number of apparent pairs found
 
-    value_t* d_cidx_to_diameter;//GPU side mapping from cidx to diameters for gpuscan faces of a given row of a "lowest one" search
-    struct diameter_index_t_struct* d_cidx_diameter_pairs_sortedlist;//used as a sorted list of cidx,diameter pairs for lookup in gpuscan kernel for sparse case
+    mpcf::CudaDeviceArray<value_t> d_cidx_to_diameter;//GPU side mapping from cidx to diameters for gpuscan faces of a given row of a "lowest one" search
+    mpcf::CudaDeviceArray<diameter_index_t_struct> d_cidx_diameter_pairs_sortedlist;//used as a sorted list of cidx,diameter pairs for lookup in gpuscan kernel for sparse case
 
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)//assemble reduction submatrix
-    index_t* d_flagarray_OR_index_to_subindex;//GPU data structure that maps index to subindex
+    mpcf::CudaDeviceArray<index_t> d_flagarray_OR_index_to_subindex;//GPU data structure that maps index to subindex
     index_t* h_flagarray_OR_index_to_subindex;//copy of index_to_subindex data structure that acts as a map for matrix index to reduction submatrix indexing on CPU side
 #endif
 
     //for GPU-scan (finding apparent pairs)
-    index_t* d_lowest_one_of_apparent_pair;//GPU copy of the lowest ones, d_lowest_one_of_apparent_pair[col]= lowest one row of column col
+    mpcf::CudaDeviceArray<index_t> d_lowest_one_of_apparent_pair;//GPU copy of the lowest ones, d_lowest_one_of_apparent_pair[col]= lowest one row of column col
     //index_t* h_lowest_one_of_apparent_pair;//the lowest ones, d_lowest_one_of_apparent_pair[col]= lowest one row of column col
-    struct index_t_pair_struct* d_pivot_array;//sorted array of all pivots, substitute for a structured hashmap with lookup done by log(n) binary search
+    mpcf::CudaDeviceArray<index_t_pair_struct> d_pivot_array;//sorted array of all pivots, substitute for a structured hashmap with lookup done by log(n) binary search
     struct index_t_pair_struct* h_pivot_array;//sorted array of all pivots
     std::vector<struct diameter_index_t_struct> columns_to_reduce;
 
     //used for sparse_distance_matrix ONLY:
-    struct diameter_index_t_struct* d_simplices;//GPU copy of h_simplices
+    mpcf::CudaDeviceArray<diameter_index_t_struct> d_simplices;//GPU copy of h_simplices
     struct diameter_index_t_struct* h_simplices;//the simplices filtered by diameter that need to be considered for the next dimension's simplices
     index_t* d_num_simplices=NULL;//use d_num_simplices to keep track of the number of simplices in h_ or d_ simplices
     index_t* h_num_simplices;//h_num_simplices is tied to d_num_simplices in pinned memory
@@ -1654,52 +1655,12 @@ public:
         }
     }
 
-    void free_gpumem_dense_computation() {
-        if (n>=10) {//this fixes a bug for single point persistence being called repeatedly
-            cudaFree(d_columns_to_reduce);
-#ifndef ASSEMBLE_REDUCTION_SUBMATRIX
-            cudaFree(d_flagarray);
-#endif
-            cudaFree(d_cidx_to_diameter);
-//            if (n >= 10) {
-                cudaFree(d_distance_matrix);
-//            }
-            cudaFree(d_pivot_column_index_OR_nonapparent_cols);
-#ifdef ASSEMBLE_REDUCTION_SUBMATRIX
-            cudaFree(d_flagarray_OR_index_to_subindex);
-#endif
-//            if (binomial_coeff.get_num_n() * binomial_coeff.get_max_tuple_length() > 0) {
-                cudaFree(h_d_binoms);
-//            }
-            cudaFree(d_binomial_coeff);
-            cudaFree(d_lowest_one_of_apparent_pair);
-            cudaFree(d_pivot_array);
-        }
-    }
-    void free_gpumem_sparse_computation() {
-        if (n >= 10) {
-            cudaFree(d_columns_to_reduce);
-#ifdef ASSEMBLE_REDUCTION_SUBMATRIX
-            cudaFree(d_flagarray_OR_index_to_subindex);
-#endif
-//            if (CSR_distance_matrix .num_entries > 0) {
-                cudaFree(h_d_entries);
-//            }
-            cudaFree(h_d_offsets);
-
-            cudaFree(h_d_col_indices);
-            cudaFree(d_CSR_distance_matrix);
-            cudaFree(d_cidx_diameter_pairs_sortedlist);
-            cudaFree(d_pivot_column_index_OR_nonapparent_cols);
-            //if (binomial_coeff.get_num_n() * binomial_coeff.get_max_tuple_length() > 0) {
-                cudaFree(h_d_binoms);
-            //}
-            cudaFree(d_binomial_coeff);
-            cudaFree(d_lowest_one_of_apparent_pair);
-            cudaFree(d_pivot_array);
-            cudaFree(d_simplices);
-        }
-    }
+    // GPU memory cleanup is handled by the CudaDeviceArray member destructors
+    // when the ripser instance is destroyed (or reassigned). Upstream needed
+    // explicit free_gpumem_{dense,sparse}_computation methods with an
+    // `n >= 10` guard to mask a bug where calling single-point persistence
+    // repeatedly double-freed stale pointers; RAII eliminates that class
+    // of bug, so the methods and guard are both gone.
 
     void free_init_cpumem() {
         free(h_pivot_column_index_array_OR_nonapparent_cols);
@@ -2405,21 +2366,21 @@ void ripser<compressed_lower_distance_matrix>::gpu_compute_dim_0_pairs(std::vect
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
     CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_edges<index_t>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
-    populate_edges<<<grid_size, 256, 0, stream_>>>(d_flagarray_OR_index_to_subindex, d_columns_to_reduce, threshold, d_distance_matrix, max_num_edges, n, d_binomial_coeff);
+    populate_edges<<<grid_size, 256, 0, stream_>>>(d_flagarray_OR_index_to_subindex.get(), d_columns_to_reduce, threshold, d_distance_matrix, max_num_edges, n, d_binomial_coeff);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
-    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray_OR_index_to_subindex, d_flagarray_OR_index_to_subindex+max_num_edges, 1);
+    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray_OR_index_to_subindex.get(), d_flagarray_OR_index_to_subindex+max_num_edges, 1);
     CHK_CUDA(cudaStreamSynchronize(stream_));
-    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce, d_columns_to_reduce+ max_num_edges, cmp_reverse);
+    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce.get(), d_columns_to_reduce+ max_num_edges, cmp_reverse);
 #else
     CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_edges<char>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
-    populate_edges<<<grid_size, 256, 0, stream_>>>(d_flagarray, d_columns_to_reduce, threshold, d_distance_matrix, max_num_edges, n, d_binomial_coeff);
+    populate_edges<<<grid_size, 256, 0, stream_>>>(d_flagarray.get(), d_columns_to_reduce, threshold, d_distance_matrix, max_num_edges, n, d_binomial_coeff);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
-    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray, d_flagarray+max_num_edges, 1);
+    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray.get(), d_flagarray+max_num_edges, 1);
     CHK_CUDA(cudaStreamSynchronize(stream_));
-    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce, d_columns_to_reduce+ max_num_edges, cmp_reverse);
+    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce.get(), d_columns_to_reduce+ max_num_edges, cmp_reverse);
 #endif
 #ifdef COUNTING
     std::cerr<<"num edges filtered by diameter: "<<*h_num_columns_to_reduce<<std::endl;
@@ -2486,13 +2447,12 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
 
     //populate edges kernel cannot have some threads iterating in the inner for loop, preventing shfl_sync() from runnning
 
-    int* d_num;
-    CHK_CUDA(cudaMalloc((void **) & d_num, sizeof(int)*(n+1)));
+    mpcf::CudaDeviceArray<int> d_num(n + 1);
     cudaMemsetAsync(d_num, 0, sizeof(int)*(n+1), stream_);
 
     populate_sparse_edges_preparingcount<<<grid_size, 256, 0, stream_>>>(d_num, d_CSR_distance_matrix, n, d_num_simplices);
     CHK_CUDA(cudaStreamSynchronize(stream_));
-    thrust::exclusive_scan(thrust::cuda::par.on(stream_), d_num, d_num+n+1, d_num, 0);
+    thrust::exclusive_scan(thrust::cuda::par.on(stream_), d_num.get(), d_num+n+1, d_num.get(), 0);
 
     CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_edges_prefixsum, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
@@ -2500,7 +2460,7 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
     populate_sparse_edges_prefixsum<<<grid_size, 256, 0, stream_>>>(d_simplices, d_num, d_CSR_distance_matrix, d_binomial_coeff, n, d_num_simplices);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
-    thrust::sort(thrust::cuda::par.on(stream_), d_simplices, d_simplices+ *h_num_simplices, cmp_reverse);
+    thrust::sort(thrust::cuda::par.on(stream_), d_simplices.get(), d_simplices+ *h_num_simplices, cmp_reverse);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
 #ifdef COUNTING
@@ -2575,7 +2535,7 @@ void ripser<compressed_lower_distance_matrix>::gpuscan(const index_t dim){
 
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
-    thrust::fill(thrust::cuda::par.on(stream_), d_cidx_to_diameter, d_cidx_to_diameter + num_simplices, -MAX_FLOAT);
+    thrust::fill(thrust::cuda::par.on(stream_), d_cidx_to_diameter.get(), d_cidx_to_diameter + num_simplices, -MAX_FLOAT);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
     CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_cidx_to_diam, 256, 0));
@@ -2611,8 +2571,8 @@ void ripser<compressed_lower_distance_matrix>::gpuscan(const index_t dim){
     gpu_insert_pivots_kernel<<<grid_size, 256, 0, stream_>>>(d_pivot_array, d_lowest_one_of_apparent_pair, d_pivot_column_index_OR_nonapparent_cols, *h_num_columns_to_reduce, d_num_nonapparent);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
-    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_array, d_pivot_array+*h_num_columns_to_reduce, cmp_pivots);
-    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_column_index_OR_nonapparent_cols, d_pivot_column_index_OR_nonapparent_cols+*h_num_nonapparent);
+    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_array.get(), d_pivot_array+*h_num_columns_to_reduce, cmp_pivots);
+    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_column_index_OR_nonapparent_cols.get(), d_pivot_column_index_OR_nonapparent_cols+*h_num_nonapparent);
 
     num_apparent= *h_num_columns_to_reduce-*h_num_nonapparent;
 #ifdef COUNTING
@@ -2664,7 +2624,7 @@ void ripser<sparse_distance_matrix>::gpuscan(const index_t dim){
     cudaMemcpyAsync(d_cidx_diameter_pairs_sortedlist, d_columns_to_reduce, sizeof(struct diameter_index_t_struct)*(*h_num_columns_to_reduce), cudaMemcpyDeviceToDevice, stream_);
     CHK_CUDA(cudaStreamSynchronize(stream_));
     struct lowerindex_lowerdiam_diameter_index_t_struct_compare cmp_cidx_diameter;
-    thrust::sort(thrust::cuda::par.on(stream_), d_cidx_diameter_pairs_sortedlist, d_cidx_diameter_pairs_sortedlist+*h_num_columns_to_reduce, cmp_cidx_diameter);
+    thrust::sort(thrust::cuda::par.on(stream_), d_cidx_diameter_pairs_sortedlist.get(), d_cidx_diameter_pairs_sortedlist+*h_num_columns_to_reduce, cmp_cidx_diameter);
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
     cudaMemsetAsync(d_lowest_one_of_apparent_pair, -1, sizeof(index_t) * *h_num_columns_to_reduce, stream_);
@@ -2687,8 +2647,8 @@ void ripser<sparse_distance_matrix>::gpuscan(const index_t dim){
     grid_size  *= deviceProp.multiProcessorCount;
     gpu_insert_pivots_kernel<<<grid_size, 256, 0, stream_>>>(d_pivot_array, d_lowest_one_of_apparent_pair, d_pivot_column_index_OR_nonapparent_cols, *h_num_columns_to_reduce, d_num_nonapparent);
     CHK_CUDA(cudaStreamSynchronize(stream_));
-    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_array, d_pivot_array+*h_num_columns_to_reduce, cmp_pivots);
-    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_column_index_OR_nonapparent_cols, d_pivot_column_index_OR_nonapparent_cols+*h_num_nonapparent);
+    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_array.get(), d_pivot_array+*h_num_columns_to_reduce, cmp_pivots);
+    thrust::sort(thrust::cuda::par.on(stream_), d_pivot_column_index_OR_nonapparent_cols.get(), d_pivot_column_index_OR_nonapparent_cols+*h_num_nonapparent);
 
     num_apparent= *h_num_columns_to_reduce-*h_num_nonapparent;
 #ifdef COUNTING
@@ -2751,24 +2711,24 @@ void ripser<compressed_lower_distance_matrix>::gpu_assemble_columns_to_reduce_pl
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
     CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_columns_to_reduce<index_t>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
-    populate_columns_to_reduce<<<grid_size, 256, 256 * (dim + 1) * sizeof(index_t), stream_>>>(d_flagarray_OR_index_to_subindex, d_columns_to_reduce, d_pivot_column_index_OR_nonapparent_cols, d_distance_matrix, n, max_num_simplices, dim, threshold, d_binomial_coeff);
+    populate_columns_to_reduce<<<grid_size, 256, 256 * (dim + 1) * sizeof(index_t), stream_>>>(d_flagarray_OR_index_to_subindex.get(), d_columns_to_reduce, d_pivot_column_index_OR_nonapparent_cols, d_distance_matrix, n, max_num_simplices, dim, threshold, d_binomial_coeff);
 #else
     CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_columns_to_reduce<char>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
-    populate_columns_to_reduce<<<grid_size, 256, 256 * (dim + 1) * sizeof(index_t), stream_>>>(d_flagarray, d_columns_to_reduce, d_pivot_column_index_OR_nonapparent_cols, d_distance_matrix, n, max_num_simplices, dim, threshold, d_binomial_coeff);
+    populate_columns_to_reduce<<<grid_size, 256, 256 * (dim + 1) * sizeof(index_t), stream_>>>(d_flagarray.get(), d_columns_to_reduce, d_pivot_column_index_OR_nonapparent_cols, d_distance_matrix, n, max_num_simplices, dim, threshold, d_binomial_coeff);
 #endif
     CHK_CUDA(cudaStreamSynchronize(stream_));
 
     struct greaterdiam_lowerindex_diameter_index_t_struct_compare cmp;
 
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
-    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray_OR_index_to_subindex, d_flagarray_OR_index_to_subindex+max_num_simplices, 1);
+    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray_OR_index_to_subindex.get(), d_flagarray_OR_index_to_subindex+max_num_simplices, 1);
     CHK_CUDA(cudaStreamSynchronize(stream_));
-    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce, d_columns_to_reduce+ max_num_simplices, cmp);
+    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce.get(), d_columns_to_reduce+ max_num_simplices, cmp);
 #else
-    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray, d_flagarray+max_num_simplices, 1);
+    *h_num_columns_to_reduce= thrust::count(thrust::cuda::par.on(stream_), d_flagarray.get(), d_flagarray+max_num_simplices, 1);
     CHK_CUDA(cudaStreamSynchronize(stream_));
-    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce, d_columns_to_reduce+ max_num_simplices, cmp);
+    thrust::sort(thrust::cuda::par.on(stream_), d_columns_to_reduce.get(), d_columns_to_reduce+ max_num_simplices, cmp);
 #endif
 
 #ifdef COUNTING
@@ -2806,7 +2766,7 @@ void ripser<sparse_distance_matrix>::gpu_assemble_columns_to_reduce_plusplus(con
 #endif
     struct greaterdiam_lowerindex_diameter_index_t_struct_compare cmp;
 
-    thrust::sort(thrust::cuda::par.on(stream_), d_simplices, d_simplices+*h_num_simplices, cmp);
+    thrust::sort(thrust::cuda::par.on(stream_), d_simplices.get(), d_simplices+*h_num_simplices, cmp);
     CHK_CUDA(cudaStreamSynchronize(stream_));
     cudaMemcpyAsync(h_simplices, d_simplices, sizeof(struct diameter_index_t_struct)*(*h_num_simplices),cudaMemcpyDeviceToHost, stream_);
     CHK_CUDA(cudaStreamSynchronize(stream_));
@@ -3084,7 +3044,7 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
 #ifdef COUNTING
         std::cerr<<"max possible num simplices over all dim<=dim_max (without clearing) for memory allocation: "<<max_num_simplices_forall_dims<<std::endl;
 #endif
-        CHK_CUDA(cudaMalloc((void **) &d_columns_to_reduce, sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
+        d_columns_to_reduce.allocate(max_num_simplices_forall_dims);
         h_columns_to_reduce= (struct diameter_index_t_struct*) malloc(sizeof(struct diameter_index_t_struct)* max_num_simplices_forall_dims);
 
         if(h_columns_to_reduce==NULL){
@@ -3093,23 +3053,23 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         }
 
 #ifndef ASSEMBLE_REDUCTION_SUBMATRIX
-            CHK_CUDA(cudaMalloc((void**) &d_flagarray, sizeof(char)*max_num_simplices_forall_dims));
+            d_flagarray.allocate(max_num_simplices_forall_dims);
 #endif
 
-        CHK_CUDA(cudaMalloc((void **) &d_cidx_to_diameter, sizeof(value_t)*max_num_simplices_forall_dims));
+        d_cidx_to_diameter.allocate(max_num_simplices_forall_dims);
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        CHK_CUDA(cudaMalloc((void **) &d_flagarray_OR_index_to_subindex, sizeof(index_t)*max_num_simplices_forall_dims));
+        d_flagarray_OR_index_to_subindex.allocate(max_num_simplices_forall_dims);
 
         h_flagarray_OR_index_to_subindex= (index_t*) malloc(sizeof(index_t)*max_num_simplices_forall_dims);
         if(h_flagarray_OR_index_to_subindex==NULL) {
             std::cerr<<"malloc for h_index_to_subindex failed"<<std::endl;
         }
 #endif
-        CHK_CUDA(cudaMalloc((void **) &d_distance_matrix, sizeof(value_t)*dist.size()*(dist.size()-1)/2));
+        d_distance_matrix.allocate(dist.size()*(dist.size()-1)/2);
         cudaMemcpyAsync(d_distance_matrix, dist.distances.data(), sizeof(value_t)*dist.size()*(dist.size()-1)/2, cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        CHK_CUDA(cudaMalloc((void **) &d_pivot_column_index_OR_nonapparent_cols, sizeof(index_t)*max_num_simplices_forall_dims));
+        d_pivot_column_index_OR_nonapparent_cols.allocate(max_num_simplices_forall_dims);
 
         //this array is used for both the pivot column index hash table array as well as the nonapparent cols array as an unstructured hashmap
         h_pivot_column_index_array_OR_nonapparent_cols= (index_t*) malloc(sizeof(index_t)*max_num_simplices_forall_dims);
@@ -3120,15 +3080,15 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         }
 
         //copy object over to GPU
-        CHK_CUDA(cudaMalloc((void**) &d_binomial_coeff, sizeof(binomial_coeff_table)));
+        d_binomial_coeff.allocate(1);
         cudaMemcpyAsync(d_binomial_coeff, &binomial_coeff, sizeof(binomial_coeff_table), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         index_t num_binoms= binomial_coeff.get_num_n()*binomial_coeff.get_max_tuple_length();
 
-        CHK_CUDA(cudaMalloc((void **) &h_d_binoms, sizeof(index_t)*num_binoms));
+        h_d_binoms.allocate(num_binoms);
         cudaMemcpyAsync(h_d_binoms, binomial_coeff.binoms, sizeof(index_t)*num_binoms, cudaMemcpyHostToDevice, stream_);
-        cudaMemcpyAsync(&(d_binomial_coeff->binoms), &h_d_binoms, sizeof(index_t*), cudaMemcpyHostToDevice, stream_);
+        cudaMemcpyAsync(&(d_binomial_coeff->binoms), h_d_binoms.address_of_ptr(), sizeof(index_t*), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         cudaHostAlloc((void **)&h_num_columns_to_reduce, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
@@ -3136,8 +3096,8 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         cudaHostAlloc((void **)&h_num_nonapparent, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
         cudaHostGetDevicePointer(&d_num_nonapparent, h_num_nonapparent,0);
 
-        CHK_CUDA(cudaMalloc((void**) &d_lowest_one_of_apparent_pair, sizeof(index_t)*max_num_simplices_forall_dims));
-        CHK_CUDA(cudaMalloc((void**) &d_pivot_array, sizeof(struct index_t_pair_struct)*max_num_simplices_forall_dims));
+        d_lowest_one_of_apparent_pair.allocate(max_num_simplices_forall_dims);
+        d_pivot_array.allocate(max_num_simplices_forall_dims);
         h_pivot_array= (struct index_t_pair_struct*) malloc(sizeof(struct index_t_pair_struct)*max_num_simplices_forall_dims);
         if(h_pivot_array==NULL){
             std::cerr<<"malloc for h_pivot_array failed"<<std::endl;
@@ -3210,7 +3170,6 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         }
     }
     if(gpu_dim_max>=1 && n>=10) {
-        free_gpumem_dense_computation();
 //        free CPU memory:
 
         cudaFreeHost(h_num_columns_to_reduce);
@@ -3243,8 +3202,7 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
     //we assume that we have enough memory to last up to dim_max (should be fine with a >=32GB GPU); growth of num simplices can be very slow for sparse case
     if (dim_max >= 1) {
 
-        CHK_CUDA(cudaMalloc((void **) &d_columns_to_reduce,
-                             sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));//46000000
+        d_columns_to_reduce.allocate(max_num_simplices_forall_dims);//46000000
         h_columns_to_reduce = (struct diameter_index_t_struct *) malloc(
                 sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims);
 
@@ -3254,8 +3212,7 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         }
 
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        CHK_CUDA(cudaMalloc((void **) &d_flagarray_OR_index_to_subindex,
-                             sizeof(index_t) * max_num_simplices_forall_dims));
+        d_flagarray_OR_index_to_subindex.allocate(max_num_simplices_forall_dims);
 
         h_flagarray_OR_index_to_subindex = (index_t *) malloc(sizeof(index_t) * max_num_simplices_forall_dims);
         if (h_flagarray_OR_index_to_subindex == NULL) {
@@ -3265,34 +3222,32 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
 
         CSR_distance_matrix CSR_distance_matrix = dist.toCSR();
         //copy CSR_distance_matrix object over to GPU
-        CHK_CUDA(cudaMalloc((void **) &d_CSR_distance_matrix, sizeof(CSR_distance_matrix)));
+        d_CSR_distance_matrix.allocate(1);
         cudaMemcpyAsync(d_CSR_distance_matrix, &CSR_distance_matrix, sizeof(CSR_distance_matrix), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        CHK_CUDA(cudaMalloc((void **) &h_d_offsets, sizeof(index_t) * (CSR_distance_matrix.n + 1)));
+        h_d_offsets.allocate(CSR_distance_matrix.n + 1);
         cudaMemcpyAsync(h_d_offsets, CSR_distance_matrix.offsets, sizeof(index_t) * (CSR_distance_matrix.n + 1),
                    cudaMemcpyHostToDevice, stream_);
-        cudaMemcpyAsync(&(d_CSR_distance_matrix->offsets), &h_d_offsets, sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
+        cudaMemcpyAsync(&(d_CSR_distance_matrix->offsets), h_d_offsets.address_of_ptr(), sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        CHK_CUDA(cudaMalloc((void **) &h_d_entries, sizeof(value_t) * CSR_distance_matrix.num_entries));
+        h_d_entries.allocate(CSR_distance_matrix.num_entries);
         cudaMemcpyAsync(h_d_entries, CSR_distance_matrix.entries, sizeof(value_t) * CSR_distance_matrix.num_entries,
                    cudaMemcpyHostToDevice, stream_);
-        cudaMemcpyAsync(&(d_CSR_distance_matrix->entries), &h_d_entries, sizeof(value_t *), cudaMemcpyHostToDevice, stream_);
+        cudaMemcpyAsync(&(d_CSR_distance_matrix->entries), h_d_entries.address_of_ptr(), sizeof(value_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        CHK_CUDA(cudaMalloc((void **) &h_d_col_indices, sizeof(index_t) * CSR_distance_matrix.num_entries));
+        h_d_col_indices.allocate(CSR_distance_matrix.num_entries);
         cudaMemcpyAsync(h_d_col_indices, CSR_distance_matrix .col_indices, sizeof(index_t) * CSR_distance_matrix .num_entries,
                    cudaMemcpyHostToDevice, stream_);
-        cudaMemcpyAsync(&(d_CSR_distance_matrix->col_indices), &h_d_col_indices, sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
+        cudaMemcpyAsync(&(d_CSR_distance_matrix->col_indices), h_d_col_indices.address_of_ptr(), sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         //this replaces d_cidx_to_diameter
-        CHK_CUDA(cudaMalloc((void **) &d_cidx_diameter_pairs_sortedlist,
-                             sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
+        d_cidx_diameter_pairs_sortedlist.allocate(max_num_simplices_forall_dims);
 
-        CHK_CUDA(cudaMalloc((void **) &d_pivot_column_index_OR_nonapparent_cols,
-                             sizeof(index_t) * max_num_simplices_forall_dims));
+        d_pivot_column_index_OR_nonapparent_cols.allocate(max_num_simplices_forall_dims);
 
         //this array is used for both the pivot column index hash table array as well as the nonapparent cols array as an unstructured hashmap
         h_pivot_column_index_array_OR_nonapparent_cols = (index_t *) malloc(
@@ -3303,15 +3258,15 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         }
 
         //copy object over to GPU
-        CHK_CUDA(cudaMalloc((void **) &d_binomial_coeff, sizeof(binomial_coeff_table)));
+        d_binomial_coeff.allocate(1);
         cudaMemcpyAsync(d_binomial_coeff, &binomial_coeff, sizeof(binomial_coeff_table), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         index_t num_binoms = binomial_coeff.get_num_n() * binomial_coeff.get_max_tuple_length();
 
-        CHK_CUDA(cudaMalloc((void **) &h_d_binoms, sizeof(index_t) * num_binoms));
+        h_d_binoms.allocate(num_binoms);
         cudaMemcpyAsync(h_d_binoms, binomial_coeff.binoms, sizeof(index_t) * num_binoms, cudaMemcpyHostToDevice, stream_);
-        cudaMemcpyAsync(&(d_binomial_coeff->binoms), &h_d_binoms, sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
+        cudaMemcpyAsync(&(d_binomial_coeff->binoms), h_d_binoms.address_of_ptr(), sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         cudaHostAlloc((void **) &h_num_columns_to_reduce, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
@@ -3321,18 +3276,15 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         cudaHostAlloc((void **) &h_num_simplices, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
         cudaHostGetDevicePointer(&d_num_simplices, h_num_simplices, 0);
 
-        CHK_CUDA(
-                cudaMalloc((void **) &d_lowest_one_of_apparent_pair, sizeof(index_t) * max_num_simplices_forall_dims));
-        CHK_CUDA(cudaMalloc((void **) &d_pivot_array,
-                             sizeof(struct index_t_pair_struct) * max_num_simplices_forall_dims));
+        d_lowest_one_of_apparent_pair.allocate(max_num_simplices_forall_dims);
+        d_pivot_array.allocate(max_num_simplices_forall_dims);
         h_pivot_array = (struct index_t_pair_struct *) malloc(
                 sizeof(struct index_t_pair_struct) * max_num_simplices_forall_dims);
         if (h_pivot_array == NULL) {
             std::cerr << "malloc for h_pivot_array failed" << std::endl;
             throw std::runtime_error("ripser++: host allocation failure");
         }
-        CHK_CUDA(cudaMalloc((void **) &d_simplices,
-                             sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
+        d_simplices.allocate(max_num_simplices_forall_dims);
         h_simplices = (struct diameter_index_t_struct *) malloc(
                 sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims);
 
@@ -3381,7 +3333,6 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
     if (maxgpu_dim >= 1 && n>=10) {
         free_init_cpumem();
         free_remaining_cpumem();
-        free_gpumem_sparse_computation();
 
         cudaFreeHost(h_num_columns_to_reduce);
         cudaFreeHost(h_num_nonapparent);

@@ -88,9 +88,42 @@ namespace mpcf
     
     CudaDeviceArray(const CudaDeviceArray&) = delete;
     CudaDeviceArray& operator=(const CudaDeviceArray&) = delete;
-    
+
+    /// (Re)allocate the array to the given size. Frees any existing
+    /// allocation first, so calling repeatedly does not leak.
+    void allocate(std::size_t sz)
+    {
+      reset();
+      CHK_CUDA(cudaMalloc(&m_devPtr, sizeof(T) * sz));
+      m_sz = sz;
+    }
+
+    /// Free the underlying buffer and reset to empty. No-op if already empty.
+    void reset() noexcept
+    {
+      if (m_devPtr)
+      {
+        cudaFree(m_devPtr);
+        m_devPtr = nullptr;
+        m_sz = 0;
+      }
+    }
+
     T* get() const { return m_devPtr; }
-    
+    std::size_t size() const noexcept { return m_sz; }
+
+    /// Implicit conversion to the raw device pointer. Lets instances be
+    /// used in kernel launches, thrust iterators, and cudaMemcpy calls
+    /// without an explicit .get() at every site.
+    operator T*() const noexcept { return m_devPtr; }
+    T* operator->() const noexcept { return m_devPtr; }
+
+    /// Address of the internal device pointer. Stable for the lifetime of
+    /// the CudaDeviceArray instance. Used when copying the pointer value
+    /// itself into device memory (e.g., to wire up a nested pointer field
+    /// inside a device struct via cudaMemcpy).
+    T* const* address_of_ptr() const noexcept { return &m_devPtr; }
+
     void toDevice(const T* src, std::size_t n)
     {
       assertSz(n);
@@ -150,13 +183,7 @@ namespace mpcf
         throw std::runtime_error("Tried copying " + std::to_string(n) + " element(s) to/from array of size " + std::to_string(m_sz));
       }
     }
-    
-    void allocate(std::size_t sz)
-    {
-      CHK_CUDA(cudaMalloc(&m_devPtr, sizeof(T) * sz));
-      m_sz = sz;
-    }
-    
+
     std::mutex m_mutex;
     T* m_devPtr = nullptr;
     std::size_t m_sz = 0ul;
