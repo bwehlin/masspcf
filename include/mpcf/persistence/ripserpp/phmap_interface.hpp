@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-#include "parallel_hashmap/phmap.h"
+#include "../../internal/parallel_hashmap/phmap.h"
 
 namespace mpcf::ripserpp::detail
 {

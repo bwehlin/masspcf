@@ -41,14 +41,7 @@
 
 */
 
-#define CUDACHECK(cmd) do {\
-    cudaError_t e= cmd;\
-    if( e != cudaSuccess ) {\
-        printf("Failed: Cuda error %s:%d '%s'\n",\
-        __FILE__,__LINE__,cudaGetErrorString(e));\
-    exit(EXIT_FAILURE);\
-    }\
-    } while(0)
+#include <mpcf/cuda/cuda_util.cuh>
 
 //#define INDICATE_PROGRESS//DO NOT UNCOMMENT THIS IF YOU WANT TO LOG PROFILING NUMBERS FROM stderr TO FILE
 //#define PRINT_PERSISTENCE_PAIRS//print out all persistence paris to stdout
@@ -79,7 +72,7 @@
 #include <cmath>
 #include <algorithm>
 #include <sparsehash/dense_hash_map>
-#include <phmap_interface/phmap_interface.h>
+#include <mpcf/persistence/ripserpp/phmap_interface.hpp>
 
 #include <omp.h>
 #include <thrust/fill.h>
@@ -159,17 +152,6 @@ typedef struct {
     value_t birth;
     value_t death;
 } birth_death_coordinate;
-typedef struct{
-    index_t num_barcodes;
-    birth_death_coordinate* barcodes;
-} set_of_barcodes;
-typedef struct{
-    int num_dimensions;
-    set_of_barcodes* all_barcodes;
-} ripser_plusplus_result;
-
-ripser_plusplus_result res;
-
 
 std::vector<std::vector<birth_death_coordinate>> list_of_barcodes = std::vector<std::vector<birth_death_coordinate>>();
 
@@ -205,7 +187,7 @@ public:
         binoms= (index_t*)malloc(sizeof(index_t)*(n+1)*(k+1));
         if(binoms==NULL){
             std::cerr<<"malloc for binoms failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
         num_n= n+1;
         max_tuple_length= k+1;
@@ -344,12 +326,12 @@ private:
             dist.entries= (value_t *) malloc(sizeof(value_t) * size() * 10);
             if(dist.entries==NULL){
                 std::cerr<<"entries could not be malloced"<<std::endl;
-                exit(1);
+                throw std::runtime_error("ripser++: host allocation failure");
             }
             dist.col_indices= (index_t *) malloc(sizeof(index_t) * size() * 10);
             if(dist.col_indices==NULL){
                 std::cerr<<"col_indices could not be malloced"<<std::endl;
-                exit(1);
+                throw std::runtime_error("ripser++: host allocation failure");
             }
             dist.capacity= size() * 10;
         }
@@ -359,12 +341,12 @@ private:
             dist.entries= (value_t *) realloc(dist.entries, sizeof(value_t) * dist.capacity);
             if(dist.entries==NULL){
                 std::cerr<<"col_indices could not be realloced with double memory"<<std::endl;
-                exit(1);
+                throw std::runtime_error("ripser++: host allocation failure");
             }
             dist.col_indices= (index_t *) realloc(dist.col_indices, sizeof(index_t) * dist.capacity);
             if(dist.col_indices==NULL){
                 std::cerr<<"col_indices could not be realloced with double memory"<<std::endl;
-                exit(1);
+                throw std::runtime_error("ripser++: host allocation failure");
             }
         }
         dist.entries[dist.num_entries]= e;
@@ -389,17 +371,17 @@ public:
         dist.offsets= (index_t*) malloc(sizeof(index_t)*(size()+1));
         if(dist.offsets==NULL){
             std::cerr<<"malloc for offsets failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
         dist.col_indices= (index_t*) malloc(sizeof(index_t)*dist.capacity);
         if(dist.col_indices==NULL){
             std::cerr<<"malloc for col_indices failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
         dist.entries= (value_t*) malloc(sizeof(value_t)*dist.capacity);
         if(dist.entries==NULL){
             std::cerr<<"malloc for entries failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
         for(index_t i= 0; i<size(); i++){
             index_t nnz_inrow= 0;
@@ -2361,29 +2343,29 @@ void ripser<compressed_lower_distance_matrix>::gpu_compute_dim_0_pairs(std::vect
     struct greaterdiam_lowerindex_diameter_index_t_struct_compare_reverse cmp_reverse;
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
     cudaMemset(d_flagarray_OR_index_to_subindex, 0, sizeof(index_t)*max_num_edges);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 #else
     cudaMemset(d_flagarray, 0, sizeof(char)*max_num_edges);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 #endif
 
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_edges<index_t>, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_edges<index_t>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     populate_edges<<<grid_size, 256>>>(d_flagarray_OR_index_to_subindex, d_columns_to_reduce, threshold, d_distance_matrix, max_num_edges, n, d_binomial_coeff);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     *h_num_columns_to_reduce= thrust::count(thrust::device , d_flagarray_OR_index_to_subindex, d_flagarray_OR_index_to_subindex+max_num_edges, 1);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     thrust::sort(thrust::device, d_columns_to_reduce, d_columns_to_reduce+ max_num_edges, cmp_reverse);
 #else
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_edges<char>, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_edges<char>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     populate_edges<<<grid_size, 256>>>(d_flagarray, d_columns_to_reduce, threshold, d_distance_matrix, max_num_edges, n, d_binomial_coeff);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     *h_num_columns_to_reduce= thrust::count(thrust::device , d_flagarray, d_flagarray+max_num_edges, 1);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     thrust::sort(thrust::device, d_columns_to_reduce, d_columns_to_reduce+ max_num_edges, cmp_reverse);
 #endif
 #ifdef COUNTING
@@ -2443,7 +2425,7 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
     union_find dset(n);
 
     struct greaterdiam_lowerindex_diameter_index_t_struct_compare_reverse cmp_reverse;
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_edges_preparingcount, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_edges_preparingcount, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
 
     //grid_size will return 0 if we have CPU-only code inside d_CSR_distance_matrix
@@ -2452,21 +2434,21 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
     //populate edges kernel cannot have some threads iterating in the inner for loop, preventing shfl_sync() from runnning
 
     int* d_num;
-    CUDACHECK(cudaMalloc((void **) & d_num, sizeof(int)*(n+1)));
+    CHK_CUDA(cudaMalloc((void **) & d_num, sizeof(int)*(n+1)));
     cudaMemset(d_num, 0, sizeof(int)*(n+1));
 
     populate_sparse_edges_preparingcount<<<grid_size, 256>>>(d_num, d_CSR_distance_matrix, n, d_num_simplices);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     thrust::exclusive_scan(thrust::device, d_num, d_num+n+1, d_num, 0);
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_edges_prefixsum, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_edges_prefixsum, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
 
     populate_sparse_edges_prefixsum<<<grid_size,256>>>(d_simplices, d_num, d_CSR_distance_matrix, d_binomial_coeff, n, d_num_simplices);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     thrust::sort(thrust::device, d_simplices, d_simplices+ *h_num_simplices, cmp_reverse);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
 #ifdef COUNTING
     std::cerr<<"num (sparse) edges filtered: "<<*h_num_simplices<<std::endl;
@@ -2537,43 +2519,43 @@ void ripser<compressed_lower_distance_matrix>::gpuscan(const index_t dim){
     cudaMemcpy(d_columns_to_reduce, h_columns_to_reduce,
                sizeof(struct diameter_index_t_struct) * *h_num_columns_to_reduce, cudaMemcpyHostToDevice);
 
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     thrust::fill(thrust::device, d_cidx_to_diameter, d_cidx_to_diameter + num_simplices, -MAX_FLOAT);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_cidx_to_diam, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_cidx_to_diam, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     //there will be kernel launch errors if columns_to_reduce.size()==0; it causes thrust to complain later in the code execution
 
     init_cidx_to_diam << < grid_size, 256 >> >
     (d_cidx_to_diameter, d_columns_to_reduce, *h_num_columns_to_reduce);
 
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     cudaMemset(d_lowest_one_of_apparent_pair, -1, sizeof(index_t) * *h_num_columns_to_reduce);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, coboundary_findapparent_single_kernel, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, coboundary_findapparent_single_kernel, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
 
     coboundary_findapparent_single_kernel << < grid_size, 256, 256 * (dim + 1) * sizeof(index_t) >> >
     (d_cidx_to_diameter, d_columns_to_reduce, d_lowest_one_of_apparent_pair, dim, num_simplices, n, d_binomial_coeff, *h_num_columns_to_reduce, d_distance_matrix, threshold);
 
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     //post processing (inserting appararent pairs into a "hash map": 2 level data structure) now on GPU
     struct row_cidx_column_idx_struct_compare cmp_pivots;
 
     //put pairs into an array
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, gpu_insert_pivots_kernel, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, gpu_insert_pivots_kernel, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
 
     gpu_insert_pivots_kernel<< < grid_size, 256 >> >(d_pivot_array, d_lowest_one_of_apparent_pair, d_pivot_column_index_OR_nonapparent_cols, *h_num_columns_to_reduce, d_num_nonapparent);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     thrust::sort(thrust::device, d_pivot_array, d_pivot_array+*h_num_columns_to_reduce, cmp_pivots);
     thrust::sort(thrust::device, d_pivot_column_index_OR_nonapparent_cols, d_pivot_column_index_OR_nonapparent_cols+*h_num_nonapparent);
@@ -2591,7 +2573,7 @@ void ripser<compressed_lower_distance_matrix>::gpuscan(const index_t dim){
 
     cudaMemset(d_flagarray_OR_index_to_subindex, -1, sizeof(index_t)* *h_num_columns_to_reduce);
     //perform the scatter operation
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_index_to_subindex, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_index_to_subindex, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     init_index_to_subindex<< < grid_size, 256 >> >
     (d_flagarray_OR_index_to_subindex, d_pivot_column_index_OR_nonapparent_cols, *h_num_nonapparent);
@@ -2618,35 +2600,35 @@ void ripser<sparse_distance_matrix>::gpuscan(const index_t dim){
     cudaMemcpy(d_columns_to_reduce, h_columns_to_reduce,
                sizeof(struct diameter_index_t_struct) * *h_num_columns_to_reduce, cudaMemcpyHostToDevice);
 
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     //use binary search on d_columns_to_reduce as retrival process
 
     cudaMemcpy(d_cidx_diameter_pairs_sortedlist, d_columns_to_reduce, sizeof(struct diameter_index_t_struct)*(*h_num_columns_to_reduce), cudaMemcpyDeviceToDevice);
     struct lowerindex_lowerdiam_diameter_index_t_struct_compare cmp_cidx_diameter;
     thrust::sort(thrust::device, d_cidx_diameter_pairs_sortedlist, d_cidx_diameter_pairs_sortedlist+*h_num_columns_to_reduce, cmp_cidx_diameter);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     cudaMemset(d_lowest_one_of_apparent_pair, -1, sizeof(index_t) * *h_num_columns_to_reduce);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, coboundary_findapparent_sparse_single_kernel, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, coboundary_findapparent_sparse_single_kernel, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     coboundary_findapparent_sparse_single_kernel << < grid_size, 256, 256 * (dim + 1) * sizeof(index_t) >> >
     (d_cidx_diameter_pairs_sortedlist, d_columns_to_reduce, d_lowest_one_of_apparent_pair, dim, n, d_binomial_coeff, *h_num_columns_to_reduce, d_CSR_distance_matrix, threshold);
 
-    CUDACHECK(cudaDeviceSynchronize());
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     //post processing (inserting appararent pairs into a "hash map": 2 level data structure) now on GPU
     struct row_cidx_column_idx_struct_compare cmp_pivots;
 
     //put pairs into an array
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, gpu_insert_pivots_kernel, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, gpu_insert_pivots_kernel, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     gpu_insert_pivots_kernel<< < grid_size, 256 >> >(d_pivot_array, d_lowest_one_of_apparent_pair, d_pivot_column_index_OR_nonapparent_cols, *h_num_columns_to_reduce, d_num_nonapparent);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     thrust::sort(thrust::device, d_pivot_array, d_pivot_array+*h_num_columns_to_reduce, cmp_pivots);
     thrust::sort(thrust::device, d_pivot_column_index_OR_nonapparent_cols, d_pivot_column_index_OR_nonapparent_cols+*h_num_nonapparent);
 
@@ -2661,7 +2643,7 @@ void ripser<sparse_distance_matrix>::gpuscan(const index_t dim){
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
     cudaMemset(d_flagarray_OR_index_to_subindex, -1, sizeof(index_t)* *h_num_columns_to_reduce);
     //perform the scatter operation
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_index_to_subindex, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, init_index_to_subindex, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     init_index_to_subindex<< < grid_size, 256 >> >
     (d_flagarray_OR_index_to_subindex, d_pivot_column_index_OR_nonapparent_cols, *h_num_nonapparent);
@@ -2701,32 +2683,32 @@ void ripser<compressed_lower_distance_matrix>::gpu_assemble_columns_to_reduce_pl
 
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
     cudaMemset(d_flagarray_OR_index_to_subindex, 0, sizeof(index_t)*max_num_simplices);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 #else
     cudaMemset(d_flagarray, 0, sizeof(char)*max_num_simplices);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 #endif
 
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_columns_to_reduce<index_t>, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_columns_to_reduce<index_t>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     populate_columns_to_reduce<<<grid_size, 256, 256 * (dim + 1) * sizeof(index_t)>>>(d_flagarray_OR_index_to_subindex, d_columns_to_reduce, d_pivot_column_index_OR_nonapparent_cols, d_distance_matrix, n, max_num_simplices, dim, threshold, d_binomial_coeff);
 #else
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_columns_to_reduce<char>, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_columns_to_reduce<char>, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     populate_columns_to_reduce<<<grid_size, 256, 256 * (dim + 1) * sizeof(index_t)>>>(d_flagarray, d_columns_to_reduce, d_pivot_column_index_OR_nonapparent_cols, d_distance_matrix, n, max_num_simplices, dim, threshold, d_binomial_coeff);
 #endif
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     struct greaterdiam_lowerindex_diameter_index_t_struct_compare cmp;
 
 #ifdef ASSEMBLE_REDUCTION_SUBMATRIX
     *h_num_columns_to_reduce= thrust::count(thrust::device , d_flagarray_OR_index_to_subindex, d_flagarray_OR_index_to_subindex+max_num_simplices, 1);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     thrust::sort(thrust::device, d_columns_to_reduce, d_columns_to_reduce+ max_num_simplices, cmp);
 #else
     *h_num_columns_to_reduce= thrust::count(thrust::device , d_flagarray, d_flagarray+max_num_simplices, 1);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     thrust::sort(thrust::device, d_columns_to_reduce, d_columns_to_reduce+ max_num_simplices, cmp);
 #endif
 
@@ -2745,7 +2727,7 @@ void ripser<sparse_distance_matrix>::gpu_assemble_columns_to_reduce_plusplus(con
 #endif
     *h_num_columns_to_reduce= 0;
 
-    CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_simplices_warpfiltering, 256, 0));
+    CHK_CUDA(cudaOccupancyMaxActiveBlocksPerMultiprocessor( &grid_size, populate_sparse_simplices_warpfiltering, 256, 0));
     grid_size  *= deviceProp.multiProcessorCount;
     //columns_to_reduce contains the "new set" of simplices
 #ifdef COUNTING
@@ -2753,7 +2735,7 @@ void ripser<sparse_distance_matrix>::gpu_assemble_columns_to_reduce_plusplus(con
 #endif
 
     populate_sparse_simplices_warpfiltering<<<grid_size, 256, 256 * dim * sizeof(index_t)>>>(d_simplices, d_num_simplices, d_columns_to_reduce, d_num_columns_to_reduce, d_CSR_distance_matrix, n, dim, threshold, d_binomial_coeff);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
 
     cudaMemcpy(d_simplices, d_columns_to_reduce, sizeof(struct diameter_index_t_struct)*(*h_num_columns_to_reduce),cudaMemcpyDeviceToDevice);
     *h_num_simplices= *h_num_columns_to_reduce;
@@ -2764,7 +2746,7 @@ void ripser<sparse_distance_matrix>::gpu_assemble_columns_to_reduce_plusplus(con
     struct greaterdiam_lowerindex_diameter_index_t_struct_compare cmp;
 
     thrust::sort(thrust::device, d_simplices, d_simplices+*h_num_simplices, cmp);
-    CUDACHECK(cudaDeviceSynchronize());
+    CHK_CUDA(cudaDeviceSynchronize());
     cudaMemcpy(h_simplices, d_simplices, sizeof(struct diameter_index_t_struct)*(*h_num_simplices),cudaMemcpyDeviceToHost);
 
     //populate the columns_to_reduce vector on CPU side
@@ -3041,47 +3023,47 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
 #ifdef COUNTING
         std::cerr<<"max possible num simplices over all dim<=dim_max (without clearing) for memory allocation: "<<max_num_simplices_forall_dims<<std::endl;
 #endif
-        CUDACHECK(cudaMalloc((void **) &d_columns_to_reduce, sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
+        CHK_CUDA(cudaMalloc((void **) &d_columns_to_reduce, sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
         h_columns_to_reduce= (struct diameter_index_t_struct*) malloc(sizeof(struct diameter_index_t_struct)* max_num_simplices_forall_dims);
 
         if(h_columns_to_reduce==NULL){
             std::cerr<<"malloc for h_columns_to_reduce failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
 
 #ifndef ASSEMBLE_REDUCTION_SUBMATRIX
-            CUDACHECK(cudaMalloc((void**) &d_flagarray, sizeof(char)*max_num_simplices_forall_dims));
+            CHK_CUDA(cudaMalloc((void**) &d_flagarray, sizeof(char)*max_num_simplices_forall_dims));
 #endif
 
-        CUDACHECK(cudaMalloc((void **) &d_cidx_to_diameter, sizeof(value_t)*max_num_simplices_forall_dims));
+        CHK_CUDA(cudaMalloc((void **) &d_cidx_to_diameter, sizeof(value_t)*max_num_simplices_forall_dims));
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        CUDACHECK(cudaMalloc((void **) &d_flagarray_OR_index_to_subindex, sizeof(index_t)*max_num_simplices_forall_dims));
+        CHK_CUDA(cudaMalloc((void **) &d_flagarray_OR_index_to_subindex, sizeof(index_t)*max_num_simplices_forall_dims));
 
         h_flagarray_OR_index_to_subindex= (index_t*) malloc(sizeof(index_t)*max_num_simplices_forall_dims);
         if(h_flagarray_OR_index_to_subindex==NULL) {
             std::cerr<<"malloc for h_index_to_subindex failed"<<std::endl;
         }
 #endif
-        CUDACHECK(cudaMalloc((void **) &d_distance_matrix, sizeof(value_t)*dist.size()*(dist.size()-1)/2));
+        CHK_CUDA(cudaMalloc((void **) &d_distance_matrix, sizeof(value_t)*dist.size()*(dist.size()-1)/2));
         cudaMemcpy(d_distance_matrix, dist.distances.data(), sizeof(value_t)*dist.size()*(dist.size()-1)/2, cudaMemcpyHostToDevice);
 
-        CUDACHECK(cudaMalloc((void **) &d_pivot_column_index_OR_nonapparent_cols, sizeof(index_t)*max_num_simplices_forall_dims));
+        CHK_CUDA(cudaMalloc((void **) &d_pivot_column_index_OR_nonapparent_cols, sizeof(index_t)*max_num_simplices_forall_dims));
 
         //this array is used for both the pivot column index hash table array as well as the nonapparent cols array as an unstructured hashmap
         h_pivot_column_index_array_OR_nonapparent_cols= (index_t*) malloc(sizeof(index_t)*max_num_simplices_forall_dims);
 
         if(h_pivot_column_index_array_OR_nonapparent_cols==NULL){
             std::cerr<<"malloc for h_pivot_column_index_array_OR_nonapparent_cols failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
 
         //copy object over to GPU
-        CUDACHECK(cudaMalloc((void**) &d_binomial_coeff, sizeof(binomial_coeff_table)));
+        CHK_CUDA(cudaMalloc((void**) &d_binomial_coeff, sizeof(binomial_coeff_table)));
         cudaMemcpy(d_binomial_coeff, &binomial_coeff, sizeof(binomial_coeff_table), cudaMemcpyHostToDevice);
 
         index_t num_binoms= binomial_coeff.get_num_n()*binomial_coeff.get_max_tuple_length();
 
-        CUDACHECK(cudaMalloc((void **) &h_d_binoms, sizeof(index_t)*num_binoms));
+        CHK_CUDA(cudaMalloc((void **) &h_d_binoms, sizeof(index_t)*num_binoms));
         cudaMemcpy(h_d_binoms, binomial_coeff.binoms, sizeof(index_t)*num_binoms, cudaMemcpyHostToDevice);
         cudaMemcpy(&(d_binomial_coeff->binoms), &h_d_binoms, sizeof(index_t*), cudaMemcpyHostToDevice);
 
@@ -3090,12 +3072,12 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         cudaHostAlloc((void **)&h_num_nonapparent, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
         cudaHostGetDevicePointer(&d_num_nonapparent, h_num_nonapparent,0);
 
-        CUDACHECK(cudaMalloc((void**) &d_lowest_one_of_apparent_pair, sizeof(index_t)*max_num_simplices_forall_dims));
-        CUDACHECK(cudaMalloc((void**) &d_pivot_array, sizeof(struct index_t_pair_struct)*max_num_simplices_forall_dims));
+        CHK_CUDA(cudaMalloc((void**) &d_lowest_one_of_apparent_pair, sizeof(index_t)*max_num_simplices_forall_dims));
+        CHK_CUDA(cudaMalloc((void**) &d_pivot_array, sizeof(struct index_t_pair_struct)*max_num_simplices_forall_dims));
         h_pivot_array= (struct index_t_pair_struct*) malloc(sizeof(struct index_t_pair_struct)*max_num_simplices_forall_dims);
         if(h_pivot_array==NULL){
             std::cerr<<"malloc for h_pivot_array failed"<<std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
 #ifdef PROFILING
         cudaMemGetInfo(&freeMem,&totalMem);
@@ -3197,18 +3179,18 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
     //we assume that we have enough memory to last up to dim_max (should be fine with a >=32GB GPU); growth of num simplices can be very slow for sparse case
     if (dim_max >= 1) {
 
-        CUDACHECK(cudaMalloc((void **) &d_columns_to_reduce,
+        CHK_CUDA(cudaMalloc((void **) &d_columns_to_reduce,
                              sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));//46000000
         h_columns_to_reduce = (struct diameter_index_t_struct *) malloc(
                 sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims);
 
         if (h_columns_to_reduce == NULL) {
             std::cerr << "malloc for h_columns_to_reduce failed" << std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
 
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        CUDACHECK(cudaMalloc((void **) &d_flagarray_OR_index_to_subindex,
+        CHK_CUDA(cudaMalloc((void **) &d_flagarray_OR_index_to_subindex,
                              sizeof(index_t) * max_num_simplices_forall_dims));
 
         h_flagarray_OR_index_to_subindex = (index_t *) malloc(sizeof(index_t) * max_num_simplices_forall_dims);
@@ -3219,30 +3201,30 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
 
         CSR_distance_matrix CSR_distance_matrix = dist.toCSR();
         //copy CSR_distance_matrix object over to GPU
-        CUDACHECK(cudaMalloc((void **) &d_CSR_distance_matrix, sizeof(CSR_distance_matrix)));
+        CHK_CUDA(cudaMalloc((void **) &d_CSR_distance_matrix, sizeof(CSR_distance_matrix)));
         cudaMemcpy(d_CSR_distance_matrix, &CSR_distance_matrix, sizeof(CSR_distance_matrix), cudaMemcpyHostToDevice);
 
-        CUDACHECK(cudaMalloc((void **) &h_d_offsets, sizeof(index_t) * (CSR_distance_matrix.n + 1)));
+        CHK_CUDA(cudaMalloc((void **) &h_d_offsets, sizeof(index_t) * (CSR_distance_matrix.n + 1)));
         cudaMemcpy(h_d_offsets, CSR_distance_matrix.offsets, sizeof(index_t) * (CSR_distance_matrix.n + 1),
                    cudaMemcpyHostToDevice);
         cudaMemcpy(&(d_CSR_distance_matrix->offsets), &h_d_offsets, sizeof(index_t *), cudaMemcpyHostToDevice);
 
-        CUDACHECK(cudaMalloc((void **) &h_d_entries, sizeof(value_t) * CSR_distance_matrix.num_entries));
+        CHK_CUDA(cudaMalloc((void **) &h_d_entries, sizeof(value_t) * CSR_distance_matrix.num_entries));
         cudaMemcpy(h_d_entries, CSR_distance_matrix.entries, sizeof(value_t) * CSR_distance_matrix.num_entries,
                    cudaMemcpyHostToDevice);
         cudaMemcpy(&(d_CSR_distance_matrix->entries), &h_d_entries, sizeof(value_t *), cudaMemcpyHostToDevice);
 
-        CUDACHECK(cudaMalloc((void **) &h_d_col_indices, sizeof(index_t) * CSR_distance_matrix.num_entries));
+        CHK_CUDA(cudaMalloc((void **) &h_d_col_indices, sizeof(index_t) * CSR_distance_matrix.num_entries));
         cudaMemcpy(h_d_col_indices, CSR_distance_matrix .col_indices, sizeof(index_t) * CSR_distance_matrix .num_entries,
                    cudaMemcpyHostToDevice);
         
         cudaMemcpy(&(d_CSR_distance_matrix->col_indices), &h_d_col_indices, sizeof(index_t *), cudaMemcpyHostToDevice);
 
         //this replaces d_cidx_to_diameter
-        CUDACHECK(cudaMalloc((void **) &d_cidx_diameter_pairs_sortedlist,
+        CHK_CUDA(cudaMalloc((void **) &d_cidx_diameter_pairs_sortedlist,
                              sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
 
-        CUDACHECK(cudaMalloc((void **) &d_pivot_column_index_OR_nonapparent_cols,
+        CHK_CUDA(cudaMalloc((void **) &d_pivot_column_index_OR_nonapparent_cols,
                              sizeof(index_t) * max_num_simplices_forall_dims));
 
         //this array is used for both the pivot column index hash table array as well as the nonapparent cols array as an unstructured hashmap
@@ -3250,16 +3232,16 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
                 sizeof(index_t) * max_num_simplices_forall_dims);
         if (h_pivot_column_index_array_OR_nonapparent_cols == NULL) {
             std::cerr << "malloc for h_pivot_column_index_array_OR_nonapparent_cols failed" << std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
 
         //copy object over to GPU
-        CUDACHECK(cudaMalloc((void **) &d_binomial_coeff, sizeof(binomial_coeff_table)));
+        CHK_CUDA(cudaMalloc((void **) &d_binomial_coeff, sizeof(binomial_coeff_table)));
         cudaMemcpy(d_binomial_coeff, &binomial_coeff, sizeof(binomial_coeff_table), cudaMemcpyHostToDevice);
 
         index_t num_binoms = binomial_coeff.get_num_n() * binomial_coeff.get_max_tuple_length();
 
-        CUDACHECK(cudaMalloc((void **) &h_d_binoms, sizeof(index_t) * num_binoms));
+        CHK_CUDA(cudaMalloc((void **) &h_d_binoms, sizeof(index_t) * num_binoms));
         cudaMemcpy(h_d_binoms, binomial_coeff.binoms, sizeof(index_t) * num_binoms, cudaMemcpyHostToDevice);
         cudaMemcpy(&(d_binomial_coeff->binoms), &h_d_binoms, sizeof(index_t *), cudaMemcpyHostToDevice);
 
@@ -3270,24 +3252,24 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         cudaHostAlloc((void **) &h_num_simplices, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
         cudaHostGetDevicePointer(&d_num_simplices, h_num_simplices, 0);
 
-        CUDACHECK(
+        CHK_CUDA(
                 cudaMalloc((void **) &d_lowest_one_of_apparent_pair, sizeof(index_t) * max_num_simplices_forall_dims));
-        CUDACHECK(cudaMalloc((void **) &d_pivot_array,
+        CHK_CUDA(cudaMalloc((void **) &d_pivot_array,
                              sizeof(struct index_t_pair_struct) * max_num_simplices_forall_dims));
         h_pivot_array = (struct index_t_pair_struct *) malloc(
                 sizeof(struct index_t_pair_struct) * max_num_simplices_forall_dims);
         if (h_pivot_array == NULL) {
             std::cerr << "malloc for h_pivot_array failed" << std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
-        CUDACHECK(cudaMalloc((void **) &d_simplices,
+        CHK_CUDA(cudaMalloc((void **) &d_simplices,
                              sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims));
         h_simplices = (struct diameter_index_t_struct *) malloc(
                 sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims);
 
         if (h_simplices == NULL) {
             std::cerr << "malloc for h_simplices failed" << std::endl;
-            exit(1);
+            throw std::runtime_error("ripser++: host allocation failure");
         }
 #ifdef PROFILING
         cudaMemGetInfo(&freeMem,&totalMem);
@@ -3509,12 +3491,12 @@ compressed_lower_distance_matrix read_distance_matrix(std::istream& input_stream
 compressed_lower_distance_matrix read_dipha(std::istream& input_stream) {
     if (read<int64_t>(input_stream) != 8067171840) {
         std::cerr << "input is not a Dipha file (magic number: 8067171840)" << std::endl;
-        exit(-1);
+        throw std::runtime_error("ripser++: input format error");
     }
 
     if (read<int64_t>(input_stream) != 7) {
         std::cerr << "input is not a Dipha distance matrix (file type: 7)" << std::endl;
-        exit(-1);
+        throw std::runtime_error("ripser++: input format error");
     }
 
     index_t n= read<int64_t>(input_stream);
@@ -3547,7 +3529,7 @@ compressed_lower_distance_matrix read_matrix_python(value_t* matrix, int num_ent
             return read_point_cloud_python(matrix, num_rows, num_columns);
     }
     std::cerr<<"unsupported input file format for python interface"<<std::endl;
-    exit(-1);
+    throw std::runtime_error("ripser++: input format error");
 }
 
 compressed_lower_distance_matrix read_file(std::istream& input_stream, file_format format) {
@@ -3566,463 +3548,3 @@ compressed_lower_distance_matrix read_file(std::istream& input_stream, file_form
     std::cerr<<"unsupported input file format"<<std::endl;
 }
 
-void print_usage_and_exit(int exit_code) {
-    std::cerr
-            << "Usage: "
-            << "ripser++ "
-            << "[options] [filename]" << std::endl
-            << std::endl
-            << "Options:" << std::endl
-            << std::endl
-            << "  --help           print this screen" << std::endl
-            << "  --format         use the specified file format for the input. Options are:"
-            << std::endl
-            << "                     lower-distance (lower triangular distance matrix; default)"
-            << std::endl
-            << "                     distance       (full distance matrix)" << std::endl
-            << "                     point-cloud    (point cloud in Euclidean space)" << std::endl
-            << "                     dipha          (distance matrix in DIPHA file format)" << std::endl
-            << "                     sparse         (sparse distance matrix in sparse triplet (COO) format)"
-            << std::endl
-            << "                     binary         (distance matrix in Ripser binary file format)"
-            << std::endl
-            << "  --dim <k>        compute persistent homology up to dimension <k>" << std::endl
-            << "  --threshold <t>  compute Rips complexes up to diameter <t>" << std::endl
-            << "  --sparse         force sparse computation "<<std::endl
-            << "  --ratio <r>      only show persistence pairs with death/birth ratio > r" << std::endl
-            << std::endl;
-
-    exit(exit_code);
-}
-
-extern "C" ripser_plusplus_result run_main_filename(int argc,  char** argv, const char* filename) {
-
-#ifdef PROFILING
-    cudaDeviceProp deviceProp;
-    size_t freeMem_start, freeMem_end, totalMemory;
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaMemGetInfo(&freeMem_start,&totalMemory);
-#endif
-
-    file_format format= DISTANCE_MATRIX;
-
-    index_t dim_max= 1;
-    value_t threshold= std::numeric_limits<value_t>::max();
-
-    float ratio= 1;
-
-    bool use_sparse= false;
-
-
-    for (index_t i= 0; i < argc; i++) {
-        const std::string arg(argv[i]);
-        if (arg == "--help") {
-            print_usage_and_exit(0);
-        } else if (arg == "--dim") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            dim_max= std::stol(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--threshold") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            threshold= std::stof(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--ratio") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            ratio= std::stof(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--format") {
-            std::string parameter= std::string(argv[++i]);
-            if (parameter == "lower-distance")
-                format= LOWER_DISTANCE_MATRIX;
-            else if (parameter == "distance")
-                format= DISTANCE_MATRIX;
-            else if (parameter == "point-cloud")
-                format= POINT_CLOUD;
-            else if (parameter == "dipha")
-                format= DIPHA;
-            else if (parameter == "sparse")
-                format= SPARSE;
-            else if (parameter == "binary")
-                format= BINARY;
-            else
-                print_usage_and_exit(-1);
-        } else if(arg=="--sparse") {
-            use_sparse= true;
-        }
-    }
-
-    list_of_barcodes = std::vector<std::vector<birth_death_coordinate>>();
-    for(index_t i = 0; i <= dim_max; i++){
-        list_of_barcodes.push_back(std::vector<birth_death_coordinate>());
-    }
-
-    std::ifstream file_stream(filename);
-    if (filename && file_stream.fail()) {
-        std::cerr << "couldn't open file " << filename << std::endl;
-        exit(-1);
-    }
-    if (format == SPARSE) {
-        sparse_distance_matrix dist =
-                read_sparse_distance_matrix(filename ? file_stream : std::cin);
-        assert(dist.num_entries%2==0);
-#ifdef COUNTING
-        std::cout << "sparse distance matrix with " << dist.size() << " points and "
-                  << dist.num_entries/2 << "/" << (dist.size() * (dist.size() - 1)) / 2 << " entries"
-                  << std::endl;
-#endif
-        ripser<sparse_distance_matrix>(std::move(dist), dim_max, threshold, ratio)
-                .compute_barcodes();
-    }else {
-
-        compressed_lower_distance_matrix dist= read_file(filename ? file_stream : std::cin, format);
-        value_t min= std::numeric_limits<value_t>::infinity(),
-                max= -std::numeric_limits<value_t>::infinity(), max_finite= max;
-        int num_edges= 0;
-
-        value_t enclosing_radius= std::numeric_limits<value_t>::infinity();
-        for (index_t i= 0; i < dist.size(); ++i) {
-            value_t r_i= -std::numeric_limits<value_t>::infinity();
-            for (index_t j= 0; j < dist.size(); ++j) r_i= std::max(r_i, dist(i, j));
-            enclosing_radius= std::min(enclosing_radius, r_i);
-        }
-
-        if (threshold == std::numeric_limits<value_t>::max()) threshold= enclosing_radius;
-
-        for (auto d : dist.distances) {
-            min= std::min(min, d);
-            max= std::max(max, d);
-            max_finite= d != std::numeric_limits<value_t>::infinity() ? std::max(max, d) : max_finite;
-            if (d <= threshold) ++num_edges;
-        }
-#ifdef COUNTING
-        std::cout << "value range: [" << min << "," << max_finite << "]" << std::endl;
-#endif
-
-
-        if (use_sparse) {
-#ifdef COUNTING
-            std::cout << "sparse distance matrix with " << dist.size() << " points and "
-                      << num_edges << "/" << (dist.size() * (dist.size() - 1)) / 2 << " entries"
-                      << std::endl;
-#endif
-            ripser<sparse_distance_matrix>(sparse_distance_matrix(std::move(dist), threshold),
-                                           dim_max, threshold, ratio)
-                    .compute_barcodes();
-        } else {
-#ifdef COUNTING
-            std::cout << "distance matrix with " << dist.size() << " points" << std::endl;
-#endif
-            ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, ratio).compute_barcodes();
-        }
-    }
-#ifdef INDICATE_PROGRESS
-    std::cerr<<clear_line<<std::flush;
-#endif
-#ifdef PROFILING
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaMemGetInfo(&freeMem_end,&totalMemory);
-
-    std::cerr<<"total GPU memory used: "<<(freeMem_start-freeMem_end)/1000.0/1000.0/1000.0<<"GB"<<std::endl;
-#endif
-
-    set_of_barcodes* collected_barcodes = (set_of_barcodes*)malloc(sizeof(set_of_barcodes) * list_of_barcodes.size());
-    for(index_t i = 0; i < list_of_barcodes.size();i++){
-        birth_death_coordinate* barcode_array = (birth_death_coordinate*)malloc(sizeof(birth_death_coordinate) * list_of_barcodes[i].size());
-
-        index_t j;
-        for(j = 0; j < list_of_barcodes[i].size(); j++){
-            barcode_array[j] = list_of_barcodes[i][j];
-        }
-        collected_barcodes[i] = {j,barcode_array};
-    }
-
-    res = {(int)(dim_max + 1),collected_barcodes};
-
-    return res;
-}
-
-extern "C" ripser_plusplus_result run_main(int argc, char** argv, value_t* matrix, int num_entries, int num_rows, int num_columns) {
-
-#ifdef PROFILING
-    cudaDeviceProp deviceProp;
-    size_t freeMem_start, freeMem_end, totalMemory;
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaMemGetInfo(&freeMem_start,&totalMemory);
-#endif
-    const char* filename= nullptr;
-
-    file_format format= DISTANCE_MATRIX;
-
-    index_t dim_max= 1;
-    value_t threshold= std::numeric_limits<value_t>::max();
-
-    float ratio= 1;
-
-    bool use_sparse= false;
-
-    for (index_t i= 0; i < argc; i++) {
-        const std::string arg(argv[i]);
-        if (arg == "--help") {
-            print_usage_and_exit(0);
-        } else if (arg == "--dim") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            dim_max= std::stol(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--threshold") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            threshold= std::stof(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--ratio") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            ratio= std::stof(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--format") {
-            std::string parameter= std::string(argv[++i]);
-            if (parameter == "lower-distance")
-                format= LOWER_DISTANCE_MATRIX;
-            else if (parameter == "distance")
-                format= DISTANCE_MATRIX;
-            else if (parameter == "point-cloud")
-                format= POINT_CLOUD;
-            else if (parameter == "dipha")
-                format= DIPHA;
-            else if (parameter == "sparse") {
-                format= SPARSE;
-                use_sparse = true;
-            }
-            else if (parameter == "binary")
-                format= BINARY;
-            else
-                print_usage_and_exit(-1);
-        } else if(arg=="--sparse") {
-            use_sparse= true;
-        }
-    }
-
-    list_of_barcodes = std::vector<std::vector<birth_death_coordinate>>();
-    for(index_t i = 0; i <= dim_max; i++){
-        list_of_barcodes.push_back(std::vector<birth_death_coordinate>());
-    }
-
-    if (format == SPARSE) {//this branch is currently unsupported in run_main, see run_main_filename() instead
-        sparse_distance_matrix dist= read_sparse_distance_matrix_python(matrix,num_entries);
-
-        assert(dist.num_entries%2==0);
-#ifdef COUNTING
-        std::cout << "sparse distance matrix with " << dist.size() << " points and "
-                  << dist.num_entries/2 << "/" << (dist.size() * (dist.size() - 1)) / 2 << " entries"
-                  << std::endl;
-#endif
-        ripser<sparse_distance_matrix>(std::move(dist), dim_max, threshold, ratio)
-                .compute_barcodes();
-    }else{
-        compressed_lower_distance_matrix dist= read_matrix_python(matrix, num_entries, num_rows, num_columns, format);
-
-#ifdef PROFILING
-        std::cerr<<"loaded python dense user matrix"<<std::endl;
-#endif
-        value_t min= std::numeric_limits<value_t>::infinity(),
-                max= -std::numeric_limits<value_t>::infinity(), max_finite= max;
-        int num_edges= 0;
-
-        value_t enclosing_radius= std::numeric_limits<value_t>::infinity();
-        for (index_t i= 0; i < dist.size(); ++i) {
-            value_t r_i= -std::numeric_limits<value_t>::infinity();
-            for (index_t j= 0; j < dist.size(); ++j) r_i= std::max(r_i, dist(i, j));
-            enclosing_radius= std::min(enclosing_radius, r_i);
-        }
-
-        if (threshold == std::numeric_limits<value_t>::max()) threshold= enclosing_radius;
-
-        for (auto d : dist.distances) {
-            min= std::min(min, d);
-            max= std::max(max, d);
-            max_finite= d != std::numeric_limits<value_t>::infinity() ? std::max(max, d) : max_finite;
-            if (d <= threshold) ++num_edges;
-        }
-#ifdef COUNTING
-        std::cout << "value range: [" << min << "," << max_finite << "]" << std::endl;
-#endif
-        if (use_sparse) {
-#ifdef COUNTING
-            std::cout << "sparse distance matrix with " << dist.size() << " points and "
-                      << num_edges << "/" << (dist.size() * (dist.size() - 1)) / 2 << " entries"
-                      << std::endl;
-#endif
-            ripser<sparse_distance_matrix>(sparse_distance_matrix(std::move(dist), threshold),
-                                           dim_max, threshold, ratio)
-                    .compute_barcodes();
-        } else {
-#ifdef COUNTING
-            std::cout << "distance matrix with " << dist.size() << " points" << std::endl;
-#endif
-            ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, ratio).compute_barcodes();
-        }
-    }
-#ifdef INDICATE_PROGRESS
-    std::cerr<<clear_line<<std::flush;
-#endif
-#ifdef PROFILING
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaMemGetInfo(&freeMem_end,&totalMemory);
-
-    std::cerr<<"total GPU memory used: "<<(freeMem_start-freeMem_end)/1000.0/1000.0/1000.0<<"GB"<<std::endl;
-#endif
-
-    set_of_barcodes* collected_barcodes = (set_of_barcodes*)malloc(sizeof(set_of_barcodes) * list_of_barcodes.size());
-    for(index_t i = 0; i < list_of_barcodes.size();i++){
-        birth_death_coordinate* barcode_array = (birth_death_coordinate*)malloc(sizeof(birth_death_coordinate) * list_of_barcodes[i].size());
-
-        index_t j;
-        for(j = 0; j < list_of_barcodes[i].size(); j++){
-            barcode_array[j] = list_of_barcodes[i][j];
-        }
-        collected_barcodes[i] = {j,barcode_array};
-    }
-
-    res = {(int)(dim_max + 1),collected_barcodes};
-
-    return res;
-}
-
-int main(int argc, char** argv) {
-
-#ifdef PROFILING
-    cudaDeviceProp deviceProp;
-    size_t freeMem_start, freeMem_end, totalMemory;
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaMemGetInfo(&freeMem_start,&totalMemory);
-#endif
-    const char* filename= nullptr;
-
-    file_format format= DISTANCE_MATRIX;
-
-    index_t dim_max= 1;
-    value_t threshold= std::numeric_limits<value_t>::max();
-
-    float ratio= 1;
-
-    bool use_sparse= false;
-
-    for (index_t i= 1; i < argc; ++i) {
-        const std::string arg(argv[i]);
-        if (arg == "--help") {
-            print_usage_and_exit(0);
-        } else if (arg == "--dim") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            dim_max= std::stol(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--threshold") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            threshold= std::stof(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--ratio") {
-            std::string parameter= std::string(argv[++i]);
-            size_t next_pos;
-            ratio= std::stof(parameter, &next_pos);
-            if (next_pos != parameter.size()) print_usage_and_exit(-1);
-        } else if (arg == "--format") {
-            std::string parameter= std::string(argv[++i]);
-            if (parameter == "lower-distance")
-                format= LOWER_DISTANCE_MATRIX;
-            else if (parameter == "distance")
-                format= DISTANCE_MATRIX;
-            else if (parameter == "point-cloud")
-                format= POINT_CLOUD;
-            else if (parameter == "dipha")
-                format= DIPHA;
-            else if (parameter == "sparse")
-                format= SPARSE;
-            else if (parameter == "binary")
-                format= BINARY;
-            else
-                print_usage_and_exit(-1);
-        } else if(arg=="--sparse") {
-            use_sparse= true;
-        }else {
-            if (filename) { print_usage_and_exit(-1); }
-            filename= argv[i];
-        }
-    }
-
-    list_of_barcodes = std::vector<std::vector<birth_death_coordinate>>();
-    for(index_t i = 0; i <= dim_max; i++){
-        list_of_barcodes.push_back(std::vector<birth_death_coordinate>());
-    }
-
-    std::ifstream file_stream(filename);
-    if (filename && file_stream.fail()) {
-        std::cerr << "couldn't open file " << filename << std::endl;
-        exit(-1);
-    }
-    if (format == SPARSE) {
-        sparse_distance_matrix dist =
-                read_sparse_distance_matrix(filename ? file_stream : std::cin);
-        assert(dist.num_entries%2==0);
-#ifdef COUNTING
-        std::cout << "sparse distance matrix with " << dist.size() << " points and "
-                  << dist.num_entries/2 << "/" << (dist.size() * (dist.size() - 1)) / 2 << " entries"
-                  << std::endl;
-#endif
-        ripser<sparse_distance_matrix>(std::move(dist), dim_max, threshold, ratio)
-                .compute_barcodes();
-    }else {
-
-        compressed_lower_distance_matrix dist= read_file(filename ? file_stream : std::cin, format);
-        value_t min= std::numeric_limits<value_t>::infinity(),
-                max= -std::numeric_limits<value_t>::infinity(), max_finite= max;
-        int num_edges= 0;
-
-        value_t enclosing_radius= std::numeric_limits<value_t>::infinity();
-        for (index_t i= 0; i < dist.size(); ++i) {
-            value_t r_i= -std::numeric_limits<value_t>::infinity();
-            for (index_t j= 0; j < dist.size(); ++j) r_i= std::max(r_i, dist(i, j));
-            enclosing_radius= std::min(enclosing_radius, r_i);
-        }
-
-        if (threshold == std::numeric_limits<value_t>::max()) threshold= enclosing_radius;
-
-        for (auto d : dist.distances) {
-            min= std::min(min, d);
-            max= std::max(max, d);
-            max_finite= d != std::numeric_limits<value_t>::infinity() ? std::max(max, d) : max_finite;
-            if (d <= threshold) ++num_edges;
-        }
-#ifdef COUNTING
-        std::cout << "value range: [" << min << "," << max_finite << "]" << std::endl;
-#endif
-        if (use_sparse) {
-#ifdef COUNTING
-            std::cout << "sparse distance matrix with " << dist.size() << " points and "
-                      << num_edges << "/" << (dist.size() * (dist.size() - 1)) / 2 << " entries"
-                      << std::endl;
-#endif
-            ripser<sparse_distance_matrix>(sparse_distance_matrix(std::move(dist), threshold),
-                                           dim_max, threshold, ratio)
-                    .compute_barcodes();
-        } else {
-#ifdef COUNTING
-            std::cout << "distance matrix with " << dist.size() << " points" << std::endl;
-#endif
-            ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, ratio).compute_barcodes();
-        }
-    }
-#ifdef INDICATE_PROGRESS
-    std::cerr<<clear_line<<std::flush;
-#endif
-
-#ifdef PROFILING
-    cudaGetDeviceProperties(&deviceProp, 0);
-    cudaMemGetInfo(&freeMem_end,&totalMemory);
-
-    std::cerr<<"total GPU memory used: "<<(freeMem_start-freeMem_end)/1000.0/1000.0/1000.0<<"GB"<<std::endl;
-#endif
-}

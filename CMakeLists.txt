@@ -405,6 +405,7 @@ SET(MPCF_HEADER_FILES
     persistence/persistence_pair.hpp
     persistence/stable_rank.hpp
     persistence/ripser/ripser.hpp
+    persistence/ripserpp/ripserpp.hpp
     settings.hpp)
 
 SET(MPCF_SRC_FILES
@@ -502,10 +503,17 @@ if (BUILD_WITH_CUDA)
   # Everything else stays compiled by the host C++ compiler.
   add_library(mpcf_cuda STATIC
       src/cuda/cuda_matrix_integrate.cu
+      src/cuda/ripserpp.cu
   )
   target_include_directories(mpcf_cuda PRIVATE ${MPCF_PRIVATE_INCLUDES})
   target_include_directories(mpcf_cuda PUBLIC ${MPCF_PUBLIC_INCLUDES})
   target_include_directories(mpcf_cuda PRIVATE "3rd/taskflow")
+  # Vendored header-only deps (phmap, sparsehash) used by the Ripser++ port
+  # cross-include each other as <parallel_hashmap/...> / <sparsehash/...>,
+  # so their parent dir has to be on the include search path. PRIVATE keeps
+  # this from leaking to dependents -- user-facing headers reach these via
+  # relative paths instead.
+  target_include_directories(mpcf_cuda PRIVATE "include/mpcf/internal")
   target_include_directories(mpcf_cuda PRIVATE ${MPCF_CUDA_INCLUDE_DIRS})
   target_compile_definitions(mpcf_cuda PRIVATE BUILD_WITH_CUDA=1)
 

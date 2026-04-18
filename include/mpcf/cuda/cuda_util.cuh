@@ -22,8 +22,35 @@
 #include <stdexcept>
 #include <cuda_runtime.h>
 
-#define CHK_CUDA(x) { auto rv = x; if (rv != cudaSuccess) { \
-  throw std::runtime_error(__FILE__ + std::string(":") + std::to_string(__LINE__) + ": " +  cudaGetErrorString(rv)); \
-  } }
+namespace mpcf
+{
+  // Thrown whenever a CUDA runtime call returns a non-success status.
+  // Derives from std::runtime_error so existing catch blocks keep working.
+  // Callers that want to single out OOM compare code() to
+  // cudaErrorMemoryAllocation directly.
+  class cuda_error : public std::runtime_error
+  {
+  public:
+    cuda_error(const char* file, int line, cudaError_t code)
+      : std::runtime_error(build_what(file, line, code)), m_code(code) { }
+
+    [[nodiscard]] cudaError_t code() const noexcept { return m_code; }
+
+  private:
+    static std::string build_what(const char* file, int line, cudaError_t code)
+    {
+      return std::string(file) + ":" + std::to_string(line) + ": " + cudaGetErrorString(code);
+    }
+
+    cudaError_t m_code;
+  };
+}
+
+#define CHK_CUDA(x) do { \
+  cudaError_t _mpcf_chk_rv = (x); \
+  if (_mpcf_chk_rv != cudaSuccess) { \
+    throw ::mpcf::cuda_error(__FILE__, __LINE__, _mpcf_chk_rv); \
+  } \
+} while (0)
 
 #endif
