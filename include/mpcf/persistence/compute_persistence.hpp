@@ -214,15 +214,23 @@ namespace mpcf::ph
 }
 
 #include "ripserpp/ripserpp.hpp"
-#include "../walk.hpp"
+#include "../cuda/cuda_util.cuh"
+#include "../cuda/gpu_memory_scheduler.hpp"
+
+#include <cuda_runtime_api.h>
+#include <memory>
 
 namespace mpcf::ph
 {
-  /// GPU Ripser++ task. Iterates items serially and feeds each point cloud
-  /// into the Ripser++ facade. The ported Ripser++ no longer has global
-  /// state but still issues thrust calls on the default CUDA stream, so
-  /// multiple GPU jobs would serialize on the device. Phase 3 of the
-  /// integration plan adds per-instance streams and a hybrid dispatcher.
+  /// Hybrid CPU/GPU Ripser++ task.
+  ///
+  /// Items are dispatched in parallel via parallel_walk_async. For each
+  /// item we ask the GpuMemoryScheduler for a reservation on some GPU;
+  /// on success the item runs through the ported Ripser++ on that
+  /// device (the scheduler's Reservation has already cudaSetDevice'd),
+  /// otherwise it runs on the CPU Ripser path. On a device OOM the
+  /// scheduler's per-GPU cost factor is bumped (AIMD backoff) and the
+  /// item falls back to CPU rather than aborting the whole batch.
   template <typename T>
   class RipserPlusPlusTask : public StoppableTask<void>
   {
@@ -232,6 +240,14 @@ namespace mpcf::ph
     { }
 
   private:
+    // Bytes of GPU residency per Ripser++ simplex, audited from the
+    // seven `max_num_simplices_forall_dims`-sized arrays in the dense
+    // path of ripserpp.cu:
+    //   diameter_index_t_struct (16) + value_t (4) + index_t (8) +
+    //   value_t (4) + index_t (8) + index_t (8) + index_t_pair_struct (16)
+    // = 64. AIMD-adjusted upward per-GPU on OOM.
+    static constexpr double K0_BYTES_PER_SIMPLEX = 64.0;
+
     tf::Future<void> run_async(Executor& exec) override
     {
       auto shape = m_input.shape();
@@ -239,35 +255,74 @@ namespace mpcf::ph
       m_ret = Tensor<Barcode<T>>(shape);
       m_exec = &exec;
 
-      next_step(m_input.size(), "Computing persistence (GPU)", "pointcloud");
+      mpcf::GpuMemoryScheduler::Config cfg;
+      cfg.initial_k_bytes_per_unit = K0_BYTES_PER_SIMPLEX;
+      m_sched = std::make_unique<mpcf::GpuMemoryScheduler>(cfg);
 
-      tf::Taskflow flow;
-      flow.emplace([this]() {
-        walk(m_input, [this](const std::vector<size_t>& index) {
-          if (stop_requested()) return;
-          process_item(index);
-          add_progress(1);
-        });
-      });
-      return exec.cpu()->run(std::move(flow));
+      next_step(m_input.size(), "Computing persistence (hybrid)", "pointcloud");
+
+      return mpcf::parallel_walk_async(m_input, [this](const std::vector<size_t>& index) {
+        if (stop_requested()) return;
+        dispatch_item(index);
+        add_progress(1);
+      }, exec);
     }
 
-    void process_item(const std::vector<size_t>& index)
+    void dispatch_item(const std::vector<size_t>& index)
     {
       const auto& points = m_input(index);
-
       if (points.rank() == 0 ||
           std::any_of(points.shape().begin(), points.shape().end(), [](size_t v){ return v == 0; }))
       {
+        process_item_cpu(index);
         return;
       }
-
       if (points.rank() != 2)
       {
         throw std::runtime_error("Point cloud at index " + index_to_string(index) + " has unexpected shape " +
                                  shape_to_string(points.shape()) + " (should be (m, n))");
       }
 
+      const size_t n = points.shape(0);
+      if (n <= 1)
+      {
+        process_item_cpu(index);
+        return;
+      }
+
+      // Cost units = number of edges (== max_num_simplices_forall_dims
+      // for max_dim=1, which dominates Ripser++ residency).
+      const std::int64_t num_edges =
+        static_cast<std::int64_t>(n) * static_cast<std::int64_t>(n - 1) / 2;
+
+      auto res = m_sched->try_reserve(num_edges);
+      if (!res.active())
+      {
+        process_item_cpu(index);
+        return;
+      }
+
+      try
+      {
+        process_item_gpu(index);
+      }
+      catch (const mpcf::cuda_error& e)
+      {
+        if (e.code() == cudaErrorMemoryAllocation)
+        {
+          m_sched->record_oom(res.gpu_index());
+          // res auto-releases on scope exit.
+          process_item_cpu(index);
+          return;
+        }
+        throw;
+      }
+      // res auto-releases on scope exit.
+    }
+
+    void process_item_gpu(const std::vector<size_t>& index)
+    {
+      const auto& points = m_input(index);
       std::vector<std::vector<PersistencePair<T>>> bars;
       ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec);
 
@@ -285,11 +340,23 @@ namespace mpcf::ph
       }
     }
 
+    void process_item_cpu(const std::vector<size_t>& index)
+    {
+      // Reuses the existing CPU Ripser single-item helper. The helper's
+      // `index` is expected to be sized with a trailing 0 for the
+      // homology-dim axis (it skips itself when the trailing index is
+      // nonzero, mirroring parallel_walk_async's original shape).
+      std::vector<size_t> retIdx = index;
+      retIdx.emplace_back(0);
+      detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
+    }
+
     const Tensor<PointCloud<T>>& m_input;
     Tensor<Barcode<T>>& m_ret;
     size_t m_maxDim;
     bool m_reducedHomology;
     Executor* m_exec = nullptr;
+    std::unique_ptr<mpcf::GpuMemoryScheduler> m_sched;
   };
 #endif // BUILD_WITH_CUDA
 }
