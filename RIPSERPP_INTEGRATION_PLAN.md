@@ -64,110 +64,60 @@ The `profiling/stopwatch.h` dep from upstream is LGPL — do **not** vendor it.
 Replace uses with a tiny `std::chrono` wrapper (or inline `#ifdef PROFILING`
 blocks that guard all its uses already).
 
-## Known thread-safety issues to fix
+## Thread-safety issues — resolved
 
-These are blockers for running more than one Ripser++ invocation simultaneously
-on the GPU:
+All items here were blockers for running more than one Ripser++ invocation
+simultaneously on the GPU. Kept for the archaeology of why the code is
+shaped the way it is.
 
-1. **`list_of_barcodes` global** in `src/cuda/ripserpp.cu`
-   (file-scope `std::vector<std::vector<birth_death_coordinate>>`).
-   Every `ripser<...>::compute_barcodes` push_back's into this global.
-   **Fix**: thread an output collector (reference / pointer) through the
-   `ripser` template class so each instance writes to its own container.
-   Touch sites: definitions near line 175; use sites around lines 1908, 2089,
-   2187, 2414, 2496 (dim-0 + higher-dim append paths in both
-   `compressed_lower_distance_matrix` and `sparse_distance_matrix`
-   specializations).
+1. **`list_of_barcodes` global** — resolved in Phase 2. Threaded through
+   the `ripser` constructor as a `std::vector<std::vector<birth_death_coordinate>>&`
+   output reference; the facade allocates a local vector and copies out.
 
-2. **`phmap_interface` global hash map** (now in
-   `include/mpcf/persistence/ripserpp/phmap_interface.hpp`, was a file-scope
-   `phmap::parallel_flat_hash_map<int64_t,int64_t>` in upstream's .cpp).
-   The inlined header keeps the singleton for now — explicitly marked in the
-   file header as not thread-safe.
-   **Fix**: make it an instance member of the `ripser` class (or a context
-   object passed in), not a singleton. Upstream uses it as a scratch pivot
-   column map inside one invocation, so it's a natural per-instance resource.
-   Audit `phmap_put` / `phmap_get_value` / `phmap_clear` call sites in
-   `ripserpp.cu` and route them through the instance.
+2. **`phmap_interface` global hash map** — resolved in Phase 2. Now a
+   per-instance `phmap::parallel_flat_hash_map<int64_t, int64_t> pivot_map`
+   member; `phmap_put` / `phmap_get_value` / `phmap_clear` are member
+   functions. The `phmap_interface.hpp` shim was deleted.
 
-3. **`cudaSetDevice` / default stream usage.** All thrust calls currently go
-   on the default stream. For concurrent GPU instances to overlap, each
-   `ripser` instance needs its own `cudaStream_t` and every thrust call needs
-   `thrust::cuda::par.on(stream)`. Raw kernel launches also need `<<<..., stream>>>`.
+3. **Default CUDA stream** — resolved in Phase 3 (B). Each `ripser` instance
+   owns a `cudaStream_t stream_` created in the ctor and destroyed in the
+   dtor. Every kernel launch, thrust call (`thrust::cuda::par.on(stream_)`),
+   memcpy/memset, and sync goes on that stream.
 
-4. **Raw `cudaMalloc` without RAII.** Audit needed — exceptions thrown from
-   mid-computation would leak device memory. Wrap all raw cudaMalloc blocks
-   in an RAII guard (or replace with `thrust::device_vector`).
+4. **Raw `cudaMalloc` without RAII** — resolved in Phase 3 (A). 16 device
+   pointers + the local `d_num` became `mpcf::CudaDeviceArray<T>` members;
+   the 24 cudaMalloc sites became `.allocate(n)`; cudaFrees and both
+   `free_gpumem_*` methods were deleted. OOM mid-compute no longer leaks.
 
-5. **`exit(EXIT_FAILURE)` / `exit(1)` / `exit(-1)`** — 39 call sites in the
-   original `.cu`. All must be replaced with `throw std::runtime_error(...)`
-   (or a dedicated `mpcf::ripserpp::cuda_error` / `oom_error` type so the
-   hybrid dispatcher can catch OOM specifically for CPU fallback).
-   - Line 49 (`CUDACHECK` macro itself — the biggest one, replace with
-     throwing macro, and make the CUDA error type distinguishable from
-     generic runtime errors so dispatcher can catch OOM).
-   - Scattered `exit(1)` / `exit(-1)` across arg-parsing and validation code
-     in `run_main`, `run_main_filename`, `print_usage_and_exit` — these
-     whole functions are deleted, not patched.
-   - Validation `exit(1)`s inside `compute_barcodes` paths (around lines
-     3088, 3114, 3137, 3291, 3337, 3365, 3374) → throw.
+5. **`exit(...)` calls** — resolved in Phase 1. All replaced with
+   `throw std::runtime_error(...)`; `main/run_main*/print_usage_and_exit`
+   deleted. The CUDA error path throws `mpcf::cuda_error` (in
+   `mpcf/cuda/cuda_util.cuh`), whose `code()` can be inspected for
+   `cudaErrorMemoryAllocation` by the future dispatcher.
 
-6. **5× `#pragma omp parallel for schedule(guided,1)`** (lines 2425, 2507,
-   2705, 2721, 2821). Replace with `tf::Taskflow::for_each_index` using the
-   project's `Executor`. The loops are inside `compute_barcodes` so each
-   call needs access to an executor — thread it through the `ripser`
-   constructor or pass an `mpcf::Executor&` to `compute_barcodes`.
+6. **OpenMP pragmas** — resolved in Phase 2. All 5 `#pragma omp parallel for
+   schedule(guided,1)` sites became `tf::Taskflow::for_each_index` with
+   `tf::GuidedPartitioner<>(1)`, running on an `mpcf::Executor&` threaded
+   through the `ripser` constructor.
 
 ## Step-by-step plan
 
-### Phase 1 — verbatim lift, make it build [partially done]
+### Phase 1 — verbatim lift, make it build [DONE]
 
 - [x] `3rd/ripserpp/LICENSE`
-- [x] `include/mpcf/persistence/ripserpp/{parallel_hashmap,sparsehash}/` — copied
-- [x] `include/mpcf/persistence/ripserpp/phmap_interface.hpp` — header-only shim
-- [x] `src/cuda/ripserpp.cu` — copied from upstream (unpatched)
-- [ ] Patch `src/cuda/ripserpp.cu`:
-  - Update includes:
-    - `#include <parallel_hashmap/phmap.h>` →
-      `#include <mpcf/persistence/ripserpp/parallel_hashmap/phmap.h>`
-    - `#include <sparsehash/dense_hash_map>` →
-      `#include <mpcf/persistence/ripserpp/sparsehash/dense_hash_map>`
-    - `#include <phmap_interface/phmap_interface.h>` →
-      `#include <mpcf/persistence/ripserpp/phmap_interface.hpp>`
-    - `#include <profiling/stopwatch.h>` — [x] removed; all `Stopwatch` uses
-      and their associated `#ifdef PROFILING` timing printouts stripped from
-      `src/cuda/ripserpp.cu` (fast-tracked ahead of the rest of phase 1).
-  - Replace `CUDACHECK`:
-    ```cpp
-    #define CUDACHECK(cmd) do { \
-      cudaError_t _e = (cmd); \
-      if (_e != cudaSuccess) { \
-        throw ::mpcf::ripserpp::cuda_error(__FILE__, __LINE__, _e); \
-      } \
-    } while (0)
-    ```
-    Define `cuda_error` (with a `bool is_oom() const` helper checking
-    `cudaErrorMemoryAllocation`) in `include/mpcf/persistence/ripserpp/ripserpp.hpp`.
-  - Delete `main()` (line ~4050), `run_main()` (~3887), `run_main_filename()`
-    (~3720), `print_usage_and_exit()` (~3691), and related
-    `ripser_plusplus_result` C-API structs if they're only used by those.
-  - Replace every remaining `exit(...)` with `throw std::runtime_error(...)`.
-- [ ] Add CMake target: new library (or objects) compiled with nvcc, linked
-  into `_mpcf_cuda12` / `_mpcf_cuda13`. Guard under `BUILD_WITH_CUDA`.
-  The existing `CMakeLists.txt` already has the pattern — model after
-  `cuda_matrix_integrate.cu`.
-- [ ] Stub facade `include/mpcf/persistence/ripserpp/ripserpp.hpp` exposing
-  a single C++ function, something like:
-  ```cpp
-  namespace mpcf::ph::ripserpp {
-    template <typename T>
-    void compute_barcodes_pcloud(
-        const PointCloud<T>& points,
-        size_t maxDim,
-        std::vector<std::vector<PersistencePair<T>>>& out);   // out sized maxDim+1
-  }
-  ```
-- [ ] Verify it **builds** (no functional use yet).
+- [x] Vendored header-only deps moved to `include/mpcf/internal/{parallel_hashmap,sparsehash}/`
+  (their cross-includes use top-level `<sparsehash/...>` / `<parallel_hashmap/...>`,
+  so the `include/mpcf/internal/` dir is on `mpcf_cuda`'s PRIVATE include path).
+- [x] `src/cuda/ripserpp.cu`: patched includes, `CUDACHECK` replaced with the
+  project-wide `CHK_CUDA` (throws `mpcf::cuda_error` from
+  `mpcf/cuda/cuda_util.cuh`), `main/run_main/run_main_filename/
+  print_usage_and_exit` deleted, all `exit(...)` replaced with throws,
+  `ripser_plusplus_result` C-API structs deleted.
+- [x] CMake: `src/cuda/ripserpp.cu` added to the `mpcf_cuda` static library
+  under `BUILD_WITH_CUDA`.
+- [x] Facade `include/mpcf/persistence/ripserpp/ripserpp.hpp` declares
+  `mpcf::ph::ripserpp::compute_barcodes_pcloud<T>(points, maxDim, out, exec)`;
+  implementation is at the bottom of `src/cuda/ripserpp.cu`.
 
 ### Phase 2 — first functional use, single GPU job [DONE]
 
@@ -189,22 +139,50 @@ on the GPU:
 
 ### Phase 3 — hybrid dispatcher + concurrent GPU jobs
 
-- [ ] Introduce shared atomic-counter dispatch primitive in
-  `include/mpcf/dispatch.hpp` (or inline it in compute_persistence).
-  Shape:
+Progress so far: A and B landed; C and D remain.
+
+- [x] (B) Per-`ripser` `cudaStream_t` threaded through every kernel launch,
+  thrust call (`thrust::cuda::par.on(stream_)`), cudaMemcpy/cudaMemset,
+  and sync. Ripser++ no longer uses the default stream. (Commit:
+  `Put all Ripser++ GPU work on a per-instance CUDA stream`.)
+- [x] (A) Raw `cudaMalloc` replaced with `mpcf::CudaDeviceArray<T>` members.
+  The RAII class gained a public `allocate(sz)` / `reset()`, implicit
+  `operator T*()`, `operator->()`, and `address_of_ptr()`. Upstream's
+  `n >= 10` guard in `free_gpumem_*` (a workaround for a double-free bug
+  in the repeated-single-point case) is fully removed — RAII fixes the
+  underlying issue. (Commit: `RAII-wrap all Ripser++ cudaMalloc sites`.)
+
+Still to do:
+
+- [ ] (C) **Hybrid dispatcher** in `RipserPlusPlusTask` (or a sibling
+  `include/mpcf/dispatch.hpp` primitive). Shape:
   ```cpp
   std::atomic<size_t> next{0};
-  // N CPU workers + M GPU workers (M discovered at runtime; start at 1)
-  // each loops: i = next.fetch_add(1); if (i >= total) break;
-  //             try { process_gpu(i) } catch (oom) { process_cpu(i) }
+  // N CPU workers + M GPU workers (M discovered at runtime; start at 1,
+  // bump higher once the CPU/GPU ratio is understood)
+  // each loops:
+  //   i = next.fetch_add(1); if (i >= total) break;
+  //   try { process_gpu(i) }
+  //   catch (mpcf::cuda_error& e) {
+  //     if (e.code() == cudaErrorMemoryAllocation) process_cpu(i);
+  //     else throw;
+  //   }
   ```
-- [ ] Audit raw `cudaMalloc` in `ripserpp.cu`, wrap in RAII.
-- [ ] Add per-`ripser` `cudaStream_t`; swap all `thrust::...` calls to
-  `thrust::cuda::par.on(stream)`; add `stream` to raw `<<<..., stream>>>`.
-- [ ] Add `mpcf::ripserpp::oom_error` (distinct from `cuda_error`) so
-  the dispatcher can catch OOM specifically.
-- [ ] Benchmark: re-run `scratch/bench_ph_scaling.py` variant with
-  GPU on/off, measure wall-time and CPU/GPU utilization.
+  `mpcf::cuda_error` already exposes `code()`, so no separate `oom_error`
+  type is strictly needed. Decide whether to special-case OOM with its
+  own subtype or keep the `code()` check; the plan's original sketch had
+  a distinct `oom_error` but we may not need it.
+  - Current `RipserPlusPlusTask::run_async` walks items serially via
+    `walk(m_input, ...)`. Replace with a parallel dispatch: spawn N CPU
+    ripser-task workers + M GPU-ripser workers, all pulling from the
+    shared atomic counter.
+  - CPU workers call the existing CPU `run_ripser` path (see
+    `compute_persistence.hpp:detail::run_ripser`).
+  - GPU workers call `ripserpp::compute_barcodes_pcloud<T>`.
+  - Keep the stop-token / progress wiring.
+- [ ] (D) **Benchmark**. Re-run `scratch/bench_ph_scaling.py` with a
+  `device=` switch, measure wall-time + CPU/GPU utilization. Inputs:
+  `samples_3_50_2500.mpcf` (see "Benchmark context" below).
 
 ### Phase 4 — polish
 
@@ -235,14 +213,61 @@ on the GPU:
 - Multi-GPU: out of scope for first cut. Executor's `cuda()` pool already
   exists but Ripser++ assumes `cudaSetDevice(0)` — audit and parameterize.
 
-## Files touched so far (uncommitted)
+## Current state (as of pause — Phase 3 A+B done, C+D to go)
 
-```
-3rd/ripserpp/LICENSE                                   (new)
-include/mpcf/persistence/ripserpp/parallel_hashmap/*   (new, from upstream)
-include/mpcf/persistence/ripserpp/sparsehash/*         (new, from upstream)
-include/mpcf/persistence/ripserpp/phmap_interface.hpp  (new, header-only shim)
-src/cuda/ripserpp.cu                                   (new, unpatched copy of upstream ripser++.cu)
+Everything through `git log --oneline ripserpp-integration` on this branch.
+In rough order of landing:
+
+1. `Vendor Ripser++ and start integration plan` — initial copy + plan doc.
+2. `Wire Ripser++ through Phase 1` — makes it build, no functional use.
+3. `ignore local artifacts` — housekeeping.
+4. `Route GPU Ripser++ through compute_persistent_homology` — Phase 2 MVP:
+   facade + `RipserPlusPlusTask` + pybind + Python `device=` + 8
+   correctness tests. `Barcode::is_isomorphic_to` gained `atol`/`rtol`.
+5. `Remove Ripser++ file-scope globals and OpenMP dependency` — kills
+   `list_of_barcodes` + phmap singleton; `#pragma omp` → taskflow
+   `for_each_index` on an injected `mpcf::Executor&`.
+6. `Put all Ripser++ GPU work on a per-instance CUDA stream` — Phase 3 B.
+7. `RAII-wrap all Ripser++ cudaMalloc sites with CudaDeviceArray` — Phase 3 A.
+
+### Key files
+
+- `src/cuda/ripserpp.cu` — patched port. No globals, no OMP, per-instance
+  stream + RAII buffers. The `mpcf::ph::ripserpp::compute_barcodes_pcloud`
+  facade lives at the bottom.
+- `include/mpcf/persistence/ripserpp/ripserpp.hpp` — facade declaration.
+- `include/mpcf/persistence/compute_persistence.hpp` — `RipserPlusPlusTask<T>`
+  (CUDA-gated) that iterates items **serially**. Needs to become parallel
+  for Phase 3 C.
+- `include/mpcf/cuda/cuda_util.cuh` — `mpcf::cuda_error` thrown by
+  `CHK_CUDA`. The dispatcher will `catch` this and check `code() ==
+  cudaErrorMemoryAllocation`.
+- `include/mpcf/cuda/cuda_device_array.cuh` — extended with public
+  `allocate`, `reset`, `operator T*()`, `operator->()`, `address_of_ptr()`.
+- `include/mpcf/internal/{parallel_hashmap,sparsehash}/` — vendored
+  header-only deps.
+- `masspcf/persistence/homology.py` — `compute_persistent_homology(...,
+  device="cpu"|"gpu"|"auto")`.
+- `test/python/persistence/test_ripser_plusplus.py` — 8 correctness tests.
+
+### Where to pick up (Phase 3 C)
+
+`include/mpcf/persistence/compute_persistence.hpp` around the
+`RipserPlusPlusTask<T>::run_async` method. Currently:
+
+```cpp
+tf::Taskflow flow;
+flow.emplace([this]() {
+  walk(m_input, [this](const std::vector<size_t>& index) {
+    if (stop_requested()) return;
+    process_item(index);  // always GPU path
+    add_progress(1);
+  });
+});
+return exec.cpu()->run(std::move(flow));
 ```
 
-No CMake hookup yet — the new `.cu` is not yet compiled.
+Target shape: N CPU workers + M GPU workers, shared atomic counter,
+`try { process_item_gpu(i) } catch (mpcf::cuda_error& e) { if OOM
+process_item_cpu(i) else rethrow }`. The CPU path can factor out of
+`detail::compute_persistence_euclidean_single_impl`.
