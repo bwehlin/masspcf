@@ -139,7 +139,7 @@ shaped the way it is.
 
 ### Phase 3 — hybrid dispatcher + concurrent GPU jobs
 
-Progress so far: A and B landed; C and D remain.
+Progress so far: A, B, and C landed; D and test harness remain.
 
 - [x] (B) Per-`ripser` `cudaStream_t` threaded through every kernel launch,
   thrust call (`thrust::cuda::par.on(stream_)`), cudaMemcpy/cudaMemset,
@@ -151,38 +151,71 @@ Progress so far: A and B landed; C and D remain.
   `n >= 10` guard in `free_gpumem_*` (a workaround for a double-free bug
   in the repeated-single-point case) is fully removed — RAII fixes the
   underlying issue. (Commit: `RAII-wrap all Ripser++ cudaMalloc sites`.)
+- [x] (C) **Hybrid dispatcher** via new `mpcf::GpuMemoryScheduler` in
+  `include/mpcf/cuda/gpu_memory_scheduler.hpp` plus rewired
+  `RipserPlusPlusTask`. Highlights:
+  - Decoupled scheduler: problem-agnostic First-Fit online bin packing
+    (Johnson 1974) across per-GPU memory budgets, with AIMD cost-factor
+    calibration on OOM (Chiu & Jain 1989). Caller passes "cost units"
+    (simplex count for Ripser++); scheduler owns per-GPU K (bytes per
+    unit), budget, and the RAII `Reservation` that cudaSetDevice's on
+    acquire and releases bytes on scope exit.
+  - Baseline K for Ripser++ dense path = 64 bytes per simplex (sum of
+    7 max_num_simplices-sized arrays: diameter_index_t_struct +
+    value_t + index_t + value_t + index_t + index_t + index_t_pair_struct).
+  - `RipserPlusPlusTask` dispatches via `parallel_walk_async` on
+    `exec.cpu()`; per-item callback tries to reserve a GPU slot
+    (cost=n*(n-1)/2), runs GPU on success, CPU Ripser on failure. On
+    `cuda_error(cudaErrorMemoryAllocation)`, bumps K for that GPU via
+    `record_oom()` and retries the item on CPU.
+  - Why not `exec.cuda()`? That pool has num_gpus threads (1:1
+    thread-to-GPU), which caps M = num_gpus. We want M > num_gpus
+    (the whole purpose of per-instance streams); CPU workers picking
+    GPU slots via the scheduler lets M scale with GPU memory.
+  - Commit: `Add GpuMemoryScheduler and wire into RipserPlusPlusTask`.
 
-Still to do:
+Still to do for Phase 3:
 
-- [ ] (C) **Hybrid dispatcher** in `RipserPlusPlusTask` (or a sibling
-  `include/mpcf/dispatch.hpp` primitive). Shape:
-  ```cpp
-  std::atomic<size_t> next{0};
-  // N CPU workers + M GPU workers (M discovered at runtime; start at 1,
-  // bump higher once the CPU/GPU ratio is understood)
-  // each loops:
-  //   i = next.fetch_add(1); if (i >= total) break;
-  //   try { process_gpu(i) }
-  //   catch (mpcf::cuda_error& e) {
-  //     if (e.code() == cudaErrorMemoryAllocation) process_cpu(i);
-  //     else throw;
-  //   }
-  ```
-  `mpcf::cuda_error` already exposes `code()`, so no separate `oom_error`
-  type is strictly needed. Decide whether to special-case OOM with its
-  own subtype or keep the `code()` check; the plan's original sketch had
-  a distinct `oom_error` but we may not need it.
-  - Current `RipserPlusPlusTask::run_async` walks items serially via
-    `walk(m_input, ...)`. Replace with a parallel dispatch: spawn N CPU
-    ripser-task workers + M GPU-ripser workers, all pulling from the
-    shared atomic counter.
-  - CPU workers call the existing CPU `run_ripser` path (see
-    `compute_persistence.hpp:detail::run_ripser`).
-  - GPU workers call `ripserpp::compute_barcodes_pcloud<T>`.
-  - Keep the stop-token / progress wiring.
-- [ ] (D) **Benchmark**. Re-run `scratch/bench_ph_scaling.py` with a
-  `device=` switch, measure wall-time + CPU/GPU utilization. Inputs:
-  `samples_3_50_2500.mpcf` (see "Benchmark context" below).
+- [ ] **C-tests**: gtest for `GpuMemoryScheduler` in isolation
+  (test-injected budgets via the second constructor, cover reserve /
+  release / OOM / multi-GPU First-Fit / concurrent stress). A
+  file draft is already sketched in conversation; write it to
+  `test/test_gpu_memory_scheduler.cu` and add to `MPCF_TEST_SOURCES_*`
+  under `BUILD_CUDA_TESTER`.
+- [ ] **C-live-OOM**: force a large enough point cloud on a small GPU
+  to trigger the OOM→CPU fallback path end-to-end. Today the fallback
+  is only covered by the gtest's simulated OOM; we want at least one
+  Python test that actually OOMs the device.
+- [ ] (D) **Benchmark**. Extend `scratch/bench_ph_scaling.py` (or a
+  new script) with a `device=` switch. Measure:
+  - wall-time for the full batch with `device="cpu"`, `device="gpu"`,
+    `device="auto"` (picks GPU when backend loaded);
+  - per-GPU utilization (nvidia-smi sampled during the run) to
+    confirm M > 1 concurrent ripsers actually happens for the
+    2500-point workload;
+  - memory high-water via `nvidia-smi --query-gpu=memory.used`.
+  Inputs: `samples_3_50_2500.mpcf` (150 items of 2500 points) and a
+  synthetic 10k-point batch (GPU shines here: from today's single-item
+  timing, CPU ≈ 10.3 s for 2500 pts but GPU single-stream is ~85 s
+  for 10k pts; batch scaling matters).
+
+### Where to pick up next session (Phase 3 tests + D)
+
+- `include/mpcf/cuda/gpu_memory_scheduler.hpp` is in place and used.
+- `RipserPlusPlusTask::dispatch_item` in
+  `include/mpcf/persistence/compute_persistence.hpp` is the hybrid
+  loop — no changes pending.
+- Next concrete step: write `test/test_gpu_memory_scheduler.cu`. The
+  test plan (with expected cases) is in the earlier conversation
+  turn; main cases are:
+    NoDevicesGivesInactiveReservations, ZeroOrNegativeCostYieldsInactive,
+    ReserveDeductsFromRemaining, DestructorReleasesBudget,
+    OversizedItemReturnsInactive, FirstFitAcrossMultipleGpus,
+    RunningOutOfEverythingGivesInactive, OomBumpsKForThatGpuOnly,
+    RaisedKReducesAvailableSlotsOnThatGpu, ConcurrentReservationsAreAtomic.
+  Add to `MPCF_TEST_SOURCES_CUDA` (under BUILD_CUDA_TESTER block in
+  CMakeLists.txt around line 711).
+- Then run the benchmark and record results back in this doc.
 
 ### Phase 4 — polish
 
@@ -229,6 +262,8 @@ In rough order of landing:
    `for_each_index` on an injected `mpcf::Executor&`.
 6. `Put all Ripser++ GPU work on a per-instance CUDA stream` — Phase 3 B.
 7. `RAII-wrap all Ripser++ cudaMalloc sites with CudaDeviceArray` — Phase 3 A.
+8. `Add GpuMemoryScheduler and wire into RipserPlusPlusTask` — Phase 3 C
+   (dispatcher landed; gtest and bench still to do).
 
 ### Key files
 
