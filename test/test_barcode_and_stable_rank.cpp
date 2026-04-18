@@ -61,6 +61,39 @@ namespace
   }
 
   // ============================================================================
+  // is_isomorphic_to with numerical tolerance
+  // ============================================================================
+
+  TYPED_TEST(BarcodeAndStableRankTest, IsIsomorphicWithTolerance)
+  {
+    using T = TypeParam;
+    using Pair = mpcf::ph::PersistencePair<T>;
+    using Barcode = mpcf::ph::Barcode<T>;
+
+    const T eps = T(1e-4);
+
+    Barcode b1(std::vector<Pair>{ Pair(T(0), T(1)), Pair(T(2), T(3)) });
+    Barcode b2(std::vector<Pair>{ Pair(T(0) + eps, T(1)), Pair(T(2) - eps, T(3)) });
+
+    EXPECT_FALSE(b1.is_isomorphic_to(b2));                // exact: differs by eps
+    EXPECT_TRUE(b1.is_isomorphic_to(b2, T(1e-3)));        // atol covers it
+    EXPECT_FALSE(b1.is_isomorphic_to(b2, T(1e-5)));       // atol too tight
+
+    // rtol: |a-b| <= rtol * |b|; with b=3, 2% rtol permits diff up to 0.06
+    Barcode b3(std::vector<Pair>{ Pair(T(0), T(1)), Pair(T(2), T(3.01)) });
+    EXPECT_TRUE(b1.is_isomorphic_to(b3, T(0), T(0.01)));
+    EXPECT_FALSE(b1.is_isomorphic_to(b3, T(0), T(0.001)));
+
+    // Infinities compare equal only to themselves.
+    const T inf = std::numeric_limits<T>::infinity();
+    Barcode bi1(std::vector<Pair>{ Pair(T(0), inf) });
+    Barcode bi2(std::vector<Pair>{ Pair(T(0), inf) });
+    Barcode bi3(std::vector<Pair>{ Pair(T(0), T(1e30)) });
+    EXPECT_TRUE(bi1.is_isomorphic_to(bi2, T(1), T(1)));
+    EXPECT_FALSE(bi1.is_isomorphic_to(bi3, T(1), T(1)));
+  }
+
+  // ============================================================================
   // is_infinite and streaming with infinities
   // ============================================================================
 

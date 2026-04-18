@@ -3548,3 +3548,96 @@ compressed_lower_distance_matrix read_file(std::istream& input_stream, file_form
     std::cerr<<"unsupported input file format"<<std::endl;
 }
 
+// -----------------------------------------------------------------------------
+// mpcf facade: compute_barcodes_pcloud
+//
+// NOTE: this initial implementation still uses the file-scope global
+// list_of_barcodes and phmap_interface singleton, so it is NOT safe to call
+// from multiple threads concurrently. Phase 2 of the integration plan will
+// thread these out. For now only one GPU job runs at a time.
+// -----------------------------------------------------------------------------
+
+#include <mpcf/persistence/ripserpp/ripserpp.hpp>
+
+namespace mpcf::ph::ripserpp
+{
+  namespace
+  {
+    template <typename T>
+    compressed_lower_distance_matrix build_distance_matrix(const PointCloud<T>& points)
+    {
+      const auto n = static_cast<index_t>(points.shape(0));
+      const auto d = static_cast<index_t>(points.shape(1));
+
+      std::vector<value_t> distances;
+      distances.reserve(static_cast<size_t>(n) * static_cast<size_t>(n - 1) / 2);
+
+      for (index_t i = 1; i < n; ++i) {
+        for (index_t j = 0; j < i; ++j) {
+          value_t acc = 0;
+          for (index_t k = 0; k < d; ++k) {
+            const value_t diff = static_cast<value_t>(points({static_cast<size_t>(i), static_cast<size_t>(k)})) -
+                                 static_cast<value_t>(points({static_cast<size_t>(j), static_cast<size_t>(k)}));
+            acc += diff * diff;
+          }
+          distances.push_back(std::sqrt(acc));
+        }
+      }
+      return compressed_lower_distance_matrix(std::move(distances));
+    }
+
+    value_t enclosing_radius(const compressed_lower_distance_matrix& dist)
+    {
+      value_t threshold = std::numeric_limits<value_t>::infinity();
+      for (index_t i = 0; i < static_cast<index_t>(dist.size()); ++i) {
+        value_t row_max = -std::numeric_limits<value_t>::infinity();
+        for (index_t j = 0; j < static_cast<index_t>(dist.size()); ++j) {
+          row_max = std::max(row_max, dist(i, j));
+        }
+        threshold = std::min(threshold, row_max);
+      }
+      return threshold;
+    }
+  }
+
+  template <typename T>
+  void compute_barcodes_pcloud(
+      const PointCloud<T>& points,
+      std::size_t maxDim,
+      std::vector<std::vector<PersistencePair<T>>>& out)
+  {
+    out.assign(maxDim + 1, {});
+
+    const auto n = points.shape(0);
+    if (n <= 1) {
+      return;
+    }
+
+    auto dist = build_distance_matrix(points);
+    const value_t threshold = enclosing_radius(dist);
+    const index_t dim_max = static_cast<index_t>(maxDim);
+
+    list_of_barcodes.assign(dim_max + 1, {});
+    phmap_clear();
+
+    ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, /*ratio=*/1.0f).compute_barcodes();
+
+    const auto dims_out = std::min<std::size_t>(list_of_barcodes.size(), maxDim + 1);
+    for (std::size_t k = 0; k < dims_out; ++k) {
+      auto& bars = out[k];
+      bars.reserve(list_of_barcodes[k].size());
+      for (const auto& bd : list_of_barcodes[k]) {
+        bars.emplace_back(static_cast<T>(bd.birth), static_cast<T>(bd.death));
+      }
+    }
+
+    list_of_barcodes.clear();
+    phmap_clear();
+  }
+
+  template void compute_barcodes_pcloud<float>(const PointCloud<float>&, std::size_t,
+                                               std::vector<std::vector<PersistencePair<float>>>&);
+  template void compute_barcodes_pcloud<double>(const PointCloud<double>&, std::size_t,
+                                                std::vector<std::vector<PersistencePair<double>>>&);
+}
+

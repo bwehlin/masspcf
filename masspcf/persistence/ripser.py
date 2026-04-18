@@ -45,3 +45,21 @@ def _compute_barcodes_distmat_ripser(
     )
 
     return backend.spawn_ripser_distmat_task(X._data, out._data, max_dim, reduced_homology)
+
+
+def _ripser_plusplus_available() -> bool:
+    """Return True if the GPU-accelerated Ripser++ backend is loaded."""
+    return hasattr(cpp_p.PersistenceRipser32, "spawn_ripser_plusplus_pcloud_euclidean_task")
+
+
+def _compute_barcodes_euclidean_pcloud_ripser_plusplus(
+    X: PointCloudTensor,
+    out: BarcodeTensor,
+    max_dim: int = 1,
+    reduced_homology: bool = False,
+):
+    backend, X = _get_backend(
+        X, {pcloud32: cpp_p.PersistenceRipser32, pcloud64: cpp_p.PersistenceRipser64}
+    )
+
+    return backend.spawn_ripser_plusplus_pcloud_euclidean_task(X._data, out._data, max_dim, reduced_homology)

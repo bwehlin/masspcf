@@ -55,6 +55,7 @@ def compute_persistent_homology(
     complex_type: ComplexType = ComplexType.VietorisRips,
     reduced: bool = False,
     verbose: bool = False,
+    device: str = "cpu",
 ) -> BarcodeTensor:
     r"""Compute persistent homology of a point cloud or distance matrix.
 
@@ -89,6 +90,12 @@ def compute_persistent_homology(
         H0 representing the single connected component.
     verbose : bool, optional
         Show progress information, by default False.
+    device : str, optional
+        Where to run the Rips computation on point-cloud input:
+        ``"cpu"`` (default) uses Ripser; ``"gpu"`` uses the
+        GPU-accelerated Ripser++ port (requires the CUDA backend);
+        ``"auto"`` picks GPU when the CUDA backend is loaded and falls
+        back to CPU otherwise. Ignored for distance-matrix input.
 
     Returns
     -------
@@ -98,7 +105,12 @@ def compute_persistent_homology(
     """
 
     from ..tensor_create import zeros
-    from .ripser import _compute_barcodes_distmat_ripser, _compute_barcodes_euclidean_pcloud_ripser
+    from .ripser import (
+        _compute_barcodes_distmat_ripser,
+        _compute_barcodes_euclidean_pcloud_ripser,
+        _compute_barcodes_euclidean_pcloud_ripser_plusplus,
+        _ripser_plusplus_available,
+    )
 
     # --- Distance matrix input path ---
     if isinstance(X, (DistanceMatrix, DistanceMatrixTensor)):
@@ -141,10 +153,21 @@ def compute_persistent_homology(
         out = zeros((1,), dtype=barcode_dtype)
 
     if complex_type == ComplexType.VietorisRips:
-        # Use Ripser
+        if device not in ("cpu", "gpu", "auto"):
+            raise ValueError(f"device must be 'cpu', 'gpu', or 'auto'; got {device!r}")
+
+        use_gpu = device == "gpu" or (device == "auto" and _ripser_plusplus_available())
+        if use_gpu and not _ripser_plusplus_available():
+            raise RuntimeError(
+                "device='gpu' requires the CUDA backend; no Ripser++ implementation is available."
+            )
+
         match distance_type:
             case DistanceType.Euclidean:
-                task = _compute_barcodes_euclidean_pcloud_ripser(X, out, max_dim, reduced)
+                if use_gpu:
+                    task = _compute_barcodes_euclidean_pcloud_ripser_plusplus(X, out, max_dim, reduced)
+                else:
+                    task = _compute_barcodes_euclidean_pcloud_ripser(X, out, max_dim, reduced)
             case _:
                 raise ValueError(
                     f"Distance type {distance_type} not supported for complex type {complex_type}."

@@ -19,6 +19,7 @@
 
 #include <iosfwd>
 #include <algorithm>
+#include <cmath>
 
 namespace mpcf::ph
 {
@@ -77,7 +78,15 @@ namespace mpcf::ph
       return m_bars == rhs.m_bars;
     }
 
-    [[nodiscard]] bool is_isomorphic_to(const Barcode& rhs) const
+    /**
+     * Check whether two barcodes represent the same multiset of bars.
+     * Optionally allow numerical tolerance when comparing individual
+     * birth/death values: two values `a` and `b` are considered equal
+     * when `|a - b| <= atol + rtol * |b|` (follows the numpy convention).
+     * Infinities compare equal to infinities and never to finite values.
+     * With the default tolerances (both zero) this is exact equality.
+     */
+    [[nodiscard]] bool is_isomorphic_to(const Barcode& rhs, T atol = T(0), T rtol = T(0)) const
     {
       if (m_bars.size() != rhs.m_bars.size())
       {
@@ -90,7 +99,23 @@ namespace mpcf::ph
       std::sort(thisBars.begin(), thisBars.end());
       std::sort(rhsBars.begin(), rhsBars.end());
 
-      return thisBars == rhsBars;
+      if (atol == T(0) && rtol == T(0))
+      {
+        return thisBars == rhsBars;
+      }
+
+      auto close = [atol, rtol](T a, T b) {
+        if (a == b) return true;  // handles +inf == +inf, -inf == -inf
+        if (!std::isfinite(a) || !std::isfinite(b)) return false;
+        return std::abs(a - b) <= atol + rtol * std::abs(b);
+      };
+
+      for (size_t i = 0; i < thisBars.size(); ++i)
+      {
+        if (!close(thisBars[i].birth, rhsBars[i].birth)) return false;
+        if (!close(thisBars[i].death, rhsBars[i].death)) return false;
+      }
+      return true;
     }
 
     [[nodiscard]] const std::vector<mpcf::ph::PersistencePair<T>>& bars() const { return m_bars; }

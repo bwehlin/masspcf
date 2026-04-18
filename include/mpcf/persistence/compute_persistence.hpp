@@ -210,6 +210,85 @@ namespace mpcf::ph
   template <typename T>
   using RipserDistMatTask = RipserTaskImpl<DistanceMatrix<T>, T>;
 
+#ifdef BUILD_WITH_CUDA
+}
+
+#include "ripserpp/ripserpp.hpp"
+#include "../walk.hpp"
+
+namespace mpcf::ph
+{
+  /// GPU Ripser++ task. Iterates items serially and feeds each point cloud
+  /// into the Ripser++ facade. The facade still relies on file-scope globals
+  /// inside ripserpp.cu, so only a single GPU job runs at a time here.
+  /// Concurrency is added in phase 3 of the integration plan.
+  template <typename T>
+  class RipserPlusPlusTask : public StoppableTask<void>
+  {
+  public:
+    RipserPlusPlusTask(const Tensor<PointCloud<T>>& input, Tensor<Barcode<T>>& ret, size_t maxDim = 1, bool reducedHomology = false)
+      : m_input(input), m_ret(ret), m_maxDim(maxDim), m_reducedHomology(reducedHomology)
+    { }
+
+  private:
+    tf::Future<void> run_async(Executor& exec) override
+    {
+      auto shape = m_input.shape();
+      shape.emplace_back(m_maxDim + 1);
+      m_ret = Tensor<Barcode<T>>(shape);
+
+      next_step(m_input.size(), "Computing persistence (GPU)", "pointcloud");
+
+      tf::Taskflow flow;
+      flow.emplace([this]() {
+        walk(m_input, [this](const std::vector<size_t>& index) {
+          if (stop_requested()) return;
+          process_item(index);
+          add_progress(1);
+        });
+      });
+      return exec.cpu()->run(std::move(flow));
+    }
+
+    void process_item(const std::vector<size_t>& index)
+    {
+      const auto& points = m_input(index);
+
+      if (points.rank() == 0 ||
+          std::any_of(points.shape().begin(), points.shape().end(), [](size_t v){ return v == 0; }))
+      {
+        return;
+      }
+
+      if (points.rank() != 2)
+      {
+        throw std::runtime_error("Point cloud at index " + index_to_string(index) + " has unexpected shape " +
+                                 shape_to_string(points.shape()) + " (should be (m, n))");
+      }
+
+      std::vector<std::vector<PersistencePair<T>>> bars;
+      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars);
+
+      for (size_t k = 0; k < bars.size(); ++k)
+      {
+        auto retIdx = index;
+        retIdx.emplace_back(k);
+
+        auto& kBars = bars[k];
+        if (k == 0 && !m_reducedHomology)
+        {
+          kBars.insert(kBars.begin(), PersistencePair<T>(T{0}, std::numeric_limits<T>::infinity()));
+        }
+        m_ret(retIdx) = std::move(kBars);
+      }
+    }
+
+    const Tensor<PointCloud<T>>& m_input;
+    Tensor<Barcode<T>>& m_ret;
+    size_t m_maxDim;
+    bool m_reducedHomology;
+  };
+#endif // BUILD_WITH_CUDA
 }
 
 #endif //MASSPCF_COMPUTE_PERSISTENCE_H
