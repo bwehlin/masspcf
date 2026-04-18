@@ -72,9 +72,10 @@
 #include <cmath>
 #include <algorithm>
 #include <sparsehash/dense_hash_map>
-#include <mpcf/persistence/ripserpp/phmap_interface.hpp>
+#include <parallel_hashmap/phmap.h>
 
-#include <omp.h>
+#include <mpcf/executor.hpp>
+#include <taskflow/algorithm/for_each.hpp>
 #include <thrust/fill.h>
 #include <thrust/device_vector.h>
 #include <thrust/scan.h>
@@ -152,8 +153,6 @@ typedef struct {
     value_t birth;
     value_t death;
 } birth_death_coordinate;
-
-std::vector<std::vector<birth_death_coordinate>> list_of_barcodes = std::vector<std::vector<birth_death_coordinate>>();
 
 struct row_cidx_column_idx_struct_compare{
     __host__ __device__ bool operator()(struct index_t_pair_struct a, struct index_t_pair_struct b){
@@ -1594,12 +1593,45 @@ private:
     struct diameter_index_t_struct* h_simplices;//the simplices filtered by diameter that need to be considered for the next dimension's simplices
     index_t* d_num_simplices=NULL;//use d_num_simplices to keep track of the number of simplices in h_ or d_ simplices
     index_t* h_num_simplices;//h_num_simplices is tied to d_num_simplices in pinned memory
+
+    // Per-instance pivot hash map (was a file-scope singleton in upstream).
+    phmap::parallel_flat_hash_map<int64_t, int64_t> pivot_map;
+
+    // Per-instance output collector (was the file-scope list_of_barcodes).
+    // Indexed [dim][i] -> (birth, death).
+    std::vector<std::vector<birth_death_coordinate>>& barcodes_out;
+
+    // CPU executor used in place of upstream's #pragma omp parallel for loops.
+    mpcf::Executor& exec_;
+
+    void phmap_put(int64_t key, int64_t value) { pivot_map[key] = value; }
+    int64_t phmap_get_value(int64_t key) const
+    {
+        auto it = pivot_map.find(key);
+        return it == pivot_map.end() ? int64_t(-1) : it->second;
+    }
+    void phmap_clear() { pivot_map.clear(); }
+
+    // Mirrors upstream's `#pragma omp parallel for schedule(guided, 1)`:
+    // taskflow's GuidedPartitioner with chunk_size=1 yields the same
+    // dynamic-guided behavior.
+    template <typename Callback>
+    void parallel_for_index(index_t count, Callback&& cb) {
+        if (count <= 0) return;
+        tf::Taskflow flow;
+        flow.for_each_index(index_t(0), count, index_t(1), std::forward<Callback>(cb),
+                            tf::GuidedPartitioner<>(1));
+        exec_.cpu()->run(std::move(flow)).wait();
+    }
 public:
 
-    ripser(DistanceMatrix&& _dist, index_t _dim_max, value_t _threshold, float _ratio)
+    ripser(DistanceMatrix&& _dist, index_t _dim_max, value_t _threshold, float _ratio,
+           std::vector<std::vector<birth_death_coordinate>>& _barcodes_out,
+           mpcf::Executor& _exec)
             : dist(std::move(_dist)), n(dist.size()),
               dim_max(std::min(_dim_max, index_t(dist.size() - 2))), threshold(_threshold),
-              ratio(_ratio), binomial_coeff(n, dim_max + 2) {}
+              ratio(_ratio), binomial_coeff(n, dim_max + 2),
+              barcodes_out(_barcodes_out), exec_(_exec) {}
 
     void free_gpumem_dense_computation() {
         if (n>=10) {//this fixes a bug for single point persistence being called repeatedly
@@ -1887,7 +1919,7 @@ public:
 #endif
                     //Collect persistence pair
                     birth_death_coordinate barcode = {0,e.diameter};
-                    list_of_barcodes[0].push_back(barcode);
+                    barcodes_out[0].push_back(barcode);
                 }
 #endif
                 dset.link(u, v);
@@ -2068,7 +2100,7 @@ public:
                                       << std::flush;
 #endif
                             birth_death_coordinate barcode = {diameter,death};
-                            list_of_barcodes[dim].push_back(barcode);
+                            barcodes_out[dim].push_back(barcode);
                         }
 #endif
                         pivot_column_index[pivot.index]= index_column_to_reduce;
@@ -2166,7 +2198,7 @@ public:
                                       << std::flush;
 #endif
                             birth_death_coordinate barcode = {diameter,death};
-                            list_of_barcodes[dim].push_back(barcode);
+                            barcodes_out[dim].push_back(barcode);
                         }
 #endif
 
@@ -2393,7 +2425,7 @@ void ripser<compressed_lower_distance_matrix>::gpu_compute_dim_0_pairs(std::vect
                 std::cout << " [0," << e.diameter << ")" << std::endl;
 #endif
                 birth_death_coordinate barcode = {0,e.diameter};
-                list_of_barcodes[0].push_back(barcode);
+                barcodes_out[0].push_back(barcode);
             }
 #endif
             dset.link(u, v);
@@ -2403,10 +2435,9 @@ void ripser<compressed_lower_distance_matrix>::gpu_compute_dim_0_pairs(std::vect
     }
     std::reverse(columns_to_reduce.begin(), columns_to_reduce.end());
     //don't want to reverse the h_columns_to_reduce so just put into vector and copy later
-#pragma omp parallel for schedule(guided,1)
-    for(index_t i=0; i<columns_to_reduce.size(); i++){
+    parallel_for_index(static_cast<index_t>(columns_to_reduce.size()), [&](index_t i) {
         h_columns_to_reduce[i]= columns_to_reduce[i];
-    }
+    });
     *h_num_columns_to_reduce= columns_to_reduce.size();
     *h_num_nonapparent= *h_num_columns_to_reduce;//we haven't found any apparent columns yet, so set all columns to nonapparent
 
@@ -2475,7 +2506,7 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
                 std::cout << " [0," << e.diameter << ")" << std::endl;
 #endif
                 birth_death_coordinate barcode = {0,e.diameter};
-                list_of_barcodes[0].push_back(barcode);
+                barcodes_out[0].push_back(barcode);
             }
 #endif
             dset.link(u, v);
@@ -2485,10 +2516,9 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
     }
     std::reverse(columns_to_reduce.begin(), columns_to_reduce.end());
     //don't want to reverse the h_columns_to_reduce so just put into vector and copy later
-#pragma omp parallel for schedule(guided,1)
-    for(index_t i=0; i<columns_to_reduce.size(); i++){
+    parallel_for_index(static_cast<index_t>(columns_to_reduce.size()), [&](index_t i) {
         h_columns_to_reduce[i]= columns_to_reduce[i];
-    }
+    });
     *h_num_columns_to_reduce= columns_to_reduce.size();
     *h_num_nonapparent= *h_num_columns_to_reduce;//we haven't found any apparent columns yet, so set all columns to nonapparent
 #ifdef PRINT_PERSISTENCE_PAIRS
@@ -2656,8 +2686,7 @@ void ripser<compressed_lower_distance_matrix>::gpu_assemble_columns_to_reduce_pl
 
     index_t max_num_simplices= binomial_coeff(n, dim + 1);
 
-#pragma omp parallel for schedule(guided,1)
-    for (index_t i= 0; i < max_num_simplices; i++) {
+    parallel_for_index(max_num_simplices, [&](index_t i) {
 #ifdef USE_PHASHMAP
         h_pivot_column_index_array_OR_nonapparent_cols[i]= phmap_get_value(i);
 #endif
@@ -2669,14 +2698,13 @@ void ripser<compressed_lower_distance_matrix>::gpu_assemble_columns_to_reduce_pl
             h_pivot_column_index_array_OR_nonapparent_cols[i]= -1;
         }
 #endif
-    }
+    });
     num_apparent= *h_num_columns_to_reduce-*h_num_nonapparent;
     if(num_apparent>0) {
-#pragma omp parallel for schedule(guided, 1)
-        for (index_t i= 0; i < num_apparent; i++) {
+        parallel_for_index(num_apparent, [&](index_t i) {
             index_t row_cidx= h_pivot_array[i].row_cidx;
             h_pivot_column_index_array_OR_nonapparent_cols[row_cidx]= h_pivot_array[i].column_idx;
-        }
+        });
     }
     *h_num_columns_to_reduce= 0;
     cudaMemcpy(d_pivot_column_index_OR_nonapparent_cols, h_pivot_column_index_array_OR_nonapparent_cols, sizeof(index_t)*max_num_simplices, cudaMemcpyHostToDevice);
@@ -2765,10 +2793,9 @@ void ripser<sparse_distance_matrix>::gpu_assemble_columns_to_reduce_plusplus(con
 #endif
     *h_num_columns_to_reduce= columns_to_reduce.size();
 
-#pragma omp parallel for schedule(guided,1)
-    for(index_t i=0; i<columns_to_reduce.size(); i++){
+    parallel_for_index(static_cast<index_t>(columns_to_reduce.size()), [&](index_t i) {
         h_columns_to_reduce[i]= columns_to_reduce[i];
-    }
+    });
 }
 
 template <>
@@ -3550,11 +3577,6 @@ compressed_lower_distance_matrix read_file(std::istream& input_stream, file_form
 
 // -----------------------------------------------------------------------------
 // mpcf facade: compute_barcodes_pcloud
-//
-// NOTE: this initial implementation still uses the file-scope global
-// list_of_barcodes and phmap_interface singleton, so it is NOT safe to call
-// from multiple threads concurrently. Phase 2 of the integration plan will
-// thread these out. For now only one GPU job runs at a time.
 // -----------------------------------------------------------------------------
 
 #include <mpcf/persistence/ripserpp/ripserpp.hpp>
@@ -3604,7 +3626,8 @@ namespace mpcf::ph::ripserpp
   void compute_barcodes_pcloud(
       const PointCloud<T>& points,
       std::size_t maxDim,
-      std::vector<std::vector<PersistencePair<T>>>& out)
+      std::vector<std::vector<PersistencePair<T>>>& out,
+      mpcf::Executor& exec)
   {
     out.assign(maxDim + 1, {});
 
@@ -3617,27 +3640,23 @@ namespace mpcf::ph::ripserpp
     const value_t threshold = enclosing_radius(dist);
     const index_t dim_max = static_cast<index_t>(maxDim);
 
-    list_of_barcodes.assign(dim_max + 1, {});
-    phmap_clear();
+    std::vector<std::vector<birth_death_coordinate>> raw_bars(dim_max + 1);
+    ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec).compute_barcodes();
 
-    ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, /*ratio=*/1.0f).compute_barcodes();
-
-    const auto dims_out = std::min<std::size_t>(list_of_barcodes.size(), maxDim + 1);
-    for (std::size_t k = 0; k < dims_out; ++k) {
+    for (std::size_t k = 0; k < raw_bars.size() && k < out.size(); ++k) {
       auto& bars = out[k];
-      bars.reserve(list_of_barcodes[k].size());
-      for (const auto& bd : list_of_barcodes[k]) {
+      bars.reserve(raw_bars[k].size());
+      for (const auto& bd : raw_bars[k]) {
         bars.emplace_back(static_cast<T>(bd.birth), static_cast<T>(bd.death));
       }
     }
-
-    list_of_barcodes.clear();
-    phmap_clear();
   }
 
   template void compute_barcodes_pcloud<float>(const PointCloud<float>&, std::size_t,
-                                               std::vector<std::vector<PersistencePair<float>>>&);
+                                               std::vector<std::vector<PersistencePair<float>>>&,
+                                               mpcf::Executor&);
   template void compute_barcodes_pcloud<double>(const PointCloud<double>&, std::size_t,
-                                                std::vector<std::vector<PersistencePair<double>>>&);
+                                                std::vector<std::vector<PersistencePair<double>>>&,
+                                                mpcf::Executor&);
 }
 

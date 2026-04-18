@@ -219,9 +219,10 @@ namespace mpcf::ph
 namespace mpcf::ph
 {
   /// GPU Ripser++ task. Iterates items serially and feeds each point cloud
-  /// into the Ripser++ facade. The facade still relies on file-scope globals
-  /// inside ripserpp.cu, so only a single GPU job runs at a time here.
-  /// Concurrency is added in phase 3 of the integration plan.
+  /// into the Ripser++ facade. The ported Ripser++ no longer has global
+  /// state but still issues thrust calls on the default CUDA stream, so
+  /// multiple GPU jobs would serialize on the device. Phase 3 of the
+  /// integration plan adds per-instance streams and a hybrid dispatcher.
   template <typename T>
   class RipserPlusPlusTask : public StoppableTask<void>
   {
@@ -236,6 +237,7 @@ namespace mpcf::ph
       auto shape = m_input.shape();
       shape.emplace_back(m_maxDim + 1);
       m_ret = Tensor<Barcode<T>>(shape);
+      m_exec = &exec;
 
       next_step(m_input.size(), "Computing persistence (GPU)", "pointcloud");
 
@@ -267,7 +269,7 @@ namespace mpcf::ph
       }
 
       std::vector<std::vector<PersistencePair<T>>> bars;
-      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars);
+      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec);
 
       for (size_t k = 0; k < bars.size(); ++k)
       {
@@ -287,6 +289,7 @@ namespace mpcf::ph
     Tensor<Barcode<T>>& m_ret;
     size_t m_maxDim;
     bool m_reducedHomology;
+    Executor* m_exec = nullptr;
   };
 #endif // BUILD_WITH_CUDA
 }

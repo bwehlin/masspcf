@@ -169,26 +169,23 @@ on the GPU:
   ```
 - [ ] Verify it **builds** (no functional use yet).
 
-### Phase 2 — first functional use, single GPU job
+### Phase 2 — first functional use, single GPU job [DONE]
 
-- [ ] Thread `list_of_barcodes` through `compute_barcodes` as an output
-  parameter (kills global #1).
-- [ ] Replace OMP pragmas with taskflow `for_each_index` — needs an
-  `mpcf::Executor&` threaded in (minor API addition).
-- [ ] Make the phmap_interface singleton an instance member of `ripser`
-  (kills global #2).
-- [ ] Add `RipserPlusPlusTask<T>` in
+- [x] Thread `list_of_barcodes` through `compute_barcodes` as an instance
+  member (kills global #1).
+- [x] Replace OMP pragmas with taskflow `for_each_index` via a new
+  `mpcf::Executor&` constructor argument on `ripser`.
+- [x] Make the phmap_interface singleton an instance member of `ripser`
+  (kills global #2). `phmap_interface.hpp` shim deleted.
+- [x] Add `RipserPlusPlusTask<T>` in
   `include/mpcf/persistence/compute_persistence.hpp`, mirroring
   `RipserTaskImpl` but iterating items **serially** on the GPU for now.
-- [ ] pybind: new `spawn_ripser_plusplus_*_task` entries, gated so the
-  symbols only exist in `_mpcf_cudaXX`.
-- [ ] Python: route through `compute_persistent_homology(..., device="gpu")`
-  or auto-detect via `system.cuda_available()`.
-- [ ] Correctness test: compare barcodes against CPU Ripser on the stable
-  existing test cases (`test/python/persistence/test_ripser.py`), within
-  tolerance. Ripser++ reduces homology the same way — expect identical
-  pairs modulo ordering. The H0-essential-class handling (we add `[0, inf)`
-  unreduced) needs to match.
+- [x] pybind: `spawn_ripser_plusplus_pcloud_euclidean_task` gated on
+  `BUILD_WITH_CUDA` so the symbol only exists in `_mpcf_cudaXX`.
+- [x] Python: `compute_persistent_homology(..., device="cpu"|"gpu"|"auto")`.
+- [x] Correctness: `test_ripser_plusplus.py` (8 tests) compares GPU vs
+  CPU on rectangles, random, circle, tensor-of-pclouds, with
+  tolerance via extended `Barcode::is_isomorphic_to(..., atol, rtol)`.
 
 ### Phase 3 — hybrid dispatcher + concurrent GPU jobs
 

@@ -15,6 +15,7 @@
 #ifndef MASSPCF_RIPSERPP_HPP
 #define MASSPCF_RIPSERPP_HPP
 
+#include "../../executor.hpp"
 #include "../../tensor.hpp"
 #include "../persistence_pair.hpp"
 
@@ -28,13 +29,15 @@ namespace mpcf::ph::ripserpp
   // on the GPU.
   //   points: shape (n, d) -- n points in R^d
   //   out:    resized to maxDim + 1; out[k] holds the k-th homology pairs.
+  //   exec:   CPU executor for the parallel-for loops inside the port.
   // Throws mpcf::cuda_error (see mpcf/cuda/cuda_util.cuh) on CUDA failures;
   // inspect code() == cudaErrorMemoryAllocation to detect OOM.
   template <typename T>
   void compute_barcodes_pcloud(
       const PointCloud<T>& points,
       std::size_t maxDim,
-      std::vector<std::vector<PersistencePair<T>>>& out);
+      std::vector<std::vector<PersistencePair<T>>>& out,
+      mpcf::Executor& exec);
 }
 
 #endif // MASSPCF_RIPSERPP_HPP
