@@ -1172,8 +1172,11 @@ namespace mpcf
     }
 
     ret.m_viewType = ViewType::Flattened;
-    ret.m_shape = { get_total_size() };
-    ret.m_strides = { ptrdiff_t{0} };
+    // Use .assign() rather than initializer-list operator= to avoid a
+    // GCC 12 -Wstringop-overread false positive in the memmove path
+    // through std::vector's uninitialized_copy (fixed in GCC 13+).
+    ret.m_shape.assign(1, get_total_size());
+    ret.m_strides.assign(1, ptrdiff_t{0});
     return ret;
   }
 
