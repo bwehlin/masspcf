@@ -174,6 +174,12 @@ namespace
     EXPECT_FALSE(r3.active());
     EXPECT_EQ(sched.active_count(), 2);
     EXPECT_EQ(sched.remaining(0), 980);
+
+    // The cap-rejected reservation must be visible in the cap counter,
+    // not the no-room counter.
+    EXPECT_EQ(sched.total_failed_cap(), 1);
+    EXPECT_EQ(sched.total_failed_no_room(), 0);
+    EXPECT_EQ(sched.total_admitted(), 2);
   }
 
   TEST(GpuMemoryScheduler, MaxConcurrentCapReleasesOnDestruction)
@@ -194,6 +200,55 @@ namespace
 
     auto r3 = sched.try_reserve(10);
     EXPECT_TRUE(r3.active());
+  }
+
+  TEST(GpuMemoryScheduler, CumulativeCountersTrackOutcomes)
+  {
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{200}, default_cfg());
+
+    auto r1 = sched.try_reserve(100);
+    ASSERT_TRUE(r1.active());
+    auto r2 = sched.try_reserve(100);
+    ASSERT_TRUE(r2.active());
+    auto r3 = sched.try_reserve(100);  // bin drained -> failed
+    EXPECT_FALSE(r3.active());
+
+    EXPECT_EQ(sched.total_admitted(), 2);
+    EXPECT_EQ(sched.total_failed_no_room(), 1);
+    EXPECT_EQ(sched.total_oom(), 0);
+    EXPECT_GE(sched.peak_active(), 2);
+
+    sched.record_oom(0);
+    sched.record_oom(0);
+    EXPECT_EQ(sched.total_oom(), 2);
+
+    // cost_units <= 0 should NOT count as a "no room" failure.
+    auto rzero = sched.try_reserve(0);
+    EXPECT_FALSE(rzero.active());
+    EXPECT_EQ(sched.total_failed_no_room(), 1);
+  }
+
+  TEST(GpuMemoryScheduler, DestructorSnapshotsCountersToGlobal)
+  {
+    mpcf::last_gpu_scheduler_stats() = mpcf::LastSchedulerStats{};
+
+    {
+      GpuMemoryScheduler sched(std::vector<std::int64_t>{1000}, default_cfg());
+      auto r1 = sched.try_reserve(300);
+      ASSERT_TRUE(r1.active());
+      auto r2 = sched.try_reserve(300);
+      ASSERT_TRUE(r2.active());
+      auto r3 = sched.try_reserve(900);  // doesn't fit -> failed
+      EXPECT_FALSE(r3.active());
+      sched.record_oom(0);
+    }
+
+    const auto& snap = mpcf::last_gpu_scheduler_stats();
+    EXPECT_EQ(snap.total_admitted, 2);
+    EXPECT_EQ(snap.total_failed_no_room, 1);
+    EXPECT_EQ(snap.total_oom, 1);
+    EXPECT_GE(snap.peak_active, 2);
+    EXPECT_EQ(snap.num_gpus, 1u);
   }
 
   TEST(GpuMemoryScheduler, ConcurrentReservationsHeldDoNotOverbook)

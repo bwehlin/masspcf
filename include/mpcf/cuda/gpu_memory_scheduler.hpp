@@ -22,11 +22,41 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <utility>
 #include <vector>
 
 namespace mpcf
 {
+  /// Snapshot of cumulative scheduler activity since the most recent
+  /// GpuMemoryScheduler instance was destroyed. Populated automatically
+  /// on every scheduler destruction; readable from Python via
+  /// `cpp.get_last_gpu_scheduler_stats()` for benchmarking and
+  /// diagnostics. Problem-agnostic: the scheduler itself doesn't know
+  /// what callers did about failed reservations or OOMs, only that they
+  /// happened.
+  struct LastSchedulerStats
+  {
+    std::int64_t total_admitted = 0;
+    std::int64_t total_failed_no_room = 0;  ///< rejected: no GPU had memory
+    std::int64_t total_failed_cap = 0;      ///< rejected: concurrency cap hit
+    std::int64_t total_oom = 0;
+    int peak_active = 0;
+    std::size_t num_gpus = 0;
+  };
+
+  inline LastSchedulerStats& last_gpu_scheduler_stats()
+  {
+    static LastSchedulerStats instance;
+    return instance;
+  }
+
+  inline std::mutex& last_gpu_scheduler_stats_mutex()
+  {
+    static std::mutex m;
+    return m;
+  }
+
   /// Online First-Fit bin-packing scheduler over per-GPU memory budgets,
   /// with AIMD-style calibration of the per-GPU cost factor.
   ///
@@ -136,6 +166,10 @@ namespace mpcf
     GpuMemoryScheduler(const GpuMemoryScheduler&) = delete;
     GpuMemoryScheduler& operator=(const GpuMemoryScheduler&) = delete;
 
+    /// On destruction, snapshot cumulative counters into the global
+    /// `last_gpu_scheduler_stats()` for later read-back from Python.
+    ~GpuMemoryScheduler();
+
     /// Probe GPUs in order 0..N-1 for a slot big enough for `cost_units`.
     /// On success: cudaSetDevice is called and a Reservation is returned.
     /// On failure (no GPU has enough room, or cost exceeds every GPU's
@@ -168,6 +202,30 @@ namespace mpcf
     }
     [[nodiscard]] int max_concurrent() const noexcept { return m_max_concurrent; }
 
+    /// Cumulative counters since construction. Useful for benchmarking
+    /// without poking at scheduler internals; also snapshotted into
+    /// `last_gpu_scheduler_stats()` on destruction.
+    [[nodiscard]] std::int64_t total_admitted() const noexcept
+    {
+      return m_total_admitted.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::int64_t total_failed_no_room() const noexcept
+    {
+      return m_total_failed_no_room.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::int64_t total_failed_cap() const noexcept
+    {
+      return m_total_failed_cap.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::int64_t total_oom() const noexcept
+    {
+      return m_total_oom.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] int peak_active() const noexcept
+    {
+      return m_peak_active.load(std::memory_order_relaxed);
+    }
+
   private:
     struct GpuState
     {
@@ -178,10 +236,17 @@ namespace mpcf
 
     void release_bytes(int gpu_idx, std::int64_t bytes) noexcept;
 
+    void update_peak_active(int now_active) noexcept;
+
     std::vector<GpuState> m_gpus;
     double m_oom_backoff;
     int m_max_concurrent;
     std::atomic<int> m_active{0};
+    std::atomic<int> m_peak_active{0};
+    std::atomic<std::int64_t> m_total_admitted{0};
+    std::atomic<std::int64_t> m_total_failed_no_room{0};
+    std::atomic<std::int64_t> m_total_failed_cap{0};
+    std::atomic<std::int64_t> m_total_oom{0};
   };
 
   inline void GpuMemoryScheduler::Reservation::release() noexcept
@@ -232,14 +297,15 @@ namespace mpcf
       return Reservation{};
     }
 
-    // Concurrency cap: tentatively claim a slot before walking GPUs.
-    // Roll back if no GPU has room. Cap == 0 means unlimited.
-    if (m_max_concurrent > 0) {
-      const int prev_active = m_active.fetch_add(1, std::memory_order_acquire);
-      if (prev_active >= m_max_concurrent) {
-        m_active.fetch_sub(1, std::memory_order_release);
-        return Reservation{};
-      }
+    // Tentatively claim a slot before walking GPUs. Always track
+    // `m_active` so callers can observe live reservations for
+    // diagnostics, even when no cap is set; if a cap is set, enforce it
+    // here. Roll back below if no GPU has room.
+    const int prev_active = m_active.fetch_add(1, std::memory_order_acquire);
+    if (m_max_concurrent > 0 && prev_active >= m_max_concurrent) {
+      m_active.fetch_sub(1, std::memory_order_release);
+      m_total_failed_cap.fetch_add(1, std::memory_order_relaxed);
+      return Reservation{};
     }
 
     for (std::size_t i = 0; i < m_gpus.size(); ++i) {
@@ -256,15 +322,27 @@ namespace mpcf
         // test-injected budgets path still sets the device so callers
         // see consistent behavior across both constructors.
         cudaSetDevice(static_cast<int>(i));
+        m_total_admitted.fetch_add(1, std::memory_order_relaxed);
+        update_peak_active(prev_active + 1);
         return Reservation{this, static_cast<int>(i), est};
       }
       g.remaining.fetch_add(est, std::memory_order_release);
     }
 
-    if (m_max_concurrent > 0) {
-      m_active.fetch_sub(1, std::memory_order_release);
-    }
+    m_active.fetch_sub(1, std::memory_order_release);
+    m_total_failed_no_room.fetch_add(1, std::memory_order_relaxed);
     return Reservation{};
+  }
+
+  inline void GpuMemoryScheduler::update_peak_active(int now_active) noexcept
+  {
+    int peak = m_peak_active.load(std::memory_order_relaxed);
+    while (now_active > peak &&
+           !m_peak_active.compare_exchange_weak(peak, now_active,
+                                                std::memory_order_relaxed,
+                                                std::memory_order_relaxed)) {
+      // peak updated by CAS; loop to retry.
+    }
   }
 
   inline void GpuMemoryScheduler::record_oom(int gpu_idx)
@@ -276,19 +354,32 @@ namespace mpcf
       if (k.compare_exchange_weak(old_k, new_k,
                                   std::memory_order_relaxed,
                                   std::memory_order_relaxed)) {
+        m_total_oom.fetch_add(1, std::memory_order_relaxed);
         return;
       }
       // old_k updated by CAS; loop to retry with fresh value.
     }
   }
 
+  inline GpuMemoryScheduler::~GpuMemoryScheduler()
+  {
+    LastSchedulerStats snap;
+    snap.total_admitted = m_total_admitted.load(std::memory_order_relaxed);
+    snap.total_failed_no_room = m_total_failed_no_room.load(std::memory_order_relaxed);
+    snap.total_failed_cap = m_total_failed_cap.load(std::memory_order_relaxed);
+    snap.total_oom = m_total_oom.load(std::memory_order_relaxed);
+    snap.peak_active = m_peak_active.load(std::memory_order_relaxed);
+    snap.num_gpus = m_gpus.size();
+
+    std::lock_guard<std::mutex> g(last_gpu_scheduler_stats_mutex());
+    last_gpu_scheduler_stats() = snap;
+  }
+
   inline void GpuMemoryScheduler::release_bytes(int gpu_idx, std::int64_t bytes) noexcept
   {
     if (gpu_idx < 0 || bytes <= 0) return;
     m_gpus[static_cast<std::size_t>(gpu_idx)].remaining.fetch_add(bytes, std::memory_order_release);
-    if (m_max_concurrent > 0) {
-      m_active.fetch_sub(1, std::memory_order_release);
-    }
+    m_active.fetch_sub(1, std::memory_order_release);
   }
 }
 

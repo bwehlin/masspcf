@@ -39,6 +39,7 @@
 #ifdef BUILD_WITH_CUDA
 #include <cuda_runtime.h>
 #include <mpcf/cuda/cuda_matrix_integrate_api.hpp>
+#include <mpcf/cuda/gpu_memory_scheduler.hpp>
 #endif
 
 #include <mpcf/settings.hpp>
@@ -160,6 +161,22 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
   m.def("limit_gpu_concurrency", [](int n){ mpcf::settings().gpuConcurrencyCap = n; });
 #ifdef BUILD_WITH_CUDA
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
+  m.def("get_last_gpu_scheduler_stats", []() {
+    std::lock_guard<std::mutex> g(mpcf::last_gpu_scheduler_stats_mutex());
+    const auto& s = mpcf::last_gpu_scheduler_stats();
+    py::dict d;
+    d["total_admitted"] = s.total_admitted;
+    d["total_failed_no_room"] = s.total_failed_no_room;
+    d["total_failed_cap"] = s.total_failed_cap;
+    d["total_oom"] = s.total_oom;
+    d["peak_active"] = s.peak_active;
+    d["num_gpus"] = s.num_gpus;
+    return d;
+  });
+  m.def("reset_last_gpu_scheduler_stats", []() {
+    std::lock_guard<std::mutex> g(mpcf::last_gpu_scheduler_stats_mutex());
+    mpcf::last_gpu_scheduler_stats() = mpcf::LastSchedulerStats{};
+  });
 #endif
   m.def("get_ngpus", &getNumGpus);
 
