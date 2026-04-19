@@ -49,11 +49,16 @@
 #define ASSEMBLE_REDUCTION_SUBMATRIX//do submatrix reduction with the sparse coefficient submatrix of V
 //#define PROFILING
 //#define COUNTING
-#define USE_PHASHMAP//www.github.com/greg7mdp/parallel-hashmap
-#define PYTHON_BARCODE_COLLECTION
-#ifndef USE_PHASHMAP
+// Upstream Ripser++ used phmap (greg7mdp/parallel-hashmap) because its
+// `find_or_prepare_insert` is thread-safe, which matters when upstream's
+// OpenMP sections shared the pivot map across threads. We parallelize at
+// the outer (item-level) granularity instead -- each ripser instance
+// owns its own pivot map -- so the single-threaded google dense_hash_map
+// path is equivalent and avoids nvcc ICEs triggered by phmap's type-trait
+// template chain on certain nvcc/libstdc++ combos (notably nvcc 12.9 +
+// libstdc++13). No measured perf difference from keeping phmap.
 #define USE_GOOGLE_HASHMAP
-#endif
+#define PYTHON_BARCODE_COLLECTION
 
 //#define CPUONLY_SPARSE_HASHMAP//WARNING: MAY NEED LOWER GCC VERSION TO RUN, TESTED ON: NVCC VERSION 9.2 WITH GCC VERSIONS >=5.3.0 AND <=7.3.0
 
@@ -72,7 +77,9 @@
 #include <cmath>
 #include <algorithm>
 #include <sparsehash/dense_hash_map>
+#ifdef USE_PHASHMAP
 #include <parallel_hashmap/phmap.h>
+#endif
 
 #include <mpcf/cuda/cuda_device_array.cuh>
 #include <mpcf/executor.hpp>
@@ -1596,8 +1603,10 @@ private:
     index_t* d_num_simplices=NULL;//use d_num_simplices to keep track of the number of simplices in h_ or d_ simplices
     index_t* h_num_simplices;//h_num_simplices is tied to d_num_simplices in pinned memory
 
+#ifdef USE_PHASHMAP
     // Per-instance pivot hash map (was a file-scope singleton in upstream).
     phmap::parallel_flat_hash_map<int64_t, int64_t> pivot_map;
+#endif
 
     // Per-instance output collector (was the file-scope list_of_barcodes).
     // Indexed [dim][i] -> (birth, death).
@@ -1630,6 +1639,7 @@ private:
     // Set via ctor.
     bool m_parallel_inner = true;
 
+#ifdef USE_PHASHMAP
     void phmap_put(int64_t key, int64_t value) { pivot_map[key] = value; }
     int64_t phmap_get_value(int64_t key) const
     {
@@ -1637,6 +1647,7 @@ private:
         return it == pivot_map.end() ? int64_t(-1) : it->second;
     }
     void phmap_clear() { pivot_map.clear(); }
+#endif
 
     // Mirrors upstream's `#pragma omp parallel for schedule(guided, 1)`:
     // taskflow's GuidedPartitioner with chunk_size=1 yields the same
