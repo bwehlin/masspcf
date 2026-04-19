@@ -159,6 +159,8 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
   });
   m.def("set_min_block_side", [](size_t n){ mpcf::settings().minBlockSide = n; });
   m.def("limit_gpu_concurrency", [](int n){ mpcf::settings().gpuConcurrencyCap = n; });
+  m.def("set_gpu_budget_fraction", [](double f){ mpcf::settings().gpuBudgetFraction = f; });
+  m.def("set_hybrid_gpu_queue_on_busy", [](bool on){ mpcf::settings().hybridGpuQueueOnBusy = on; });
 #ifdef BUILD_WITH_CUDA
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
   m.def("get_last_gpu_scheduler_stats", []() {

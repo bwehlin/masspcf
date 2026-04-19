@@ -251,6 +251,64 @@ namespace
     EXPECT_EQ(snap.num_gpus, 1u);
   }
 
+  TEST(GpuMemoryScheduler, WaitForReserveStructuralMissReturnsInactiveImmediately)
+  {
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{100}, default_cfg());
+    // Item too big for any GPU even when idle; caller asked for a long
+    // wait, but wait_for_reserve should short-circuit on the structural
+    // miss rather than block.
+    const auto t0 = std::chrono::steady_clock::now();
+    auto r = sched.wait_for_reserve(1000, std::chrono::seconds(10));
+    const auto dt = std::chrono::steady_clock::now() - t0;
+    EXPECT_FALSE(r.active());
+    // Loose upper bound: should return essentially instantly, but we
+    // give slack so the test is not fragile under load.
+    EXPECT_LT(std::chrono::duration_cast<std::chrono::milliseconds>(dt).count(), 500);
+  }
+
+  TEST(GpuMemoryScheduler, WaitForReserveWakesOnRelease)
+  {
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{100}, default_cfg());
+
+    auto r1 = sched.try_reserve(80);
+    ASSERT_TRUE(r1.active());
+    auto r2 = sched.try_reserve(80);
+    EXPECT_FALSE(r2.active());
+
+    std::atomic<bool> got_reservation{false};
+    std::thread waiter([&]() {
+      auto r = sched.wait_for_reserve(80, std::chrono::seconds(5));
+      if (r.active()) got_reservation.store(true, std::memory_order_release);
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    EXPECT_FALSE(got_reservation.load(std::memory_order_acquire));
+
+    // Release r1 -- waiter should wake and admit.
+    { auto sink = std::move(r1); }
+    waiter.join();
+    EXPECT_TRUE(got_reservation.load(std::memory_order_acquire));
+  }
+
+  TEST(GpuMemoryScheduler, WaitForReserveTimesOut)
+  {
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{100}, default_cfg());
+
+    auto r1 = sched.try_reserve(80);
+    ASSERT_TRUE(r1.active());
+
+    const auto t0 = std::chrono::steady_clock::now();
+    auto r2 = sched.wait_for_reserve(80, std::chrono::milliseconds(150));
+    const auto dt = std::chrono::steady_clock::now() - t0;
+
+    EXPECT_FALSE(r2.active());
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+    EXPECT_GE(ms, 140);
+    // Wide upper bound so CV spurious wakeups / scheduler jitter don't
+    // flake the test.
+    EXPECT_LT(ms, 800);
+  }
+
   TEST(GpuMemoryScheduler, ConcurrentReservationsHeldDoNotOverbook)
   {
     constexpr std::int64_t budget = 1000;

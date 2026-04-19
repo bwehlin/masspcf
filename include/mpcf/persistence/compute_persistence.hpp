@@ -249,6 +249,29 @@ namespace mpcf::ph
     // = 64. AIMD-adjusted upward per-GPU on OOM.
     static constexpr double K0_BYTES_PER_SIMPLEX = 64.0;
 
+    // max_num_simplices_forall_dims matches upstream Ripser++ exactly:
+    //   binomial(n, min(max_dim + 1, n/2 - 1)).
+    // The n/2-1 cap guards against the assertion in
+    // get_num_simplices_for_dim and mirrors the cap used by the
+    // upstream memory planner.
+    static std::int64_t simplex_cost_units(std::int64_t n, int max_dim)
+    {
+      if (n <= 1 || max_dim < 0) return 0;
+      const int k_max = static_cast<int>(std::min<std::int64_t>(max_dim + 1, n / 2 - 1));
+      if (k_max <= 0) return 0;
+      // Compute C(n, k_max) in double to avoid int overflow; saturate
+      // at int64 max so the scheduler treats huge items as "never fits."
+      double c = 1.0;
+      const int k_symmetric = (k_max > n - k_max) ? static_cast<int>(n - k_max) : k_max;
+      for (int i = 0; i < k_symmetric; ++i) {
+        c *= static_cast<double>(n - i);
+        c /= static_cast<double>(i + 1);
+      }
+      const auto cap = static_cast<double>(std::numeric_limits<std::int64_t>::max());
+      if (!(c == c) || c >= cap) return std::numeric_limits<std::int64_t>::max();
+      return static_cast<std::int64_t>(c);
+    }
+
     tf::Future<void> run_async(Executor& exec) override
     {
       auto shape = m_input.shape();
@@ -259,6 +282,7 @@ namespace mpcf::ph
       mpcf::GpuMemoryScheduler::Config cfg;
       cfg.initial_k_bytes_per_unit = K0_BYTES_PER_SIMPLEX;
       cfg.max_concurrent = mpcf::settings().gpuConcurrencyCap;
+      cfg.budget_fraction = mpcf::settings().gpuBudgetFraction;
       m_sched = std::make_unique<mpcf::GpuMemoryScheduler>(cfg);
 
       next_step(m_input.size(), "Computing persistence (hybrid)", "pointcloud");
@@ -292,21 +316,39 @@ namespace mpcf::ph
         return;
       }
 
-      // Cost units = number of edges (== max_num_simplices_forall_dims
-      // for max_dim=1, which dominates Ripser++ residency).
-      const std::int64_t num_edges =
-        static_cast<std::int64_t>(n) * static_cast<std::int64_t>(n - 1) / 2;
+      // Cost units = max_num_simplices_forall_dims. Ripser++ allocates
+      // seven arrays of this size (sum of 64 bytes worth of per-simplex
+      // struct members -- see K0_BYTES_PER_SIMPLEX) which is the
+      // residency we estimate with. Upstream computes this as
+      // binomial(n, min(maxDim+1, n/2-1)) (the largest simplex count
+      // across 1..maxDim+1); we match that exactly.
+      const std::int64_t cost_units = simplex_cost_units(
+        static_cast<std::int64_t>(n), static_cast<int>(m_maxDim));
 
-      auto res = m_sched->try_reserve(num_edges);
+      auto res = mpcf::settings().hybridGpuQueueOnBusy
+                   ? m_sched->wait_for_reserve(cost_units)
+                   : m_sched->try_reserve(cost_units);
       if (!res.active())
       {
+        // Either no GPU can structurally fit this item (both policies)
+        // or all GPUs are temporarily busy and the caller opted out of
+        // waiting (try_reserve policy).
         process_item_cpu(index);
         return;
       }
 
       try
       {
-        process_item_gpu(index);
+        const auto diag = process_item_gpu(index);
+        if (diag.upstream_cpu_fallback)
+        {
+          // Upstream Ripser++ completed the item correctly, but its own
+          // memory planner decided the GPU couldn't hold the high-dim
+          // tail -- a signal that our K under-estimated per-item
+          // residency. Treat it as a soft OOM: bump this GPU's K so the
+          // scheduler admits fewer concurrent items of this size.
+          m_sched->record_oom(res.gpu_index());
+        }
       }
       catch (const mpcf::cuda_error& e)
       {
@@ -322,11 +364,15 @@ namespace mpcf::ph
       // res auto-releases on scope exit.
     }
 
-    void process_item_gpu(const std::vector<size_t>& index)
+    // Returns the per-item Ripser++ diagnostics (embedded-planner
+    // fallback flag, actual gpu_max_dim run). Using the struct rather
+    // than a bool keeps the polarity explicit at every caller.
+    ripserpp::Diagnostics process_item_gpu(const std::vector<size_t>& index)
     {
       const auto& points = m_input(index);
       std::vector<std::vector<PersistencePair<T>>> bars;
-      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec);
+      ripserpp::Diagnostics diag;
+      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec, &diag);
 
       for (size_t k = 0; k < bars.size(); ++k)
       {
@@ -340,6 +386,7 @@ namespace mpcf::ph
         }
         m_ret(retIdx) = std::move(kBars);
       }
+      return diag;
     }
 
     void process_item_cpu(const std::vector<size_t>& index)

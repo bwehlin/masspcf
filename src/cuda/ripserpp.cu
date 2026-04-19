@@ -1611,6 +1611,17 @@ private:
     // multiple ripser instances can run concurrently on the device.
     cudaStream_t stream_;
 
+    // Set to true when the embedded dim-planner found insufficient GPU
+    // memory for the requested dim_max and fell back to CPU for the
+    // high-dimensional tail. The caller can read this via
+    // upstream_cpu_fallback() after compute_barcodes() returns.
+    bool m_upstream_cpu_fallback = false;
+
+    // The max dimension actually run on the GPU. Equals dim_max when
+    // the memory planner allowed everything through; lower when the
+    // planner degraded. Populated during compute_barcodes().
+    index_t m_gpu_max_dim = 0;
+
     void phmap_put(int64_t key, int64_t value) { pivot_map[key] = value; }
     int64_t phmap_get_value(int64_t key) const
     {
@@ -1647,6 +1658,10 @@ public:
     ripser& operator=(const ripser&) = delete;
     ripser(ripser&&) = delete;
     ripser& operator=(ripser&&) = delete;
+
+    // Diagnostic accessors. Read after compute_barcodes() returns.
+    bool upstream_cpu_fallback() const noexcept { return m_upstream_cpu_fallback; }
+    index_t gpu_max_dim() const noexcept { return m_gpu_max_dim; }
 
     ~ripser()
     {
@@ -3039,6 +3054,7 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
 #ifdef PROFILING
     std::cerr<<"recalculated dim_max based on GPU free DRAM capacity: "<<gpu_dim_max<<std::endl;
 #endif
+    m_gpu_max_dim = gpu_dim_max;
     max_num_simplices_forall_dims= gpu_dim_max<(n/2)-1?get_num_simplices_for_dim(gpu_dim_max): get_num_simplices_for_dim((n/2)-1);
     if(gpu_dim_max>=1){
 #ifdef COUNTING
@@ -3141,12 +3157,11 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         }
     }
     if(dim_max>gpu_dim_max){//do cpu only computation from this point on
-#ifdef CPUONLY_SPARSE_HASHMAP
-        std::cerr<<"MEMORY EFFICIENT/BUT TIME INEFFICIENT CPU-ONLY MODE FOR REMAINDER OF HIGH DIMENSIONAL COMPUTATION (NOT ENOUGH GPU DEVICE MEMORY)"<<std::endl;
-#endif
-#ifndef CPUONLY_SPARSE_HASHMAP
-        std::cerr<<"CPU-ONLY MODE FOR REMAINDER OF HIGH DIMENSIONAL COMPUTATION (NOT ENOUGH GPU DEVICE MEMORY)"<<std::endl;
-#endif
+        // Signal to the caller that the embedded planner degraded. The
+        // output barcodes are still correct; the caller (e.g. the hybrid
+        // dispatcher) may want to bump its memory model and avoid
+        // admitting similarly-sized items to this GPU in the future.
+        m_upstream_cpu_fallback = true;
         free_init_cpumem();
         hash_map<index_t,index_t> cpu_pivot_column_index;
         cpu_pivot_column_index.reserve(*h_num_columns_to_reduce);
@@ -3620,9 +3635,11 @@ namespace mpcf::ph::ripserpp
       const PointCloud<T>& points,
       std::size_t maxDim,
       std::vector<std::vector<PersistencePair<T>>>& out,
-      mpcf::Executor& exec)
+      mpcf::Executor& exec,
+      Diagnostics* diag)
   {
     out.assign(maxDim + 1, {});
+    if (diag) *diag = Diagnostics{};
 
     const auto n = points.shape(0);
     if (n <= 1) {
@@ -3634,7 +3651,14 @@ namespace mpcf::ph::ripserpp
     const index_t dim_max = static_cast<index_t>(maxDim);
 
     std::vector<std::vector<birth_death_coordinate>> raw_bars(dim_max + 1);
-    ripser<compressed_lower_distance_matrix>(std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec).compute_barcodes();
+    ripser<compressed_lower_distance_matrix> r(
+        std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec);
+    r.compute_barcodes();
+
+    if (diag) {
+      diag->upstream_cpu_fallback = r.upstream_cpu_fallback();
+      diag->gpu_max_dim = static_cast<std::size_t>(r.gpu_max_dim());
+    }
 
     for (std::size_t k = 0; k < raw_bars.size() && k < out.size(); ++k) {
       auto& bars = out[k];
@@ -3647,9 +3671,9 @@ namespace mpcf::ph::ripserpp
 
   template void compute_barcodes_pcloud<float>(const PointCloud<float>&, std::size_t,
                                                std::vector<std::vector<PersistencePair<float>>>&,
-                                               mpcf::Executor&);
+                                               mpcf::Executor&, Diagnostics*);
   template void compute_barcodes_pcloud<double>(const PointCloud<double>&, std::size_t,
                                                 std::vector<std::vector<PersistencePair<double>>>&,
-                                                mpcf::Executor&);
+                                                mpcf::Executor&, Diagnostics*);
 }
 

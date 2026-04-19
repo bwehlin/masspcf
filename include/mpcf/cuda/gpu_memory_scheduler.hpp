@@ -20,6 +20,8 @@
 #include "cuda_util.cuh"
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -176,6 +178,26 @@ namespace mpcf
     /// total budget): an inactive Reservation is returned.
     Reservation try_reserve(std::int64_t cost_units);
 
+    /// Like `try_reserve`, but blocks up to `max_wait` for a slot to
+    /// become available if the item structurally fits on some GPU
+    /// (i.e. `K * cost_units <= budget` for at least one device).
+    /// Returns an inactive Reservation in three cases:
+    ///   * the item cannot fit on any visible GPU under the current K
+    ///     values (no point in waiting, since K is monotone non-decreasing),
+    ///   * `max_wait` elapses before a slot becomes available,
+    ///   * `cost_units <= 0`.
+    /// The wait is coordinated via a condition variable signaled by
+    /// `release_bytes`; the CV is polled every 50 ms to catch missed
+    /// wakeups and to let K-changes be rechecked.
+    ///
+    /// Pass `std::chrono::steady_clock::duration::max()` (the default)
+    /// for an unbounded wait. Use this when the caller would rather
+    /// queue than fall back to CPU -- e.g. when GPU is expected to be
+    /// much faster than CPU per item.
+    Reservation wait_for_reserve(
+        std::int64_t cost_units,
+        std::chrono::steady_clock::duration max_wait = std::chrono::steady_clock::duration::max());
+
     /// Record an OOM on `gpu_idx`: multiply that GPU's K by oom_backoff
     /// so future estimates over-book less aggressively. Idempotent-ish;
     /// multiple OOMs racing converge monotonically.
@@ -247,6 +269,9 @@ namespace mpcf
     std::atomic<std::int64_t> m_total_failed_no_room{0};
     std::atomic<std::int64_t> m_total_failed_cap{0};
     std::atomic<std::int64_t> m_total_oom{0};
+
+    mutable std::mutex m_wait_mutex;
+    std::condition_variable m_wait_cv;
   };
 
   inline void GpuMemoryScheduler::Reservation::release() noexcept
@@ -345,6 +370,55 @@ namespace mpcf
     }
   }
 
+  inline GpuMemoryScheduler::Reservation
+  GpuMemoryScheduler::wait_for_reserve(std::int64_t cost_units,
+                                        std::chrono::steady_clock::duration max_wait)
+  {
+    if (cost_units <= 0) return Reservation{};
+
+    // Structural-fit check: with current per-GPU K values, is there any
+    // device whose budget could accommodate this item? If not, return
+    // inactive immediately -- waiting would never succeed because K is
+    // monotonically non-decreasing (AIMD only bumps up on OOM).
+    auto fits_any = [this, cost_units]() {
+      for (std::size_t i = 0; i < m_gpus.size(); ++i) {
+        const double k = m_gpus[i].k_bytes.load(std::memory_order_relaxed);
+        const auto est = static_cast<std::int64_t>(k * static_cast<double>(cost_units));
+        if (est <= m_gpus[i].budget) return true;
+      }
+      return false;
+    };
+
+    if (!fits_any()) return Reservation{};
+
+    using clock = std::chrono::steady_clock;
+    const auto max_dur = clock::duration::max();
+    const auto start = clock::now();
+    const bool unbounded = (max_wait == max_dur);
+    // Compute the deadline without overflow: if unbounded we never
+    // check it, otherwise start + max_wait fits by construction.
+    const auto deadline = unbounded ? clock::time_point::max() : start + max_wait;
+    constexpr auto poll_step = std::chrono::milliseconds(50);
+
+    while (true) {
+      auto res = try_reserve(cost_units);
+      if (res.active()) return res;
+
+      // If K grew (via concurrent OOM) to the point where no GPU can
+      // fit the item anymore, stop waiting and return inactive.
+      if (!fits_any()) return Reservation{};
+
+      const auto now = clock::now();
+      if (!unbounded && now >= deadline) return Reservation{};
+
+      const auto wait_slice = unbounded
+          ? poll_step
+          : std::min<clock::duration>(poll_step, deadline - now);
+      std::unique_lock<std::mutex> lk(m_wait_mutex);
+      m_wait_cv.wait_for(lk, wait_slice);
+    }
+  }
+
   inline void GpuMemoryScheduler::record_oom(int gpu_idx)
   {
     auto& k = m_gpus[static_cast<std::size_t>(gpu_idx)].k_bytes;
@@ -380,6 +454,7 @@ namespace mpcf
     if (gpu_idx < 0 || bytes <= 0) return;
     m_gpus[static_cast<std::size_t>(gpu_idx)].remaining.fetch_add(bytes, std::memory_order_release);
     m_active.fetch_sub(1, std::memory_order_release);
+    m_wait_cv.notify_one();
   }
 }
 

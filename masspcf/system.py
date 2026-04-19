@@ -66,6 +66,54 @@ def limit_gpus(n: int):
     cpp.limit_gpus(n)
 
 
+def set_hybrid_gpu_queue_on_busy(on: bool):
+    """Set the hybrid Ripser++ dispatcher's policy when a GPU slot is unavailable.
+
+    By default (``on=False``), items that cannot obtain a GPU reservation --
+    because all slots are busy or the memory budget is exhausted -- fall
+    back to the CPU Ripser path immediately. With ``on=True`` they instead
+    block and wait for a GPU slot to free up, unless the item is
+    structurally too large to ever fit on any visible GPU (in which case
+    CPU fallback still happens).
+
+    Queue-on-busy is preferable when GPU is much faster than CPU per item
+    (``max_dim >= 2`` or large ``n``, where Ripser++'s apparent-pairs
+    acceleration dominates). CPU fallback is preferable at low
+    ``max_dim``, where CPU is competitive per item and parallel CPU
+    throughput outweighs queueing behind fewer GPU slots.
+
+    OOM-triggered CPU fallback (after a real cudaMalloc failure during a
+    reserved GPU job) is unconditional regardless of this setting.
+
+    Parameters
+    ----------
+    on : bool
+      If True, wait for a GPU slot instead of falling back to CPU.
+    """
+    cpp.set_hybrid_gpu_queue_on_busy(on)
+
+
+def set_gpu_budget_fraction(f: float):
+    """Set the fraction of free GPU memory the hybrid persistence dispatcher reserves as its scheduling budget.
+
+    At scheduler construction the dispatcher reads the free memory on each
+    visible GPU and multiplies by ``f`` to get its budget. The remainder
+    stays unclaimed, absorbing CUDA scratch allocations, fragmentation,
+    and other tenants. Raising ``f`` lets the scheduler admit more
+    concurrent GPU jobs at the cost of safety headroom; lowering it makes
+    the dispatcher more conservative.
+
+    Default is 0.6, which is a reasonable trade-off on single-tenant GPUs.
+    Valid range is ``0 < f <= 1``.
+
+    Parameters
+    ----------
+    f : float
+      New budget fraction.
+    """
+    cpp.set_gpu_budget_fraction(f)
+
+
 def limit_gpu_concurrency(n: int):
     """Set a cap on the number of concurrent GPU jobs the hybrid persistence dispatcher will run.
 

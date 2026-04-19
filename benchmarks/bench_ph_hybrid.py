@@ -268,6 +268,21 @@ class SystemMonitor:
         return [max((s.gpu_mem_mb[i] for s in self.samples if i < len(s.gpu_mem_mb)), default=0.0)
                 for i in range(self._n_gpus)]
 
+    def peak_gpu_util_pct(self) -> list[float]:
+        if not self.samples or self._n_gpus == 0:
+            return []
+        return [max((s.gpu_util_pct[i] for s in self.samples if i < len(s.gpu_util_pct)), default=0.0)
+                for i in range(self._n_gpus)]
+
+    def avg_gpu_util_pct(self) -> list[float]:
+        if not self.samples or self._n_gpus == 0:
+            return []
+        out = []
+        for i in range(self._n_gpus):
+            vals = [s.gpu_util_pct[i] for s in self.samples if i < len(s.gpu_util_pct)]
+            out.append(statistics.mean(vals) if vals else 0.0)
+        return out
+
     def avg_cpu_pct(self) -> float:
         if not self.samples:
             return 0.0
@@ -287,7 +302,9 @@ def _time_call(fn: Callable[[], None], repeats: int) -> Timing:
 def time_per_item(X: np.ndarray, device: str, max_dim: int = 1, repeats: int | None = None) -> Timing:
     """Time one persistent-homology call on a single point cloud."""
     if repeats is None:
-        repeats = 1 if X.shape[0] >= 2000 else 3
+        # max_dim >= 2 work grows super-linearly; trim repeats more aggressively.
+        large = X.shape[0] >= 2000 or (max_dim >= 2 and X.shape[0] >= 500)
+        repeats = 1 if large else 3
 
     def call():
         mpers.compute_persistent_homology(X, max_dim=max_dim, device=device)
@@ -303,7 +320,7 @@ class BatchResult:
 
 
 def time_batch(items: list[np.ndarray], device: str, max_dim: int = 1,
-               monitor: bool = False) -> BatchResult:
+               monitor: bool = False, **_: object) -> BatchResult:
     """Wrap items into a PointCloudTensor and time one batched call.
 
     When `monitor=True`, captures a CPU+GPU resource timeseries via
@@ -537,33 +554,44 @@ def plot_cooperate(rows: list[dict]) -> Path:
 
 
 def plot_cooperate_timeline(runs: list[tuple[str, "BatchResult"]]) -> Path:
-    """Stacked timeseries of CPU%, per-GPU memory, per-GPU util across cooperate caps."""
+    """Stacked timeseries of CPU %, GPU util %, GPU memory MB across cooperate caps."""
     runs = [(label, br) for label, br in runs if br.monitor is not None and br.monitor.samples]
     if not runs:
         return RESULTS_DIR / "cooperate_timeline.png"
 
     n_gpus = max(br.monitor.n_gpus() for _, br in runs)
-    fig, axes = plt.subplots(len(runs), 1, figsize=(9, 2.4 * len(runs)),
+    fig, axes = plt.subplots(len(runs), 1, figsize=(9, 2.8 * len(runs)),
                              sharex=False, squeeze=False)
     for ax, (label, br) in zip(axes[:, 0], runs):
         ts = [s.t_rel_s for s in br.monitor.samples]
-        cpu = [s.cpu_total_pct for s in br.monitor.samples]
-        ax.plot(ts, cpu, color="tab:red", label="CPU total %", linewidth=1.2)
-        ax.set_ylim(0, 105)
-        ax.set_ylabel("CPU %", color="tab:red")
-        ax.tick_params(axis="y", labelcolor="tab:red")
 
+        # Left axis: percentages (CPU total, per-GPU util).
+        ax.plot(ts, [s.cpu_total_pct for s in br.monitor.samples],
+                color="tab:red", label="CPU %", linewidth=1.2)
+        for g in range(n_gpus):
+            utils = [s.gpu_util_pct[g] for s in br.monitor.samples if g < len(s.gpu_util_pct)]
+            if utils:
+                ax.plot(ts[:len(utils)], utils, color="tab:orange",
+                        label=f"GPU{g} util %", linewidth=1.2, linestyle="--")
+        ax.set_ylim(0, 105)
+        ax.set_ylabel("percent")
+        ax.legend(loc="upper left", fontsize=8)
+
+        # Right axis: GPU memory in MB.
         if n_gpus > 0:
             ax2 = ax.twinx()
             for g in range(n_gpus):
                 mems = [s.gpu_mem_mb[g] for s in br.monitor.samples if g < len(s.gpu_mem_mb)]
                 if mems:
-                    ax2.plot(ts[:len(mems)], mems, label=f"GPU{g} mem MB", linewidth=1.2)
-            ax2.set_ylabel("GPU mem [MB]")
+                    ax2.plot(ts[:len(mems)], mems, color="tab:blue",
+                             label=f"GPU{g} mem MB", linewidth=1.2)
+            ax2.set_ylabel("GPU mem [MB]", color="tab:blue")
+            ax2.tick_params(axis="y", labelcolor="tab:blue")
+
         ax.set_title(f"{label}  (wall={br.wall_s:.2f}s)", fontsize=10, loc="left")
         ax.grid(True, axis="x", alpha=0.3)
         ax.set_xlabel("time [s]")
-    fig.suptitle("Q3 timeline: CPU% (red, left) and GPU mem (right) per cap")
+    fig.suptitle("Q3 timeline: CPU % / GPU util % (left) and GPU mem MB (right)")
     return _save_fig("cooperate_timeline")
 
 
@@ -635,6 +663,30 @@ def _gpu_cap(n: int):
         mpsys.limit_gpu_concurrency(0)
 
 
+@contextmanager
+def _gpu_budget(f: float | None):
+    if f is None:
+        yield
+        return
+    mpsys.set_gpu_budget_fraction(f)
+    try:
+        yield
+    finally:
+        mpsys.set_gpu_budget_fraction(0.6)
+
+
+@contextmanager
+def _gpu_queue(on: bool):
+    if not on or not hasattr(mpsys, "set_hybrid_gpu_queue_on_busy"):
+        yield
+        return
+    mpsys.set_hybrid_gpu_queue_on_busy(True)
+    try:
+        yield
+    finally:
+        mpsys.set_hybrid_gpu_queue_on_busy(False)
+
+
 # ---------------------------------------------------------------------------
 # Sweeps
 # ---------------------------------------------------------------------------
@@ -642,24 +694,26 @@ def _gpu_cap(n: int):
 
 def sweep_crossover(args) -> None:
     ns = args.n_values or [50, 100, 250, 500, 1000, 2000, 5000]
+    max_dim = args.max_dim
     rng = np.random.default_rng(args.seed)
     rows = []
-    print(f"# crossover sweep: n in {ns}, distribution=gaussian_3d", flush=True)
+    print(f"# crossover sweep: n in {ns}, distribution=gaussian_3d, max_dim={max_dim}", flush=True)
     for n in ns:
         X = gen_gaussian(n, 3, rng)
         for device in ("cpu", "gpu") if GPU_AVAILABLE else ("cpu",):
-            t = time_per_item(X, device=device)
+            t = time_per_item(X, device=device, max_dim=max_dim)
             rows.append(dict(
                 sweep="crossover",
                 distribution="gaussian_3d",
                 n=n,
                 d=3,
+                max_dim=max_dim,
                 device=device,
                 median_s=f"{t.median_s:.6f}",
                 min_s=f"{t.min_s:.6f}",
                 runs=";".join(f"{x:.6f}" for x in t.runs),
             ))
-            print(f"  n={n:>5d} {device:>3s} median={t.median_s:.4f}s min={t.min_s:.4f}s", flush=True)
+            print(f"  n={n:>5d} max_dim={max_dim} {device:>3s} median={t.median_s:.4f}s min={t.min_s:.4f}s", flush=True)
     path = write_csv("crossover", list(rows[0].keys()), rows)
     plot_path = plot_crossover(rows)
     print(f"# wrote {path}", flush=True)
@@ -675,23 +729,25 @@ def sweep_cpucap(args) -> None:
     cpu_caps = [1, 2, 4, 8, 16, os.cpu_count() or 1]
     cpu_caps = sorted(set(cpu_caps))
     M = args.batch_size
+    max_dim = args.max_dim
 
     rows = []
-    print(f"# cpucap sweep: n in {n_values}, batch={M}, cpu_caps={cpu_caps}", flush=True)
+    print(f"# cpucap sweep: n in {n_values}, batch={M}, cpu_caps={cpu_caps}, max_dim={max_dim}", flush=True)
     for n in n_values:
         items = [gen_gaussian(n, 3, rng) for _ in range(M)]
         for cap in cpu_caps:
             with _cpu_cap(cap):
-                br = time_batch(items, device="cpu")
+                br = time_batch(items, device="cpu", max_dim=max_dim)
             rows.append(dict(
                 sweep="cpucap",
                 n=n,
                 batch=M,
+                max_dim=max_dim,
                 cpu_cap=cap,
                 wall_s=f"{br.wall_s:.6f}",
                 per_item_s=f"{br.wall_s/M:.6f}",
             ))
-            print(f"  n={n:>5d} M={M:>3d} cpu_cap={cap:>3d} "
+            print(f"  n={n:>5d} M={M:>3d} max_dim={max_dim} cpu_cap={cap:>3d} "
                   f"wall={br.wall_s:.3f}s per_item={br.wall_s/M:.4f}s", flush=True)
     path = write_csv("cpucap", list(rows[0].keys()), rows)
     plot_path = plot_cpucap(rows)
@@ -706,12 +762,20 @@ def sweep_cooperate(args) -> None:
     rng = np.random.default_rng(args.seed)
     n = args.n
     M = args.batch_size
+    max_dim = args.max_dim
+    budget = getattr(args, "budget", None)
+    queue_on_busy = getattr(args, "queue_on_busy", False)
 
     items = [gen_gaussian(n, 3, rng) for _ in range(M)]
 
     rows = []
     runs: list[tuple[str, BatchResult]] = []
-    print(f"# cooperate sweep: n={n}, batch={M}", flush=True)
+    tag = f"n={n}, batch={M}, max_dim={max_dim}"
+    if budget is not None:
+        tag += f", budget={budget}"
+    if queue_on_busy:
+        tag += ", queue_on_busy"
+    print(f"# cooperate sweep: {tag}", flush=True)
 
     def _row(mode, gpu_cap, br):
         s = br.sched_stats
@@ -738,24 +802,37 @@ def sweep_cooperate(args) -> None:
                 f"cpu_fb_cap={s['total_failed_cap']} "
                 f"oom={s['total_oom']} peak_active={s['peak_active']}]")
 
-    # CPU only.
-    br = time_batch(items, device="cpu", monitor=True)
-    rows.append(_row("cpu_only", "-", br))
-    runs.append(("cpu_only", br))
-    print(f"  cpu_only                wall={br.wall_s:.3f}s per_item={br.wall_s/M:.4f}s "
-          f"avg_cpu={br.monitor.avg_cpu_pct():.0f}%{_summary(br)}", flush=True)
+    def _gpu_summary(br):
+        if br.monitor is None:
+            return ""
+        mems = br.monitor.peak_gpu_mem_mb()
+        peaks = br.monitor.peak_gpu_util_pct()
+        avgs = br.monitor.avg_gpu_util_pct()
+        if not mems:
+            return ""
+        mem_str = ",".join(f"{x:.0f}" for x in mems)
+        peak_str = ",".join(f"{x:.0f}" for x in peaks)
+        avg_str = ",".join(f"{x:.0f}" for x in avgs)
+        return (f" peak_gpu_mem={mem_str}MB peak_util={peak_str}% avg_util={avg_str}%")
 
-    # Hybrid with various GPU concurrency caps.
-    for cap in args.gpu_caps:
-        with _gpu_cap(cap):
-            br = time_batch(items, device="gpu", monitor=True)
-        label = f"gpu_cap={cap}" if cap > 0 else "gpu_uncapped"
-        rows.append(_row("hybrid", cap, br))
-        runs.append((label, br))
-        print(f"  {label:<24s} wall={br.wall_s:.3f}s per_item={br.wall_s/M:.4f}s "
-              f"avg_cpu={br.monitor.avg_cpu_pct():.0f}% "
-              f"peak_gpu_mem={','.join(f'{x:.0f}' for x in br.monitor.peak_gpu_mem_mb())}MB"
-              f"{_summary(br)}", flush=True)
+    with _gpu_budget(budget), _gpu_queue(queue_on_busy):
+        # CPU only.
+        br = time_batch(items, device="cpu", monitor=True, max_dim=max_dim)
+        rows.append(_row("cpu_only", "-", br))
+        runs.append(("cpu_only", br))
+        print(f"  cpu_only                wall={br.wall_s:.3f}s per_item={br.wall_s/M:.4f}s "
+              f"avg_cpu={br.monitor.avg_cpu_pct():.0f}%{_gpu_summary(br)}{_summary(br)}", flush=True)
+
+        # Hybrid with various GPU concurrency caps.
+        for cap in args.gpu_caps:
+            with _gpu_cap(cap):
+                br = time_batch(items, device="gpu", monitor=True, max_dim=max_dim)
+            label = f"gpu_cap={cap}" if cap > 0 else "gpu_uncapped"
+            rows.append(_row("hybrid", cap, br))
+            runs.append((label, br))
+            print(f"  {label:<24s} wall={br.wall_s:.3f}s per_item={br.wall_s/M:.4f}s "
+                  f"avg_cpu={br.monitor.avg_cpu_pct():.0f}%{_gpu_summary(br)}{_summary(br)}",
+                  flush=True)
 
     path = write_csv("cooperate", list(rows[0].keys()), rows)
     plot_path = plot_cooperate(rows)
@@ -768,22 +845,24 @@ def sweep_cooperate(args) -> None:
 def sweep_distribution(args) -> None:
     rng = np.random.default_rng(args.seed)
     n = args.n
+    max_dim = args.max_dim
     rows = []
-    print(f"# distribution sweep: n={n}, distributions={list(DISTRIBUTIONS)}", flush=True)
+    print(f"# distribution sweep: n={n}, max_dim={max_dim}, distributions={list(DISTRIBUTIONS)}", flush=True)
     for name, gen in DISTRIBUTIONS.items():
         X = gen(n, rng)
         for device in ("cpu", "gpu") if GPU_AVAILABLE else ("cpu",):
-            t = time_per_item(X, device=device)
+            t = time_per_item(X, device=device, max_dim=max_dim)
             rows.append(dict(
                 sweep="distribution",
                 distribution=name,
                 n=n,
                 d=X.shape[1],
+                max_dim=max_dim,
                 device=device,
                 median_s=f"{t.median_s:.6f}",
                 min_s=f"{t.min_s:.6f}",
             ))
-            print(f"  {name:<18s} d={X.shape[1]} {device:>3s} median={t.median_s:.4f}s", flush=True)
+            print(f"  {name:<18s} d={X.shape[1]} max_dim={max_dim} {device:>3s} median={t.median_s:.4f}s", flush=True)
     path = write_csv("distribution", list(rows[0].keys()), rows)
     plot_path = plot_distribution(rows)
     print(f"# wrote {path}", flush=True)
@@ -794,22 +873,24 @@ def sweep_dimensionality(args) -> None:
     rng = np.random.default_rng(args.seed)
     n = args.n
     dims = args.dims
+    max_dim = args.max_dim
     rows = []
-    print(f"# dimensionality sweep: n={n}, dims={dims}", flush=True)
+    print(f"# dimensionality sweep: n={n}, max_dim={max_dim}, dims={dims}", flush=True)
     for d in dims:
         X = gen_gaussian(n, d, rng)
         for device in ("cpu", "gpu") if GPU_AVAILABLE else ("cpu",):
-            t = time_per_item(X, device=device)
+            t = time_per_item(X, device=device, max_dim=max_dim)
             rows.append(dict(
                 sweep="dimensionality",
                 distribution="gaussian",
                 n=n,
                 d=d,
+                max_dim=max_dim,
                 device=device,
                 median_s=f"{t.median_s:.6f}",
                 min_s=f"{t.min_s:.6f}",
             ))
-            print(f"  d={d:>3d} {device:>3s} median={t.median_s:.4f}s", flush=True)
+            print(f"  d={d:>3d} max_dim={max_dim} {device:>3s} median={t.median_s:.4f}s", flush=True)
     path = write_csv("dimensionality", list(rows[0].keys()), rows)
     plot_path = plot_dimensionality(rows)
     print(f"# wrote {path}", flush=True)
@@ -829,18 +910,25 @@ def _add_seed(p):
     p.add_argument("--seed", type=int, default=0, help="numpy rng seed")
 
 
+def _add_max_dim(p):
+    p.add_argument("--max-dim", type=int, default=1,
+                   help="persistent homology max dimension (default 1)")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("crossover", help="Q1: per-item CPU vs GPU as a function of n")
     p.add_argument("--n-values", type=int, nargs="+", default=None)
+    _add_max_dim(p)
     _add_seed(p)
     p.set_defaults(func=sweep_crossover)
 
     p = sub.add_parser("cpucap", help="Q2: per-batch wall as CPU worker count varies")
     p.add_argument("--n-values", type=int, nargs="+", default=None)
     p.add_argument("--batch-size", type=int, default=16)
+    _add_max_dim(p)
     _add_seed(p)
     p.set_defaults(func=sweep_cpucap)
 
@@ -848,21 +936,29 @@ def main(argv: list[str] | None = None) -> int:
     _add_n_arg(p, 2500)
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--gpu-caps", type=int, nargs="+", default=[1, 2, 4, 8, 0])
+    p.add_argument("--budget", type=float, default=None,
+                   help="GPU memory budget fraction (0 < f <= 1, default scheduler default 0.6)")
+    p.add_argument("--queue-on-busy", action="store_true",
+                   help="queue waiting GPU items instead of CPU fallback")
+    _add_max_dim(p)
     _add_seed(p)
     p.set_defaults(func=sweep_cooperate)
 
     p = sub.add_parser("distribution", help="Q4: per-item CPU vs GPU per distribution")
     _add_n_arg(p, 1000)
+    _add_max_dim(p)
     _add_seed(p)
     p.set_defaults(func=sweep_distribution)
 
     p = sub.add_parser("dimensionality", help="Q5: per-item CPU vs GPU per ambient dim")
     _add_n_arg(p, 1000)
     p.add_argument("--dims", type=int, nargs="+", default=[2, 3, 5, 10, 20])
+    _add_max_dim(p)
     _add_seed(p)
     p.set_defaults(func=sweep_dimensionality)
 
     p = sub.add_parser("all", help="run every sweep with default parameters")
+    _add_max_dim(p)
     _add_seed(p)
     p.set_defaults(func=lambda a: (sweep_crossover(a), sweep_distribution(a),
                                    sweep_dimensionality(a), sweep_cooperate(a),
@@ -876,7 +972,8 @@ def main(argv: list[str] | None = None) -> int:
     # Defaults for sweeps invoked via `all`.
     if args.cmd == "all":
         for k, v in dict(n_values=None, n=1000, batch_size=16,
-                         gpu_caps=[1, 2, 4, 8, 0], dims=[2, 3, 5, 10, 20]).items():
+                         gpu_caps=[1, 2, 4, 8, 0], dims=[2, 3, 5, 10, 20],
+                         budget=None, queue_on_busy=False).items():
             if not hasattr(args, k):
                 setattr(args, k, v)
 

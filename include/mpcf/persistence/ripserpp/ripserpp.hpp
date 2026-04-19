@@ -24,12 +24,31 @@
 
 namespace mpcf::ph::ripserpp
 {
+  /// Diagnostic information collected during a single Ripser++ invocation.
+  /// Problem-agnostic with respect to the caller: callers decide what to
+  /// do with these signals (scheduler K bumps, statistics, retries).
+  struct Diagnostics
+  {
+    /// True iff the ported Ripser++ fell back to CPU-only for part of
+    /// the high-dimensional computation because the GPU memory it saw
+    /// at construction was insufficient for the requested max dimension.
+    /// The output barcodes are still correct; the wall time includes
+    /// both the attempted GPU work and the CPU tail.
+    bool upstream_cpu_fallback = false;
+
+    /// The actual max dimension ripser++ ran on the GPU. Equals the
+    /// caller's maxDim in the no-fallback path. Less than maxDim when
+    /// the embedded memory planner lowered it.
+    std::size_t gpu_max_dim = 0;
+  };
+
   // Public entry point into the ported Ripser++. Computes Vietoris-Rips
   // persistence barcodes up to dimension maxDim for the given point cloud
   // on the GPU.
   //   points: shape (n, d) -- n points in R^d
   //   out:    resized to maxDim + 1; out[k] holds the k-th homology pairs.
   //   exec:   CPU executor for the parallel-for loops inside the port.
+  //   diag:   optional -- populated with per-invocation diagnostics.
   // Throws mpcf::cuda_error (see mpcf/cuda/cuda_util.cuh) on CUDA failures;
   // inspect code() == cudaErrorMemoryAllocation to detect OOM.
   template <typename T>
@@ -37,7 +56,8 @@ namespace mpcf::ph::ripserpp
       const PointCloud<T>& points,
       std::size_t maxDim,
       std::vector<std::vector<PersistencePair<T>>>& out,
-      mpcf::Executor& exec);
+      mpcf::Executor& exec,
+      Diagnostics* diag = nullptr);
 }
 
 #endif // MASSPCF_RIPSERPP_HPP
