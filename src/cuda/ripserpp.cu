@@ -3621,8 +3621,44 @@ namespace mpcf::ph::ripserpp
 {
   namespace
   {
+    // One thread per (i, j) pair with i > j >= 0. The flat index tid
+    // satisfies tid = i*(i-1)/2 + j (lower-triangular row-major). We
+    // recover (i, j) from tid via the quadratic solve with a clamp to
+    // absorb floating-point rounding at the integer boundaries.
     template <typename T>
-    compressed_lower_distance_matrix build_distance_matrix(const PointCloud<T>& points)
+    __global__ void dense_lower_distance_kernel(
+        const T* __restrict__ points,
+        const index_t n,
+        const index_t d,
+        value_t* __restrict__ distances)
+    {
+      const index_t tid = static_cast<index_t>(blockIdx.x) *
+                          static_cast<index_t>(blockDim.x) +
+                          static_cast<index_t>(threadIdx.x);
+      const index_t total = n * (n - 1) / 2;
+      if (tid >= total) return;
+
+      index_t i = static_cast<index_t>((1.0 + sqrt(1.0 + 8.0 * static_cast<double>(tid))) * 0.5);
+      while (i * (i - 1) / 2 > tid) --i;
+      while ((i + 1) * i / 2 <= tid) ++i;
+      const index_t j = tid - i * (i - 1) / 2;
+
+      value_t acc = 0;
+      for (index_t k = 0; k < d; ++k) {
+        const value_t diff = static_cast<value_t>(points[i * d + k]) -
+                             static_cast<value_t>(points[j * d + k]);
+        acc += diff * diff;
+      }
+      distances[tid] = sqrt(acc);
+    }
+
+    // Threshold below which launching a kernel costs more than the CPU
+    // inner loop. ~1k pairs = ~45 points; at that scale the host loop
+    // takes microseconds and kernel launch + PCIe copies add latency.
+    constexpr size_t DISTANCE_KERNEL_MIN_PAIRS = 1024;
+
+    template <typename T>
+    compressed_lower_distance_matrix build_distance_matrix_cpu(const PointCloud<T>& points)
     {
       const auto n = static_cast<index_t>(points.shape(0));
       const auto d = static_cast<index_t>(points.shape(1));
@@ -3641,6 +3677,56 @@ namespace mpcf::ph::ripserpp
           distances.push_back(std::sqrt(acc));
         }
       }
+      return compressed_lower_distance_matrix(std::move(distances));
+    }
+
+    template <typename T>
+    compressed_lower_distance_matrix build_distance_matrix(const PointCloud<T>& points)
+    {
+      const auto n = static_cast<index_t>(points.shape(0));
+      const auto d = static_cast<index_t>(points.shape(1));
+      const size_t total = static_cast<size_t>(n) * static_cast<size_t>(n - 1) / 2;
+      if (total < DISTANCE_KERNEL_MIN_PAIRS) {
+        return build_distance_matrix_cpu(points);
+      }
+
+      // Flatten points into a host-contiguous row-major buffer. The
+      // input PointCloud is an mpcf::Tensor<T>; we copy once here so
+      // the kernel can access points via straightforward indexing.
+      std::vector<T> host_points(static_cast<size_t>(n) * static_cast<size_t>(d));
+      for (index_t i = 0; i < n; ++i) {
+        for (index_t k = 0; k < d; ++k) {
+          host_points[static_cast<size_t>(i) * static_cast<size_t>(d) + static_cast<size_t>(k)] =
+            points({static_cast<size_t>(i), static_cast<size_t>(k)});
+        }
+      }
+
+      // Use a local CUDA stream so concurrent facade calls on different
+      // dispatcher threads do not serialize through the default stream.
+      cudaStream_t stream = nullptr;
+      CHK_CUDA(cudaStreamCreate(&stream));
+
+      mpcf::CudaDeviceArray<T> d_points;
+      d_points.allocate(static_cast<size_t>(n) * static_cast<size_t>(d));
+      CHK_CUDA(cudaMemcpyAsync(d_points.get(), host_points.data(),
+                               host_points.size() * sizeof(T),
+                               cudaMemcpyHostToDevice, stream));
+
+      mpcf::CudaDeviceArray<value_t> d_distances;
+      d_distances.allocate(total);
+
+      constexpr int block_size = 256;
+      const int grid_size = static_cast<int>((total + block_size - 1) / block_size);
+      dense_lower_distance_kernel<T><<<grid_size, block_size, 0, stream>>>(
+          d_points.get(), n, d, d_distances.get());
+
+      std::vector<value_t> distances(total);
+      CHK_CUDA(cudaMemcpyAsync(distances.data(), d_distances.get(),
+                               total * sizeof(value_t),
+                               cudaMemcpyDeviceToHost, stream));
+      CHK_CUDA(cudaStreamSynchronize(stream));
+      CHK_CUDA(cudaStreamDestroy(stream));
+
       return compressed_lower_distance_matrix(std::move(distances));
     }
 
