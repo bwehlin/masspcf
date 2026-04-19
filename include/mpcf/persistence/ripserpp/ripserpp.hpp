@@ -45,10 +45,20 @@ namespace mpcf::ph::ripserpp
   // Public entry point into the ported Ripser++. Computes Vietoris-Rips
   // persistence barcodes up to dimension maxDim for the given point cloud
   // on the GPU.
-  //   points: shape (n, d) -- n points in R^d
-  //   out:    resized to maxDim + 1; out[k] holds the k-th homology pairs.
-  //   exec:   CPU executor for the parallel-for loops inside the port.
-  //   diag:   optional -- populated with per-invocation diagnostics.
+  //   points:          shape (n, d) -- n points in R^d
+  //   out:             resized to maxDim + 1; out[k] holds the k-th
+  //                    homology pairs.
+  //   exec:            CPU executor for the parallel-for loops inside
+  //                    the port (only used when `parallel_inner_loops`).
+  //   diag:            optional -- populated with per-invocation diagnostics.
+  //   parallel_inner_loops:
+  //                    if true (default), ripser++'s internal
+  //                    parallel-for loops run across `exec.cpu()`; if
+  //                    false, those loops run serially on the calling
+  //                    thread. The hybrid dispatcher passes false for
+  //                    batch sizes > 1 so parallelism comes from
+  //                    running many ripser instances concurrently
+  //                    instead of subdividing each one.
   // Throws mpcf::cuda_error (see mpcf/cuda/cuda_util.cuh) on CUDA failures;
   // inspect code() == cudaErrorMemoryAllocation to detect OOM.
   template <typename T>
@@ -57,7 +67,8 @@ namespace mpcf::ph::ripserpp
       std::size_t maxDim,
       std::vector<std::vector<PersistencePair<T>>>& out,
       mpcf::Executor& exec,
-      Diagnostics* diag = nullptr);
+      Diagnostics* diag = nullptr,
+      bool parallel_inner_loops = true);
 }
 
 #endif // MASSPCF_RIPSERPP_HPP

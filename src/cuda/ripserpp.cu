@@ -1622,6 +1622,14 @@ private:
     // planner degraded. Populated during compute_barcodes().
     index_t m_gpu_max_dim = 0;
 
+    // If false, this ripser instance's internal parallel-for loops run
+    // serially on the calling thread. The hybrid dispatcher sets this
+    // to false when it has multiple items in flight, so the parallelism
+    // comes from running many ripser instances concurrently (one per
+    // outer item) instead of subdividing each one across CPU workers.
+    // Set via ctor.
+    bool m_parallel_inner = true;
+
     void phmap_put(int64_t key, int64_t value) { pivot_map[key] = value; }
     int64_t phmap_get_value(int64_t key) const
     {
@@ -1632,10 +1640,18 @@ private:
 
     // Mirrors upstream's `#pragma omp parallel for schedule(guided, 1)`:
     // taskflow's GuidedPartitioner with chunk_size=1 yields the same
-    // dynamic-guided behavior.
+    // dynamic-guided behavior. When `m_parallel_inner` is false the
+    // loop runs serially on the calling thread; the hybrid dispatcher
+    // uses this mode for batch sizes > 1 so parallelism comes from
+    // running many ripser instances in parallel instead of
+    // subdividing each one. See RipserPlusPlusTask::run_async.
     template <typename Callback>
     void parallel_for_index(index_t count, Callback&& cb) {
         if (count <= 0) return;
+        if (!m_parallel_inner) {
+            for (index_t i = 0; i < count; ++i) cb(i);
+            return;
+        }
         tf::Taskflow flow;
         flow.for_each_index(index_t(0), count, index_t(1), std::forward<Callback>(cb),
                             tf::GuidedPartitioner<>(1));
@@ -1645,12 +1661,13 @@ public:
 
     ripser(DistanceMatrix&& _dist, index_t _dim_max, value_t _threshold, float _ratio,
            std::vector<std::vector<birth_death_coordinate>>& _barcodes_out,
-           mpcf::Executor& _exec)
+           mpcf::Executor& _exec, bool _parallel_inner = true)
             : dist(std::move(_dist)), n(dist.size()),
               dim_max(std::min(_dim_max, index_t(dist.size() - 2))), threshold(_threshold),
               ratio(_ratio), binomial_coeff(n, dim_max + 2),
               barcodes_out(_barcodes_out), exec_(_exec), stream_(nullptr)
     {
+        m_parallel_inner = _parallel_inner;
         CHK_CUDA(cudaStreamCreate(&stream_));
     }
 
@@ -3636,7 +3653,8 @@ namespace mpcf::ph::ripserpp
       std::size_t maxDim,
       std::vector<std::vector<PersistencePair<T>>>& out,
       mpcf::Executor& exec,
-      Diagnostics* diag)
+      Diagnostics* diag,
+      bool parallel_inner_loops)
   {
     out.assign(maxDim + 1, {});
     if (diag) *diag = Diagnostics{};
@@ -3652,7 +3670,8 @@ namespace mpcf::ph::ripserpp
 
     std::vector<std::vector<birth_death_coordinate>> raw_bars(dim_max + 1);
     ripser<compressed_lower_distance_matrix> r(
-        std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec);
+        std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec,
+        parallel_inner_loops);
     r.compute_barcodes();
 
     if (diag) {
@@ -3671,9 +3690,9 @@ namespace mpcf::ph::ripserpp
 
   template void compute_barcodes_pcloud<float>(const PointCloud<float>&, std::size_t,
                                                std::vector<std::vector<PersistencePair<float>>>&,
-                                               mpcf::Executor&, Diagnostics*);
+                                               mpcf::Executor&, Diagnostics*, bool);
   template void compute_barcodes_pcloud<double>(const PointCloud<double>&, std::size_t,
                                                 std::vector<std::vector<PersistencePair<double>>>&,
-                                                mpcf::Executor&, Diagnostics*);
+                                                mpcf::Executor&, Diagnostics*, bool);
 }
 

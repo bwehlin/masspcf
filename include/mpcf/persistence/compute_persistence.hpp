@@ -219,7 +219,9 @@ namespace mpcf::ph
 #include "../settings.hpp"
 
 #include <cuda_runtime_api.h>
+#include <algorithm>
 #include <memory>
+#include <thread>
 
 namespace mpcf::ph
 {
@@ -372,7 +374,19 @@ namespace mpcf::ph
       const auto& points = m_input(index);
       std::vector<std::vector<PersistencePair<T>>> bars;
       ripserpp::Diagnostics diag;
-      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec, &diag);
+      // Inner parallelism (ripser++'s own parallel-for loops) helps
+      // when the batch is small enough that each item can claim
+      // multiple CPU workers without oversubscribing. Once the number
+      // of items approaches the pool size, outer parallelism (running
+      // many ripser instances concurrently) is strictly better --
+      // subdividing each one would just multiply the thread count past
+      // the physical core count.
+      const std::size_t hw = std::max<std::size_t>(
+          std::thread::hardware_concurrency(), 1);
+      // "A few items" relative to the pool: at most hw/4 in flight
+      // keeps each one with ~4+ inner threads.
+      const bool parallel_inner = (m_input.size() <= std::max<std::size_t>(hw / 4, 1));
+      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec, &diag, parallel_inner);
 
       for (size_t k = 0; k < bars.size(); ++k)
       {
