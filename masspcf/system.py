@@ -66,6 +66,27 @@ def limit_gpus(n: int):
     cpp.limit_gpus(n)
 
 
+def limit_gpu_concurrency(n: int):
+    """Set a cap on the number of concurrent GPU jobs the hybrid persistence dispatcher will run.
+
+    By default (``n = 0``), the dispatcher is bounded only by per-GPU memory: the
+    :class:`GpuMemoryScheduler` admits as many concurrent Ripser++ instances as
+    fit in the available memory budget. Setting ``n > 0`` adds a hard cap on
+    the total number of in-flight GPU jobs across all visible GPUs; further
+    items are routed to the CPU until a slot frees up.
+
+    This option only has an effect if masspcf is compiled with GPU support and
+    the workload uses the hybrid persistence path (``device="auto"`` or
+    ``device="gpu"``).
+
+    Parameters
+    ----------
+    n : int
+      Maximum concurrent GPU jobs across all GPUs. Use ``0`` for no cap (default).
+    """
+    cpp.limit_gpu_concurrency(n)
+
+
 def set_cuda_threshold(n: int):
     """Sets how many PCFs are required in a matrix computation before computations are moved from CPU to GPU. By default, the threshold is set to 500 PCFs.
 

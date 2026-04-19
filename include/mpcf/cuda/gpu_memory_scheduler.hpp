@@ -62,6 +62,13 @@ namespace mpcf
 
       /// Multiplicative backoff applied to the device's K on OOM.
       double oom_backoff = 1.5;
+
+      /// Hard cap on the number of concurrent active reservations the
+      /// scheduler will hand out across all GPUs. 0 means no cap; the
+      /// scheduler is then bounded only by per-GPU memory budgets.
+      /// When set, `try_reserve` returns an inactive Reservation as
+      /// soon as `cap` reservations are live, without walking GPUs.
+      int max_concurrent = 0;
     };
 
     /// RAII reservation. Holding one means: cudaSetDevice(gpu_index())
@@ -155,6 +162,11 @@ namespace mpcf
     {
       return m_gpus[static_cast<std::size_t>(gpu_idx)].k_bytes.load(std::memory_order_relaxed);
     }
+    [[nodiscard]] int active_count() const noexcept
+    {
+      return m_active.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] int max_concurrent() const noexcept { return m_max_concurrent; }
 
   private:
     struct GpuState
@@ -168,6 +180,8 @@ namespace mpcf
 
     std::vector<GpuState> m_gpus;
     double m_oom_backoff;
+    int m_max_concurrent;
+    std::atomic<int> m_active{0};
   };
 
   inline void GpuMemoryScheduler::Reservation::release() noexcept
@@ -181,7 +195,7 @@ namespace mpcf
   }
 
   inline GpuMemoryScheduler::GpuMemoryScheduler(Config cfg)
-    : m_oom_backoff(cfg.oom_backoff)
+    : m_oom_backoff(cfg.oom_backoff), m_max_concurrent(cfg.max_concurrent)
   {
     int n = 0;
     cudaGetDeviceCount(&n);
@@ -202,7 +216,7 @@ namespace mpcf
   }
 
   inline GpuMemoryScheduler::GpuMemoryScheduler(std::vector<std::int64_t> per_device_budgets, Config cfg)
-    : m_gpus(per_device_budgets.size()), m_oom_backoff(cfg.oom_backoff)
+    : m_gpus(per_device_budgets.size()), m_oom_backoff(cfg.oom_backoff), m_max_concurrent(cfg.max_concurrent)
   {
     for (std::size_t i = 0; i < per_device_budgets.size(); ++i) {
       m_gpus[i].budget = per_device_budgets[i];
@@ -217,6 +231,17 @@ namespace mpcf
     if (cost_units <= 0) {
       return Reservation{};
     }
+
+    // Concurrency cap: tentatively claim a slot before walking GPUs.
+    // Roll back if no GPU has room. Cap == 0 means unlimited.
+    if (m_max_concurrent > 0) {
+      const int prev_active = m_active.fetch_add(1, std::memory_order_acquire);
+      if (prev_active >= m_max_concurrent) {
+        m_active.fetch_sub(1, std::memory_order_release);
+        return Reservation{};
+      }
+    }
+
     for (std::size_t i = 0; i < m_gpus.size(); ++i) {
       auto& g = m_gpus[i];
       const double k = g.k_bytes.load(std::memory_order_relaxed);
@@ -234,6 +259,10 @@ namespace mpcf
         return Reservation{this, static_cast<int>(i), est};
       }
       g.remaining.fetch_add(est, std::memory_order_release);
+    }
+
+    if (m_max_concurrent > 0) {
+      m_active.fetch_sub(1, std::memory_order_release);
     }
     return Reservation{};
   }
@@ -257,6 +286,9 @@ namespace mpcf
   {
     if (gpu_idx < 0 || bytes <= 0) return;
     m_gpus[static_cast<std::size_t>(gpu_idx)].remaining.fetch_add(bytes, std::memory_order_release);
+    if (m_max_concurrent > 0) {
+      m_active.fetch_sub(1, std::memory_order_release);
+    }
   }
 }
 

@@ -157,6 +157,7 @@ PYBIND11_MODULE(MPCF_MODULE_NAME, m) {
     mpcf::settings().blockDimY = y;
   });
   m.def("set_min_block_side", [](size_t n){ mpcf::settings().minBlockSide = n; });
+  m.def("limit_gpu_concurrency", [](int n){ mpcf::settings().gpuConcurrencyCap = n; });
 #ifdef BUILD_WITH_CUDA
   m.def("limit_gpus", [](size_t n){ mpcf::default_executor().limit_cuda_workers(n); });
 #endif

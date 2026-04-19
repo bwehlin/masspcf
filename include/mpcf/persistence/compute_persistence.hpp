@@ -216,6 +216,7 @@ namespace mpcf::ph
 #include "ripserpp/ripserpp.hpp"
 #include "../cuda/cuda_util.cuh"
 #include "../cuda/gpu_memory_scheduler.hpp"
+#include "../settings.hpp"
 
 #include <cuda_runtime_api.h>
 #include <memory>
@@ -257,6 +258,7 @@ namespace mpcf::ph
 
       mpcf::GpuMemoryScheduler::Config cfg;
       cfg.initial_k_bytes_per_unit = K0_BYTES_PER_SIMPLEX;
+      cfg.max_concurrent = mpcf::settings().gpuConcurrencyCap;
       m_sched = std::make_unique<mpcf::GpuMemoryScheduler>(cfg);
 
       next_step(m_input.size(), "Computing persistence (hybrid)", "pointcloud");

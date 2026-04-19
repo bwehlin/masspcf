@@ -713,6 +713,7 @@ if (BUILD_TESTER)
         test/test_l1_dist.cu
         test/test_block_integrate.cu
         test/test_norms.cu
+        test/test_gpu_memory_scheduler.cu
         ${MPCF_TEST_SOURCES_COMMON}
     )
   else ()

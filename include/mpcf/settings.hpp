@@ -33,6 +33,11 @@ namespace mpcf
     /// Minimum block side length for the block scheduler.
     /// 0 = auto-detect from GPU hardware (SM count).
     size_t minBlockSide = 0;
+
+    /// Hard cap on the number of concurrent GPU reservations the
+    /// hybrid Ripser++ dispatcher will hand out across all GPUs.
+    /// 0 = unlimited (the scheduler is bounded only by per-GPU memory).
+    int gpuConcurrencyCap = 0;
   };
 
   inline Settings& settings()
