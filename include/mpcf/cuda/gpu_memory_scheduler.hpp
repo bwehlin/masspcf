@@ -116,11 +116,16 @@ namespace mpcf
       Reservation& operator=(const Reservation&) = delete;
 
       Reservation(Reservation&& o) noexcept
-        : m_sched(o.m_sched), m_gpu(o.m_gpu), m_bytes(o.m_bytes)
+        : m_sched(o.m_sched), m_gpu(o.m_gpu), m_bytes(o.m_bytes),
+          m_cost_units(o.m_cost_units), m_free_before(o.m_free_before),
+          m_calibrate(o.m_calibrate)
       {
         o.m_sched = nullptr;
         o.m_gpu = -1;
         o.m_bytes = 0;
+        o.m_cost_units = 0;
+        o.m_free_before = 0;
+        o.m_calibrate = false;
       }
 
       Reservation& operator=(Reservation&& o) noexcept
@@ -130,9 +135,15 @@ namespace mpcf
           m_sched = o.m_sched;
           m_gpu = o.m_gpu;
           m_bytes = o.m_bytes;
+          m_cost_units = o.m_cost_units;
+          m_free_before = o.m_free_before;
+          m_calibrate = o.m_calibrate;
           o.m_sched = nullptr;
           o.m_gpu = -1;
           o.m_bytes = 0;
+          o.m_cost_units = 0;
+          o.m_free_before = 0;
+          o.m_calibrate = false;
         }
         return *this;
       }
@@ -145,14 +156,20 @@ namespace mpcf
 
     private:
       friend class GpuMemoryScheduler;
-      Reservation(GpuMemoryScheduler* s, int gpu, std::int64_t bytes)
-        : m_sched(s), m_gpu(gpu), m_bytes(bytes) {}
+      Reservation(GpuMemoryScheduler* s, int gpu, std::int64_t bytes,
+                  std::int64_t cost_units, std::size_t free_before, bool calibrate)
+        : m_sched(s), m_gpu(gpu), m_bytes(bytes),
+          m_cost_units(cost_units), m_free_before(free_before),
+          m_calibrate(calibrate) {}
 
       void release() noexcept;
 
       GpuMemoryScheduler* m_sched = nullptr;
       int m_gpu = -1;
       std::int64_t m_bytes = 0;
+      std::int64_t m_cost_units = 0;
+      std::size_t m_free_before = 0;
+      bool m_calibrate = false;
     };
 
     /// Construct using live CUDA device queries. One GpuState per device
@@ -248,21 +265,48 @@ namespace mpcf
       return m_peak_active.load(std::memory_order_relaxed);
     }
 
+    /// Record an empirical per-simplex byte count observed for an item
+    /// that ran on `gpu_idx`. Raises `k_bytes` for that GPU to
+    /// `max(current, k_obs)` without ever shrinking it -- AIMD-style
+    /// safety: we trust observed usage that exceeds our estimate but
+    /// do not trust observations that are lower than it (those are
+    /// dominated by noise when multiple items share the device).
+    ///
+    /// The hybrid dispatcher calls this on the first admitted item per
+    /// GPU based on `cudaMemGetInfo` snapshots taken on admit and
+    /// release; after that the per-GPU `calibrated` flag is set and
+    /// further calibration measurements are skipped (AIMD via
+    /// `record_oom` still applies). Exposed publicly so tests can
+    /// drive it deterministically without needing a live GPU.
+    void note_observed_k(int gpu_idx, double k_obs) noexcept;
+
+    [[nodiscard]] bool is_calibrated(int gpu_idx) const noexcept
+    {
+      return m_gpus[static_cast<std::size_t>(gpu_idx)].calibrated.load(std::memory_order_relaxed);
+    }
+
   private:
     struct GpuState
     {
       std::int64_t budget = 0;
       std::atomic<std::int64_t> remaining{0};
       std::atomic<double> k_bytes{1.0};
+      /// Set once the first admitted item on this GPU has been
+      /// measured via `cudaMemGetInfo` snapshots. Further admissions
+      /// skip the measurement.
+      std::atomic<bool> calibrated{false};
     };
 
-    void release_bytes(int gpu_idx, std::int64_t bytes) noexcept;
+    void release_bytes(Reservation& r) noexcept;
 
     void update_peak_active(int now_active) noexcept;
 
     std::vector<GpuState> m_gpus;
     double m_oom_backoff;
     int m_max_concurrent;
+    /// True on the live-device constructor path, false on the
+    /// test-injected path: enables first-admit cudaMemGetInfo snapshot.
+    bool m_calibrate_enabled = false;
     std::atomic<int> m_active{0};
     std::atomic<int> m_peak_active{0};
     std::atomic<std::int64_t> m_total_admitted{0};
@@ -277,15 +321,19 @@ namespace mpcf
   inline void GpuMemoryScheduler::Reservation::release() noexcept
   {
     if (m_sched) {
-      m_sched->release_bytes(m_gpu, m_bytes);
+      m_sched->release_bytes(*this);
       m_sched = nullptr;
       m_gpu = -1;
       m_bytes = 0;
+      m_cost_units = 0;
+      m_free_before = 0;
+      m_calibrate = false;
     }
   }
 
   inline GpuMemoryScheduler::GpuMemoryScheduler(Config cfg)
-    : m_oom_backoff(cfg.oom_backoff), m_max_concurrent(cfg.max_concurrent)
+    : m_oom_backoff(cfg.oom_backoff), m_max_concurrent(cfg.max_concurrent),
+      m_calibrate_enabled(true)
   {
     int n = 0;
     cudaGetDeviceCount(&n);
@@ -306,7 +354,8 @@ namespace mpcf
   }
 
   inline GpuMemoryScheduler::GpuMemoryScheduler(std::vector<std::int64_t> per_device_budgets, Config cfg)
-    : m_gpus(per_device_budgets.size()), m_oom_backoff(cfg.oom_backoff), m_max_concurrent(cfg.max_concurrent)
+    : m_gpus(per_device_budgets.size()), m_oom_backoff(cfg.oom_backoff),
+      m_max_concurrent(cfg.max_concurrent), m_calibrate_enabled(false)
   {
     for (std::size_t i = 0; i < per_device_budgets.size(); ++i) {
       m_gpus[i].budget = per_device_budgets[i];
@@ -349,7 +398,25 @@ namespace mpcf
         cudaSetDevice(static_cast<int>(i));
         m_total_admitted.fetch_add(1, std::memory_order_relaxed);
         update_peak_active(prev_active + 1);
-        return Reservation{this, static_cast<int>(i), est};
+
+        // First-admit calibration snapshot: if we haven't yet calibrated
+        // this GPU, capture its free memory now so release() can diff
+        // against it and upgrade K to the observed bytes/unit. We only
+        // take the shot if m_active is exactly 1 post-increment, i.e.
+        // no other reservation is live; otherwise the measurement would
+        // be contaminated by concurrent items.
+        std::size_t free_before = 0;
+        bool do_calibrate = false;
+        if (m_calibrate_enabled && prev_active == 0 &&
+            !g.calibrated.load(std::memory_order_acquire))
+        {
+          std::size_t total_mem = 0;
+          if (cudaMemGetInfo(&free_before, &total_mem) == cudaSuccess) {
+            do_calibrate = true;
+          }
+        }
+        return Reservation{this, static_cast<int>(i), est,
+                           cost_units, free_before, do_calibrate};
       }
       g.remaining.fetch_add(est, std::memory_order_release);
     }
@@ -357,6 +424,21 @@ namespace mpcf
     m_active.fetch_sub(1, std::memory_order_release);
     m_total_failed_no_room.fetch_add(1, std::memory_order_relaxed);
     return Reservation{};
+  }
+
+  inline void GpuMemoryScheduler::note_observed_k(int gpu_idx, double k_obs) noexcept
+  {
+    if (gpu_idx < 0 || !(k_obs > 0.0)) return;
+    auto& k = m_gpus[static_cast<std::size_t>(gpu_idx)].k_bytes;
+    double old_k = k.load(std::memory_order_relaxed);
+    while (k_obs > old_k) {
+      if (k.compare_exchange_weak(old_k, k_obs,
+                                  std::memory_order_relaxed,
+                                  std::memory_order_relaxed)) {
+        return;
+      }
+      // old_k updated by CAS; loop re-checks against fresh value.
+    }
   }
 
   inline void GpuMemoryScheduler::update_peak_active(int now_active) noexcept
@@ -449,10 +531,34 @@ namespace mpcf
     last_gpu_scheduler_stats() = snap;
   }
 
-  inline void GpuMemoryScheduler::release_bytes(int gpu_idx, std::int64_t bytes) noexcept
+  inline void GpuMemoryScheduler::release_bytes(Reservation& r) noexcept
   {
-    if (gpu_idx < 0 || bytes <= 0) return;
-    m_gpus[static_cast<std::size_t>(gpu_idx)].remaining.fetch_add(bytes, std::memory_order_release);
+    if (r.m_gpu < 0 || r.m_bytes <= 0) return;
+    auto& g = m_gpus[static_cast<std::size_t>(r.m_gpu)];
+
+    // If this was the calibration item and it still has exclusive use
+    // of the GPU at release time (m_active == 1, just us), snapshot
+    // the free memory and back out K_obs = used_bytes / cost_units.
+    // If another reservation came in since admit, the measurement
+    // would be contaminated; skip it. Either way, the per-GPU
+    // `calibrated` flag is set so we do not keep trying.
+    if (r.m_calibrate) {
+      const int now_active = m_active.load(std::memory_order_acquire);
+      if (now_active == 1 && r.m_cost_units > 0) {
+        std::size_t free_after = 0, total_mem = 0;
+        if (cudaMemGetInfo(&free_after, &total_mem) == cudaSuccess &&
+            free_after < r.m_free_before)
+        {
+          const std::size_t used = r.m_free_before - free_after;
+          const double k_obs =
+            static_cast<double>(used) / static_cast<double>(r.m_cost_units);
+          note_observed_k(r.m_gpu, k_obs);
+        }
+      }
+      g.calibrated.store(true, std::memory_order_release);
+    }
+
+    g.remaining.fetch_add(r.m_bytes, std::memory_order_release);
     m_active.fetch_sub(1, std::memory_order_release);
     m_wait_cv.notify_one();
   }

@@ -309,6 +309,31 @@ namespace
     EXPECT_LT(ms, 800);
   }
 
+  TEST(GpuMemoryScheduler, NoteObservedKGrowsButNeverShrinks)
+  {
+    auto cfg = default_cfg();
+    cfg.initial_k_bytes_per_unit = 1.0;
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{10000}, cfg);
+
+    // Larger observation upgrades K.
+    sched.note_observed_k(0, 2.5);
+    EXPECT_DOUBLE_EQ(sched.k_bytes_per_unit(0), 2.5);
+
+    // Even-larger observation upgrades again.
+    sched.note_observed_k(0, 4.0);
+    EXPECT_DOUBLE_EQ(sched.k_bytes_per_unit(0), 4.0);
+
+    // Smaller observation is ignored -- never shrink.
+    sched.note_observed_k(0, 2.0);
+    EXPECT_DOUBLE_EQ(sched.k_bytes_per_unit(0), 4.0);
+
+    // Nonsense values (<=0, bad idx) are no-ops, not crashes.
+    sched.note_observed_k(0, 0.0);
+    sched.note_observed_k(0, -1.0);
+    sched.note_observed_k(-1, 8.0);
+    EXPECT_DOUBLE_EQ(sched.k_bytes_per_unit(0), 4.0);
+  }
+
   TEST(GpuMemoryScheduler, ConcurrentReservationsHeldDoNotOverbook)
   {
     constexpr std::int64_t budget = 1000;
