@@ -15,6 +15,7 @@
 #ifndef MASSPCF_RIPSERPP_HPP
 #define MASSPCF_RIPSERPP_HPP
 
+#include "../../distance_matrix.hpp"
 #include "../../executor.hpp"
 #include "../../tensor.hpp"
 #include "../persistence_pair.hpp"
@@ -64,6 +65,20 @@ namespace mpcf::ph::ripserpp
   template <typename T>
   void compute_barcodes_pcloud(
       const PointCloud<T>& points,
+      std::size_t maxDim,
+      std::vector<std::vector<PersistencePair<T>>>& out,
+      mpcf::Executor& exec,
+      Diagnostics* diag = nullptr,
+      bool parallel_inner_loops = true);
+
+  // Dense distance-matrix entry point. Mirrors `compute_barcodes_pcloud`
+  // but takes precomputed pairwise distances; useful when the user has
+  // a non-Euclidean metric or already has a DistanceMatrix at hand.
+  //   dmat:            size n x n lower-triangular compressed distance matrix.
+  // Sparse distance-matrix input is not supported.
+  template <typename T>
+  void compute_barcodes_distmat(
+      const DistanceMatrix<T>& dmat,
       std::size_t maxDim,
       std::vector<std::vector<PersistencePair<T>>>& out,
       mpcf::Executor& exec,

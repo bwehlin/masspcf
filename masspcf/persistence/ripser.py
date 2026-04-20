@@ -63,3 +63,16 @@ def _compute_barcodes_euclidean_pcloud_ripser_plusplus(
     )
 
     return backend.spawn_ripser_plusplus_pcloud_euclidean_task(X._data, out._data, max_dim, reduced_homology)
+
+
+def _compute_barcodes_distmat_ripser_plusplus(
+    X: DistanceMatrixTensor,
+    out: BarcodeTensor,
+    max_dim: int = 1,
+    reduced_homology: bool = False,
+):
+    backend, X = _get_backend(
+        X, {distmat32: cpp_p.PersistenceRipser32, distmat64: cpp_p.PersistenceRipser64}
+    )
+
+    return backend.spawn_ripser_plusplus_distmat_task(X._data, out._data, max_dim, reduced_homology)

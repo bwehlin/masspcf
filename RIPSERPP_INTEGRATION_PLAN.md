@@ -137,9 +137,10 @@ shaped the way it is.
   CPU on rectangles, random, circle, tensor-of-pclouds, with
   tolerance via extended `Barcode::is_isomorphic_to(..., atol, rtol)`.
 
-### Phase 3 — hybrid dispatcher + concurrent GPU jobs
+### Phase 3 — hybrid dispatcher + concurrent GPU jobs [DONE]
 
-Progress so far: A, B, and C landed; D and test harness remain.
+A, B, C, and D all landed. Remaining items captured in the
+"Ship-minimum punch list" at the bottom of this doc.
 
 - [x] (B) Per-`ripser` `cudaStream_t` threaded through every kernel launch,
   thrust call (`thrust::cuda::par.on(stream_)`), cudaMemcpy/cudaMemset,
@@ -174,58 +175,58 @@ Progress so far: A, B, and C landed; D and test harness remain.
     GPU slots via the scheduler lets M scale with GPU memory.
   - Commit: `Add GpuMemoryScheduler and wire into RipserPlusPlusTask`.
 
-Still to do for Phase 3:
+Phase 3 landed:
 
-- [ ] **C-tests**: gtest for `GpuMemoryScheduler` in isolation
-  (test-injected budgets via the second constructor, cover reserve /
-  release / OOM / multi-GPU First-Fit / concurrent stress). A
-  file draft is already sketched in conversation; write it to
-  `test/test_gpu_memory_scheduler.cu` and add to `MPCF_TEST_SOURCES_*`
-  under `BUILD_CUDA_TESTER`.
-- [ ] **C-live-OOM**: force a large enough point cloud on a small GPU
-  to trigger the OOM→CPU fallback path end-to-end. Today the fallback
-  is only covered by the gtest's simulated OOM; we want at least one
-  Python test that actually OOMs the device.
-- [ ] (D) **Benchmark**. Extend `scratch/bench_ph_scaling.py` (or a
-  new script) with a `device=` switch. Measure:
-  - wall-time for the full batch with `device="cpu"`, `device="gpu"`,
-    `device="auto"` (picks GPU when backend loaded);
-  - per-GPU utilization (nvidia-smi sampled during the run) to
-    confirm M > 1 concurrent ripsers actually happens for the
-    2500-point workload;
-  - memory high-water via `nvidia-smi --query-gpu=memory.used`.
-  Inputs: `samples_3_50_2500.mpcf` (150 items of 2500 points) and a
-  synthetic 10k-point batch (GPU shines here: from today's single-item
-  timing, CPU ≈ 10.3 s for 2500 pts but GPU single-stream is ~85 s
-  for 10k pts; batch scaling matters).
+- [x] **C-tests**: `test/test_gpu_memory_scheduler.cu` (commit
+  `Add GpuMemoryScheduler tests, concurrency cap, and internals doc`).
+  Also added `limit_gpu_concurrency(n)` Python knob and the
+  `docs/internals/gpu_memory_scheduler.rst` internals doc.
+- [x] (D) **Benchmark**. `benchmarks/bench_ph_hybrid.py` (cpu/gpu/auto
+  with nvidia-smi sampling) and `benchmarks/profile_real.py` (NVTX-scoped
+  driver for .mpcf inputs). Outputs in `benchmarks/bench_results/`.
 
-### Where to pick up next session (Phase 3 tests + D)
+Post-C perf / diagnostics (not on the original Phase 3 list, but landed
+on this branch):
 
-- `include/mpcf/cuda/gpu_memory_scheduler.hpp` is in place and used.
-- `RipserPlusPlusTask::dispatch_item` in
-  `include/mpcf/persistence/compute_persistence.hpp` is the hybrid
-  loop — no changes pending.
-- Next concrete step: write `test/test_gpu_memory_scheduler.cu`. The
-  test plan (with expected cases) is in the earlier conversation
-  turn; main cases are:
-    NoDevicesGivesInactiveReservations, ZeroOrNegativeCostYieldsInactive,
-    ReserveDeductsFromRemaining, DestructorReleasesBudget,
-    OversizedItemReturnsInactive, FirstFitAcrossMultipleGpus,
-    RunningOutOfEverythingGivesInactive, OomBumpsKForThatGpuOnly,
-    RaisedKReducesAvailableSlotsOnThatGpu, ConcurrentReservationsAreAtomic.
-  Add to `MPCF_TEST_SOURCES_CUDA` (under BUILD_CUDA_TESTER block in
-  CMakeLists.txt around line 711).
-- Then run the benchmark and record results back in this doc.
+- Hybrid cost-estimator fix + queue-on-busy + upstream diagnostics
+  (`upstream_cpu_fallback`, `gpu_max_dim` surfaced from ripser++).
+- Serialize inner parallel-fors when batch > 1 so parallelism comes
+  from concurrent ripser instances instead of subdividing each one.
+- Self-calibrating K from first-admit memory snapshot (no more
+  hand-tuned 64 bytes/simplex baseline).
+- Swapped phmap → google dense_hash_map for the pivot map.
+- GPU distance-matrix construction (eliminates a big H2D).
+- `cudaMallocAsync` pool for ripser++ allocs and thrust temp storage.
+- Event-driven `GpuMemoryScheduler::wait_for_reserve` (no polling).
+- Dim-0 union-find short-circuits once the spanning forest closes.
+- NVTX range around the timed PH call for nsys filtering.
 
-### Phase 4 — polish
+### Ship-minimum punch list
 
-- [ ] Docs: `docs/persistence.rst` — document `device=` or auto-detection,
-  tradeoffs.
-- [ ] `masspcf.system` knob: `limit_gpu_concurrency(n)` for the hybrid case.
-- [ ] Coverage / edge cases: empty point clouds, n=1, distance-matrix input.
-- [ ] Decide whether `RipserDistMatTask` also gets a GPU backend
-  (sparse-distance-matrix specialization in Ripser++ exists). Point-clouds-
-  only is the minimum viable first slice.
+Agreed scope for shipping this branch (everything else deferred):
+
+- [ ] Multi-GPU correctness test, gated on `cudaGetDeviceCount() >= 2`
+  (skips on single-GPU / CPU-only boxes). Asserts GPU barcodes match
+  CPU reference. Lives in `test/python/persistence/test_ripser_plusplus.py`.
+- [ ] Live-OOM Python test. Cloud large enough to actually OOM the
+  device (~60k points on a 12 GB card); asserts the automatic CPU
+  fallback still produces correct barcodes.
+- [ ] Dense distance-matrix GPU path via new `RipserPlusPlusDistMatTask<T>`.
+  The `ripser<compressed_lower_distance_matrix>` specialization already
+  exists in `src/cuda/ripserpp.cu`; work is facade +
+  `compute_barcodes_distmat<T>` + pybind + Python routing in
+  `masspcf/persistence/homology.py`. **Sparse not in scope** — neither
+  CPU nor GPU Ripser currently supports sparse distance matrices.
+- [ ] `docs/persistence.rst`: document `device=`, GPU→CPU auto-fallback,
+  `limit_gpus()` / `limit_gpu_concurrency()` knobs, and remove the
+  "distmat is CPU-only" caveat once the dense distmat GPU path lands.
+
+Explicitly deferred post-ship:
+
+- NUMA pinning on multi-socket hosts (perf, not correctness).
+- `max_dim > 1` GPU routing cap (upstream handles it; memory blows up
+  fast — revisit if users hit it).
+- Sparse distance-matrix Ripser++ kernels.
 
 ## Benchmark context to preserve
 
@@ -239,70 +240,36 @@ Still to do for Phase 3:
 ## Open questions / defer
 
 - Should `max_dim > 1` route to GPU too? Upstream Ripser++ supports it but
-  memory blows up fast. Maybe cap GPU path at max_dim=2 and force-fall-back
-  higher dims to CPU.
-- NUMA: on multi-socket hosts the hybrid dispatcher probably wants CPU
-  workers pinned to the socket the GPU sits on. Deferred.
-- Multi-GPU: out of scope for first cut. Executor's `cuda()` pool already
-  exists but Ripser++ assumes `cudaSetDevice(0)` — audit and parameterize.
+  memory blows up fast. Deferred — users hitting the limit can
+  `device="cpu"` for now.
+- Multi-GPU: the scheduler does call `cudaSetDevice` on reservation and
+  ripserpp.cu doesn't override it, so structurally it should work. Needs
+  the gated multi-GPU correctness test (ship-minimum item #1) to actually
+  verify.
 
-## Current state (as of pause — Phase 3 A+B done, C+D to go)
-
-Everything through `git log --oneline ripserpp-integration` on this branch.
-In rough order of landing:
-
-1. `Vendor Ripser++ and start integration plan` — initial copy + plan doc.
-2. `Wire Ripser++ through Phase 1` — makes it build, no functional use.
-3. `ignore local artifacts` — housekeeping.
-4. `Route GPU Ripser++ through compute_persistent_homology` — Phase 2 MVP:
-   facade + `RipserPlusPlusTask` + pybind + Python `device=` + 8
-   correctness tests. `Barcode::is_isomorphic_to` gained `atol`/`rtol`.
-5. `Remove Ripser++ file-scope globals and OpenMP dependency` — kills
-   `list_of_barcodes` + phmap singleton; `#pragma omp` → taskflow
-   `for_each_index` on an injected `mpcf::Executor&`.
-6. `Put all Ripser++ GPU work on a per-instance CUDA stream` — Phase 3 B.
-7. `RAII-wrap all Ripser++ cudaMalloc sites with CudaDeviceArray` — Phase 3 A.
-8. `Add GpuMemoryScheduler and wire into RipserPlusPlusTask` — Phase 3 C
-   (dispatcher landed; gtest and bench still to do).
+## Current state (for picking up next session)
 
 ### Key files
 
 - `src/cuda/ripserpp.cu` — patched port. No globals, no OMP, per-instance
-  stream + RAII buffers. The `mpcf::ph::ripserpp::compute_barcodes_pcloud`
-  facade lives at the bottom.
-- `include/mpcf/persistence/ripserpp/ripserpp.hpp` — facade declaration.
-- `include/mpcf/persistence/compute_persistence.hpp` — `RipserPlusPlusTask<T>`
-  (CUDA-gated) that iterates items **serially**. Needs to become parallel
-  for Phase 3 C.
-- `include/mpcf/cuda/cuda_util.cuh` — `mpcf::cuda_error` thrown by
-  `CHK_CUDA`. The dispatcher will `catch` this and check `code() ==
-  cudaErrorMemoryAllocation`.
-- `include/mpcf/cuda/cuda_device_array.cuh` — extended with public
-  `allocate`, `reset`, `operator T*()`, `operator->()`, `address_of_ptr()`.
-- `include/mpcf/internal/{parallel_hashmap,sparsehash}/` — vendored
-  header-only deps.
+  stream + RAII buffers, cudaMallocAsync pool, GPU-built distance matrix.
+  The `mpcf::ph::ripserpp::compute_barcodes_pcloud` facade lives at the
+  bottom (needs a sibling `compute_barcodes_distmat` for the dense
+  distmat GPU path — ship-minimum item #3).
+- `include/mpcf/persistence/ripserpp/ripserpp.hpp` — facade declaration
+  with `Diagnostics` struct.
+- `include/mpcf/persistence/compute_persistence.hpp` —
+  `RipserPlusPlusTask<T>` hybrid dispatcher. A new
+  `RipserPlusPlusDistMatTask<T>` goes here for the distmat GPU path.
+- `include/mpcf/cuda/gpu_memory_scheduler.hpp` — First-Fit bin-packing
+  scheduler with AIMD K calibration and self-calibration from first-admit
+  snapshot. Event-driven wait; `limit_concurrency(n)` knob.
 - `masspcf/persistence/homology.py` — `compute_persistent_homology(...,
-  device="cpu"|"gpu"|"auto")`.
-- `test/python/persistence/test_ripser_plusplus.py` — 8 correctness tests.
-
-### Where to pick up (Phase 3 C)
-
-`include/mpcf/persistence/compute_persistence.hpp` around the
-`RipserPlusPlusTask<T>::run_async` method. Currently:
-
-```cpp
-tf::Taskflow flow;
-flow.emplace([this]() {
-  walk(m_input, [this](const std::vector<size_t>& index) {
-    if (stop_requested()) return;
-    process_item(index);  // always GPU path
-    add_progress(1);
-  });
-});
-return exec.cpu()->run(std::move(flow));
-```
-
-Target shape: N CPU workers + M GPU workers, shared atomic counter,
-`try { process_item_gpu(i) } catch (mpcf::cuda_error& e) { if OOM
-process_item_cpu(i) else rethrow }`. The CPU path can factor out of
-`detail::compute_persistence_euclidean_single_impl`.
+  device="cpu"|"gpu"|"auto")`. Distmat branch currently ignores `device=`
+  — remove that limitation as part of ship-minimum item #3.
+- `masspcf/system.py` — `limit_gpus(n)`, `limit_gpu_concurrency(n)`.
+- `test/python/persistence/test_ripser_plusplus.py` — correctness tests
+  (add multi-GPU gated test + live-OOM test here).
+- `test/test_gpu_memory_scheduler.cu` — gtest for scheduler internals.
+- `benchmarks/bench_ph_hybrid.py`, `benchmarks/profile_real.py` — the
+  hybrid-path benchmark and NVTX-scoped profiling driver.

@@ -234,11 +234,15 @@ namespace mpcf::ph
   /// otherwise it runs on the CPU Ripser path. On a device OOM the
   /// scheduler's per-GPU cost factor is bumped (AIMD backoff) and the
   /// item falls back to CPU rather than aborting the whole batch.
-  template <typename T>
-  class RipserPlusPlusTask : public StoppableTask<void>
+  ///
+  /// ElemT is either PointCloud<T> (Euclidean pcloud input) or
+  /// DistanceMatrix<T> (precomputed dense distances). Sparse inputs
+  /// are not supported on either backend.
+  template <typename ElemT, typename T>
+  class RipserPlusPlusTaskImpl : public StoppableTask<void>
   {
   public:
-    RipserPlusPlusTask(const Tensor<PointCloud<T>>& input, Tensor<Barcode<T>>& ret, size_t maxDim = 1, bool reducedHomology = false)
+    RipserPlusPlusTaskImpl(const Tensor<ElemT>& input, Tensor<Barcode<T>>& ret, size_t maxDim = 1, bool reducedHomology = false)
       : m_input(input), m_ret(ret), m_maxDim(maxDim), m_reducedHomology(reducedHomology)
     { }
 
@@ -296,22 +300,30 @@ namespace mpcf::ph
       }, exec);
     }
 
+    static size_t item_size(const PointCloud<T>& pc)
+    {
+      if (pc.rank() == 0 ||
+          std::any_of(pc.shape().begin(), pc.shape().end(), [](size_t v){ return v == 0; }))
+      {
+        return 0;
+      }
+      if (pc.rank() != 2)
+      {
+        throw std::runtime_error("Point cloud has unexpected shape " +
+                                 shape_to_string(pc.shape()) + " (should be (m, n))");
+      }
+      return pc.shape(0);
+    }
+
+    static size_t item_size(const DistanceMatrix<T>& dm)
+    {
+      return dm.size();
+    }
+
     void dispatch_item(const std::vector<size_t>& index)
     {
-      const auto& points = m_input(index);
-      if (points.rank() == 0 ||
-          std::any_of(points.shape().begin(), points.shape().end(), [](size_t v){ return v == 0; }))
-      {
-        process_item_cpu(index);
-        return;
-      }
-      if (points.rank() != 2)
-      {
-        throw std::runtime_error("Point cloud at index " + index_to_string(index) + " has unexpected shape " +
-                                 shape_to_string(points.shape()) + " (should be (m, n))");
-      }
-
-      const size_t n = points.shape(0);
+      const auto& elem = m_input(index);
+      const size_t n = item_size(elem);
       if (n <= 1)
       {
         process_item_cpu(index);
@@ -366,12 +378,28 @@ namespace mpcf::ph
       // res auto-releases on scope exit.
     }
 
+    static void gpu_compute_barcodes(const PointCloud<T>& pc, std::size_t maxDim,
+                                     std::vector<std::vector<PersistencePair<T>>>& bars,
+                                     mpcf::Executor& exec, ripserpp::Diagnostics& diag,
+                                     bool parallel_inner)
+    {
+      ripserpp::compute_barcodes_pcloud<T>(pc, maxDim, bars, exec, &diag, parallel_inner);
+    }
+
+    static void gpu_compute_barcodes(const DistanceMatrix<T>& dm, std::size_t maxDim,
+                                     std::vector<std::vector<PersistencePair<T>>>& bars,
+                                     mpcf::Executor& exec, ripserpp::Diagnostics& diag,
+                                     bool parallel_inner)
+    {
+      ripserpp::compute_barcodes_distmat<T>(dm, maxDim, bars, exec, &diag, parallel_inner);
+    }
+
     // Returns the per-item Ripser++ diagnostics (embedded-planner
     // fallback flag, actual gpu_max_dim run). Using the struct rather
     // than a bool keeps the polarity explicit at every caller.
     ripserpp::Diagnostics process_item_gpu(const std::vector<size_t>& index)
     {
-      const auto& points = m_input(index);
+      const auto& elem = m_input(index);
       std::vector<std::vector<PersistencePair<T>>> bars;
       ripserpp::Diagnostics diag;
       // Inner parallelism (ripser++'s own parallel-for loops) helps
@@ -386,7 +414,7 @@ namespace mpcf::ph
       // "A few items" relative to the pool: at most hw/4 in flight
       // keeps each one with ~4+ inner threads.
       const bool parallel_inner = (m_input.size() <= std::max<std::size_t>(hw / 4, 1));
-      ripserpp::compute_barcodes_pcloud<T>(points, m_maxDim, bars, *m_exec, &diag, parallel_inner);
+      gpu_compute_barcodes(elem, m_maxDim, bars, *m_exec, diag, parallel_inner);
 
       for (size_t k = 0; k < bars.size(); ++k)
       {
@@ -411,16 +439,25 @@ namespace mpcf::ph
       // nonzero, mirroring parallel_walk_async's original shape).
       std::vector<size_t> retIdx = index;
       retIdx.emplace_back(0);
-      detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
+      if constexpr (std::is_same_v<ElemT, PointCloud<T>>)
+        detail::compute_persistence_euclidean_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
+      else
+        detail::compute_persistence_distmat_single_impl(m_input, m_ret, m_maxDim, retIdx, m_reducedHomology);
     }
 
-    const Tensor<PointCloud<T>>& m_input;
+    const Tensor<ElemT>& m_input;
     Tensor<Barcode<T>>& m_ret;
     size_t m_maxDim;
     bool m_reducedHomology;
     Executor* m_exec = nullptr;
     std::unique_ptr<mpcf::GpuMemoryScheduler> m_sched;
   };
+
+  template <typename T>
+  using RipserPlusPlusTask = RipserPlusPlusTaskImpl<PointCloud<T>, T>;
+
+  template <typename T>
+  using RipserPlusPlusDistMatTask = RipserPlusPlusTaskImpl<DistanceMatrix<T>, T>;
 #endif // BUILD_WITH_CUDA
 }
 

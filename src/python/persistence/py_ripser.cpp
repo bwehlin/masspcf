@@ -44,6 +44,11 @@ namespace
     {
       return mpcf_py::execute_stoppable_task<mpcf::ph::RipserPlusPlusTask<T>>(pclouds, out, maxDim, reducedHomology);
     }
+
+    static std::unique_ptr<mpcf::StoppableTask<void>> spawn_ripser_plusplus_distmat_task(const mpcf::Tensor<mpcf::DistanceMatrix<T>>& dmats, mpcf::Tensor<mpcf::ph::Barcode<T>>& out, size_t maxDim, bool reducedHomology)
+    {
+      return mpcf_py::execute_stoppable_task<mpcf::ph::RipserPlusPlusDistMatTask<T>>(dmats, out, maxDim, reducedHomology);
+    }
 #endif
 
     static void register_bindings(py::module_& m, const std::string& suffix)
@@ -55,6 +60,8 @@ namespace
 #ifdef BUILD_WITH_CUDA
       cls.def_static("spawn_ripser_plusplus_pcloud_euclidean_task",
                      &PyRipserBindings::spawn_ripser_plusplus_pcloud_euclidean_task);
+      cls.def_static("spawn_ripser_plusplus_distmat_task",
+                     &PyRipserBindings::spawn_ripser_plusplus_distmat_task);
 #endif
     }
   };

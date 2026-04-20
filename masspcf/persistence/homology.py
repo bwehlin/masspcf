@@ -55,7 +55,7 @@ def compute_persistent_homology(
     complex_type: ComplexType = ComplexType.VietorisRips,
     reduced: bool = False,
     verbose: bool = False,
-    device: str = "cpu",
+    device: str = "auto",
 ) -> BarcodeTensor:
     r"""Compute persistent homology of a point cloud or distance matrix.
 
@@ -91,11 +91,12 @@ def compute_persistent_homology(
     verbose : bool, optional
         Show progress information, by default False.
     device : str, optional
-        Where to run the Rips computation on point-cloud input:
-        ``"cpu"`` (default) uses Ripser; ``"gpu"`` uses the
-        GPU-accelerated Ripser++ port (requires the CUDA backend);
-        ``"auto"`` picks GPU when the CUDA backend is loaded and falls
-        back to CPU otherwise. Ignored for distance-matrix input.
+        Where to run the Rips computation. ``"auto"`` (default) picks
+        GPU when the CUDA backend is loaded and falls back to CPU
+        otherwise. ``"cpu"`` forces the CPU Ripser path; ``"gpu"``
+        forces the GPU-accelerated Ripser++ port and raises if no
+        CUDA backend is available. Applies to both point-cloud and
+        distance-matrix inputs.
 
     Returns
     -------
@@ -107,10 +108,20 @@ def compute_persistent_homology(
     from ..tensor_create import zeros
     from .ripser import (
         _compute_barcodes_distmat_ripser,
+        _compute_barcodes_distmat_ripser_plusplus,
         _compute_barcodes_euclidean_pcloud_ripser,
         _compute_barcodes_euclidean_pcloud_ripser_plusplus,
         _ripser_plusplus_available,
     )
+
+    if device not in ("cpu", "gpu", "auto"):
+        raise ValueError(f"device must be 'cpu', 'gpu', or 'auto'; got {device!r}")
+
+    use_gpu = device == "gpu" or (device == "auto" and _ripser_plusplus_available())
+    if use_gpu and not _ripser_plusplus_available():
+        raise RuntimeError(
+            "device='gpu' requires the CUDA backend; no Ripser++ implementation is available."
+        )
 
     # --- Distance matrix input path ---
     if isinstance(X, (DistanceMatrix, DistanceMatrixTensor)):
@@ -129,7 +140,10 @@ def compute_persistent_homology(
         if complex_type != ComplexType.VietorisRips:
             raise ValueError(f"Unsupported complex type {complex_type}")
 
-        task = _compute_barcodes_distmat_ripser(X, out, max_dim, reduced)
+        if use_gpu:
+            task = _compute_barcodes_distmat_ripser_plusplus(X, out, max_dim, reduced)
+        else:
+            task = _compute_barcodes_distmat_ripser(X, out, max_dim, reduced)
         _run_task(lambda: task, verbose=verbose)
 
         if len(out.shape) == 2 and out.shape[0] == 1:
@@ -153,15 +167,6 @@ def compute_persistent_homology(
         out = zeros((1,), dtype=barcode_dtype)
 
     if complex_type == ComplexType.VietorisRips:
-        if device not in ("cpu", "gpu", "auto"):
-            raise ValueError(f"device must be 'cpu', 'gpu', or 'auto'; got {device!r}")
-
-        use_gpu = device == "gpu" or (device == "auto" and _ripser_plusplus_available())
-        if use_gpu and not _ripser_plusplus_available():
-            raise RuntimeError(
-                "device='gpu' requires the CUDA backend; no Ripser++ implementation is available."
-            )
-
         match distance_type:
             case DistanceType.Euclidean:
                 if use_gpu:

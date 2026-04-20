@@ -139,3 +139,72 @@ def test_ripser_plusplus_device_invalid_raises():
     X = _rectangle_point_cloud()
     with pytest.raises(ValueError):
         mpers.compute_persistent_homology(X, max_dim=1, device="tpu")
+
+
+def _cuda_device_count():
+    from masspcf import _mpcf_cpp as cpp
+    get_ngpus = getattr(cpp, "get_ngpus", None)
+    return int(get_ngpus()) if get_ngpus is not None else 0
+
+
+@pytest.mark.skipif(
+    _cuda_device_count() < 2,
+    reason="multi-GPU correctness test requires >= 2 visible CUDA devices",
+)
+def test_ripser_plusplus_multi_gpu_matches_cpu():
+    # Batch sized to let First-Fit spread items across both GPUs while
+    # each item is small enough to finish quickly even on modest hardware.
+    rng = np.random.default_rng(2026)
+    n_items, n_points = 16, 120
+
+    X = mpcf.zeros((n_items,), dtype=mpcf.pcloud32)
+    for i in range(n_items):
+        X[i] = rng.standard_normal((n_points, 3)).astype(np.float32)
+
+    from masspcf import _mpcf_cpp as cpp
+    cpp.reset_last_gpu_scheduler_stats()
+
+    Y_gpu = mpers.compute_persistent_homology(X, max_dim=1, device="gpu")
+    Y_cpu = mpers.compute_persistent_homology(X, max_dim=1, device="cpu")
+
+    for i in range(n_items):
+        for k in range(2):
+            assert Y_cpu[i, k].is_isomorphic_to(
+                Y_gpu[i, k], atol=_ATOL, rtol=_RTOL
+            ), f"item {i} H{k} mismatch"
+
+    stats = dict(cpp.get_last_gpu_scheduler_stats())
+    assert stats["num_gpus"] >= 2, stats
+    assert stats["total_admitted"] >= 1, stats
+
+
+def test_ripser_plusplus_oom_falls_back_to_cpu():
+    # Shrink the scheduler budget so far that the cost estimate for
+    # even a tiny cloud exceeds it, forcing the hybrid dispatcher to
+    # route every item to CPU. Validates the user-facing contract that
+    # device="gpu" always returns correct barcodes even when the GPU
+    # cannot actually host the work -- the scheduler-refusal and real
+    # cudaErrorMemoryAllocation paths both funnel into the same
+    # process_item_cpu fallback. True cudaMalloc OOM is additionally
+    # covered by the scheduler gtest's simulated-OOM cases.
+    from masspcf import _mpcf_cpp as cpp
+    import masspcf.system as msys
+
+    rng = np.random.default_rng(7)
+    X = rng.standard_normal((60, 3)).astype(np.float32)
+
+    bcs_cpu = mpers.compute_persistent_homology(X, max_dim=1, device="cpu")
+
+    cpp.reset_last_gpu_scheduler_stats()
+    msys.set_gpu_budget_fraction(1e-9)
+    try:
+        bcs_gpu = mpers.compute_persistent_homology(X, max_dim=1, device="gpu")
+    finally:
+        msys.set_gpu_budget_fraction(0.6)
+
+    assert bcs_cpu[0].is_isomorphic_to(bcs_gpu[0], atol=_ATOL, rtol=_RTOL)
+    assert bcs_cpu[1].is_isomorphic_to(bcs_gpu[1], atol=_ATOL, rtol=_RTOL)
+
+    stats = dict(cpp.get_last_gpu_scheduler_stats())
+    assert stats["total_failed_no_room"] >= 1, stats
+    assert stats["total_admitted"] == 0, stats

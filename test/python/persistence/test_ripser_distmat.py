@@ -13,10 +13,12 @@
 #  limitations under the License.
 
 import numpy as np
+import pytest
 from scipy.spatial.distance import pdist, squareform
 
 import masspcf as mpcf
 import masspcf.persistence as mpers
+from masspcf.persistence.ripser import _ripser_plusplus_available
 
 
 def _points_to_distmat(points, dtype):
@@ -89,7 +91,11 @@ def test_distmat_tensor_matches_point_cloud():
 
     for i in range(3):
         for k in range(2):
-            assert bcs_dm[i, k].is_isomorphic_to(bcs_pc[i, k])
+            # Tolerance absorbs the float32 internal precision of the
+            # GPU Ripser++ path (default device="auto" when CUDA is
+            # loaded); the CPU path is exact, but either side may be
+            # selected.
+            assert bcs_dm[i, k].is_isomorphic_to(bcs_pc[i, k], atol=1e-5, rtol=1e-5)
 
 
 def test_distmat_reduced_homology():
@@ -111,3 +117,75 @@ def test_distmat_reduced_homology():
 
     # H1 should be the same
     assert bcs_unreduced[1].is_isomorphic_to(bcs_reduced[1])
+
+
+_GPU_ATOL = 1e-5
+_GPU_RTOL = 1e-5
+
+
+@pytest.mark.skipif(
+    not _ripser_plusplus_available(),
+    reason="Ripser++ requires the CUDA backend",
+)
+def test_distmat_gpu_matches_cpu_single():
+    from masspcf import _mpcf_cpp as cpp
+
+    rng = np.random.default_rng(11)
+    points = rng.standard_normal((25, 3))
+
+    dm = _points_to_distmat(points, mpcf.float64)
+
+    bcs_cpu = mpers.compute_persistent_homology(dm, max_dim=1, device="cpu")
+
+    cpp.reset_last_gpu_scheduler_stats()
+    bcs_gpu = mpers.compute_persistent_homology(dm, max_dim=1, device="gpu")
+
+    stats = dict(cpp.get_last_gpu_scheduler_stats())
+    assert stats["total_admitted"] >= 1, stats  # Proves GPU actually ran
+
+    assert bcs_gpu.dtype == bcs_cpu.dtype
+    for k in range(2):
+        assert bcs_cpu[k].is_isomorphic_to(
+            bcs_gpu[k], atol=_GPU_ATOL, rtol=_GPU_RTOL
+        )
+
+
+@pytest.mark.skipif(
+    not _ripser_plusplus_available(),
+    reason="Ripser++ requires the CUDA backend",
+)
+def test_distmat_gpu_matches_cpu_tensor():
+    rng = np.random.default_rng(12)
+    dmats = mpcf.zeros((3,), dtype=mpcf.distmat32)
+    for i in range(3):
+        pts = rng.standard_normal((15, 2)).astype(np.float32)
+        dmats[i] = _points_to_distmat(pts, mpcf.float32)
+
+    bcs_cpu = mpers.compute_persistent_homology(dmats, max_dim=1, device="cpu")
+    bcs_gpu = mpers.compute_persistent_homology(dmats, max_dim=1, device="gpu")
+
+    assert bcs_gpu.shape == bcs_cpu.shape
+    for i in range(3):
+        for k in range(2):
+            assert bcs_cpu[i, k].is_isomorphic_to(
+                bcs_gpu[i, k], atol=_GPU_ATOL, rtol=_GPU_RTOL
+            )
+
+
+@pytest.mark.skipif(
+    not _ripser_plusplus_available(),
+    reason="Ripser++ requires the CUDA backend",
+)
+def test_distmat_gpu_equivalent_to_pcloud_gpu():
+    rng = np.random.default_rng(13)
+    pts = rng.standard_normal((20, 3)).astype(np.float32)
+
+    dm = _points_to_distmat(pts, mpcf.float32)
+
+    bcs_pc = mpers.compute_persistent_homology(pts.astype(np.float32), max_dim=1, device="gpu")
+    bcs_dm = mpers.compute_persistent_homology(dm, max_dim=1, device="gpu")
+
+    for k in range(2):
+        assert bcs_pc[k].is_isomorphic_to(
+            bcs_dm[k], atol=_GPU_ATOL, rtol=_GPU_RTOL
+        )

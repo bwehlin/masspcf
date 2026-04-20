@@ -130,6 +130,54 @@ The function supports the following options:
 - ``complex_type`` -- The simplicial complex construction. Currently only ``ComplexType.VietorisRips`` (the default).
 - ``reduced`` -- If ``True``, compute reduced homology. If ``False`` (the default), an essential ``[0, inf)`` bar is added to :math:`H_0` representing the single connected component that never dies. This matches the convention used by most TDA textbooks.
 - ``verbose`` -- Print progress information (default ``False``).
+- ``device`` -- Where to run the Rips computation: ``"auto"`` (default) picks GPU when a CUDA backend is loaded and falls back to CPU otherwise; ``"cpu"`` forces the CPU Ripser path; ``"gpu"`` forces the GPU-accelerated Ripser++ port. See :ref:`persistence-gpu` below.
+
+
+.. _persistence-gpu:
+
+GPU acceleration
+================
+
+masspcf ships a GPU-accelerated Ripser++ backend alongside the CPU Ripser path. Both point-cloud and distance-matrix inputs are supported; sparse distance matrices are not yet supported on either backend.
+
+Enabling the GPU path
+---------------------
+
+The default ``device="auto"`` picks GPU when a CUDA backend is loaded and
+falls back to CPU otherwise, so most users do not need to set ``device=``
+at all::
+
+   # Uses GPU if available, CPU otherwise
+   bcs = mpers.compute_persistent_homology(pclouds, max_dim=1)
+
+   # Also works with precomputed distances
+   bcs = mpers.compute_persistent_homology(dmats, max_dim=1)
+
+Pass ``device="gpu"`` to force the GPU path and raise if the CUDA backend
+is unavailable, or ``device="cpu"`` to pin execution to CPU Ripser.
+
+Batch dispatch and hybrid CPU/GPU execution
+-------------------------------------------
+
+When the input contains multiple point clouds or distance matrices, masspcf dispatches items in parallel. For each item, a :py:class:`GpuMemoryScheduler` tries to reserve a slot on some visible GPU; on success the item runs on that device through Ripser++, otherwise it runs on the CPU Ripser path. This means a batch can progress on CPU and GPU concurrently, and individual items that are too large to fit the GPU automatically fall back to CPU rather than failing the whole batch.
+
+Automatic fallback covers three cases:
+
+- The scheduler estimates the item will not fit the per-GPU memory budget.
+- Ripser++'s internal memory planner lowers the effective ``max_dim`` for an item; the per-GPU cost estimate is bumped (AIMD) for subsequent admissions.
+- A real ``cudaMalloc`` failure mid-item: the item is rerun on the CPU path.
+
+All three paths produce correct barcodes.
+
+Runtime knobs
+-------------
+
+The following :py:mod:`masspcf.system` functions configure the hybrid dispatcher:
+
+- :py:func:`~masspcf.system.limit_gpus` -- restrict the set of visible GPUs.
+- :py:func:`~masspcf.system.limit_gpu_concurrency` -- cap the number of concurrent GPU jobs across all devices (``0`` for no cap, the default).
+- :py:func:`~masspcf.system.set_gpu_budget_fraction` -- fraction of free GPU memory the scheduler reserves as its admission budget (default ``0.6``).
+- :py:func:`~masspcf.system.set_hybrid_gpu_queue_on_busy` -- when a GPU slot is unavailable, wait for one rather than falling back to CPU. Useful at ``max_dim >= 2`` where GPU speed dominates.
 
 
 Step 3: Functional summaries

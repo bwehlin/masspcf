@@ -3463,227 +3463,6 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         free(h_simplices);
     }
 }
-///I/O code
-
-enum file_format { LOWER_DISTANCE_MATRIX, DISTANCE_MATRIX, POINT_CLOUD, DIPHA, SPARSE, BINARY };
-
-template <typename T> T read(std::istream& s) {
-    T result;
-    s.read(reinterpret_cast<char*>(&result), sizeof(T));
-    return result; // on little endian: boost::endian::little_to_native(result);
-}
-compressed_lower_distance_matrix read_point_cloud_python(value_t* matrix, int num_rows, int num_columns){
-    std::vector<std::vector<value_t>> points;
-    for(int i= 0; i < num_rows; i++) {
-        std::vector <value_t> point;
-        for (int j= 0; j < num_columns; j++) {
-            point.push_back(matrix[i * num_columns + j]);
-        }
-        if (!point.empty()) {
-            points.push_back(point);
-        }
-        assert(point.size() == points.front().size());
-    }
-    //only l2 distance implemented so far
-    euclidean_distance_matrix eucl_dist(std::move(points));
-
-    index_t n= eucl_dist.size();
-#ifdef COUNTING
-    std::cout << "point cloud with " << n << " points in dimension "
-                  << eucl_dist.points.front().size() << std::endl;
-#endif
-    std::vector<value_t> distances;
-
-    for (int i= 0; i < n; ++i)
-        for (int j= 0; j < i; ++j) distances.push_back(eucl_dist(i, j));
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_point_cloud(std::istream& input_stream) {
-    std::vector<std::vector<value_t>> points;
-
-    std::string line;
-    value_t value;
-    while (std::getline(input_stream, line)) {
-        std::vector<value_t> point;
-        std::istringstream s(line);
-        while (s >> value) {
-            point.push_back(value);
-            s.ignore();
-        }
-        if (!point.empty()) points.push_back(point);
-        assert(point.size() == points.front().size());
-    }
-
-    euclidean_distance_matrix eucl_dist(std::move(points));
-
-    index_t n= eucl_dist.size();
-#ifdef COUNTING
-    std::cout << "point cloud with " << n << " points in dimension "
-              << eucl_dist.points.front().size() << std::endl;
-#endif
-    std::vector<value_t> distances;
-
-    for (int i= 0; i < n; ++i)
-        for (int j= 0; j < i; ++j) distances.push_back(eucl_dist(i, j));
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-//the coo format input is of a lower triangular matrix
-sparse_distance_matrix read_sparse_distance_matrix(std::istream& input_stream) {
-    std::vector<std::vector<index_diameter_t_struct>> neighbors;
-    index_t num_edges= 0;
-
-    std::string line;
-    while (std::getline(input_stream, line)) {
-        std::istringstream s(line);
-        size_t i, j;
-        value_t value;
-        s >> i;
-        s >> j;
-        s >> value;
-        if (i != j) {
-            neighbors.resize(std::max({neighbors.size(), i + 1, j + 1}));
-            neighbors[i].push_back({(index_t) j, value});
-            neighbors[j].push_back({(index_t) i, value});
-            ++num_edges;
-        }
-    }
-
-    struct lowerindex_lowerdiameter_index_t_struct_compare cmp_index_diameter;
-
-    for (size_t i= 0; i < neighbors.size(); ++i)
-        std::sort(neighbors[i].begin(), neighbors[i].end(), cmp_index_diameter);
-
-    return sparse_distance_matrix(std::move(neighbors), num_edges);
-}
-sparse_distance_matrix read_sparse_distance_matrix_python(value_t* matrix, int matrix_length){
-    std::vector<std::vector<index_diameter_t_struct>> neighbors;
-    index_t num_edges= 0;
-
-    for(index_t k = 0; k < matrix_length; k+=3){
-        size_t i, j;
-        value_t value;
-        i = matrix[k];
-        j = matrix[k+1];
-        value = matrix[k+2];
-        if (i != j) {
-            neighbors.resize(std::max({neighbors.size(), i + 1, j + 1}));
-            neighbors[i].push_back({(index_t) j, value});
-            neighbors[j].push_back({(index_t) i, value});
-            ++num_edges;
-        }
-    }
-
-    struct lowerindex_lowerdiameter_index_t_struct_compare cmp_index_diameter;
-
-    for (size_t i= 0; i < neighbors.size(); ++i)
-        std::sort(neighbors[i].begin(), neighbors[i].end(), cmp_index_diameter);
-
-    return sparse_distance_matrix(std::move(neighbors), num_edges);
-}
-compressed_lower_distance_matrix read_lower_distance_matrix_python(value_t* matrix, int matrix_length) {
-
-    std::vector<value_t> distances(matrix, matrix + matrix_length);
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_lower_distance_matrix(std::istream& input_stream) {
-    std::vector<value_t> distances;
-    value_t value;
-    while (input_stream >> value) {
-        distances.push_back(value);
-        input_stream.ignore();
-    }
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_distance_matrix_python(value_t* matrix, int matrix_length) {
-
-    std::vector<value_t> distances(matrix, matrix + matrix_length);
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_distance_matrix(std::istream& input_stream) {
-    std::vector<value_t> distances;
-
-    std::string line;
-    value_t value;
-    for (int i= 0; std::getline(input_stream, line); ++i) {
-        std::istringstream s(line);
-        for (int j= 0; j < i && s >> value; ++j) {
-            distances.push_back(value);
-            s.ignore();
-        }
-    }
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_dipha(std::istream& input_stream) {
-    if (read<int64_t>(input_stream) != 8067171840) {
-        std::cerr << "input is not a Dipha file (magic number: 8067171840)" << std::endl;
-        throw std::runtime_error("ripser++: input format error");
-    }
-
-    if (read<int64_t>(input_stream) != 7) {
-        std::cerr << "input is not a Dipha distance matrix (file type: 7)" << std::endl;
-        throw std::runtime_error("ripser++: input format error");
-    }
-
-    index_t n= read<int64_t>(input_stream);
-
-    std::vector<value_t> distances;
-
-    for (int i= 0; i < n; ++i)
-        for (int j= 0; j < n; ++j)
-            if (i > j)
-                distances.push_back(read<double>(input_stream));
-            else
-                read<double>(input_stream);
-
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_binary(std::istream& input_stream) {
-    std::vector<value_t> distances;
-    while (!input_stream.eof()) distances.push_back(read<value_t>(input_stream));
-    return compressed_lower_distance_matrix(std::move(distances));
-}
-
-compressed_lower_distance_matrix read_matrix_python(value_t* matrix, int num_entries, int num_rows, int num_columns, file_format format) {
-    switch (format) {
-        case LOWER_DISTANCE_MATRIX:
-            return read_lower_distance_matrix_python(matrix, num_entries);
-        case DISTANCE_MATRIX://assume that the distance matrix has been changed into lower_distance matrix format
-            return read_distance_matrix_python(matrix, num_entries);
-        case POINT_CLOUD:
-            return read_point_cloud_python(matrix, num_rows, num_columns);
-    }
-    std::cerr<<"unsupported input file format for python interface"<<std::endl;
-    throw std::runtime_error("ripser++: input format error");
-}
-
-compressed_lower_distance_matrix read_file(std::istream& input_stream, file_format format) {
-    switch (format) {
-        case LOWER_DISTANCE_MATRIX:
-            return read_lower_distance_matrix(input_stream);
-        case DISTANCE_MATRIX:
-            return read_distance_matrix(input_stream);
-        case POINT_CLOUD:
-            return read_point_cloud(input_stream);
-        case DIPHA:
-            return read_dipha(input_stream);
-        default:
-            return read_binary(input_stream);
-    }
-    std::cerr<<"unsupported input file format"<<std::endl;
-}
 
 // -----------------------------------------------------------------------------
 // mpcf facade: compute_barcodes_pcloud
@@ -3824,6 +3603,41 @@ namespace mpcf::ph::ripserpp
     }
   }
 
+  namespace
+  {
+    template <typename T>
+    void run_and_extract(
+        compressed_lower_distance_matrix&& dist,
+        std::size_t maxDim,
+        std::vector<std::vector<PersistencePair<T>>>& out,
+        mpcf::Executor& exec,
+        Diagnostics* diag,
+        bool parallel_inner_loops)
+    {
+      const value_t threshold = enclosing_radius(dist);
+      const index_t dim_max = static_cast<index_t>(maxDim);
+
+      std::vector<std::vector<birth_death_coordinate>> raw_bars(dim_max + 1);
+      ripser<compressed_lower_distance_matrix> r(
+          std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec,
+          parallel_inner_loops);
+      r.compute_barcodes();
+
+      if (diag) {
+        diag->upstream_cpu_fallback = r.upstream_cpu_fallback();
+        diag->gpu_max_dim = static_cast<std::size_t>(r.gpu_max_dim());
+      }
+
+      for (std::size_t k = 0; k < raw_bars.size() && k < out.size(); ++k) {
+        auto& bars = out[k];
+        bars.reserve(raw_bars[k].size());
+        for (const auto& bd : raw_bars[k]) {
+          bars.emplace_back(static_cast<T>(bd.birth), static_cast<T>(bd.death));
+        }
+      }
+    }
+  }
+
   template <typename T>
   void compute_barcodes_pcloud(
       const PointCloud<T>& points,
@@ -3841,28 +3655,41 @@ namespace mpcf::ph::ripserpp
       return;
     }
 
-    auto dist = build_distance_matrix(points);
-    const value_t threshold = enclosing_radius(dist);
-    const index_t dim_max = static_cast<index_t>(maxDim);
+    run_and_extract<T>(build_distance_matrix(points), maxDim, out, exec, diag,
+                       parallel_inner_loops);
+  }
 
-    std::vector<std::vector<birth_death_coordinate>> raw_bars(dim_max + 1);
-    ripser<compressed_lower_distance_matrix> r(
-        std::move(dist), dim_max, threshold, /*ratio=*/1.0f, raw_bars, exec,
-        parallel_inner_loops);
-    r.compute_barcodes();
+  template <typename T>
+  void compute_barcodes_distmat(
+      const DistanceMatrix<T>& dmat,
+      std::size_t maxDim,
+      std::vector<std::vector<PersistencePair<T>>>& out,
+      mpcf::Executor& exec,
+      Diagnostics* diag,
+      bool parallel_inner_loops)
+  {
+    out.assign(maxDim + 1, {});
+    if (diag) *diag = Diagnostics{};
 
-    if (diag) {
-      diag->upstream_cpu_fallback = r.upstream_cpu_fallback();
-      diag->gpu_max_dim = static_cast<std::size_t>(r.gpu_max_dim());
+    const auto n = dmat.size();
+    if (n <= 1) {
+      return;
     }
 
-    for (std::size_t k = 0; k < raw_bars.size() && k < out.size(); ++k) {
-      auto& bars = out[k];
-      bars.reserve(raw_bars[k].size());
-      for (const auto& bd : raw_bars[k]) {
-        bars.emplace_back(static_cast<T>(bd.birth), static_cast<T>(bd.death));
-      }
+    // mpcf::DistanceMatrix uses the same packed lower-triangular layout
+    // as ripser++'s compressed_lower_distance_matrix:
+    //   index(i, j) = max(i, j) * (max(i, j) - 1) / 2 + min(i, j).
+    // For T = float we could memcpy; we cast elementwise to keep the
+    // path simple and support both float and double inputs uniformly.
+    std::vector<value_t> distances(n * (n - 1) / 2);
+    const T* src = dmat.data();
+    for (std::size_t k = 0; k < distances.size(); ++k) {
+      distances[k] = static_cast<value_t>(src[k]);
     }
+
+    run_and_extract<T>(
+        compressed_lower_distance_matrix(std::move(distances)),
+        maxDim, out, exec, diag, parallel_inner_loops);
   }
 
   template void compute_barcodes_pcloud<float>(const PointCloud<float>&, std::size_t,
@@ -3871,5 +3698,12 @@ namespace mpcf::ph::ripserpp
   template void compute_barcodes_pcloud<double>(const PointCloud<double>&, std::size_t,
                                                 std::vector<std::vector<PersistencePair<double>>>&,
                                                 mpcf::Executor&, Diagnostics*, bool);
+
+  template void compute_barcodes_distmat<float>(const DistanceMatrix<float>&, std::size_t,
+                                                std::vector<std::vector<PersistencePair<float>>>&,
+                                                mpcf::Executor&, Diagnostics*, bool);
+  template void compute_barcodes_distmat<double>(const DistanceMatrix<double>&, std::size_t,
+                                                 std::vector<std::vector<PersistencePair<double>>>&,
+                                                 mpcf::Executor&, Diagnostics*, bool);
 }
 
