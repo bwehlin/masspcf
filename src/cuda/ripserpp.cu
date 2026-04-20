@@ -2463,28 +2463,48 @@ void ripser<compressed_lower_distance_matrix>::gpu_compute_dim_0_pairs(std::vect
     std::cout << "persistence intervals in dim 0:" << std::endl;
 #endif
 
+    // Kruskal walk over edges sorted ascending by diameter. Each edge
+    // either grows the spanning forest (link) or closes a cycle and
+    // becomes a dim-1 column to reduce. Once n-1 unions have happened
+    // the forest is one tree, so every remaining edge is a cycle edge
+    // and we can bulk-append the rest without further find/link or
+    // simplex-vertex unpacking. For dense workloads where the filter
+    // only mildly trims edges this skips ~99% of the loop work.
+    columns_to_reduce.reserve(static_cast<std::size_t>(*h_num_columns_to_reduce));
     std::vector<index_t> vertices_of_edge(2);
-    for(index_t idx=0; idx<*h_num_columns_to_reduce; idx++){
-        struct diameter_index_t_struct e= h_columns_to_reduce[idx];
+    const index_t target_unions = n - 1;
+    index_t unions_done = 0;
+    index_t idx = 0;
+    for (; idx < *h_num_columns_to_reduce && unions_done < target_unions; ++idx) {
+        struct diameter_index_t_struct e = h_columns_to_reduce[idx];
         vertices_of_edge.clear();
         get_simplex_vertices(e.index, 1, n, std::back_inserter(vertices_of_edge));
-        index_t u= dset.find(vertices_of_edge[0]), v= dset.find(vertices_of_edge[1]);
+        index_t u = dset.find(vertices_of_edge[0]), v = dset.find(vertices_of_edge[1]);
 
         if (u != v) {
 #if defined(PRINT_PERSISTENCE_PAIRS) || defined(PYTHON_BARCODE_COLLECTION)
             //remove paired destroyer columns (we compute cohomology)
-            if(e.diameter!=0) {
+            if (e.diameter != 0) {
 #ifdef PRINT_PERSISTENCE_PAIRS
                 std::cout << " [0," << e.diameter << ")" << std::endl;
 #endif
-                birth_death_coordinate barcode = {0,e.diameter};
+                birth_death_coordinate barcode = {0, e.diameter};
                 barcodes_out[0].push_back(barcode);
             }
 #endif
             dset.link(u, v);
+            ++unions_done;
         } else {
             columns_to_reduce.push_back(e);
         }
+    }
+    // Spanning forest closed (or input exhausted). Any remaining
+    // edges have endpoints already in the same component, so they all
+    // become cycle (dim-1) columns; bulk-append without per-edge work.
+    if (idx < *h_num_columns_to_reduce) {
+        columns_to_reduce.insert(columns_to_reduce.end(),
+                                 h_columns_to_reduce + idx,
+                                 h_columns_to_reduce + *h_num_columns_to_reduce);
     }
     std::reverse(columns_to_reduce.begin(), columns_to_reduce.end());
     //don't want to reverse the h_columns_to_reduce so just put into vector and copy later
@@ -2545,27 +2565,40 @@ void ripser<sparse_distance_matrix>::gpu_compute_dim_0_pairs(std::vector<struct 
 #endif
 
 
+    // See dense path for early-termination rationale: once the
+    // spanning forest spans all n vertices, every later edge in the
+    // diameter-sorted list closes a cycle and can be bulk-appended.
+    columns_to_reduce.reserve(static_cast<std::size_t>(*h_num_simplices));
     std::vector<index_t> vertices_of_edge(2);
-    for(index_t idx=0; idx<*h_num_simplices; idx++){
-        struct diameter_index_t_struct e= h_simplices[idx];
+    const index_t target_unions = n - 1;
+    index_t unions_done = 0;
+    index_t idx = 0;
+    for (; idx < *h_num_simplices && unions_done < target_unions; ++idx) {
+        struct diameter_index_t_struct e = h_simplices[idx];
         vertices_of_edge.clear();
         get_simplex_vertices(e.index, 1, n, std::back_inserter(vertices_of_edge));
-        index_t u= dset.find(vertices_of_edge[0]), v= dset.find(vertices_of_edge[1]);
+        index_t u = dset.find(vertices_of_edge[0]), v = dset.find(vertices_of_edge[1]);
 
         if (u != v) {
 #if defined(PRINT_PERSISTENCE_PAIRS) || defined(PYTHON_BARCODE_COLLECTION)
-            if(e.diameter!=0) {
+            if (e.diameter != 0) {
 #ifdef PRINT_PERSISTENCE_PAIRS
                 std::cout << " [0," << e.diameter << ")" << std::endl;
 #endif
-                birth_death_coordinate barcode = {0,e.diameter};
+                birth_death_coordinate barcode = {0, e.diameter};
                 barcodes_out[0].push_back(barcode);
             }
 #endif
             dset.link(u, v);
+            ++unions_done;
         } else {
             columns_to_reduce.push_back(e);
         }
+    }
+    if (idx < *h_num_simplices) {
+        columns_to_reduce.insert(columns_to_reduce.end(),
+                                 h_simplices + idx,
+                                 h_simplices + *h_num_simplices);
     }
     std::reverse(columns_to_reduce.begin(), columns_to_reduce.end());
     //don't want to reverse the h_columns_to_reduce so just put into vector and copy later
