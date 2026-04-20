@@ -66,6 +66,23 @@ import masspcf.system as mpsys
 from masspcf import _mpcf_cpp as cpp
 from masspcf.persistence.ripser import _ripser_plusplus_available
 
+try:
+    import nvtx as _nvtx
+except ImportError:
+    _nvtx = None
+
+
+@contextmanager
+def _nvtx_range(name: str):
+    """Optional NVTX range. No-op if the nvtx package is not installed.
+    Used to mark the timed compute_persistent_homology call so that
+    nsys stats can filter its CUDA-API totals to the timed window."""
+    if _nvtx is None:
+        yield
+        return
+    with _nvtx.annotate(name):
+        yield
+
 
 def _scheduler_stats_supported() -> bool:
     return hasattr(cpp, "get_last_gpu_scheduler_stats")
@@ -345,7 +362,13 @@ def time_batch(items: list[np.ndarray], device: str, max_dim: int = 1,
         mon.__enter__()
     try:
         t0 = time.perf_counter()
-        mpers.compute_persistent_homology(X, max_dim=max_dim, device=device)
+        # Mark the timed PH call with an NVTX range so nsys stats can
+        # scope CUDA-API totals to just this window (the bench also
+        # runs a cpu_only pre-pass + CUDA context init + matplotlib,
+        # which otherwise inflate the global totals). If nvtx is not
+        # installed the range becomes a no-op.
+        with _nvtx_range("ph_compute"):
+            mpers.compute_persistent_homology(X, max_dim=max_dim, device=device)
         wall = time.perf_counter() - t0
     finally:
         if mon is not None:
