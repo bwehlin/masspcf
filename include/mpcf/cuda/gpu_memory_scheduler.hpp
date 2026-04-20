@@ -203,9 +203,10 @@ namespace mpcf
     ///     values (no point in waiting, since K is monotone non-decreasing),
     ///   * `max_wait` elapses before a slot becomes available,
     ///   * `cost_units <= 0`.
-    /// The wait is coordinated via a condition variable signaled by
-    /// `release_bytes`; the CV is polled every 50 ms to catch missed
-    /// wakeups and to let K-changes be rechecked.
+    /// The wait is strictly event-driven: `release_bytes` (on reservation
+    /// release) and `record_oom` (on AIMD K bump) both synchronize via
+    /// `m_wait_mutex` and `notify_all` so no wakeups are lost and no
+    /// polling is needed.
     ///
     /// Pass `std::chrono::steady_clock::duration::max()` (the default)
     /// for an unbounded wait. Use this when the caller would rather
@@ -480,24 +481,40 @@ namespace mpcf
     // Compute the deadline without overflow: if unbounded we never
     // check it, otherwise start + max_wait fits by construction.
     const auto deadline = unbounded ? clock::time_point::max() : start + max_wait;
-    constexpr auto poll_step = std::chrono::milliseconds(50);
 
+    // Event-driven wait: release_bytes / record_oom synchronize via
+    // m_wait_mutex (briefly) before notify_all, so a state change
+    // visible to a subsequent try_reserve_locked must either happen
+    // before our mutex acquire (and be observed by the re-try under
+    // the lock) or after we enter wait_until (and wake us). No polling.
     while (true) {
       auto res = try_reserve(cost_units);
       if (res.active()) return res;
 
-      // If K grew (via concurrent OOM) to the point where no GPU can
-      // fit the item anymore, stop waiting and return inactive.
       if (!fits_any()) return Reservation{};
 
-      const auto now = clock::now();
-      if (!unbounded && now >= deadline) return Reservation{};
-
-      const auto wait_slice = unbounded
-          ? poll_step
-          : std::min<clock::duration>(poll_step, deadline - now);
       std::unique_lock<std::mutex> lk(m_wait_mutex);
-      m_wait_cv.wait_for(lk, wait_slice);
+      // Re-try under the lock to close the race with a concurrent
+      // release or OOM that completed between the try_reserve above
+      // and our lock acquire. See release_bytes / record_oom for the
+      // matching lock fence.
+      res = try_reserve(cost_units);
+      if (res.active()) return res;
+      if (!fits_any()) return Reservation{};
+
+      if (unbounded) {
+        m_wait_cv.wait(lk);
+      } else {
+        if (clock::now() >= deadline) return Reservation{};
+        if (m_wait_cv.wait_until(lk, deadline) == std::cv_status::timeout) {
+          // One last try after timeout: a notify might have arrived
+          // concurrently and flipped our state.
+          lk.unlock();
+          res = try_reserve(cost_units);
+          if (res.active()) return res;
+          return Reservation{};
+        }
+      }
     }
   }
 
@@ -511,6 +528,12 @@ namespace mpcf
                                   std::memory_order_relaxed,
                                   std::memory_order_relaxed)) {
         m_total_oom.fetch_add(1, std::memory_order_relaxed);
+        // Brief mutex acquire then notify: waiters whose structural
+        // fit just changed (K grew past budget / cost_units) must
+        // re-check. The lock fence ensures our K update happens-before
+        // any waiter that acquires m_wait_mutex after this notify.
+        { std::lock_guard<std::mutex> g(m_wait_mutex); }
+        m_wait_cv.notify_all();
         return;
       }
       // old_k updated by CAS; loop to retry with fresh value.
@@ -560,7 +583,14 @@ namespace mpcf
 
     g.remaining.fetch_add(r.m_bytes, std::memory_order_release);
     m_active.fetch_sub(1, std::memory_order_release);
-    m_wait_cv.notify_one();
+    // Brief mutex acquire serializes the state change with waiters'
+    // re-try-under-lock path in wait_for_reserve: either the waiter
+    // has not yet acquired the mutex (its re-try_reserve sees the
+    // freed bytes) or it is already inside wait_until (notify_all
+    // wakes it). notify_all because different-sized waiters may be
+    // queued and only some fit.
+    { std::lock_guard<std::mutex> g(m_wait_mutex); }
+    m_wait_cv.notify_all();
   }
 }
 

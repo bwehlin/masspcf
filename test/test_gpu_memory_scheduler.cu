@@ -290,6 +290,101 @@ namespace
     EXPECT_TRUE(got_reservation.load(std::memory_order_acquire));
   }
 
+  TEST(GpuMemoryScheduler, WaitForReserveRoundTripIsNotPollBound)
+  {
+    // Regression guard for the 50 ms poll in wait_for_reserve. With
+    // polling, N serial release/acquire round-trips would each cost
+    // up to one poll step (~50 ms), yielding >= ~1 s for N=20. The
+    // event-driven CV path finishes in a few ms. We assert a ceiling
+    // with ~4x headroom, so OS scheduling jitter on CI does not flake
+    // the test but the old polling path would still fail.
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{100}, default_cfg());
+
+    auto holder = sched.try_reserve(80);
+    ASSERT_TRUE(holder.active());
+
+    constexpr int cycles = 20;
+    std::atomic<int> got{0};
+    std::thread waiter([&]() {
+      for (int i = 0; i < cycles; ++i) {
+        auto r = sched.wait_for_reserve(80, std::chrono::seconds(2));
+        if (!r.active()) return;
+        got.fetch_add(1, std::memory_order_relaxed);
+        // Scope exit releases r, which re-opens the slot for the
+        // next wait_for_reserve iteration (after main releases too).
+      }
+    });
+
+    const auto t0 = std::chrono::steady_clock::now();
+    for (int i = 0; i < cycles; ++i) {
+      // Release so the waiter can acquire.
+      { auto sink = std::move(holder); }
+      // Acquire again once the waiter releases. We spin briefly
+      // rather than sleep so the round-trip timing reflects CV
+      // latency, not sleep granularity.
+      while (true) {
+        auto r = sched.try_reserve(80);
+        if (r.active()) { holder = std::move(r); break; }
+        std::this_thread::yield();
+      }
+    }
+    // Let the waiter finish its last iteration.
+    { auto sink = std::move(holder); }
+    waiter.join();
+    const auto dt = std::chrono::steady_clock::now() - t0;
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+
+    EXPECT_EQ(got.load(), cycles);
+    // Old polling code: >= 50 ms per cycle -> >= 1000 ms. Ceiling
+    // here is 250 ms (4x headroom vs the polling-induced floor).
+    EXPECT_LT(ms, 250) << cycles << " cycles took " << ms << " ms";
+  }
+
+  TEST(GpuMemoryScheduler, RecordOomWakesStructuralMissWaiter)
+  {
+    // Verifies the new record_oom -> notify_all path: a waiter whose
+    // item fit under the initial K should wake and return inactive
+    // when OOM-driven K growth makes the item structurally unfit.
+    auto cfg = default_cfg();
+    cfg.initial_k_bytes_per_unit = 1.0;
+    cfg.oom_backoff = 4.0;  // big bump so one record_oom trips fits_any.
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{100}, cfg);
+
+    // Hold the whole budget so the waiter blocks on the CV.
+    auto holder = sched.try_reserve(100);
+    ASSERT_TRUE(holder.active());
+
+    // cost_units=50 fits initially (K=1.0, 50 <= 100) but after one
+    // oom_backoff bump (K=4.0, 4*50=200) exceeds the 100 budget.
+    std::atomic<bool> waiter_done{false};
+    std::atomic<bool> got_reservation{false};
+    std::thread waiter([&]() {
+      auto r = sched.wait_for_reserve(50, std::chrono::seconds(5));
+      if (r.active()) got_reservation.store(true, std::memory_order_release);
+      waiter_done.store(true, std::memory_order_release);
+    });
+
+    // Give the waiter time to enter the CV wait. 20 ms is comfortable
+    // and the assertion below does not depend on this specifically.
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_FALSE(waiter_done.load(std::memory_order_acquire));
+
+    // Bump K so the item no longer structurally fits. The waiter
+    // must wake and return inactive -- without the notify in
+    // record_oom it would wait the full 5 s until budget frees.
+    sched.record_oom(0);
+
+    const auto t0 = std::chrono::steady_clock::now();
+    waiter.join();
+    const auto dt = std::chrono::steady_clock::now() - t0;
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+
+    EXPECT_TRUE(waiter_done.load(std::memory_order_acquire));
+    EXPECT_FALSE(got_reservation.load(std::memory_order_acquire));
+    // Waiter should have returned almost immediately after record_oom.
+    EXPECT_LT(ms, 500) << "OOM -> wake took " << ms << " ms";
+  }
+
   TEST(GpuMemoryScheduler, WaitForReserveTimesOut)
   {
     GpuMemoryScheduler sched(std::vector<std::int64_t>{100}, default_cfg());
