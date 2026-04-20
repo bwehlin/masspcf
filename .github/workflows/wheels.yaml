@@ -14,7 +14,9 @@ jobs:
         include:
           - os: ubuntu-24.04
             cuda: 1
-            cuda_tag: 12-8
+            # Pinned to 12-6: nvcc 12.8+ cicc ICEs on libstdc++'s
+            # is_nothrow_destructible with gcc >= 12 (NVIDIA/nccl#1743).
+            cuda_tag: 12-6
             cuda_major: 12
             artifact_suffix: "-cuda12"
           - os: ubuntu-24.04
