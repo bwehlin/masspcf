@@ -47,43 +47,32 @@ namespace mpcf
     CudaDeviceArray(CudaDeviceArray&& other)
       : m_devPtr(other.m_devPtr)
       , m_sz(other.m_sz)
+      , m_stream(other.m_stream)
     {
       other.m_devPtr = nullptr;
       other.m_sz = 0ul;
+      other.m_stream = nullptr;
     }
-    
+
     CudaDeviceArray& operator=(CudaDeviceArray&& rhs)
     {
       if (&rhs == this)
       {
         return *this;
       }
-      if (m_devPtr)
-      {
-        auto rv = cudaFree(m_devPtr);
-        if (rv != cudaSuccess)
-        {
-          std::cerr << "Warning! Could not deallocate " << m_sz * sizeof(T) << " byte array stored on GPU\n";
-        }
-      }
+      free_buffer();
       m_devPtr = rhs.m_devPtr;
       m_sz = rhs.m_sz;
+      m_stream = rhs.m_stream;
       rhs.m_devPtr = nullptr;
       rhs.m_sz = 0;
+      rhs.m_stream = nullptr;
       return *this;
     }
-    
+
     ~CudaDeviceArray()
     {
-      if (!m_devPtr)
-      {
-        return;
-      }
-      auto rv = cudaFree(m_devPtr);
-      if (rv != cudaSuccess)
-      {
-        std::cout << "Warning! Could not deallocate " << m_sz * sizeof(T) << " byte array stored on GPU";
-      }
+      free_buffer();
     }
     
     CudaDeviceArray(const CudaDeviceArray&) = delete;
@@ -96,17 +85,32 @@ namespace mpcf
       reset();
       CHK_CUDA(cudaMalloc(&m_devPtr, sizeof(T) * sz));
       m_sz = sz;
+      m_stream = nullptr;
+    }
+
+    /// Stream-ordered (re)allocate via the current device's default
+    /// memory pool. Uses cudaMallocAsync, so the allocation is visible
+    /// to work already queued on `stream` and subsequent work on the
+    /// same stream; other streams must synchronize via an event before
+    /// using the pointer. Pool-backed so repeated alloc/free cycles
+    /// are cheap (the pool caches memory up to its release threshold;
+    /// see GpuMemoryScheduler's ctor which sets that threshold high).
+    /// The stream is stored so the destructor / reset can issue a
+    /// matching cudaFreeAsync; the caller must guarantee the stream
+    /// outlives this array (or call reset() explicitly before the
+    /// stream is destroyed).
+    void allocate_async(std::size_t sz, cudaStream_t stream)
+    {
+      reset();
+      CHK_CUDA(cudaMallocAsync(&m_devPtr, sizeof(T) * sz, stream));
+      m_sz = sz;
+      m_stream = stream;
     }
 
     /// Free the underlying buffer and reset to empty. No-op if already empty.
     void reset() noexcept
     {
-      if (m_devPtr)
-      {
-        cudaFree(m_devPtr);
-        m_devPtr = nullptr;
-        m_sz = 0;
-      }
+      free_buffer();
     }
 
     T* get() const { return m_devPtr; }
@@ -184,9 +188,46 @@ namespace mpcf
       }
     }
 
+    /// Release the current buffer using the matching free path:
+    /// cudaFreeAsync when allocate_async was used (stream tracked),
+    /// cudaFree when allocate was used. Safe to call on an already-
+    /// empty array. Resets internal state to empty.
+    void free_buffer() noexcept
+    {
+      if (!m_devPtr)
+      {
+        return;
+      }
+      cudaError_t rv = cudaSuccess;
+      if (m_stream)
+      {
+        rv = cudaFreeAsync(m_devPtr, m_stream);
+      }
+      else
+      {
+        rv = cudaFree(m_devPtr);
+      }
+      if (rv != cudaSuccess)
+      {
+        // Drop the runtime's sticky error so unrelated callers of
+        // cudaGetLastError don't see it. If freeing via the async
+        // path failed (e.g., stream already destroyed), fall back
+        // to sync cudaFree so we don't leak.
+        cudaGetLastError();
+        if (m_stream)
+        {
+          cudaFree(m_devPtr);
+        }
+      }
+      m_devPtr = nullptr;
+      m_sz = 0;
+      m_stream = nullptr;
+    }
+
     std::mutex m_mutex;
     T* m_devPtr = nullptr;
     std::size_t m_sz = 0ul;
+    cudaStream_t m_stream = nullptr;
   };
 }
 

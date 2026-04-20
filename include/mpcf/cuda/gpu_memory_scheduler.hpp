@@ -24,6 +24,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -351,6 +352,23 @@ namespace mpcf
         m_gpus[static_cast<std::size_t>(i)].budget, std::memory_order_relaxed);
       m_gpus[static_cast<std::size_t>(i)].k_bytes.store(
         cfg.initial_k_bytes_per_unit, std::memory_order_relaxed);
+
+      // Keep the default memory pool from returning freed blocks to
+      // the OS on every cudaFree/cudaFreeAsync. Without a high release
+      // threshold, CudaDeviceArray::allocate_async defeats most of
+      // its own purpose -- each free releases memory back to the OS
+      // and the next alloc re-enters the driver's slow path. With the
+      // threshold at max, the pool caches freed memory up to its
+      // high-water mark and subsequent allocations are a pool-local
+      // bookkeeping operation. Budget accounting already excludes a
+      // fragmentation/third-party-tenant margin via budget_fraction,
+      // so the pool growing into most of free memory is safe.
+      cudaMemPool_t pool = nullptr;
+      if (cudaDeviceGetDefaultMemPool(&pool, i) == cudaSuccess && pool) {
+        std::uint64_t threshold = std::numeric_limits<std::uint64_t>::max();
+        cudaMemPoolSetAttribute(
+          pool, cudaMemPoolAttrReleaseThreshold, &threshold);
+      }
     }
   }
 

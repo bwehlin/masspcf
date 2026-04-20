@@ -1693,6 +1693,33 @@ public:
 
     ~ripser()
     {
+        // Release pool-backed buffers via cudaFreeAsync on stream_
+        // BEFORE cudaStreamDestroy runs, otherwise CudaDeviceArray's
+        // dtor would fall back to synchronous cudaFree on a stream
+        // that no longer exists. Sparse and dense paths only allocate
+        // a subset of these members; reset() is a no-op on empty
+        // arrays, so listing them all is safe either way.
+        d_columns_to_reduce.reset();
+#ifndef ASSEMBLE_REDUCTION_SUBMATRIX
+        d_flagarray.reset();
+#endif
+        d_distance_matrix.reset();
+        d_CSR_distance_matrix.reset();
+        h_d_offsets.reset();
+        h_d_entries.reset();
+        h_d_col_indices.reset();
+        d_pivot_column_index_OR_nonapparent_cols.reset();
+        d_binomial_coeff.reset();
+        h_d_binoms.reset();
+        d_cidx_to_diameter.reset();
+        d_cidx_diameter_pairs_sortedlist.reset();
+#if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
+        d_flagarray_OR_index_to_subindex.reset();
+#endif
+        d_lowest_one_of_apparent_pair.reset();
+        d_pivot_array.reset();
+        d_simplices.reset();
+
         if (stream_) {
             cudaStreamDestroy(stream_);
         }
@@ -3088,7 +3115,7 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
 #ifdef COUNTING
         std::cerr<<"max possible num simplices over all dim<=dim_max (without clearing) for memory allocation: "<<max_num_simplices_forall_dims<<std::endl;
 #endif
-        d_columns_to_reduce.allocate(max_num_simplices_forall_dims);
+        d_columns_to_reduce.allocate_async(max_num_simplices_forall_dims, stream_);
         h_columns_to_reduce= (struct diameter_index_t_struct*) malloc(sizeof(struct diameter_index_t_struct)* max_num_simplices_forall_dims);
 
         if(h_columns_to_reduce==NULL){
@@ -3097,23 +3124,23 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         }
 
 #ifndef ASSEMBLE_REDUCTION_SUBMATRIX
-            d_flagarray.allocate(max_num_simplices_forall_dims);
+            d_flagarray.allocate_async(max_num_simplices_forall_dims, stream_);
 #endif
 
-        d_cidx_to_diameter.allocate(max_num_simplices_forall_dims);
+        d_cidx_to_diameter.allocate_async(max_num_simplices_forall_dims, stream_);
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        d_flagarray_OR_index_to_subindex.allocate(max_num_simplices_forall_dims);
+        d_flagarray_OR_index_to_subindex.allocate_async(max_num_simplices_forall_dims, stream_);
 
         h_flagarray_OR_index_to_subindex= (index_t*) malloc(sizeof(index_t)*max_num_simplices_forall_dims);
         if(h_flagarray_OR_index_to_subindex==NULL) {
             std::cerr<<"malloc for h_index_to_subindex failed"<<std::endl;
         }
 #endif
-        d_distance_matrix.allocate(dist.size()*(dist.size()-1)/2);
+        d_distance_matrix.allocate_async(dist.size()*(dist.size()-1)/2, stream_);
         cudaMemcpyAsync(d_distance_matrix, dist.distances.data(), sizeof(value_t)*dist.size()*(dist.size()-1)/2, cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        d_pivot_column_index_OR_nonapparent_cols.allocate(max_num_simplices_forall_dims);
+        d_pivot_column_index_OR_nonapparent_cols.allocate_async(max_num_simplices_forall_dims, stream_);
 
         //this array is used for both the pivot column index hash table array as well as the nonapparent cols array as an unstructured hashmap
         h_pivot_column_index_array_OR_nonapparent_cols= (index_t*) malloc(sizeof(index_t)*max_num_simplices_forall_dims);
@@ -3124,13 +3151,13 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         }
 
         //copy object over to GPU
-        d_binomial_coeff.allocate(1);
+        d_binomial_coeff.allocate_async(1, stream_);
         cudaMemcpyAsync(d_binomial_coeff, &binomial_coeff, sizeof(binomial_coeff_table), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         index_t num_binoms= binomial_coeff.get_num_n()*binomial_coeff.get_max_tuple_length();
 
-        h_d_binoms.allocate(num_binoms);
+        h_d_binoms.allocate_async(num_binoms, stream_);
         cudaMemcpyAsync(h_d_binoms, binomial_coeff.binoms, sizeof(index_t)*num_binoms, cudaMemcpyHostToDevice, stream_);
         cudaMemcpyAsync(&(d_binomial_coeff->binoms), h_d_binoms.address_of_ptr(), sizeof(index_t*), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
@@ -3140,8 +3167,8 @@ void ripser<compressed_lower_distance_matrix>::compute_barcodes() {
         cudaHostAlloc((void **)&h_num_nonapparent, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
         cudaHostGetDevicePointer(&d_num_nonapparent, h_num_nonapparent,0);
 
-        d_lowest_one_of_apparent_pair.allocate(max_num_simplices_forall_dims);
-        d_pivot_array.allocate(max_num_simplices_forall_dims);
+        d_lowest_one_of_apparent_pair.allocate_async(max_num_simplices_forall_dims, stream_);
+        d_pivot_array.allocate_async(max_num_simplices_forall_dims, stream_);
         h_pivot_array= (struct index_t_pair_struct*) malloc(sizeof(struct index_t_pair_struct)*max_num_simplices_forall_dims);
         if(h_pivot_array==NULL){
             std::cerr<<"malloc for h_pivot_array failed"<<std::endl;
@@ -3245,7 +3272,7 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
     //we assume that we have enough memory to last up to dim_max (should be fine with a >=32GB GPU); growth of num simplices can be very slow for sparse case
     if (dim_max >= 1) {
 
-        d_columns_to_reduce.allocate(max_num_simplices_forall_dims);//46000000
+        d_columns_to_reduce.allocate_async(max_num_simplices_forall_dims, stream_);//46000000
         h_columns_to_reduce = (struct diameter_index_t_struct *) malloc(
                 sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims);
 
@@ -3255,7 +3282,7 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         }
 
 #if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        d_flagarray_OR_index_to_subindex.allocate(max_num_simplices_forall_dims);
+        d_flagarray_OR_index_to_subindex.allocate_async(max_num_simplices_forall_dims, stream_);
 
         h_flagarray_OR_index_to_subindex = (index_t *) malloc(sizeof(index_t) * max_num_simplices_forall_dims);
         if (h_flagarray_OR_index_to_subindex == NULL) {
@@ -3265,32 +3292,32 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
 
         CSR_distance_matrix CSR_distance_matrix = dist.toCSR();
         //copy CSR_distance_matrix object over to GPU
-        d_CSR_distance_matrix.allocate(1);
+        d_CSR_distance_matrix.allocate_async(1, stream_);
         cudaMemcpyAsync(d_CSR_distance_matrix, &CSR_distance_matrix, sizeof(CSR_distance_matrix), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        h_d_offsets.allocate(CSR_distance_matrix.n + 1);
+        h_d_offsets.allocate_async(CSR_distance_matrix.n + 1, stream_);
         cudaMemcpyAsync(h_d_offsets, CSR_distance_matrix.offsets, sizeof(index_t) * (CSR_distance_matrix.n + 1),
                    cudaMemcpyHostToDevice, stream_);
         cudaMemcpyAsync(&(d_CSR_distance_matrix->offsets), h_d_offsets.address_of_ptr(), sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        h_d_entries.allocate(CSR_distance_matrix.num_entries);
+        h_d_entries.allocate_async(CSR_distance_matrix.num_entries, stream_);
         cudaMemcpyAsync(h_d_entries, CSR_distance_matrix.entries, sizeof(value_t) * CSR_distance_matrix.num_entries,
                    cudaMemcpyHostToDevice, stream_);
         cudaMemcpyAsync(&(d_CSR_distance_matrix->entries), h_d_entries.address_of_ptr(), sizeof(value_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
-        h_d_col_indices.allocate(CSR_distance_matrix.num_entries);
+        h_d_col_indices.allocate_async(CSR_distance_matrix.num_entries, stream_);
         cudaMemcpyAsync(h_d_col_indices, CSR_distance_matrix .col_indices, sizeof(index_t) * CSR_distance_matrix .num_entries,
                    cudaMemcpyHostToDevice, stream_);
         cudaMemcpyAsync(&(d_CSR_distance_matrix->col_indices), h_d_col_indices.address_of_ptr(), sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         //this replaces d_cidx_to_diameter
-        d_cidx_diameter_pairs_sortedlist.allocate(max_num_simplices_forall_dims);
+        d_cidx_diameter_pairs_sortedlist.allocate_async(max_num_simplices_forall_dims, stream_);
 
-        d_pivot_column_index_OR_nonapparent_cols.allocate(max_num_simplices_forall_dims);
+        d_pivot_column_index_OR_nonapparent_cols.allocate_async(max_num_simplices_forall_dims, stream_);
 
         //this array is used for both the pivot column index hash table array as well as the nonapparent cols array as an unstructured hashmap
         h_pivot_column_index_array_OR_nonapparent_cols = (index_t *) malloc(
@@ -3301,13 +3328,13 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         }
 
         //copy object over to GPU
-        d_binomial_coeff.allocate(1);
+        d_binomial_coeff.allocate_async(1, stream_);
         cudaMemcpyAsync(d_binomial_coeff, &binomial_coeff, sizeof(binomial_coeff_table), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
 
         index_t num_binoms = binomial_coeff.get_num_n() * binomial_coeff.get_max_tuple_length();
 
-        h_d_binoms.allocate(num_binoms);
+        h_d_binoms.allocate_async(num_binoms, stream_);
         cudaMemcpyAsync(h_d_binoms, binomial_coeff.binoms, sizeof(index_t) * num_binoms, cudaMemcpyHostToDevice, stream_);
         cudaMemcpyAsync(&(d_binomial_coeff->binoms), h_d_binoms.address_of_ptr(), sizeof(index_t *), cudaMemcpyHostToDevice, stream_);
         CHK_CUDA(cudaStreamSynchronize(stream_));
@@ -3319,15 +3346,15 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         cudaHostAlloc((void **) &h_num_simplices, sizeof(index_t), cudaHostAllocPortable | cudaHostAllocMapped);
         cudaHostGetDevicePointer(&d_num_simplices, h_num_simplices, 0);
 
-        d_lowest_one_of_apparent_pair.allocate(max_num_simplices_forall_dims);
-        d_pivot_array.allocate(max_num_simplices_forall_dims);
+        d_lowest_one_of_apparent_pair.allocate_async(max_num_simplices_forall_dims, stream_);
+        d_pivot_array.allocate_async(max_num_simplices_forall_dims, stream_);
         h_pivot_array = (struct index_t_pair_struct *) malloc(
                 sizeof(struct index_t_pair_struct) * max_num_simplices_forall_dims);
         if (h_pivot_array == NULL) {
             std::cerr << "malloc for h_pivot_array failed" << std::endl;
             throw std::runtime_error("ripser++: host allocation failure");
         }
-        d_simplices.allocate(max_num_simplices_forall_dims);
+        d_simplices.allocate_async(max_num_simplices_forall_dims, stream_);
         h_simplices = (struct diameter_index_t_struct *) malloc(
                 sizeof(struct diameter_index_t_struct) * max_num_simplices_forall_dims);
 
@@ -3707,13 +3734,13 @@ namespace mpcf::ph::ripserpp
       CHK_CUDA(cudaStreamCreate(&stream));
 
       mpcf::CudaDeviceArray<T> d_points;
-      d_points.allocate(static_cast<size_t>(n) * static_cast<size_t>(d));
+      d_points.allocate_async(static_cast<size_t>(n) * static_cast<size_t>(d), stream);
       CHK_CUDA(cudaMemcpyAsync(d_points.get(), host_points.data(),
                                host_points.size() * sizeof(T),
                                cudaMemcpyHostToDevice, stream));
 
       mpcf::CudaDeviceArray<value_t> d_distances;
-      d_distances.allocate(total);
+      d_distances.allocate_async(total, stream);
 
       constexpr int block_size = 256;
       const int grid_size = static_cast<int>((total + block_size - 1) / block_size);
@@ -3725,6 +3752,12 @@ namespace mpcf::ph::ripserpp
                                total * sizeof(value_t),
                                cudaMemcpyDeviceToHost, stream));
       CHK_CUDA(cudaStreamSynchronize(stream));
+
+      // Release pool-backed arrays via cudaFreeAsync on this stream
+      // before destroying it; otherwise their dtors would fall back
+      // to sync cudaFree on a dead stream.
+      d_points.reset();
+      d_distances.reset();
       CHK_CUDA(cudaStreamDestroy(stream));
 
       return compressed_lower_distance_matrix(std::move(distances));
