@@ -1758,7 +1758,9 @@ public:
 
     //calulate gpu_num_simplices_forall_dims based on GPU memory limit
     index_t calculate_gpu_max_columns_for_sparserips_computation_from_memory(){
-        cudaGetDeviceProperties(&deviceProp, 0);
+        int current_device = 0;
+        CHK_CUDA(cudaGetDevice(&current_device));
+        CHK_CUDA(cudaGetDeviceProperties(&deviceProp, current_device));
 
         cudaMemGetInfo(&freeMem,&totalMem);
 #ifdef PROFILING
@@ -1799,7 +1801,9 @@ public:
         if(dim_max==0)return 0;
         index_t gpu_dim_max= dim_max;
         index_t gpu_alloc_memory_in_bytes= 0;
-        cudaGetDeviceProperties(&deviceProp, 0);
+        int current_device = 0;
+        CHK_CUDA(cudaGetDevice(&current_device));
+        CHK_CUDA(cudaGetDeviceProperties(&deviceProp, current_device));
 
         cudaMemGetInfo(&freeMem,&totalMem);
 #ifdef PROFILING
