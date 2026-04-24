@@ -8,7 +8,7 @@ masspcf's CUDA engine computes pairwise matrix operations (distance matrices, ke
 File structure
 ===============
 
-All files live under ``include/mpcf/cuda/`` (headers) and ``src/cuda/`` (compiled sources).
+All files live under ``include/mpcf/cuda/`` (headers) and ``src/cuda/`` (compiled sources). The one exception is ``block_matrix_support.cuh``, which predates the subdirectory split and lives at ``include/mpcf/block_matrix_support.cuh``.
 
 **Generic framework** (function-type agnostic):
 

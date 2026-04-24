@@ -4,7 +4,7 @@ GPU memory scheduler
 
 ``mpcf::GpuMemoryScheduler`` (in ``include/mpcf/cuda/gpu_memory_scheduler.hpp``) is a problem-agnostic admission controller that decides when, and on which GPU, a piece of work is allowed to start. It is the mechanism that lets multiple Ripser++ instances coexist on the same GPU without OOM-thrashing, while still keeping every GPU saturated when work is plentiful.
 
-The scheduler is independent of any particular workload. Callers describe the size of an item in abstract **cost units** (for Ripser++, "number of edges in the dense filtration"); the scheduler converts that to a byte estimate using a per-GPU cost factor :math:`K` (bytes per unit) that it auto-tunes from observed OOM events.
+The scheduler is independent of any particular workload. Callers describe the size of an item in abstract **cost units** (for Ripser++, the dominant per-dimension simplex count :math:`\binom{n}{\min(d_{\max}+1, \lfloor n/2 \rfloor)}` — equal to the edge count :math:`\binom{n}{2}` at ``max_dim = 1`` and growing faster for higher dimensions); the scheduler converts that to a byte estimate using a per-GPU cost factor :math:`K` (bytes per unit) that it auto-tunes from observed OOM events.
 
 
 Problem
@@ -12,7 +12,7 @@ Problem
 
 The hybrid persistence dispatcher (``RipserPlusPlusTask`` in ``include/mpcf/persistence/compute_persistence.hpp``) wants to:
 
-1. Run **more than one** Ripser++ instance on the GPU concurrently. Each instance owns its own CUDA stream (see ``src/cuda/ripserpp.cu``), so the GPU happily overlaps multiple kernels — but only if each instance's working set fits in device memory at the same time.
+1. Run **more than one** Ripser++ instance on the GPU concurrently. Each ``ripser`` instance (in ``src/cuda/ripserpp_impl.inc``) owns its own ``mpcf::CudaStream`` and routes all of its allocations (including thrust temp storage via ``mpcf::CudaAsyncMemoryResource``) through ``cudaMallocAsync`` on that stream, so the GPU happily overlaps multiple instances — but only if each one's working set fits in device memory at the same time.
 2. **Fall back to CPU** for items that cannot fit, instead of failing the whole batch.
 3. Make this decision **without pre-sorting** the input tensor (which may be very large) and **without assuming uniform item size**.
 4. Generalize to **multiple GPUs**.
@@ -45,7 +45,7 @@ Optional concurrency cap
 
 In addition to the per-GPU memory budget, the scheduler accepts an optional ``Config::max_concurrent`` cap on the **total** number of active reservations across all GPUs. The default ``0`` means no cap (memory is the only limit). When set, ``try_reserve`` short-circuits as soon as ``cap`` reservations are already live, returning an inactive Reservation without walking GPUs.
 
-The cap is exposed to users as :func:`masspcf.system.limit_gpu_concurrency`. Its main use cases are benchmarking (sweeping M to find the cooperation sweet spot — see ``scratch/bench_ph_hybrid.py``) and operating in shared environments where the user wants to leave GPU headroom for other tenants.
+The cap is exposed to users as :func:`masspcf.system.limit_gpu_concurrency`. Its main use cases are benchmarking (sweeping M to find the cooperation sweet spot — see ``benchmarks/bench_ph_hybrid.py``) and operating in shared environments where the user wants to leave GPU headroom for other tenants.
 
 Enforcement uses the same atomic-rollback idiom as the byte budget: a tentative ``fetch_add`` on the active counter, rolled back if no GPU has room. The cap and the per-GPU bytes are independent; either limit can deny admission.
 
@@ -95,12 +95,24 @@ This means a caller writes:
 
 .. code-block:: cpp
 
-   if (auto r = sched.try_reserve(edges); r.active()) {
+   if (auto r = sched.try_reserve(cost_units); r.active()) {
      run_on_gpu(item, r.gpu_index());
    } else {
      run_on_cpu(item);
    }
    // r.~Reservation() returns the bytes
+
+
+Wait variant
+-------------
+
+``wait_for_reserve(cost_units, max_wait)`` is a blocking companion to ``try_reserve``. It first runs a structural-fit check -- :math:`K_i \cdot \text{cost\_units} \leq \text{budget}_i` for at least one GPU -- and returns an inactive Reservation immediately if no device can *ever* hold the item under current :math:`K`. Since :math:`K` is monotone non-decreasing (AIMD only bumps it up on OOM), waiting in that case would be pointless.
+
+Otherwise it loops: ``try_reserve``; on failure, acquire ``m_wait_mutex`` and re-try under the lock (to close the race with a release that completed between the first try and the lock acquire); if still no slot, block on ``m_wait_cv`` until a peer's ``release_bytes`` or ``record_oom`` fires ``notify_all``. Both sides fence through the same mutex, so no wakeup is lost and no polling is required.
+
+The default ``max_wait`` is ``std::chrono::steady_clock::duration::max()`` (unbounded). Finite timeouts return an inactive Reservation on expiry, with one last ``try_reserve`` to catch a notify that arrived in the timeout window.
+
+``wait_for_reserve`` is meant for workloads where the GPU is much faster per item than the CPU fallback -- queueing then beats running anything on CPU. The hybrid Ripser++ dispatcher picks between ``try_reserve`` and ``wait_for_reserve`` based on the user-settable ``mpcf::settings().hybridGpuQueueOnBusy`` (exposed to Python as ``cpp.set_hybrid_gpu_queue_on_busy``). OOM-triggered CPU fallback remains unconditional regardless of this setting: the AIMD bump is already the right signal that the item will not fit.
 
 
 First-admit calibration
@@ -176,18 +188,35 @@ The second bypasses ``cudaMemGetInfo`` entirely and lets a unit test pin per-dev
 Both constructors initialize :math:`K` from ``Config::initial_k_bytes_per_unit``.
 
 
+Instrumentation
+================
+
+Each scheduler maintains cumulative atomic counters that partition every admission attempt into exactly one bucket:
+
+- ``total_admitted`` — ``try_reserve`` / ``wait_for_reserve`` succeeded.
+- ``total_failed_no_room`` — denied because no GPU had enough bytes remaining.
+- ``total_failed_cap`` — denied because ``max_concurrent`` was hit (short-circuited before walking GPUs).
+- ``total_oom`` — ``record_oom`` was called (a hard or soft OOM observed by the caller).
+- ``peak_active`` — the high-water mark of simultaneously live reservations.
+
+These live on the scheduler and are readable via ``total_admitted()``, ``total_failed_no_room()``, ``total_failed_cap()``, ``total_oom()``, and ``peak_active()``. Separating cap-denials from memory-denials is useful when tuning ``gpuConcurrencyCap``: a run dominated by ``total_failed_cap`` means the cap is the binding constraint, while one dominated by ``total_failed_no_room`` means memory is.
+
+On destruction, the scheduler snapshots all of the above into the global ``mpcf::LastSchedulerStats`` under ``last_gpu_scheduler_stats_mutex()``. Python reads the snapshot via ``cpp.get_last_gpu_scheduler_stats()`` — the hybrid PH benchmark harness (``benchmarks/bench_ph_hybrid.py``) uses this to sweep ``gpuConcurrencyCap`` / ``gpuBudgetFraction`` without poking at scheduler internals during the run.
+
+
 Integration with RipserPlusPlusTask
 ====================================
 
-In ``RipserPlusPlusTask`` (``include/mpcf/persistence/compute_persistence.hpp``):
+In ``RipserPlusPlusTask`` / ``RipserPlusPlusDistMatTask`` (``include/mpcf/persistence/compute_persistence.hpp``):
 
-- The task constructs a ``GpuMemoryScheduler`` once with the workload's baseline :math:`K_0 = 64` bytes per simplex.
-- ``parallel_walk_async`` runs N CPU worker threads over the input point-cloud tensor. Each worker, for its assigned item, calls ``try_reserve(n*(n-1)/2)`` (the number of edges = ``max_num_simplices`` for ``max_dim=1``).
-- On success: run Ripser++ on the chosen GPU, on a fresh per-instance stream.
-- On inactive Reservation (no GPU has room): run the CPU Ripser path for that item.
-- On ``mpcf::cuda_error`` with ``cudaErrorMemoryAllocation`` mid-run: ``record_oom(gpu_idx)`` and re-run the item on CPU. Other ``cuda_error`` codes propagate. Thrust temp-storage OOMs are routed through ``mpcf::cuda_error`` too (see ``CudaAsyncMemoryResource::do_allocate`` in ``cuda_async_memory_resource.cuh``) so every OOM shape the ripser path can emit hits this catch uniformly.
+- The task constructs a ``GpuMemoryScheduler`` once, seeding ``initial_k_bytes_per_unit`` with the audited :math:`K_0 = 64` bytes per simplex and wiring ``budget_fraction`` / ``max_concurrent`` to the user-tunable ``mpcf::settings().gpuBudgetFraction`` and ``mpcf::settings().gpuConcurrencyCap`` (exposed to Python as ``cpp.set_gpu_budget_fraction`` and ``cpp.limit_gpu_concurrency`` / :func:`masspcf.system.limit_gpu_concurrency`).
+- ``parallel_walk_async`` runs N CPU worker threads over the input point-cloud or distance-matrix tensor. For each item of size :math:`n`, the dispatcher computes ``cost_units = simplex_cost_units(n, max_dim)`` = :math:`\binom{n}{\min(d_{\max}+1,\, \lfloor n/2 \rfloor)}`. This matches the dominant-term cap used by the upstream memory planner's ``max_num_simplices_forall_dims`` (see ``calculate_gpu_dim_max_for_fullrips_computation_from_memory`` in ``ripserpp_impl.inc``): it collapses to :math:`\binom{n}{2} = n(n-1)/2` for ``max_dim = 1`` and grows faster for higher ``max_dim``. The computation is saturated at ``INT64_MAX`` so huge items are treated as "never fits" rather than overflowing.
+- Admission policy is selected by ``mpcf::settings().hybridGpuQueueOnBusy``: ``try_reserve`` (default -- immediate CPU fallback if busy) or ``wait_for_reserve`` (queue until a slot frees). Either returns an inactive Reservation if no GPU can structurally fit the item at current :math:`K`; the dispatcher then runs the CPU Ripser path for that item.
+- On success: run Ripser++ on the chosen GPU, on a fresh per-instance ``mpcf::CudaStream``. The ripser++ facade (``compute_barcodes_pcloud`` / ``compute_barcodes_distmat`` in ``include/mpcf/persistence/ripserpp/ripserpp.hpp``) also takes a ``parallel_inner_loops`` flag -- the dispatcher sets it ``true`` only when the batch size is at most ~``hw_concurrency / 4``, so for larger batches the ripser++ internal parallel-for loops run serially on the calling worker and parallelism comes entirely from running many ripser instances concurrently rather than from subdividing each one.
+- The facade returns per-invocation ``ripserpp::Diagnostics`` (``upstream_cpu_fallback``, ``gpu_max_dim``). A set ``upstream_cpu_fallback`` means ripser++'s own embedded memory planner lowered ``gpu_max_dim`` below the requested ``max_dim`` and ran the high-dimensional tail on CPU -- the barcodes are still correct, but our :math:`K` under-estimated the item. The dispatcher treats this as a **soft OOM** and calls ``record_oom(gpu_idx)``, so subsequent items of similar size over-book less aggressively even though no ``cudaErrorMemoryAllocation`` was thrown.
+- On ``mpcf::cuda_error`` with ``cudaErrorMemoryAllocation`` mid-run (**hard OOM**): ``record_oom(gpu_idx)`` and re-run the item on CPU. Other ``cuda_error`` codes propagate. Thrust temp-storage OOMs are routed through ``mpcf::cuda_error`` too (see ``CudaAsyncMemoryResource::do_allocate`` in ``cuda_async_memory_resource.cuh``) so every OOM shape the ripser path can emit hits this catch uniformly.
 
-The result: M concurrent GPU instances, where M is the largest number of items whose admitted byte estimates fit in the per-GPU budget — naturally adapting to item size, free memory, and observed OOM history, with no caller-visible knob beyond ``budget_fraction``.
+The result: M concurrent GPU instances, where M is the largest number of items whose admitted byte estimates fit in the per-GPU budget -- naturally adapting to item size, free memory, and observed OOM history (hard and soft), with ``gpuBudgetFraction`` and ``gpuConcurrencyCap`` as the headroom/concurrency knobs and ``hybridGpuQueueOnBusy`` selecting queue-vs-fallback policy.
 
 
 References
