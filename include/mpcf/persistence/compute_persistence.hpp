@@ -225,6 +225,35 @@ namespace mpcf::ph
 
 namespace mpcf::ph
 {
+  namespace detail
+  {
+    // Estimated cost in "simplex units" for a Ripser++ full-rips run on
+    // n points up to max_dim. Matches the dominant-term cap used by the
+    // upstream memory planner: every `max_num_simplices_forall_dims`-
+    // sized GPU array grows as binomial(n, min(max_dim + 1, n/2)); see
+    // calculate_gpu_dim_max_for_fullrips_computation_from_memory in
+    // ripserpp_impl.inc. The n/2 cap matches upstream's -- earlier code
+    // used n/2 - 1, which collapsed to 0 for n in {2, 3} and
+    // systematically under-estimated small n.
+    inline std::int64_t simplex_cost_units(std::int64_t n, int max_dim)
+    {
+      if (n <= 1 || max_dim < 0) return 0;
+      const int k_max = static_cast<int>(std::min<std::int64_t>(max_dim + 1, n / 2));
+      if (k_max <= 0) return 0;
+      // Compute C(n, k_max) in double to avoid int overflow; saturate
+      // at int64 max so the scheduler treats huge items as "never fits."
+      double c = 1.0;
+      const int k_symmetric = (k_max > n - k_max) ? static_cast<int>(n - k_max) : k_max;
+      for (int i = 0; i < k_symmetric; ++i) {
+        c *= static_cast<double>(n - i);
+        c /= static_cast<double>(i + 1);
+      }
+      const auto cap = static_cast<double>(std::numeric_limits<std::int64_t>::max());
+      if (c >= cap) return std::numeric_limits<std::int64_t>::max();
+      return static_cast<std::int64_t>(c);
+    }
+  }
+
   /// Hybrid CPU/GPU Ripser++ task.
   ///
   /// Items are dispatched in parallel via parallel_walk_async. For each
@@ -254,29 +283,6 @@ namespace mpcf::ph
     //   value_t (4) + index_t (8) + index_t (8) + index_t_pair_struct (16)
     // = 64. AIMD-adjusted upward per-GPU on OOM.
     static constexpr double K0_BYTES_PER_SIMPLEX = 64.0;
-
-    // max_num_simplices_forall_dims matches upstream Ripser++ exactly:
-    //   binomial(n, min(max_dim + 1, n/2 - 1)).
-    // The n/2-1 cap guards against the assertion in
-    // get_num_simplices_for_dim and mirrors the cap used by the
-    // upstream memory planner.
-    static std::int64_t simplex_cost_units(std::int64_t n, int max_dim)
-    {
-      if (n <= 1 || max_dim < 0) return 0;
-      const int k_max = static_cast<int>(std::min<std::int64_t>(max_dim + 1, n / 2 - 1));
-      if (k_max <= 0) return 0;
-      // Compute C(n, k_max) in double to avoid int overflow; saturate
-      // at int64 max so the scheduler treats huge items as "never fits."
-      double c = 1.0;
-      const int k_symmetric = (k_max > n - k_max) ? static_cast<int>(n - k_max) : k_max;
-      for (int i = 0; i < k_symmetric; ++i) {
-        c *= static_cast<double>(n - i);
-        c /= static_cast<double>(i + 1);
-      }
-      const auto cap = static_cast<double>(std::numeric_limits<std::int64_t>::max());
-      if (!(c == c) || c >= cap) return std::numeric_limits<std::int64_t>::max();
-      return static_cast<std::int64_t>(c);
-    }
 
     tf::Future<void> run_async(Executor& exec) override
     {
@@ -334,9 +340,9 @@ namespace mpcf::ph
       // seven arrays of this size (sum of 64 bytes worth of per-simplex
       // struct members -- see K0_BYTES_PER_SIMPLEX) which is the
       // residency we estimate with. Upstream computes this as
-      // binomial(n, min(maxDim+1, n/2-1)) (the largest simplex count
+      // binomial(n, min(maxDim+1, n/2)) (the largest simplex count
       // across 1..maxDim+1); we match that exactly.
-      const std::int64_t cost_units = simplex_cost_units(
+      const std::int64_t cost_units = detail::simplex_cost_units(
         static_cast<std::int64_t>(n), static_cast<int>(m_maxDim));
 
       auto res = mpcf::settings().hybridGpuQueueOnBusy
