@@ -34,6 +34,8 @@ For each visible GPU :math:`i` the scheduler holds:
 - ``budget`` — the bin capacity, a fraction of free memory at construction (``budget_fraction``, default 0.6). The remainder absorbs CUDA scratch, fragmentation, and other tenants.
 - ``remaining`` — bytes still available, an ``std::atomic<int64_t>``.
 - ``k_bytes`` — current cost factor :math:`K_i` (bytes per cost unit), an ``std::atomic<double>``.
+- ``calibrated`` — ``std::atomic<bool>``, set once the first-admit calibration measurement on this GPU has completed (see "First-admit calibration" below). Further admissions skip that measurement.
+- ``activity_gen`` — ``std::atomic<uint64_t>`` admission counter, bumped on every successful ``try_reserve``. Used by the calibration-window contamination guard (see "First-admit calibration" below).
 
 Initial :math:`K` comes from the caller (``initial_k_bytes_per_unit``) and reflects an audited or measured baseline for the workload. For Ripser++ on the dense path, the baseline is ~64 bytes per simplex (sum of seven ``max_num_simplices``-sized arrays — diameter struct, two value arrays, three index arrays, and an index pair struct).
 
@@ -101,8 +103,29 @@ This means a caller writes:
    // r.~Reservation() returns the bytes
 
 
-OOM and AIMD calibration
--------------------------
+First-admit calibration
+------------------------
+
+Before any OOM happens, the scheduler tries to *measure* rather than guess the real :math:`K`. The first admitted item on each GPU is also a calibration run: ``try_reserve`` snapshots ``cudaMemGetInfo(free_before)`` at admit, stores it on the ``Reservation``, and ``release_bytes`` snapshots ``free_after`` on release. The observation is:
+
+.. math:: K_{\text{obs}} = (\text{free\_before} - \text{free\_after}) / \text{cost\_units}
+
+which is passed to ``note_observed_k``. That call raises :math:`K` monotonically: ``K := max(K, K_obs)``. It never lowers it, matching the AIMD "trust observed > modeled, but not the reverse" policy. After the measurement the per-GPU ``calibrated`` flag is set; subsequent admissions skip the snapshot but keep reacting to OOMs.
+
+The measurement is taken on the **live-device** constructor only. The test-injected constructor leaves ``m_calibrate_enabled = false``, so unit tests drive :math:`K` directly via ``note_observed_k`` rather than reading CUDA.
+
+**Why we need it.** ``initial_k_bytes_per_unit`` is an audit of *declared* per-simplex storage (64 bytes for Ripser++ dense), but the *real* residency also includes scratch buffers, thrust temp storage, and upstream's memory planner's slack. Waiting for an OOM to learn that delta is wasteful when we can measure it cheaply on the very first item.
+
+Contamination guard
+^^^^^^^^^^^^^^^^^^^^
+
+The release-time snapshot is only meaningful if the window was exclusive: if a peer reservation admitted during our window, its peak residency would show up in ``free_after`` too and inflate :math:`K_{\text{obs}}`. Checking ``m_active == 1`` at release is necessary but not sufficient — the CUDA memory pool's release threshold is set to ``UINT64_MAX`` (to keep allocations pool-local and fast), so a peer that admitted, allocated, and released entirely inside our window leaves its bytes cached in the pool. ``cudaMemGetInfo`` still reports those bytes as "used", even though the peer is no longer live.
+
+The fix is the per-GPU ``activity_gen`` counter. ``try_reserve`` does ``g.activity_gen.fetch_add(1)`` after a successful admit and stores the post-increment value on the ``Reservation``. ``release_bytes`` re-reads the counter and only takes the measurement if it matches — i.e. no peer admitted in between. The ``calibrated`` flag is set unconditionally either way, so a contaminated window just means we fall back to AIMD on OOM rather than pre-empt it.
+
+
+OOM and AIMD
+-------------
 
 Even with a careful initial :math:`K`, the actual peak residency of a real workload varies with the data — fragmentation, transient working sets, and instance-to-instance overlap can push us past the estimate. When that happens, the GPU code throws ``mpcf::cuda_error`` (defined in ``include/mpcf/cuda/cuda_util.cuh``) with ``code() == cudaErrorMemoryAllocation``. The dispatcher catches it and calls ``record_oom(gpu_idx)``:
 
@@ -130,7 +153,7 @@ Per-GPU :math:`K` means OOM on one GPU does not penalize another. This matters w
 RAII reservation
 =================
 
-The ``Reservation`` class is move-only and trivially small (a scheduler pointer, a gpu index, a byte count). ``release()`` is ``noexcept`` and idempotent. The destructor returns the bytes to the per-GPU ``remaining`` counter — there is nothing else to clean up, since the Reservation does not own any CUDA resources itself; it only owns the right to allocate them.
+The ``Reservation`` class is move-only and small (scheduler pointer, gpu index, byte count, plus the calibration-window fields: ``cost_units``, ``free_before``, a ``calibrate`` flag, and ``admit_gen``). ``release()`` is ``noexcept`` and idempotent. The destructor returns the bytes to the per-GPU ``remaining`` counter — there is nothing else to clean up, since the Reservation does not own any CUDA resources itself; it only owns the right to allocate them.
 
 Two implications:
 
@@ -162,7 +185,7 @@ In ``RipserPlusPlusTask`` (``include/mpcf/persistence/compute_persistence.hpp``)
 - ``parallel_walk_async`` runs N CPU worker threads over the input point-cloud tensor. Each worker, for its assigned item, calls ``try_reserve(n*(n-1)/2)`` (the number of edges = ``max_num_simplices`` for ``max_dim=1``).
 - On success: run Ripser++ on the chosen GPU, on a fresh per-instance stream.
 - On inactive Reservation (no GPU has room): run the CPU Ripser path for that item.
-- On ``mpcf::cuda_error`` with ``cudaErrorMemoryAllocation`` mid-run: ``record_oom(gpu_idx)`` and re-run the item on CPU. Other ``cuda_error`` codes propagate.
+- On ``mpcf::cuda_error`` with ``cudaErrorMemoryAllocation`` mid-run: ``record_oom(gpu_idx)`` and re-run the item on CPU. Other ``cuda_error`` codes propagate. Thrust temp-storage OOMs are routed through ``mpcf::cuda_error`` too (see ``CudaAsyncMemoryResource::do_allocate`` in ``cuda_async_memory_resource.cuh``) so every OOM shape the ripser path can emit hits this catch uniformly.
 
 The result: M concurrent GPU instances, where M is the largest number of items whose admitted byte estimates fit in the per-GPU budget — naturally adapting to item size, free memory, and observed OOM history, with no caller-visible knob beyond ``budget_fraction``.
 

@@ -29,7 +29,7 @@ All files live under ``include/mpcf/cuda/`` (headers) and ``src/cuda/`` (compile
    * - ``cuda_offset_data_manager.cuh``
      - ``CudaOffsetDataManager``: extends ``OffsetDataManager`` with GPU upload.
    * - ``cuda_device_array.cuh``
-     - RAII wrapper for ``cudaMalloc``/``cudaFree``.
+     - RAII wrapper for ``cudaMalloc``/``cudaFree`` (sync) or ``cudaMallocAsync``/``cudaFreeAsync`` (stream-ordered).
    * - ``block_matrix_support.cuh``
      - Shared utilities: grid dimension calculation, GPU memory query.
 
