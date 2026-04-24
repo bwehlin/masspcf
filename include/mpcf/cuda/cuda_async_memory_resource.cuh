@@ -24,6 +24,8 @@
 #include <thrust/system/detail/bad_alloc.h>
 #include <thrust/system/cuda/error.h>
 
+#include <mpcf/cuda/cuda_util.cuh>
+
 #include <cstddef>
 #include <new>
 
@@ -81,9 +83,19 @@ namespace mpcf
       if (status != cudaSuccess)
       {
         // Drop the runtime's sticky error so unrelated callers of
-        // cudaGetLastError don't see it; mirror the stock thrust
-        // resource's bad_alloc shape.
+        // cudaGetLastError don't see it.
         cudaGetLastError();
+        // Route OOM through mpcf::cuda_error so the hybrid dispatcher's
+        // AIMD + CPU fallback catch in compute_persistence.hpp matches.
+        // A thrust-shaped bad_alloc would bypass the catch and unwind
+        // the whole batch.
+        if (status == cudaErrorMemoryAllocation)
+        {
+          throw ::mpcf::cuda_error(__FILE__, __LINE__, status);
+        }
+        // Non-OOM failures keep thrust's stock bad_alloc shape; they
+        // indicate a programming error (bad stream, bad size) and
+        // should not be retried.
         throw thrust::system::detail::bad_alloc(
           thrust::cuda_category().message(status).c_str());
       }

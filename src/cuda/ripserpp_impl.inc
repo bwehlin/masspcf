@@ -3426,10 +3426,12 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
         }
       }
 
-      // Use a local CUDA stream so concurrent facade calls on different
-      // dispatcher threads do not serialize through the default stream.
-      cudaStream_t stream = nullptr;
-      CHK_CUDA(cudaStreamCreate(&stream));
+      // Local CUDA stream so concurrent facade calls on different
+      // dispatcher threads don't serialize through the default stream.
+      // Declared before the CudaDeviceArrays so their dtors still see
+      // a live stream for cudaFreeAsync.
+      mpcf::CudaStream stream_guard;
+      cudaStream_t stream = stream_guard.get();
 
       mpcf::CudaDeviceArray<T> d_points;
       d_points.allocate_async(static_cast<size_t>(n) * static_cast<size_t>(d), stream);
@@ -3450,13 +3452,6 @@ void ripser<sparse_distance_matrix>::compute_barcodes() {
                                total * sizeof(value_t),
                                cudaMemcpyDeviceToHost, stream));
       CHK_CUDA(cudaStreamSynchronize(stream));
-
-      // Release pool-backed arrays via cudaFreeAsync on this stream
-      // before destroying it; otherwise their dtors would fall back
-      // to sync cudaFree on a dead stream.
-      d_points.reset();
-      d_distances.reset();
-      CHK_CUDA(cudaStreamDestroy(stream));
 
       return compressed_lower_distance_matrix(std::move(distances));
     }

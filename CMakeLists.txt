@@ -714,6 +714,7 @@ if (BUILD_TESTER)
         test/test_block_integrate.cu
         test/test_norms.cu
         test/test_gpu_memory_scheduler.cu
+        test/test_cuda_async_memory_resource.cu
         ${MPCF_TEST_SOURCES_COMMON}
     )
   else ()
