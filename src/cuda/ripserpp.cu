@@ -83,6 +83,7 @@
 
 #include <mpcf/cuda/cuda_device_array.cuh>
 #include <mpcf/cuda/cuda_stream.cuh>
+#include <mpcf/cuda/mapped_host_buffer.cuh>
 #include <mpcf/executor.hpp>
 #include <taskflow/algorithm/for_each.hpp>
 #include <thrust/fill.h>
