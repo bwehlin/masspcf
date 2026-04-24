@@ -1424,6 +1424,15 @@ template <typename DistanceMatrix> class ripser {
     mutable std::vector<index_t> vertices;
     mutable std::vector<diameter_index_t_struct> cofacet_entries;
 private:
+    // Declared FIRST so destroyed LAST: every CudaDeviceArray below is
+    // pool-backed via cudaMallocAsync(stream_), and their destructors
+    // run before stream_'s in reverse declaration order -- keeping the
+    // stream alive for their cudaFreeAsync path. thrust_mr_ holds a
+    // non-owning pointer to stream_ and follows it so it's likewise
+    // torn down before the arrays that routed through it.
+    mpcf::CudaStream stream_;
+    mpcf::CudaAsyncMemoryResource thrust_mr_;
+
     size_t freeMem, totalMem;
     cudaDeviceProp deviceProp;
     int grid_size;
@@ -1495,17 +1504,6 @@ private:
     // CPU executor used in place of upstream's #pragma omp parallel for loops.
     mpcf::Executor& exec_;
 
-    // Per-instance CUDA stream. All GPU work (kernels, thrust, memcpy,
-    // sync) issued by this ripser instance goes on this stream so that
-    // multiple ripser instances can run concurrently on the device.
-    cudaStream_t stream_;
-
-    // Stream-aware memory resource handed to thrust execution policies
-    // so thrust's temp-storage allocations (sort/count/scan/fill) go
-    // through cudaMallocAsync on stream_ instead of the synchronous
-    // cudaMalloc path. Set in the ctor once stream_ is created.
-    mpcf::CudaAsyncMemoryResource thrust_mr_;
-
     // Set to true when the embedded dim-planner found insufficient GPU
     // memory for the requested dim_max and fell back to CPU for the
     // high-dimensional tail. The caller can read this via
@@ -1562,10 +1560,9 @@ public:
             : dist(std::move(_dist)), n(dist.size()),
               dim_max(std::min(_dim_max, index_t(dist.size() - 2))), threshold(_threshold),
               ratio(_ratio), binomial_coeff(n, dim_max + 2),
-              barcodes_out(_barcodes_out), exec_(_exec), stream_(nullptr)
+              barcodes_out(_barcodes_out), exec_(_exec)
     {
         m_parallel_inner = _parallel_inner;
-        CHK_CUDA(cudaStreamCreate(&stream_));
         thrust_mr_.set_stream(stream_);
     }
 
@@ -1584,39 +1581,6 @@ public:
     bool upstream_cpu_fallback() const noexcept { return m_upstream_cpu_fallback; }
     index_t gpu_max_dim() const noexcept { return m_gpu_max_dim; }
 
-    ~ripser()
-    {
-        // Release pool-backed buffers via cudaFreeAsync on stream_
-        // BEFORE cudaStreamDestroy runs, otherwise CudaDeviceArray's
-        // dtor would fall back to synchronous cudaFree on a stream
-        // that no longer exists. Sparse and dense paths only allocate
-        // a subset of these members; reset() is a no-op on empty
-        // arrays, so listing them all is safe either way.
-        d_columns_to_reduce.reset();
-#ifndef ASSEMBLE_REDUCTION_SUBMATRIX
-        d_flagarray.reset();
-#endif
-        d_distance_matrix.reset();
-        d_CSR_distance_matrix.reset();
-        h_d_offsets.reset();
-        h_d_entries.reset();
-        h_d_col_indices.reset();
-        d_pivot_column_index_OR_nonapparent_cols.reset();
-        d_binomial_coeff.reset();
-        h_d_binoms.reset();
-        d_cidx_to_diameter.reset();
-        d_cidx_diameter_pairs_sortedlist.reset();
-#if defined(ASSEMBLE_REDUCTION_SUBMATRIX)
-        d_flagarray_OR_index_to_subindex.reset();
-#endif
-        d_lowest_one_of_apparent_pair.reset();
-        d_pivot_array.reset();
-        d_simplices.reset();
-
-        if (stream_) {
-            cudaStreamDestroy(stream_);
-        }
-    }
 
     // GPU memory cleanup is handled by the CudaDeviceArray member destructors
     // when the ripser instance is destroyed (or reassigned). Upstream needed

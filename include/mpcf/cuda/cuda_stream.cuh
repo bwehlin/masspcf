@@ -65,6 +65,12 @@ namespace mpcf
     [[nodiscard]] cudaStream_t get() const noexcept { return m_stream; }
     [[nodiscard]] cudaStream_t* ptr() noexcept { return &m_stream; }
 
+    /// Implicit conversion to cudaStream_t so existing code that takes
+    /// a raw handle (kernel launch configs, thrust policies, cudaMemcpyAsync,
+    /// etc.) can use a CudaStream without writing .get() everywhere.
+    /// Ownership is not transferred.
+    operator cudaStream_t() const noexcept { return m_stream; }
+
   private:
     cudaStream_t m_stream = nullptr;
   };
