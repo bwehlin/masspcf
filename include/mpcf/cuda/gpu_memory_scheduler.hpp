@@ -119,7 +119,7 @@ namespace mpcf
       Reservation(Reservation&& o) noexcept
         : m_sched(o.m_sched), m_gpu(o.m_gpu), m_bytes(o.m_bytes),
           m_cost_units(o.m_cost_units), m_free_before(o.m_free_before),
-          m_calibrate(o.m_calibrate)
+          m_calibrate(o.m_calibrate), m_admit_gen(o.m_admit_gen)
       {
         o.m_sched = nullptr;
         o.m_gpu = -1;
@@ -127,6 +127,7 @@ namespace mpcf
         o.m_cost_units = 0;
         o.m_free_before = 0;
         o.m_calibrate = false;
+        o.m_admit_gen = 0;
       }
 
       Reservation& operator=(Reservation&& o) noexcept
@@ -139,12 +140,14 @@ namespace mpcf
           m_cost_units = o.m_cost_units;
           m_free_before = o.m_free_before;
           m_calibrate = o.m_calibrate;
+          m_admit_gen = o.m_admit_gen;
           o.m_sched = nullptr;
           o.m_gpu = -1;
           o.m_bytes = 0;
           o.m_cost_units = 0;
           o.m_free_before = 0;
           o.m_calibrate = false;
+          o.m_admit_gen = 0;
         }
         return *this;
       }
@@ -158,10 +161,11 @@ namespace mpcf
     private:
       friend class GpuMemoryScheduler;
       Reservation(GpuMemoryScheduler* s, int gpu, std::int64_t bytes,
-                  std::int64_t cost_units, std::size_t free_before, bool calibrate)
+                  std::int64_t cost_units, std::size_t free_before,
+                  bool calibrate, std::uint64_t admit_gen)
         : m_sched(s), m_gpu(gpu), m_bytes(bytes),
           m_cost_units(cost_units), m_free_before(free_before),
-          m_calibrate(calibrate) {}
+          m_calibrate(calibrate), m_admit_gen(admit_gen) {}
 
       void release() noexcept;
 
@@ -171,6 +175,12 @@ namespace mpcf
       std::int64_t m_cost_units = 0;
       std::size_t m_free_before = 0;
       bool m_calibrate = false;
+      // Value of the per-GPU activity generation counter immediately
+      // after this reservation incremented it. Compared against the
+      // counter at release time: if any peer admitted in between,
+      // the memory-free snapshot would be contaminated and the
+      // calibration measurement is skipped.
+      std::uint64_t m_admit_gen = 0;
     };
 
     /// Construct using live CUDA device queries. One GpuState per device
@@ -287,6 +297,13 @@ namespace mpcf
       return m_gpus[static_cast<std::size_t>(gpu_idx)].calibrated.load(std::memory_order_relaxed);
     }
 
+    /// Current per-GPU admission generation. Monotonic. Exposed for
+    /// tests that want to observe the contamination-guard bumping.
+    [[nodiscard]] std::uint64_t activity_gen(int gpu_idx) const noexcept
+    {
+      return m_gpus[static_cast<std::size_t>(gpu_idx)].activity_gen.load(std::memory_order_relaxed);
+    }
+
   private:
     struct GpuState
     {
@@ -297,6 +314,13 @@ namespace mpcf
       /// measured via `cudaMemGetInfo` snapshots. Further admissions
       /// skip the measurement.
       std::atomic<bool> calibrated{false};
+      /// Monotonic per-GPU admission counter. Incremented on each
+      /// successful try_reserve; a Reservation snapshots its
+      /// post-increment value and re-reads on release. Any mismatch
+      /// means a peer admitted in our window, so the pool-cached
+      /// residency from that peer would contaminate our free-memory
+      /// diff -- skip the measurement.
+      std::atomic<std::uint64_t> activity_gen{0};
     };
 
     void release_bytes(Reservation& r) noexcept;
@@ -418,6 +442,18 @@ namespace mpcf
         m_total_admitted.fetch_add(1, std::memory_order_relaxed);
         update_peak_active(prev_active + 1);
 
+        // Contamination guard: bump the per-GPU activity generation and
+        // record the post-increment value on the Reservation. Release
+        // re-reads and skips the measurement if it has advanced -- i.e.
+        // if any peer admitted in between, regardless of whether that
+        // peer is still live at release time. This closes the hole that
+        // release-time `now_active == 1` left: the pool's max release
+        // threshold means a peer that admitted, allocated, and released
+        // during our window still shows its bytes as "used" in
+        // cudaMemGetInfo at release.
+        const std::uint64_t admit_gen =
+          g.activity_gen.fetch_add(1, std::memory_order_acq_rel) + 1;
+
         // First-admit calibration snapshot: if we haven't yet calibrated
         // this GPU, capture its free memory now so release() can diff
         // against it and upgrade K to the observed bytes/unit. We only
@@ -435,7 +471,7 @@ namespace mpcf
           }
         }
         return Reservation{this, static_cast<int>(i), est,
-                           cost_units, free_before, do_calibrate};
+                           cost_units, free_before, do_calibrate, admit_gen};
       }
       g.remaining.fetch_add(est, std::memory_order_release);
     }
@@ -578,14 +614,16 @@ namespace mpcf
     auto& g = m_gpus[static_cast<std::size_t>(r.m_gpu)];
 
     // If this was the calibration item and it still has exclusive use
-    // of the GPU at release time (m_active == 1, just us), snapshot
-    // the free memory and back out K_obs = used_bytes / cost_units.
-    // If another reservation came in since admit, the measurement
-    // would be contaminated; skip it. Either way, the per-GPU
-    // `calibrated` flag is set so we do not keep trying.
+    // of the GPU at release time (m_active == 1, just us) AND no peer
+    // admitted during our window (activity_gen unchanged since our
+    // admit), snapshot the free memory and back out
+    // K_obs = used_bytes / cost_units. If either guard fails the
+    // measurement is contaminated and we skip it. Either way, the
+    // per-GPU `calibrated` flag is set so we do not keep trying.
     if (r.m_calibrate) {
       const int now_active = m_active.load(std::memory_order_acquire);
-      if (now_active == 1 && r.m_cost_units > 0) {
+      const std::uint64_t cur_gen = g.activity_gen.load(std::memory_order_acquire);
+      if (now_active == 1 && cur_gen == r.m_admit_gen && r.m_cost_units > 0) {
         std::size_t free_after = 0, total_mem = 0;
         if (cudaMemGetInfo(&free_after, &total_mem) == cudaSuccess &&
             free_after < r.m_free_before)

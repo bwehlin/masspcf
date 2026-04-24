@@ -467,4 +467,67 @@ namespace
     EXPECT_EQ(success_count.load(), budget / cost);
     EXPECT_EQ(sched.remaining(0), budget);
   }
+
+  // The first-admit calibration window uses a per-GPU activity
+  // generation counter to detect peer admissions. These tests pin the
+  // counter's behavior; the live calibration path (which also reads
+  // cudaMemGetInfo) is gated separately by `m_calibrate_enabled`.
+  TEST(GpuMemoryScheduler, ActivityGenStartsAtZero)
+  {
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{1000}, default_cfg());
+    EXPECT_EQ(sched.activity_gen(0), 0u);
+  }
+
+  TEST(GpuMemoryScheduler, ActivityGenBumpsOnEachAdmit)
+  {
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{1000}, default_cfg());
+
+    auto r1 = sched.try_reserve(10);
+    ASSERT_TRUE(r1.active());
+    EXPECT_EQ(sched.activity_gen(0), 1u);
+
+    auto r2 = sched.try_reserve(10);
+    ASSERT_TRUE(r2.active());
+    EXPECT_EQ(sched.activity_gen(0), 2u);
+  }
+
+  TEST(GpuMemoryScheduler, ActivityGenDoesNotBumpOnRelease)
+  {
+    // Release does not advance the counter, so a calibrating
+    // reservation that releases alone (no concurrent admit) sees
+    // `cur_gen == admit_gen` and takes the measurement.
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{1000}, default_cfg());
+
+    {
+      auto r = sched.try_reserve(10);
+      ASSERT_TRUE(r.active());
+      EXPECT_EQ(sched.activity_gen(0), 1u);
+    }
+    EXPECT_EQ(sched.activity_gen(0), 1u);
+  }
+
+  TEST(GpuMemoryScheduler, ActivityGenAdvancedByPeerAdmittingDuringWindow)
+  {
+    // The specific contamination scenario from the bug: thread A is
+    // the calibration item, thread B admits and releases entirely
+    // within A's window. When A releases, activity_gen has advanced
+    // past A's admit snapshot, so the calibration guard skips the
+    // measurement even though B is no longer live (`m_active == 1`).
+    GpuMemoryScheduler sched(std::vector<std::int64_t>{1000}, default_cfg());
+
+    auto r_a = sched.try_reserve(10);
+    ASSERT_TRUE(r_a.active());
+    const auto gen_at_a_admit = sched.activity_gen(0);
+    EXPECT_EQ(gen_at_a_admit, 1u);
+
+    {
+      auto r_b = sched.try_reserve(10);
+      ASSERT_TRUE(r_b.active());
+      // r_b destructs here -- peer released during A's window.
+    }
+
+    // Still holding A. Counter has moved past A's admit snapshot,
+    // which is what release_bytes uses to detect contamination.
+    EXPECT_GT(sched.activity_gen(0), gen_at_a_admit);
+  }
 }
