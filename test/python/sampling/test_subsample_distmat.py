@@ -49,7 +49,7 @@ def test_distmat_subsamples_are_indexed_views():
     D = _ref_distmat(50)
     dm = sb.DistanceMatrix.from_dense(D)
     subs = subsample_relative(dm, sample_size=10, n_instances=4,
-                              distribution=Gaussian(0.0, 1.0),
+                              distribution=Gaussian(mean=0.0, sigma=1.0),
                               generator=sb.random.Generator(0))
     el = subs[0, 0]
     assert el.is_indexed
@@ -88,7 +88,7 @@ def test_distmat_per_query_points_differ():
 
     subs = subsample_relative(dm, np.array([qa, qb], dtype=np.uint64),
                               sample_size=10, n_instances=60,
-                              distribution=Gaussian(0.0, 0.5),
+                              distribution=Gaussian(mean=0.0, sigma=0.5),
                               generator=sb.random.Generator(0))
 
     drawn = []
@@ -112,6 +112,65 @@ def test_distmat_without_replacement_distinct():
     for j in range(subs.shape[1]):
         idx = np.asarray(subs[0, j].indices)
         assert len(set(int(i) for i in idx)) == len(idx)
+
+
+def test_distmat_without_replacement_larger_than_reference_draws_all_points():
+    # sample_size is a maximum: without replacement, asking for more points
+    # than the reference holds yields every reference point once.
+    D = _ref_distmat(5)
+    dm = sb.DistanceMatrix.from_dense(D)
+
+    subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
+                              sample_size=6, n_instances=4,
+                              distribution=Uniform(), replace=False,
+                              generator=sb.random.Generator(0))
+
+    for j in range(subs.shape[1]):
+        idx = np.asarray(subs[0, j].indices)
+        assert sorted(idx) == list(range(5))
+
+
+def test_distmat_without_replacement_small_region_gives_ragged_subsamples():
+    # A Uniform disk holding fewer points than sample_size: each subsample
+    # shrinks to exactly the eligible points (ragged, 0 < size < sample_size).
+    D = _ref_distmat(40, seed=1)
+    dm = sb.DistanceMatrix.from_dense(D)
+    q = 7
+    cutoff = np.sort(D[q])[3]  # the query row itself + its 3 nearest points
+    eligible = {i for i in range(40) if D[q, i] <= cutoff}
+
+    subs = subsample_relative(dm, np.array([q], dtype=np.uint64),
+                              sample_size=10, n_instances=15,
+                              distribution=Uniform(high=cutoff), replace=False,
+                              generator=sb.random.Generator(0))
+
+    for j in range(subs.shape[1]):
+        idx = np.asarray(subs[0, j].indices)
+        assert set(int(i) for i in idx) == eligible
+        assert subs[0, j].size == len(eligible)
+
+
+@pytest.mark.parametrize("replace", [True, False], ids=["replace", "no-replace"])
+def test_distmat_empty_region_gives_empty_subsamples_and_warns(replace):
+    # A band beyond the largest distance in the matrix contains no points (the
+    # zero self-distance falls below it too): length-0 subsamples, and with
+    # verbose=True a warning names the affected query.
+    D = _ref_distmat(20)
+    dm = sb.DistanceMatrix.from_dense(D)
+    lo = D.max() + 1.0
+
+    with pytest.warns(UserWarning, match="1 query point"):
+        subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
+                                  sample_size=5, n_instances=3,
+                                  distribution=Uniform(low=lo, high=lo + 1.0),
+                                  replace=replace,
+                                  generator=sb.random.Generator(0), verbose=True)
+
+    for j in range(subs.shape[1]):
+        el = subs[0, j]
+        assert el.is_indexed
+        assert el.size == 0
+        assert np.asarray(el.indices).size == 0
 
 
 def test_distmat_tensor_of_one_is_accepted():
@@ -165,7 +224,7 @@ def test_distmat_pipeline_to_relative_stable_rank():
     query = np.array([0, 30, 60, 90], dtype=np.uint64)
 
     subs = subsample_relative(dm, query, sample_size=25, n_instances=30,
-                              distribution=Gaussian(0.0, 1.0),
+                              distribution=Gaussian(mean=0.0, sigma=1.0),
                               generator=sb.random.Generator(0))
     assert subs.shape == (4, 30)
 

@@ -123,61 +123,77 @@ namespace sb::sampling
       return std::min(idx, cdf.size() - 1);
     }
 
-    /// Draw @p sampleSize reference indices for query @p queryIdx (row
-    /// @p queryIdx of the (n_query, n_reference) weight matrix @p weights) and
-    /// hand each drawn index to @p write(drawIdx, refIdx).
-    template <typename T, typename EngineT, typename Writer>
-    void draw_indices(const Tensor<T>& weights, size_t queryIdx, size_t nReference,
-                      size_t sampleSize, bool replace, EngineT& engine, Writer write)
+    /// Draw reference indices for query @p queryIdx (row @p queryIdx of the
+    /// (n_query, n_reference) weight matrix @p weights). @p sampleSize is a
+    /// maximum: with n_eligible the number of strictly positive weights in the
+    /// row, the returned rank-1 index tensor has length
+    ///   - 0 when n_eligible == 0 (the query's region holds no points),
+    ///   - min(sampleSize, n_eligible) without replacement,
+    ///   - sampleSize with replacement (repeats fill the sample).
+    template <typename T, typename EngineT>
+    Tensor<uint64_t> draw_indices(const Tensor<T>& weights, size_t queryIdx, size_t nReference,
+                                  size_t sampleSize, bool replace, EngineT& engine)
     {
       std::vector<T> rowWeights(nReference);
+      size_t nEligible = 0;
       for (size_t refIdx = 0; refIdx < nReference; ++refIdx)
+      {
         rowWeights[refIdx] = weights({queryIdx, refIdx});
+        // Reject negative weights here: counting them as merely ineligible
+        // could turn an invalid row into a silent empty draw.
+        if (rowWeights[refIdx] < T(0))
+          throw std::invalid_argument("sampling weights must be non-negative");
+        if (rowWeights[refIdx] > T(0))
+          ++nEligible;
+      }
+
+      const size_t nDraws =
+          nEligible == 0 ? 0 : (replace ? sampleSize : std::min(sampleSize, nEligible));
+      Tensor<uint64_t> drawn({nDraws});
+      if (nDraws == 0)
+        return drawn;  // empty region -> length-0 subsample
 
       std::vector<T> cdf;
-
       if (replace)
       {
         build_cdf(cdf, rowWeights);
-        for (size_t drawIdx = 0; drawIdx < sampleSize; ++drawIdx)
-          write(drawIdx, draw_one(cdf, engine));
+        for (size_t drawIdx = 0; drawIdx < nDraws; ++drawIdx)
+          drawn({drawIdx}) = static_cast<uint64_t>(draw_one(cdf, engine));
       }
       else
       {
         // Weighted sampling without replacement: zero a weight once chosen and
-        // rebuild the CDF for the remaining points.
-        for (size_t drawIdx = 0; drawIdx < sampleSize; ++drawIdx)
+        // rebuild the CDF for the remaining points. nDraws <= nEligible keeps
+        // the CDF total positive throughout.
+        for (size_t drawIdx = 0; drawIdx < nDraws; ++drawIdx)
         {
           build_cdf(cdf, rowWeights);
           size_t refIdx = draw_one(cdf, engine);
-          write(drawIdx, refIdx);
+          drawn({drawIdx}) = static_cast<uint64_t>(refIdx);
           rowWeights[refIdx] = T(0);
         }
       }
+      return drawn;
     }
 
+    // sample_size is a soft maximum (draws shrink to the eligible count without
+    // replacement), so no upper bound is validated in either replace mode.
     template <typename T>
-    void validate_reference(const PointCloud<T>& reference, size_t sampleSize, bool replace)
+    void validate_reference(const PointCloud<T>& reference, size_t sampleSize)
     {
       if (reference.rank() != 2)
         throw std::invalid_argument("reference must be a 2-D (n_points, dim) point cloud");
       if (sampleSize == 0)
         throw std::invalid_argument("sample_size must be positive");
-      if (!replace && sampleSize > reference.n_points())
-        throw std::invalid_argument("sample_size must not exceed the number of reference "
-                                    "points when sampling without replacement");
     }
 
     template <typename T>
-    void validate_distmat(const DistanceMatrix<T>& source, size_t sampleSize, bool replace)
+    void validate_distmat(const DistanceMatrix<T>& source, size_t sampleSize)
     {
       if (source.size() == 0)
         throw std::invalid_argument("reference distance matrix must be non-empty");
       if (sampleSize == 0)
         throw std::invalid_argument("sample_size must be positive");
-      if (!replace && sampleSize > source.size())
-        throw std::invalid_argument("sample_size must not exceed the number of reference "
-                                    "points when sampling without replacement");
     }
 
     /// Stoppable, progress-reporting draw: fills a (n_query, n_instances) tensor
@@ -214,12 +230,8 @@ namespace sb::sampling
           if (this->stop_requested())
             return;
           const size_t queryIdx = cellIdx[0];  // cellIdx = (query, instance)
-          Tensor<uint64_t> drawnIndices({m_sampleSize});
-          draw_indices(m_weights, queryIdx, nReference, m_sampleSize, m_replace, engine,
-                       [&drawnIndices](size_t drawIdx, size_t refIdx) {
-                         drawnIndices({drawIdx}) = static_cast<uint64_t>(refIdx);
-                       });
-          m_out(cellIdx) = ElemT(m_source, std::move(drawnIndices));
+          m_out(cellIdx) = ElemT(
+              m_source, draw_indices(m_weights, queryIdx, nReference, m_sampleSize, m_replace, engine));
           this->add_progress(1);
         }, exec);
       }
@@ -291,8 +303,10 @@ namespace sb::sampling
   /// Launches the draw asynchronously and returns a SubsampleHandle: a
   /// (n_query, n_instances) @p samples tensor whose element (i, j) is the j-th
   /// subsample for query point i — an indexed view sharing @p reference's
-  /// coordinates (each of shape (sample_size, dim)) — together with the task
-  /// filling it.
+  /// coordinates — together with the task filling it. @p sampleSize is the
+  /// maximum subsample size: without replacement a subsample shrinks to the
+  /// number of positively-weighted reference points, and a query whose weight
+  /// row is all zero yields length-0 subsamples (see draw_indices).
   template <typename T, typename FilterF, typename DistF>
   SubsampleHandle<PointCloud<T>> sample_subsets(const PointCloud<T>& reference,
                                                 const PointCloud<T>& query, FilterF filter,
@@ -300,7 +314,7 @@ namespace sb::sampling
                                                 size_t nInstances, bool replace,
                                                 DefaultRandomGenerator gen, Executor& exec)
   {
-    detail::validate_reference(reference, sampleSize, replace);
+    detail::validate_reference(reference, sampleSize);
     if (query.rank() != 2)
       throw std::invalid_argument("query must be a 2-D (n_points, dim) point cloud");
     if (query.dim() != reference.dim())
@@ -316,9 +330,10 @@ namespace sb::sampling
 
   /// Per-query-point subsampling of a reference distance matrix. For each query
   /// row index in @p query, weights over the reference points are
-  /// @p distribution(source(query_row, j)); @p sampleSize indices are drawn and
-  /// the subsample is the principal submatrix over them (an indexed DistanceMatrix
-  /// view). @p samples has shape (n_query, n_instances).
+  /// @p distribution(source(query_row, j)); up to @p sampleSize indices are
+  /// drawn (ragged semantics as in sample_subsets) and the subsample is the
+  /// principal submatrix over them (an indexed DistanceMatrix view). @p samples
+  /// has shape (n_query, n_instances).
   template <typename T, typename DistF>
   SubsampleHandle<DistanceMatrix<T>> sample_subsets_distmat(const DistanceMatrix<T>& source,
                                                             const Tensor<uint64_t>& query,
@@ -326,7 +341,7 @@ namespace sb::sampling
                                                             size_t nInstances, bool replace,
                                                             DefaultRandomGenerator gen, Executor& exec)
   {
-    detail::validate_distmat(source, sampleSize, replace);
+    detail::validate_distmat(source, sampleSize);
     Tensor<T> weights = detail::compute_weights_distmat(source, query, distribution, exec);
     return detail::draw_subsets_from_weights<DistanceMatrix<T>>(source, std::move(weights), sampleSize,
                                                                 nInstances, replace, std::move(gen), exec);

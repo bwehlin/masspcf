@@ -22,21 +22,26 @@ class Uniform:
       query equally likely) -- ``Uniform(high=r)``;
     * an **annulus** between radii :math:`r_1` and :math:`r_2` --
       ``Uniform(low=r1, high=r2)``;
+    * everything **beyond** distance :math:`r` -- ``Uniform(low=r)``;
     * plain uniform sampling of the whole reference cloud -- ``Uniform()`` (the
       default, ``low=0``, ``high=`` :math:`\infty`). This case is independent of
       the query point, so a single query point suffices.
 
+    Both parameters are keyword-only: which band edge is meant is always
+    explicit at the call site, so a lone radius cannot silently pick the
+    wrong region.
+
     Parameters
     ----------
-    low : float, optional
+    low : float, optional, keyword-only
         Lower band edge :math:`\text{low} \ge 0`, by default 0.0.
-    high : float, optional
+    high : float, optional, keyword-only
         Upper band edge. If ``None`` (the default) it is :math:`+\infty`, so every
         point at distance :math:`\ge` ``low`` is included. Must be strictly greater
         than ``low``.
     """
 
-    def __init__(self, low=0.0, high=None):
+    def __init__(self, *, low=0.0, high=None):
         low = float(low)
         if low < 0:
             raise ValueError("low must be non-negative.")
@@ -61,15 +66,19 @@ class Gaussian:
     Applied to the Euclidean distance, this concentrates sampling probability on
     reference points whose distance to the query point is near :math:`\mu`.
 
+    Both parameters are keyword-only: ``Gaussian(sigma=0.3)`` samples tightly
+    around each query point, ``Gaussian(mean=2.0, sigma=0.3)`` a shell at
+    distance 2 -- an unnamed value cannot be mistaken for the other parameter.
+
     Parameters
     ----------
-    mean : float, optional
+    mean : float, optional, keyword-only
         Center :math:`\mu`, by default 0.0.
-    sigma : float, optional
+    sigma : float, optional, keyword-only
         Standard deviation :math:`\sigma`, by default 1.0.
     """
 
-    def __init__(self, mean=0.0, sigma=1.0):
+    def __init__(self, *, mean=0.0, sigma=1.0):
         if sigma <= 0:
             raise ValueError("sigma must be positive.")
         self.mean = float(mean)

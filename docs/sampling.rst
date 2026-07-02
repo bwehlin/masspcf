@@ -22,8 +22,8 @@ result through a **distribution** :math:`D`:
 
    \mathrm{prob}(r) \propto D\big(\mathrm{filter}(p, r)\big),\quad r \in R.
 
-``n_instances`` subsamples of ``sample_size`` points each are then drawn from
-:math:`R` according to that probability. With the default filter (Euclidean
+``n_instances`` subsamples of up to ``sample_size`` points each are then drawn
+from :math:`R` according to that probability. With the default filter (Euclidean
 distance) and a Gaussian distribution, this concentrates each query point's
 subsamples on the reference points near it, so the persistent homology of those
 subsamples describes the local shape of the data around that query point.
@@ -78,6 +78,10 @@ Pass one of the built-in specs (:class:`~stablebear.Gaussian` or
 :class:`~stablebear.Uniform`) via the ``distribution`` keyword; the default is
 ``Gaussian(mean=0.0, sigma=1.0)``. The whole probability-and-draw computation
 then runs in a single fused C++ pass.
+
+Distribution parameters are **keyword-only** — ``Uniform(high=3.0)``, never
+``Uniform(3.0)`` — so which region a spec describes is always explicit at the
+call site and a lone value cannot silently be taken for the wrong parameter.
 
 .. note::
 
@@ -140,6 +144,7 @@ by distance to the query point:
 - a **disk** of radius :math:`r` -- ``Uniform(high=r)``;
 - an **annulus** between radii :math:`r_1` and :math:`r_2` --
   ``Uniform(low=r1, high=r2)``;
+- everything **beyond** distance :math:`r` -- ``Uniform(low=r)``;
 - the **whole** reference cloud -- ``Uniform()`` (the default ``low=0``,
   ``high=`` :math:`\infty`).
 
@@ -170,7 +175,14 @@ by distance to the query point:
 Drawing controls
 ================
 
-- ``sample_size`` -- number of points in each subsample (``s`` in the paper).
+- ``sample_size`` -- maximum number of points in each subsample (``s`` in the
+  paper). With replacement (the default) every subsample has exactly
+  ``sample_size`` points as long as at least one reference point carries
+  positive weight for the query. Without replacement a subsample holds
+  distinct points only, so it shrinks to the number of positively-weighted
+  reference points when fewer than ``sample_size`` are available -- for
+  example a narrow ``Uniform`` band around an isolated query point, or a
+  ``sample_size`` larger than the reference cloud itself.
 - ``n_instances`` -- number of subsamples drawn per query point (``n`` in the
   paper). This becomes the second axis of the output tensor.
 - ``replace`` -- whether each subsample is drawn with replacement. Default
@@ -185,6 +197,17 @@ Drawing controls
 
 - ``verbose`` -- if ``True``, show a progress bar while the subsamples are drawn
   and allow cooperative cancellation (e.g. via ``KeyboardInterrupt``).
+
+.. note::
+
+   **Empty regions.** A query point for which *no* reference point has positive
+   weight -- e.g. a ``Uniform`` band that no reference point falls in -- yields
+   *empty* (0-point) subsamples; with ``verbose=True``, ``subsample_relative``
+   emits a ``UserWarning`` naming the affected query points. Degenerate
+   distribution *parameters* (``high <= low``, ``sigma <= 0``) are instead
+   rejected when the distribution object is constructed, so an empty subsample
+   always means a validly-specified region that happens to contain no
+   reference points.
 
 
 Feeding into persistent homology

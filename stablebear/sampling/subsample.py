@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 from .. import _sb_cpp as cpp
@@ -66,6 +68,26 @@ def _reference_indices(query, n):
     return q
 
 
+def _warn_empty_queries(result):
+    """Warn once if any query's region held no eligible reference points.
+
+    Callers gate this on ``verbose`` — quiet runs proceed silently with the
+    empty subsamples. Emptiness is a per-query property (an all-zero weight
+    row empties every instance of that query), so checking one instance per
+    query suffices.
+    """
+    empty = [q for q in range(result.shape[0])
+             if np.asarray(result[q, 0].indices).size == 0]
+    if empty:
+        shown = ", ".join(map(str, empty[:10])) + (", ..." if len(empty) > 10 else "")
+        warnings.warn(
+            f"{len(empty)} query point(s) had no reference points with positive "
+            f"sampling weight; their subsamples are empty (query indices: {shown}).",
+            stacklevel=4,  # helper -> path helper -> subsample_relative -> user code
+        )
+    return result
+
+
 def _subsample_distmat(reference, query, *, sample_size, n_instances, distribution,
                        replace, generator, verbose):
     """Distance-matrix path of :func:`subsample_relative` (see its docstring)."""
@@ -85,6 +107,9 @@ def _subsample_distmat(reference, query, *, sample_size, n_instances, distributi
         sample_size, n_instances, replace, gen
     )
     _run_task(lambda: task, verbose=verbose)
+
+    if verbose:
+        return _warn_empty_queries(DistanceMatrixTensor(result))
     return DistanceMatrixTensor(result)
 
 
@@ -120,6 +145,8 @@ def _subsample_pointcloud(reference, query, *, sample_size, n_instances, distrib
         distribution._descriptor(backend), sample_size, n_instances, replace, gen
     )
     _run_task(lambda: task, verbose=verbose)
+    if verbose:
+        return _warn_empty_queries(PointCloudTensor(result))
     return PointCloudTensor(result)
 
 
@@ -145,8 +172,8 @@ def subsample_relative(
     .. math::
         \mathrm{prob}(r) \propto D\big(\lVert p - r\rVert\big),\quad r \in R,
 
-    and ``n_instances`` subsamples of ``sample_size`` points are then drawn from
-    :math:`R` according to that probability.
+    and ``n_instances`` subsamples of up to ``sample_size`` points are then
+    drawn from :math:`R` according to that probability.
 
     The result feeds directly into the rest of the package::
 
@@ -185,7 +212,16 @@ def subsample_relative(
         a fully-open :class:`Uniform`), the query does not affect the sampling
         probability, so a single query suffices.
     sample_size : int
-        Number of points per subsample (``s`` in the paper).
+        Maximum number of points per subsample (``s`` in the paper). With
+        replacement (the default) every subsample has exactly ``sample_size``
+        points as long as at least one reference point has positive weight.
+        Without replacement a subsample can only contain distinct eligible
+        points, so it shrinks to their count when fewer than ``sample_size``
+        reference points have positive weight (e.g. a narrow :class:`Uniform`
+        band, or ``sample_size`` exceeding the reference size). A query point
+        whose region contains no eligible reference points at all yields
+        empty (0-point) subsamples; when ``verbose=True`` a
+        :class:`UserWarning` reports the affected query points.
     n_instances : int
         Number of subsamples drawn per query point (``n`` in the paper).
     distribution : Gaussian or Uniform, optional
@@ -199,25 +235,32 @@ def subsample_relative(
     generator : Generator, optional
         Random number generator. If ``None``, the global generator is used.
     verbose : bool, optional
-        If True, display a progress bar while the subsamples are drawn and allow
-        cooperative cancellation (e.g. via ``KeyboardInterrupt``). By default
-        False.
+        If True, display a progress bar while the subsamples are drawn, allow
+        cooperative cancellation (e.g. via ``KeyboardInterrupt``), and warn
+        about query points whose subsamples came out empty. By default False.
 
     Returns
     -------
     PointCloudTensor or DistanceMatrixTensor
         Tensor of shape ``(n_query, n_instances)``; element ``[i, j]`` is the
         ``j``-th subsample for query point ``i`` — a point cloud of shape
-        ``(sample_size, dim)`` for point-cloud input, or a
-        ``(sample_size, sample_size)`` sub-distance-matrix for distance-matrix
-        input.
+        ``(k, dim)`` for point-cloud input, or a ``(k, k)``
+        sub-distance-matrix for distance-matrix input, where
+        ``k <= sample_size`` (see *sample_size* for when a subsample is
+        smaller).
+
+    Warns
+    -----
+    UserWarning
+        If ``verbose=True`` and any query point has no reference point with
+        positive sampling weight, so its subsamples are empty.
     """
     if sample_size <= 0:
         raise ValueError("sample_size must be positive.")
     if n_instances <= 0:
         raise ValueError("n_instances must be positive.")
     if distribution is None:
-        distribution = Gaussian(0.0, 1.0)
+        distribution = Gaussian(mean=0.0, sigma=1.0)
     if not isinstance(distribution, _BUILTIN_DISTRIBUTIONS):
         raise ValueError(
             "distribution must be a built-in distribution "

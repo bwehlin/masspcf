@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 
@@ -43,7 +45,7 @@ def test_gaussian_concentrates_on_nearest():
     X = np.array([[7.0]])  # exactly reference point index 7
 
     subs = subsample_relative(R, X, sample_size=20, n_instances=200,
-                     distribution=Gaussian(0.0, 0.3),
+                     distribution=Gaussian(mean=0.0, sigma=0.3),
                      generator=sb.random.Generator(0))
 
     idx_map = _ref_index_map(R)
@@ -60,7 +62,7 @@ def test_per_query_point_probabilities_differ():
     X = np.array([[3.0], [25.0]])
 
     subs = subsample_relative(R, X, sample_size=20, n_instances=100,
-                     distribution=Gaussian(0.0, 1.0),
+                     distribution=Gaussian(mean=0.0, sigma=1.0),
                      generator=sb.random.Generator(0))
 
     idx_map = _ref_index_map(R)
@@ -174,6 +176,22 @@ def test_uniform_invalid_radii_raise(kwargs):
         Uniform(**kwargs)
 
 
+@pytest.mark.parametrize("args", [(3.0,), (1.0, 3.0)], ids=["one", "two"])
+def test_uniform_positional_args_rejected(args):
+    # The band edges are keyword-only: a bare Uniform(3.0) is ambiguous (disk
+    # of radius 3 vs everything beyond 3), so it must not be accepted.
+    with pytest.raises(TypeError):
+        Uniform(*args)
+
+
+@pytest.mark.parametrize("args", [(0.3,), (0.0, 0.3)], ids=["one", "two"])
+def test_gaussian_positional_args_rejected(args):
+    # mean and sigma are keyword-only: a bare Gaussian(0.3) is ambiguous
+    # (mean or sigma?), so it must not be accepted.
+    with pytest.raises(TypeError):
+        Gaussian(*args)
+
+
 def test_without_replacement_gives_distinct_points():
     R = (np.arange(15, dtype=np.float64)).reshape(-1, 1)
     X = np.array([[0.0]])
@@ -188,11 +206,98 @@ def test_without_replacement_gives_distinct_points():
         assert len(idxs) == len(set(idxs))
 
 
-def test_without_replacement_too_large_raises():
-    R = np.zeros((5, 2))
+def test_without_replacement_larger_than_reference_draws_all_points():
+    # sample_size is a maximum: without replacement, asking for more points
+    # than the reference holds yields every reference point once.
+    R = np.random.default_rng(0).standard_normal((5, 2))
     X = np.zeros((1, 2))
-    with pytest.raises(ValueError):
-        subsample_relative(R, X, sample_size=6, n_instances=1, replace=False)
+
+    subs = subsample_relative(R, X, sample_size=6, n_instances=4, replace=False,
+                              generator=sb.random.Generator(0))
+
+    for j in range(subs.shape[1]):
+        idx = np.asarray(subs[0, j].indices)
+        assert sorted(idx) == list(range(5))
+
+
+def test_without_replacement_small_region_gives_ragged_subsamples():
+    # A Uniform disk holding fewer points than sample_size: each subsample
+    # shrinks to exactly the eligible points (ragged, 0 < size < sample_size).
+    R = np.arange(20, dtype=np.float64).reshape(-1, 1)
+    X = np.array([[7.0]])
+    eligible = {6, 7, 8}  # |R[i] - 7| <= 1.5
+
+    subs = subsample_relative(R, X, sample_size=10, n_instances=15,
+                              distribution=Uniform(high=1.5), replace=False,
+                              generator=sb.random.Generator(0))
+
+    for j in range(subs.shape[1]):
+        idx = np.asarray(subs[0, j].indices)
+        assert set(int(i) for i in idx) == eligible
+        assert subs[0, j].shape == (3, 1)
+
+
+def test_with_replacement_small_region_still_fills_sample_size():
+    # With replacement, a single eligible point suffices to fill sample_size.
+    R = np.arange(20, dtype=np.float64).reshape(-1, 1)
+    X = np.array([[7.0]])
+
+    subs = subsample_relative(R, X, sample_size=10, n_instances=5,
+                              distribution=Uniform(high=0.5), replace=True,
+                              generator=sb.random.Generator(0))
+
+    for j in range(subs.shape[1]):
+        idx = np.asarray(subs[0, j].indices)
+        assert idx.shape == (10,)
+        assert set(int(i) for i in idx) == {7}
+
+
+@pytest.mark.parametrize("replace", [True, False], ids=["replace", "no-replace"])
+def test_empty_region_gives_empty_subsamples_and_warns_when_verbose(replace):
+    # A validly-specified region that no reference point falls in: the query's
+    # subsamples are length-0 indexed views, and with verbose=True a warning
+    # names the affected query.
+    R = np.arange(20, dtype=np.float64).reshape(-1, 1)
+    X = np.array([[7.0], [100.0]])  # second query's disk is empty
+
+    with pytest.warns(UserWarning, match="1 query point.*query indices: 1"):
+        subs = subsample_relative(R, X, sample_size=5, n_instances=3,
+                                  distribution=Uniform(high=2.0), replace=replace,
+                                  generator=sb.random.Generator(0), verbose=True)
+
+    for j in range(subs.shape[1]):
+        assert np.asarray(subs[0, j].indices).size > 0
+        el = subs[1, j]
+        assert el.is_indexed
+        assert np.asarray(el.indices).size == 0
+
+
+def test_empty_region_is_silent_without_verbose():
+    # Quiet runs (the default) get the same empty subsamples with no warning.
+    R = np.arange(20, dtype=np.float64).reshape(-1, 1)
+    X = np.array([[100.0]])
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        subs = subsample_relative(R, X, sample_size=5, n_instances=3,
+                                  distribution=Uniform(high=2.0),
+                                  generator=sb.random.Generator(0))
+    assert not caught
+    assert np.asarray(subs[0, 0].indices).size == 0
+
+
+def test_gaussian_underflow_region_is_empty_not_error():
+    # exp(-0.5 (d/sigma)^2) underflows to exactly 0 for huge d/sigma, so even a
+    # Gaussian can leave a query with an all-zero weight row. That must behave
+    # like any other empty region (empty subsamples + warning), not crash.
+    R = np.arange(20, dtype=np.float64).reshape(-1, 1)
+    X = np.array([[1e6]])
+
+    with pytest.warns(UserWarning):
+        subs = subsample_relative(R, X, sample_size=5, n_instances=2,
+                                  distribution=Gaussian(mean=0.0, sigma=1.0),
+                                  generator=sb.random.Generator(0), verbose=True)
+    assert np.asarray(subs[0, 0].indices).size == 0
 
 
 def test_dimension_mismatch_raises():
@@ -227,7 +332,7 @@ def test_subsamples_are_indexed_views():
     X = np.random.default_rng(1).standard_normal((3, 8))
 
     subs = subsample_relative(R, X, sample_size=10, n_instances=5,
-                     distribution=Gaussian(0.0, 1.0), generator=sb.random.Generator(0))
+                     distribution=Gaussian(mean=0.0, sigma=1.0), generator=sb.random.Generator(0))
 
     el = subs[0, 0]
     assert el.is_indexed
@@ -281,10 +386,10 @@ def test_query_by_index_matches_coordinates():
     idx = np.array([1, 3, 10, 25])
 
     by_index = subsample_relative(R, idx, sample_size=8, n_instances=5,
-                                  distribution=Gaussian(0.0, 1.0),
+                                  distribution=Gaussian(mean=0.0, sigma=1.0),
                                   generator=sb.random.Generator(0))
     by_coords = subsample_relative(R, R[idx], sample_size=8, n_instances=5,
-                                   distribution=Gaussian(0.0, 1.0),
+                                   distribution=Gaussian(mean=0.0, sigma=1.0),
                                    generator=sb.random.Generator(0))
 
     assert by_index.shape == (4, 5)
@@ -304,7 +409,7 @@ def test_pipeline_to_relative_stable_rank():
     X = np.random.default_rng(1).standard_normal((4, 2))
 
     subs = subsample_relative(R, X, sample_size=25, n_instances=30,
-                     distribution=Gaussian(0.0, 1.0),
+                     distribution=Gaussian(mean=0.0, sigma=1.0),
                      generator=sb.random.Generator(0))
 
     bcs = compute_persistent_homology(subs, max_dim=1)
