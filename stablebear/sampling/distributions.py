@@ -1,7 +1,7 @@
 """Built-in sampling distributions.
 
-A distribution is a lightweight spec: it holds its parameters and forwards them
-to the matching precision-specific C++ sampler for the fused fast path used by
+A distribution is a lightweight spec: it holds its parameters and builds the
+matching precision-specific C++ descriptor for the fused fast path used by
 :func:`stablebear.sampling.subsample_relative`, which only accepts these
 built-ins. The distance-to-weight math lives solely in the C++ functor; these
 classes carry no Python copy of it.
@@ -46,15 +46,9 @@ class Uniform:
         self.low = low
         self.high = high
 
-    def _sample_subsets(self, backend, reference, query, sample_size, n_instances, replace, gen):
-        return backend.sample_subsets_uniform(
-            reference, query, self.low, self.high, sample_size, n_instances, replace, gen
-        )
-
-    def _sample_subsets_distmat(self, backend, source, query, sample_size, n_instances, replace, gen):
-        return backend.sample_subsets_distmat_uniform(
-            source, query, self.low, self.high, sample_size, n_instances, replace, gen
-        )
+    def _descriptor(self, backend):
+        """The matching C++ descriptor for the given precision backend."""
+        return backend.Uniform(self.low, self.high)
 
 
 
@@ -81,13 +75,7 @@ class Gaussian:
         self.mean = float(mean)
         self.sigma = float(sigma)
 
-    def _sample_subsets(self, backend, reference, query, sample_size, n_instances, replace, gen):
-        return backend.sample_subsets_gaussian(
-            reference, query, self.mean, self.sigma, sample_size, n_instances, replace, gen
-        )
-
-    def _sample_subsets_distmat(self, backend, source, query, sample_size, n_instances, replace, gen):
-        return backend.sample_subsets_distmat_gaussian(
-            source, query, self.mean, self.sigma, sample_size, n_instances, replace, gen
-        )
+    def _descriptor(self, backend):
+        """The matching C++ descriptor for the given precision backend."""
+        return backend.Gaussian(self.mean, self.sigma)
 __all__ = ["Gaussian", "Uniform"]

@@ -75,13 +75,14 @@ def _subsample_distmat(reference, query, *, sample_size, n_instances, distributi
             "a distance matrix has no coordinates; query must be a 1-D integer "
             "array of reference row indices (or None for all rows)."
         )
-    q = IntTensor(_reference_indices(query, source.size), dtype=uint64)
+    query_indices = IntTensor(_reference_indices(query, source.size), dtype=uint64)
     backend = _backend(source.dtype)
     gen = generator._gen if generator is not None else None
 
     # Fully fused C++ draw: precomputed distances + built-in distribution.
-    task, result = distribution._sample_subsets_distmat(
-        backend, source._data, q._data, sample_size, n_instances, replace, gen
+    task, result = backend.sample_subsets_distmat(
+        source._data, query_indices._data, distribution._descriptor(backend),
+        sample_size, n_instances, replace, gen
     )
     _run_task(lambda: task, verbose=verbose)
     return DistanceMatrixTensor(result)
@@ -90,30 +91,33 @@ def _subsample_distmat(reference, query, *, sample_size, n_instances, distributi
 def _subsample_pointcloud(reference, query, *, sample_size, n_instances, distribution,
                           replace, generator, verbose):
     """Point-cloud path of :func:`subsample_relative` (see its docstring)."""
-    R = _as_float_tensor(reference)
+    reference_cloud = _as_float_tensor(reference)
     if query is None:
-        X = R
+        query_cloud = reference_cloud
     elif _query_is_indices(query):
         # Query points selected by their order in the reference cloud.
-        idx = _reference_indices(query, R.shape[0])
-        X = _as_float_tensor(np.asarray(R)[idx], dtype=R.dtype)
+        row_indices = _reference_indices(query, reference_cloud.shape[0])
+        query_cloud = _as_float_tensor(
+            np.asarray(reference_cloud)[row_indices], dtype=reference_cloud.dtype
+        )
     else:
-        X = _as_float_tensor(query, dtype=R.dtype)
-        if X.ndim != 2:
+        query_cloud = _as_float_tensor(query, dtype=reference_cloud.dtype)
+        if query_cloud.ndim != 2:
             raise ValueError(
                 "query must be a 2-D (n_query, dim) array of coordinates or a 1-D "
                 "integer array of reference indices."
             )
 
-    if R.shape[1] != X.shape[1]:
+    if reference_cloud.shape[1] != query_cloud.shape[1]:
         raise ValueError("reference and query must have the same dimension.")
 
-    backend = _backend(R.dtype)
+    backend = _backend(reference_cloud.dtype)
     gen = generator._gen if generator is not None else None
 
     # Fully fused C++ draw: distances + built-in distribution.
-    task, result = distribution._sample_subsets(
-        backend, R._data, X._data, sample_size, n_instances, replace, gen
+    task, result = backend.sample_subsets(
+        reference_cloud._data, query_cloud._data, backend.Euclidean(),
+        distribution._descriptor(backend), sample_size, n_instances, replace, gen
     )
     _run_task(lambda: task, verbose=verbose)
     return PointCloudTensor(result)
