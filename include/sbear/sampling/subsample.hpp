@@ -1,180 +1,40 @@
 #ifndef STABLEBEAR_SAMPLING_SUBSAMPLE_H
 #define STABLEBEAR_SAMPLING_SUBSAMPLE_H
 
+// Per-query subsampling of a reference point cloud or distance matrix — the
+// public entry points of the relative-subsampling pipeline:
+//
+//   1. compute_weights          (weighting.hpp, blocking) evaluate the
+//                               filter/distribution functors into an
+//                               (n_query, n_reference) weight matrix
+//   2. prepare_weight_matrix    (weighting.hpp, blocking) validate each row
+//                               once and ready it for drawing
+//   3. draw_subsets_from_weights (subsample_task.hpp, async) launch the
+//                               stoppable draw task filling the samples tensor
+//
+// The row-level draw primitives shared by stages 2 and 3 live in
+// weighted_draw.hpp. This header adds input validation and calls the stages
+// in order; only the draws — the long phase — run asynchronously with
+// progress reporting and cancellation.
+
+#include "subsample_task.hpp"
+#include "weighting.hpp"
+
 #include "../distance_matrix.hpp"
 #include "../executor.hpp"
 #include "../point_cloud.hpp"
 #include "../random_generator.hpp"
-#include "../task.hpp"
 #include "../tensor.hpp"
-#include "../walk.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
-#include <limits>
-#include <memory>
-#include <random>
 #include <stdexcept>
-#include <vector>
+#include <utility>
 
 namespace sb::sampling
 {
 
-  // ===========================================================================
-  // Built-in functors
-  //
-  // A filter maps a (query point, reference point) pair to a scalar; a
-  // distribution maps a filter value to a non-negative weight. The samplers
-  // below take these as plain functors, so any callable with the matching
-  // signature works just as well as the built-ins. A "point" is identified by
-  // the cloud it belongs to and its row index, e.g. filter(query, i, reference, r).
-  // ===========================================================================
-
-  /// Euclidean distance between point @p queryIdx of @p query and point
-  /// @p refIdx of @p reference. Callers are responsible for validating that
-  /// @p query and @p reference share a dimension (the samplers below do, once,
-  /// before the per-pair walk) so this hot-path operator stays branch-free.
-  template <typename T>
-  struct EuclideanDistance
-  {
-    T operator()(const PointCloud<T>& query, size_t queryIdx,
-                 const PointCloud<T>& reference, size_t refIdx) const
-    {
-      T acc = T(0);
-      for (size_t k = 0; k < query.dim(); ++k)
-      {
-        T d = query(queryIdx, k) - reference(refIdx, k);
-        acc += d * d;
-      }
-      return std::sqrt(acc);
-    }
-  };
-
-  /// Uniform distribution over a distance band [low, high]: weight 1 when the
-  /// filter value lies in the band, 0 otherwise. With the "distance" filter this
-  /// samples uniformly from a region around the query point — a disk
-  /// (low = 0), a circle/annulus (0 < low < high), or the whole cloud
-  /// (low = 0, high = +inf, the default). Member names match the Python
-  /// Uniform(low, high) spec.
-  template <typename T>
-  struct Uniform
-  {
-    T low = T(0);
-    T high = std::numeric_limits<T>::infinity();
-
-    T operator()(T v) const { return (v >= low && v <= high) ? T(1) : T(0); }
-  };
-
-  /// Unnormalized Gaussian of the filter value.
-  template <typename T>
-  struct Gaussian
-  {
-    T mean = T(0);
-    T sigma = T(1);
-
-    T operator()(T v) const
-    {
-      T d = (v - mean) / sigma;
-      return std::exp(T(-0.5) * d * d);
-    }
-  };
-
-  /// A launched subsampling run: the in-flight draw @p task plus the @p samples
-  /// tensor it fills, of shape (n_query, n_instances). @p ElemT is the per-cell
-  /// subsample type — an indexed PointCloud or DistanceMatrix view. The two
-  /// share storage — the task writes into @p samples — so read @p samples only
-  /// once @p task reports complete.
-  template <typename ElemT>
-  struct SubsampleHandle
-  {
-    std::unique_ptr<StoppableTask<void>> task;
-    Tensor<ElemT> samples;
-  };
-
   namespace detail
   {
-
-    /// Build a cumulative distribution (prefix sums) from non-negative weights.
-    template <typename T>
-    void build_cdf(std::vector<T>& cdf, const std::vector<T>& weights)
-    {
-      cdf.resize(weights.size());
-      T total = T(0);
-      for (size_t i = 0; i < weights.size(); ++i)
-      {
-        T w = weights[i];
-        if (w < T(0))
-          throw std::invalid_argument("sampling weights must be non-negative");
-        total += w;
-        cdf[i] = total;
-      }
-      if (!(total > T(0)))
-        throw std::invalid_argument("sampling weights must have a positive sum");
-    }
-
-    /// Draw a single reference index from a CDF via binary search.
-    template <typename T, typename EngineT>
-    size_t draw_one(const std::vector<T>& cdf, EngineT& engine)
-    {
-      std::uniform_real_distribution<T> u(T(0), cdf.back());
-      auto it = std::upper_bound(cdf.begin(), cdf.end(), u(engine));
-      size_t idx = static_cast<size_t>(it - cdf.begin());
-      return std::min(idx, cdf.size() - 1);
-    }
-
-    /// Draw reference indices for query @p queryIdx (row @p queryIdx of the
-    /// (n_query, n_reference) weight matrix @p weights). @p sampleSize is a
-    /// maximum: with n_eligible the number of strictly positive weights in the
-    /// row, the returned rank-1 index tensor has length
-    ///   - 0 when n_eligible == 0 (the query's region holds no points),
-    ///   - min(sampleSize, n_eligible) without replacement,
-    ///   - sampleSize with replacement (repeats fill the sample).
-    template <typename T, typename EngineT>
-    Tensor<uint64_t> draw_indices(const Tensor<T>& weights, size_t queryIdx, size_t nReference,
-                                  size_t sampleSize, bool replace, EngineT& engine)
-    {
-      std::vector<T> rowWeights(nReference);
-      size_t nEligible = 0;
-      for (size_t refIdx = 0; refIdx < nReference; ++refIdx)
-      {
-        rowWeights[refIdx] = weights({queryIdx, refIdx});
-        // Reject negative weights here: counting them as merely ineligible
-        // could turn an invalid row into a silent empty draw.
-        if (rowWeights[refIdx] < T(0))
-          throw std::invalid_argument("sampling weights must be non-negative");
-        if (rowWeights[refIdx] > T(0))
-          ++nEligible;
-      }
-
-      const size_t nDraws =
-          nEligible == 0 ? 0 : (replace ? sampleSize : std::min(sampleSize, nEligible));
-      Tensor<uint64_t> drawn({nDraws});
-      if (nDraws == 0)
-        return drawn;  // empty region -> length-0 subsample
-
-      std::vector<T> cdf;
-      if (replace)
-      {
-        build_cdf(cdf, rowWeights);
-        for (size_t drawIdx = 0; drawIdx < nDraws; ++drawIdx)
-          drawn({drawIdx}) = static_cast<uint64_t>(draw_one(cdf, engine));
-      }
-      else
-      {
-        // Weighted sampling without replacement: zero a weight once chosen and
-        // rebuild the CDF for the remaining points. nDraws <= nEligible keeps
-        // the CDF total positive throughout.
-        for (size_t drawIdx = 0; drawIdx < nDraws; ++drawIdx)
-        {
-          build_cdf(cdf, rowWeights);
-          size_t refIdx = draw_one(cdf, engine);
-          drawn({drawIdx}) = static_cast<uint64_t>(refIdx);
-          rowWeights[refIdx] = T(0);
-        }
-      }
-      return drawn;
-    }
 
     // sample_size is a soft maximum (draws shrink to the eligible count without
     // replacement), so no upper bound is validated in either replace mode.
@@ -196,105 +56,7 @@ namespace sb::sampling
         throw std::invalid_argument("sample_size must be positive");
     }
 
-    /// Stoppable, progress-reporting draw: fills a (n_query, n_instances) tensor
-    /// of indexed subsamples, each drawn from a row of the weight matrix. Every
-    /// subsample is an *indexed* view sharing the reference's buffer (a
-    /// PointCloud's coordinates or a DistanceMatrix's entries) — only the chosen
-    /// indices are stored, never the data. The per-element engine (seeded from
-    /// the flat index) keeps results independent of thread count. The output
-    /// tensor is allocated by the caller and shared (Tensor is shared_ptr-backed);
-    /// it is read only after the task completes.
-    template <typename ElemT>
-    class SubsampleTask : public StoppableTask<void>
-    {
-      using T = typename ElemT::value_type;
-
-    public:
-      SubsampleTask(ElemT source, Tensor<T> weights, Tensor<ElemT> out,
-                    size_t sampleSize, bool replace, DefaultRandomGenerator gen)
-        : m_source(std::move(source)), m_weights(std::move(weights)), m_out(std::move(out)),
-          m_sampleSize(sampleSize), m_replace(replace), m_gen(std::move(gen))
-      { }
-
-    private:
-      tf::Future<void> run_async(Executor& exec) override
-      {
-        const size_t nReference = m_weights.shape(1);
-        next_step(m_out.size(), "Drawing subsamples.", "subsample");
-
-        // Walk the (n_query, n_instances) output grid; the per-element engine is
-        // seeded from the element's flat index, so results are independent of
-        // thread count. Each cell draws one subsample into a shared, indexed view.
-        return parallel_walk_async(m_out, m_gen,
-            [this, nReference](const std::vector<size_t>& cellIdx, auto& engine) {
-          if (this->stop_requested())
-            return;
-          const size_t queryIdx = cellIdx[0];  // cellIdx = (query, instance)
-          m_out(cellIdx) = ElemT(
-              m_source, draw_indices(m_weights, queryIdx, nReference, m_sampleSize, m_replace, engine));
-          this->add_progress(1);
-        }, exec);
-      }
-
-      ElemT m_source;
-      Tensor<T> m_weights;
-      Tensor<ElemT> m_out;
-      size_t m_sampleSize;
-      bool m_replace;
-      DefaultRandomGenerator m_gen;  // owned: captured by reference in the async walk
-    };
-
-    /// Shared draw step: allocate the (n_query, n_instances) output and launch a
-    /// stoppable SubsampleTask that fills it from the (n_query, n_reference)
-    /// weight matrix @p weights. @p source is the reference whose buffer the
-    /// indexed subsamples share. Returns the running task with its (not-yet-filled)
-    /// output tensor.
-    template <typename ElemT>
-    SubsampleHandle<ElemT> draw_subsets_from_weights(ElemT source,
-        Tensor<typename ElemT::value_type> weights, size_t sampleSize, size_t nInstances,
-        bool replace, DefaultRandomGenerator gen, Executor& exec)
-    {
-      Tensor<ElemT> samples({weights.shape(0), nInstances});
-      auto task = std::make_unique<SubsampleTask<ElemT>>(
-          std::move(source), std::move(weights), samples, sampleSize, replace, std::move(gen));
-      task->start_async(exec);
-      return {std::move(task), std::move(samples)};
-    }
-
-    /// Evaluate @p distribution(@p filter(query, reference)) for every
-    /// (query, reference) pair into an (n_query, n_reference) weight matrix.
-    template <typename T, typename FilterF, typename DistF>
-    Tensor<T> compute_weights(const PointCloud<T>& reference, const PointCloud<T>& query,
-                              FilterF filter, DistF distribution, Executor& exec)
-    {
-      Tensor<T> weights({query.n_points(), reference.n_points()});
-      parallel_walk(weights,
-          [&weights, &reference, &query, filter, distribution](const std::vector<size_t>& idx) {
-        weights(idx) = distribution(filter(query, idx[0], reference, idx[1]));
-      }, exec);
-      return weights;
-    }
-
-    /// Evaluate @p distribution of the precomputed distance source(query[qi], j)
-    /// for every (query point, reference point) pair into a weight matrix.
-    template <typename T, typename DistF>
-    Tensor<T> compute_weights_distmat(const DistanceMatrix<T>& source,
-                                      const Tensor<uint64_t>& query, DistF distribution,
-                                      Executor& exec)
-    {
-      Tensor<T> weights({query.shape(0), source.size()});
-      parallel_walk(weights, [&weights, &source, &query, distribution](const std::vector<size_t>& idx) {
-        const size_t queryRow = static_cast<size_t>(query({idx[0]}));
-        weights(idx) = distribution(source(queryRow, idx[1]));
-      }, exec);
-      return weights;
-    }
-
   } // namespace detail
-
-  // ===========================================================================
-  // Samplers
-  // ===========================================================================
 
   /// Per-query-point subsampling of a reference point cloud, with sampling
   /// weights given by @p distribution applied to @p filter of each
@@ -306,7 +68,7 @@ namespace sb::sampling
   /// coordinates — together with the task filling it. @p sampleSize is the
   /// maximum subsample size: without replacement a subsample shrinks to the
   /// number of positively-weighted reference points, and a query whose weight
-  /// row is all zero yields length-0 subsamples (see draw_indices).
+  /// row is all zero yields length-0 subsamples (see detail::draw_indices).
   template <typename T, typename FilterF, typename DistF>
   SubsampleHandle<PointCloud<T>> sample_subsets(const PointCloud<T>& reference,
                                                 const PointCloud<T>& query, FilterF filter,
@@ -320,12 +82,14 @@ namespace sb::sampling
     if (query.dim() != reference.dim())
       throw std::invalid_argument("reference and query must have the same dimension");
 
-    // Evaluate the filter/distribution once per (query, reference) pair into a
-    // weight matrix, then share the draw step with the precomputed-weight path.
+    // Evaluate the filter/distribution once per (query, reference) pair,
+    // ready each row for drawing, then launch the draws (the shared path with
+    // the precomputed-weight variant below).
     Tensor<T> weights = detail::compute_weights(reference, query, filter, distribution, exec);
+    Tensor<size_t> nEligible = detail::prepare_weight_matrix(weights, replace, exec);
 
-    return detail::draw_subsets_from_weights<PointCloud<T>>(reference, std::move(weights), sampleSize,
-                                                            nInstances, replace, std::move(gen), exec);
+    return detail::draw_subsets_from_weights<PointCloud<T>>(reference, std::move(weights),
+        std::move(nEligible), sampleSize, nInstances, replace, std::move(gen), exec);
   }
 
   /// Per-query-point subsampling of a reference distance matrix. For each query
@@ -343,8 +107,9 @@ namespace sb::sampling
   {
     detail::validate_distmat(source, sampleSize);
     Tensor<T> weights = detail::compute_weights_distmat(source, query, distribution, exec);
-    return detail::draw_subsets_from_weights<DistanceMatrix<T>>(source, std::move(weights), sampleSize,
-                                                                nInstances, replace, std::move(gen), exec);
+    Tensor<size_t> nEligible = detail::prepare_weight_matrix(weights, replace, exec);
+    return detail::draw_subsets_from_weights<DistanceMatrix<T>>(source, std::move(weights),
+        std::move(nEligible), sampleSize, nInstances, replace, std::move(gen), exec);
   }
 
 }
