@@ -100,8 +100,6 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
     """
     from matplotlib.collections import LineCollection
 
-    ax = plt.gca() if ax is None else ax
-
     if isinstance(bc, BarcodeTensor):
         if len(bc.shape) != 1:
             squeezed = bc.squeeze()
@@ -121,6 +119,8 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
             raise ValueError(f"Input should have shape (n, 2). Supplied input has shape {bc.shape}")
         if not (np.issubdtype(bc.dtype, np.floating) or np.issubdtype(bc.dtype, np.integer)):
             raise TypeError(f"Unsupported dtype {bc.dtype}; expected float or integer values")
+
+    ax = plt.gca() if ax is None else ax
 
     bars = np.asarray(bc)
 
