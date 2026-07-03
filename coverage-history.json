@@ -1490,5 +1490,15 @@
     "py": 87.0,
     "cuda": null,
     "release_tag": null
+  },
+  {
+    "utc_iso": "2026-07-03T12:35:42Z",
+    "sha": "1b90c9f",
+    "branch": "214/merge",
+    "detail_path": "reports/2026-07-03_12-35-42_1b90c9f/report.html",
+    "cpp": 88.4,
+    "py": 87.0,
+    "cuda": null,
+    "release_tag": null
   }
 ]
