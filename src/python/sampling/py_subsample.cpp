@@ -13,72 +13,147 @@ namespace py = pybind11;
 namespace
 {
 
-  // The built-in functors accepted by the entry points below, bound as
-  // descriptor classes. Adding a built-in = add the core functor, list it
-  // here, and register its descriptor class in register_bindings.
-  template <typename T>
-  using FilterVariant = std::variant<sb::sampling::EuclideanDistance<T>>;
-  template <typename T>
-  using DistVariant = std::variant<sb::sampling::Gaussian<T>, sb::sampling::Uniform<T>>;
+  using sb::sampling::EuclideanDistance;
+  using sb::sampling::Gaussian;
+  using sb::sampling::Uniform;
 
+  // ===========================================================================
+  // Built-in functors
+  //
+  // The entry points accept exactly these functors, passed from Python as
+  // descriptor objects. pybind11's variant caster converts the descriptor to
+  // the matching alternative and std::visit dispatches to the core call
+  // instantiated for that combination. Adding a built-in = add the core
+  // functor, list it here, and register its descriptor class in
+  // register_descriptors.
+  // ===========================================================================
+
+  template <typename T>
+  using FilterVariant = std::variant<EuclideanDistance<T>>;
+
+  template <typename T>
+  using DistVariant = std::variant<Gaussian<T>, Uniform<T>>;
+
+  /// Bindings for one floating-point precision, registered as a Python class
+  /// (Subsample32/Subsample64) that namespaces the descriptor classes and the
+  /// static entry points.
   template <typename T>
   class PySubsampleBindings
   {
   public:
     using TensorT = sb::Tensor<T>;
     using Gen = sb::DefaultRandomGenerator;
+    using PyClass = py::class_<PySubsampleBindings>;
 
     static void register_bindings(py::module_& m, const std::string& suffix)
     {
-      py::class_<PySubsampleBindings> cls(m, ("Subsample" + suffix).c_str());
+      PyClass cls(m, ("Subsample" + suffix).c_str());
+      register_descriptors(cls);
+      register_entry_points(cls);
+    }
 
-      // Descriptor classes, nested under the precision namespace
-      // (Subsample32.Gaussian etc.). The descriptors are the core functors
-      // themselves; factory lambdas because the functors are aggregates.
-      // Parameter validation lives in the Python spec classes.
-      py::class_<sb::sampling::EuclideanDistance<T>>(cls, "Euclidean")
+  private:
+    // -------------------------------------------------------------------------
+    // Descriptor classes, nested under the precision namespace
+    // (Subsample32.Gaussian etc.). The descriptors are the core functors
+    // themselves, constructed member-by-member; parameter validation lives in
+    // the Python spec classes.
+    // -------------------------------------------------------------------------
+    static void register_descriptors(PyClass& cls)
+    {
+      py::class_<EuclideanDistance<T>>(cls, "Euclidean")
           .def(py::init<>());
-      py::class_<sb::sampling::Gaussian<T>>(cls, "Gaussian")
-          .def(py::init([](T mean, T sigma) { return sb::sampling::Gaussian<T>{mean, sigma}; }),
-               py::arg("mean"), py::arg("sigma"));
-      py::class_<sb::sampling::Uniform<T>>(cls, "Uniform")
-          .def(py::init([](T low, T high) { return sb::sampling::Uniform<T>{low, high}; }),
-               py::arg("low"), py::arg("high"));
+      py::class_<Gaussian<T>>(cls, "Gaussian")
+          .def(py::init<T, T>(), py::arg("mean"), py::arg("sigma"));
+      py::class_<Uniform<T>>(cls, "Uniform")
+          .def(py::init<T, T>(), py::arg("low"), py::arg("high"));
+    }
 
-      cls.def_static("sample_subsets",
-          [](const TensorT& reference, const TensorT& query, const FilterVariant<T>& filter,
-             const DistVariant<T>& distribution, size_t sampleSize, size_t nInstances,
-             bool replace, const Gen* gen) {
-            return std::visit([&](const auto& filterFunctor, const auto& distFunctor) {
-              return to_tuple(sb::sampling::sample_subsets(
-                  sb::PointCloud<T>(reference), sb::PointCloud<T>(query), filterFunctor,
-                  distFunctor, sampleSize, nInstances, replace, resolve_generator(gen),
-                  sb::default_executor()));
-            }, filter, distribution);
-          },
+    // -------------------------------------------------------------------------
+    // Entry points: named static functions taking the functor variants. Each
+    // visitor holds the non-variant arguments; std::visit instantiates its
+    // call operator once per functor combination.
+    // -------------------------------------------------------------------------
+
+    struct SampleSubsetsCall
+    {
+      const TensorT& reference;
+      const TensorT& query;
+      size_t sampleSize;
+      size_t nInstances;
+      bool replace;
+      const Gen* gen;
+
+      template <typename FilterF, typename DistF>
+      py::tuple operator()(const FilterF& filter, const DistF& distribution) const
+      {
+        return to_tuple(sb::sampling::sample_subsets(
+            sb::PointCloud<T>(reference), sb::PointCloud<T>(query), filter, distribution,
+            sampleSize, nInstances, replace, resolve_generator(gen), sb::default_executor()));
+      }
+    };
+
+    /// Point-cloud input: subsample @p reference relative to each point of
+    /// @p query, weighting by @p distribution of @p filter of each point pair.
+    static py::tuple sample_subsets(const TensorT& reference, const TensorT& query,
+                                    const FilterVariant<T>& filter,
+                                    const DistVariant<T>& distribution, size_t sampleSize,
+                                    size_t nInstances, bool replace, const Gen* gen)
+    {
+      return std::visit(
+          SampleSubsetsCall{reference, query, sampleSize, nInstances, replace, gen},
+          filter, distribution);
+    }
+
+    struct SampleSubsetsDistmatCall
+    {
+      const sb::DistanceMatrix<T>& source;
+      const sb::Tensor<uint64_t>& query;
+      size_t sampleSize;
+      size_t nInstances;
+      bool replace;
+      const Gen* gen;
+
+      template <typename DistF>
+      py::tuple operator()(const DistF& distribution) const
+      {
+        return to_tuple(sb::sampling::sample_subsets_distmat(
+            source, query, distribution, sampleSize, nInstances, replace,
+            resolve_generator(gen), sb::default_executor()));
+      }
+    };
+
+    /// Distance-matrix input: @p query is a tensor of reference row indices.
+    /// The "filter" is inherently the stored distance, so there is no filter
+    /// argument.
+    static py::tuple sample_subsets_distmat(const sb::DistanceMatrix<T>& source,
+                                            const sb::Tensor<uint64_t>& query,
+                                            const DistVariant<T>& distribution,
+                                            size_t sampleSize, size_t nInstances, bool replace,
+                                            const Gen* gen)
+    {
+      return std::visit(
+          SampleSubsetsDistmatCall{source, query, sampleSize, nInstances, replace, gen},
+          distribution);
+    }
+
+    static void register_entry_points(PyClass& cls)
+    {
+      cls.def_static("sample_subsets", &PySubsampleBindings::sample_subsets,
           py::arg("reference"), py::arg("query"), py::arg("filter"), py::arg("distribution"),
           py::arg("sample_size"), py::arg("n_instances"), py::arg("replace"),
           py::arg("generator").none(true) = py::none());
 
-      // Distance-matrix input: query is a tensor of reference row indices. The
-      // "filter" is inherently the stored distance, so there is no filter
-      // argument.
-      cls.def_static("sample_subsets_distmat",
-          [](const sb::DistanceMatrix<T>& source, const sb::Tensor<uint64_t>& query,
-             const DistVariant<T>& distribution, size_t sampleSize, size_t nInstances,
-             bool replace, const Gen* gen) {
-            return std::visit([&](const auto& distFunctor) {
-              return to_tuple(sb::sampling::sample_subsets_distmat(
-                  source, query, distFunctor, sampleSize, nInstances, replace,
-                  resolve_generator(gen), sb::default_executor()));
-            }, distribution);
-          },
+      cls.def_static("sample_subsets_distmat", &PySubsampleBindings::sample_subsets_distmat,
           py::arg("source"), py::arg("query"), py::arg("distribution"),
           py::arg("sample_size"), py::arg("n_instances"), py::arg("replace"),
           py::arg("generator").none(true) = py::none());
     }
 
-  private:
+    // -------------------------------------------------------------------------
+    // Argument/result adapters
+    // -------------------------------------------------------------------------
+
     /// Resolve the nullable generator argument (Python None -> nullptr) to a
     /// concrete generator, falling back to the global default.
     static const Gen& resolve_generator(const Gen* gen)
@@ -86,6 +161,7 @@ namespace
       return gen ? *gen : sb::default_generator();
     }
 
+    /// Unpack a SubsampleHandle into the (task, samples) pair returned to Python.
     template <typename ElemT>
     static py::tuple to_tuple(sb::sampling::SubsampleHandle<ElemT> handle)
     {
