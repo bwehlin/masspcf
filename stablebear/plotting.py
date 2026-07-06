@@ -70,8 +70,9 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
 
     Parameters
     ----------
-    bc : Barcode or BarcodeTensor
-        A single ``Barcode`` or a 1-D ``BarcodeTensor``. For a tensor,
+    bc : Barcode, BarcodeTensor or NumPy array
+        A single ``Barcode``, a 1-D ``BarcodeTensor`` or an (n, 2) NumPy array
+        of ``(birth, death)`` pairs. For a tensor,
         the barcodes are stacked vertically in order.
     ax : matplotlib axes, optional
         Axes to plot on. If ``None``, uses ``matplotlib.pyplot`` directly.
@@ -87,10 +88,17 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
     -------
     int
         The next available y position (for stacking).
+
+    Raises
+    ------
+    TypeError
+        If ``bc`` is not a ``Barcode``, ``BarcodeTensor``, or ``numpy.ndarray``,
+        or if ``bc`` is a ``numpy.ndarray`` containing neither floats nor ints.
+    ValueError
+        If ``bc`` is a numpy array that is not of shape ``(n, 2)``, or a
+        ``BarcodeTensor`` with more than one dimension.
     """
     from matplotlib.collections import LineCollection
-
-    ax = plt.gca() if ax is None else ax
 
     if isinstance(bc, BarcodeTensor):
         if len(bc.shape) != 1:
@@ -103,7 +111,19 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
             y = plot_barcode(bc[i], ax=ax, y_offset=y, **kwargs)
         return y
 
+    if not isinstance(bc, (Barcode, np.ndarray)):
+        raise TypeError(f"Expected Barcode or numpy.ndarray; got {type(bc)}")
+
+    if isinstance(bc, np.ndarray):
+        if bc.ndim != 2 or bc.shape[1] != 2:
+            raise ValueError(f"Input should have shape (n, 2). Supplied input has shape {bc.shape}")
+        if not (np.issubdtype(bc.dtype, np.floating) or np.issubdtype(bc.dtype, np.integer)):
+            raise TypeError(f"Unsupported dtype {bc.dtype}; expected float or integer values")
+
+    ax = plt.gca() if ax is None else ax
+
     bars = np.asarray(bc)
+
     if len(bars) == 0:
         return y_offset
 

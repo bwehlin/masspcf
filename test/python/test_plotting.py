@@ -205,6 +205,24 @@ class TestPlotBarcode:
         with pytest.raises(ValueError, match="1-dimensional"):
             plot_barcode(bt2d, ax=ax)
 
+    def test_unsupported_type_raises(self, ax):
+        with pytest.raises(TypeError, match="Expected Barcode or numpy.ndarray"):
+            plot_barcode([[0, 1], [0.5, 2]], ax=ax)
+
+    def test_array_with_wrong_number_of_columns_raises(self, ax):
+        bars = np.zeros((3, 3), dtype=np.float64)
+        with pytest.raises(ValueError, match="Input should have shape"):
+            plot_barcode(bars, ax=ax)
+
+    def test_1d_array_raises(self, ax):
+        bars = np.array([0, 1, 2], dtype=np.float64)
+        with pytest.raises(ValueError, match="Input should have shape"):
+            plot_barcode(bars, ax=ax)
+
+    def test_array_with_unsupported_dtype_raises(self, ax):
+        bars = np.array([["a", "b"], ["c", "d"]])
+        with pytest.raises(TypeError, match="Unsupported dtype"):
+            plot_barcode(bars, ax=ax)
 
 if __name__ == "__main__":
     # Re-exec with the env var set so the backend selection at the top of
