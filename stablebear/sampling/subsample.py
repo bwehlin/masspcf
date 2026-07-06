@@ -1,3 +1,4 @@
+import operator
 import warnings
 
 import numpy as np
@@ -6,6 +7,7 @@ from .. import _sb_cpp as cpp
 from ..async_task import _run_task
 from ..base_tensor import FloatTensor, IntTensor, PointCloudTensor
 from ..distance_matrix import DistanceMatrix, DistanceMatrixTensor
+from ..random import _unwrap
 from ..typing import float32, uint64
 from .distributions import Gaussian, Uniform
 
@@ -41,7 +43,7 @@ def _as_distance_matrix(reference):
             "distance-matrix subsampling needs a single reference matrix, but got a "
             f"DistanceMatrixTensor with {reference.size} matrices."
         )
-    return DistanceMatrix(reference._data._get_element([0] * reference.ndim))
+    return reference[(0,) * reference.ndim]
 
 
 def _query_is_indices(query):
@@ -55,17 +57,33 @@ def _query_is_indices(query):
 
 def _reference_indices(query, n):
     """Validate a 1-D ``query`` as reference row indices (``None`` means all
-    ``n`` rows) and return a uint64 ndarray."""
+    ``n`` rows; negative indices count from the end, as in NumPy) and return
+    a uint64 ndarray."""
     if query is None:
         return np.arange(n, dtype=np.uint64)
-    q = np.ascontiguousarray(np.asarray(query).ravel(), dtype=np.uint64)
+    arr = np.asarray(query).ravel()
+    # astype copies, so the in-place shift below cannot touch the caller's array.
+    q = arr.astype(np.int64)
     if q.size == 0:
         raise ValueError("query must contain at least one index.")
-    if np.any(q >= n):
+    # Only signed input gets the negative-index treatment. A huge unsigned
+    # value comes out negative from the cast (e.g. uint64 underflow); it must
+    # fail the range check below, as in NumPy — not wrap to a valid row.
+    if np.issubdtype(arr.dtype, np.signedinteger):
+        q[q < 0] += n
+    if np.any((q < 0) | (q >= n)):
         raise ValueError(
-            f"query indices must be valid reference rows (0 <= index < {n})."
+            f"query indices must be valid reference rows (-{n} <= index < {n}, "
+            "negative indices count from the end)."
         )
-    return q
+    return np.ascontiguousarray(q, dtype=np.uint64)
+
+
+def _element_is_empty(element):
+    """Whether a drawn subsample (point cloud or distance matrix) holds zero points."""
+    if isinstance(element, DistanceMatrix):
+        return element.size == 0
+    return element.shape[0] == 0
 
 
 def _warn_empty_queries(result):
@@ -77,7 +95,7 @@ def _warn_empty_queries(result):
     query suffices.
     """
     empty = [q for q in range(result.shape[0])
-             if np.asarray(result[q, 0].indices).size == 0]
+             if _element_is_empty(result[q, 0])]
     if empty:
         shown = ", ".join(map(str, empty[:10])) + (", ..." if len(empty) > 10 else "")
         warnings.warn(
@@ -99,12 +117,11 @@ def _subsample_distmat(reference, query, *, sample_size, n_instances, distributi
         )
     query_indices = IntTensor(_reference_indices(query, source.size), dtype=uint64)
     backend = _backend(source.dtype)
-    gen = generator._gen if generator is not None else None
 
     # Fully fused C++ draw: precomputed distances + built-in distribution.
     task, result = backend.sample_subsets_distmat(
         source._data, query_indices._data, distribution._descriptor(backend),
-        sample_size, n_instances, replace, gen
+        sample_size, n_instances, replace, _unwrap(generator)
     )
     _run_task(lambda: task, verbose=verbose)
 
@@ -117,6 +134,11 @@ def _subsample_pointcloud(reference, query, *, sample_size, n_instances, distrib
                           replace, generator, verbose):
     """Point-cloud path of :func:`subsample_relative` (see its docstring)."""
     reference_cloud = _as_float_tensor(reference)
+    if reference_cloud.ndim != 2:
+        raise ValueError(
+            "reference must be a 2-D (n_reference, dim) point cloud, but got "
+            f"{reference_cloud.ndim} dimension(s)."
+        )
     if query is None:
         query_cloud = reference_cloud
     elif _query_is_indices(query):
@@ -137,12 +159,12 @@ def _subsample_pointcloud(reference, query, *, sample_size, n_instances, distrib
         raise ValueError("reference and query must have the same dimension.")
 
     backend = _backend(reference_cloud.dtype)
-    gen = generator._gen if generator is not None else None
 
     # Fully fused C++ draw: distances + built-in distribution.
     task, result = backend.sample_subsets(
         reference_cloud._data, query_cloud._data, backend.Euclidean(),
-        distribution._descriptor(backend), sample_size, n_instances, replace, gen
+        distribution._descriptor(backend), sample_size, n_instances, replace,
+        _unwrap(generator)
     )
     _run_task(lambda: task, verbose=verbose)
     if verbose:
@@ -163,98 +185,59 @@ def subsample_relative(
 ):
     r"""Subsample a reference point cloud relative to each query point.
 
-    This is the front end of the relative-approach pipeline of Agerberg,
-    Chacholski & Ramanujam (2023). For each query point :math:`p` in *query*, a
-    probability over the *reference* point cloud :math:`R` is formed from the
-    Euclidean distance :math:`\lVert p - r\rVert` to each reference point,
-    passed through a *distribution* :math:`D`,
-
-    .. math::
-        \mathrm{prob}(r) \propto D\big(\lVert p - r\rVert\big),\quad r \in R,
-
-    and ``n_instances`` subsamples of up to ``sample_size`` points are then
-    drawn from :math:`R` according to that probability.
-
-    The result feeds directly into the rest of the package::
-
-        subs = subsample_relative(reference, query, sample_size=30, n_instances=2000)
-        bcs  = compute_persistent_homology(subs, max_dim=1)
-        srs  = barcode_to_stable_rank(bcs)
-        rel  = mean(srs, dim=1)   # one relative stable rank per query point
+    Front end of the relative-approach pipeline of Agerberg, Chacholski &
+    Ramanujam (2023). For each query point :math:`p`, each reference point
+    :math:`r` is weighted by :math:`D(\lVert p - r\rVert)` for the chosen
+    distribution :math:`D`, and ``n_instances`` subsamples of up to
+    ``sample_size`` points are drawn with those weights. See :doc:`the
+    subsampling guide </sampling>` for background, examples, and figures.
 
     The reference may also be a precomputed distance matrix
-    (:class:`~stablebear.DistanceMatrix` / :class:`~stablebear.DistanceMatrixTensor`)
-    instead of a point cloud. The distances are then read straight from the
-    matrix (symmetric, zero-diagonal) rather than computed from coordinates, the
-    query points are *row indices* into it, and each subsample is the principal
-    sub-distance-matrix over the drawn points — returned as a
-    :class:`~stablebear.DistanceMatrixTensor`, which feeds the same persistence
-    pipeline. At scale, pass a native ``DistanceMatrix`` to avoid materializing a
-    dense ``(n, n)`` array.
+    (:class:`~stablebear.DistanceMatrix` or a one-element
+    :class:`~stablebear.DistanceMatrixTensor`): distances are then read from
+    the matrix, the query points are row indices into it, and each subsample
+    is the principal sub-distance-matrix over the drawn points.
 
     Parameters
     ----------
     reference : array_like, FloatTensor, DistanceMatrix, or DistanceMatrixTensor
-        The reference point cloud :math:`R`, shape ``(n_reference, dim)``, or a
+        The reference point cloud, shape ``(n_reference, dim)``, or a
         precomputed distance matrix over the reference points.
     query : array_like, optional
-        The points to view the reference from, in one of two forms:
-
-        * a **1-D integer array of reference indices** — view from those
-          reference points, selected by their order (e.g. ``[1, 3, 10]``). Works
-          for both point-cloud and distance-matrix references.
-        * a **2-D ``(n_query, dim)`` array of coordinates** — view from arbitrary
-          vantage points (e.g. a grid, centroids, landmarks). Point-cloud
-          references only; a distance matrix has no coordinates.
-
-        If ``None`` (the default), every reference point is used as a query
-        point. When the distribution weights every reference point equally (e.g.
-        a fully-open :class:`Uniform`), the query does not affect the sampling
-        probability, so a single query suffices.
+        A 1-D integer array of reference indices (negative indices count from
+        the end, as in NumPy), or a 2-D ``(n_query, dim)`` array of
+        coordinates; coordinates require a point-cloud reference. If ``None``
+        (the default), every reference point is used as a query point.
     sample_size : int
-        Maximum number of points per subsample (``s`` in the paper). With
-        replacement (the default) every subsample has exactly ``sample_size``
-        points as long as at least one reference point has positive weight.
-        Without replacement a subsample can only contain distinct eligible
-        points, so it shrinks to their count when fewer than ``sample_size``
-        reference points have positive weight (e.g. a narrow :class:`Uniform`
-        band, or ``sample_size`` exceeding the reference size). A query point
-        whose region contains no eligible reference points at all yields
-        empty (0-point) subsamples; when ``verbose=True`` a
-        :class:`UserWarning` reports the affected query points.
+        Maximum number of points per subsample. A subsample is smaller only
+        when it runs out of eligible points: drawing without replacement with
+        fewer than ``sample_size`` positively weighted reference points, or a
+        query point with no positively weighted reference points at all
+        (empty subsamples; reported per query when ``verbose=True``).
     n_instances : int
-        Number of subsamples drawn per query point (``n`` in the paper).
+        Number of subsamples drawn per query point.
     distribution : Gaussian or Uniform, optional
-        A built-in distribution spec (:class:`Gaussian` or :class:`Uniform`)
-        mapping distances to non-negative sampling weights, applied on the fully
-        fused C++ fast path. By default :class:`Gaussian` with ``mean=0``,
-        ``sigma=1``.
+        Maps distances to non-negative sampling weights. By default
+        :class:`Gaussian` with ``mean=0``, ``sigma=1``.
     replace : bool, optional
-        Whether each subsample is drawn with replacement, by default True
-        (as in the paper).
+        Whether to draw with replacement, by default True (as in the paper).
     generator : Generator, optional
         Random number generator. If ``None``, the global generator is used.
     verbose : bool, optional
-        If True, display a progress bar while the subsamples are drawn, allow
-        cooperative cancellation (e.g. via ``KeyboardInterrupt``), and warn
+        If True, display a progress bar, allow cooperative cancellation
+        (e.g. via ``KeyboardInterrupt``), and warn (:class:`UserWarning`)
         about query points whose subsamples came out empty. By default False.
 
     Returns
     -------
     PointCloudTensor or DistanceMatrixTensor
         Tensor of shape ``(n_query, n_instances)``; element ``[i, j]`` is the
-        ``j``-th subsample for query point ``i`` — a point cloud of shape
-        ``(k, dim)`` for point-cloud input, or a ``(k, k)``
-        sub-distance-matrix for distance-matrix input, where
-        ``k <= sample_size`` (see *sample_size* for when a subsample is
-        smaller).
-
-    Warns
-    -----
-    UserWarning
-        If ``verbose=True`` and any query point has no reference point with
-        positive sampling weight, so its subsamples are empty.
+        ``j``-th subsample for query point ``i`` — a point cloud of at most
+        ``sample_size`` points, or the sub-distance-matrix over the drawn
+        points for distance-matrix input.
     """
+    sample_size = operator.index(sample_size)
+    n_instances = operator.index(n_instances)
     if sample_size <= 0:
         raise ValueError("sample_size must be positive.")
     if n_instances <= 0:
@@ -273,7 +256,7 @@ def subsample_relative(
             reference, query, sample_size=sample_size, n_instances=n_instances,
             distribution=distribution, replace=replace, generator=generator, verbose=verbose,
         )
-    # Pointcloud input: 
+    # Point-cloud input: weight by Euclidean distances computed from coordinates.
     return _subsample_pointcloud(
         reference, query, sample_size=sample_size, n_instances=n_instances,
         distribution=distribution, replace=replace, generator=generator, verbose=verbose,

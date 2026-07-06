@@ -42,8 +42,9 @@ class Uniform:
     """
 
     def __init__(self, *, low=0.0, high=None):
+        # Inverted comparisons so that NaN parameters fail validation too.
         low = float(low)
-        if low < 0:
+        if not (low >= 0):
             raise ValueError("low must be non-negative.")
         high = float("inf") if high is None else float(high)
         if not (high > low):
@@ -79,7 +80,8 @@ class Gaussian:
     """
 
     def __init__(self, *, mean=0.0, sigma=1.0):
-        if sigma <= 0:
+        # Inverted comparison so that a NaN sigma fails validation too.
+        if not (sigma > 0):
             raise ValueError("sigma must be positive.")
         self.mean = float(mean)
         self.sigma = float(sigma)

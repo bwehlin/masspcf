@@ -67,6 +67,45 @@ the same ambient dimension ``dim``. The dtype of the result follows the
 reference: a ``float32`` reference produces ``pcloud32`` subsamples, a
 ``float64`` reference produces ``pcloud64``.
 
+``query`` may also be a **1-D integer array of reference indices**: the query
+points are then rows of the reference itself, selected by their order --
+``query=[0, 5, 10]`` views the data from reference points 0, 5 and 10 without
+spelling out their coordinates. Negative indices count from the end, as in
+NumPy.
+
+
+Precomputed distance matrices
+=============================
+
+The reference may also be a precomputed :class:`~stablebear.DistanceMatrix`
+(or a one-element :class:`~stablebear.DistanceMatrixTensor`) instead of a
+point cloud -- useful when the pairwise distances are already computed, or
+when the data has no coordinates at all, only pairwise dissimilarities. The
+distances are then read straight from the matrix rather than computed from
+coordinates, and ``query`` must be a 1-D integer array of row indices (or
+``None`` for all rows) -- a distance matrix has no coordinates for an
+arbitrary query point to live in::
+
+   D = ...                               # dense (n, n) distances, e.g. from sklearn
+   dm = sb.DistanceMatrix.from_dense(D)
+
+   subs = sb.subsample_relative(dm, query=[0, 5, 10],
+                                sample_size=30, n_instances=2000)
+   # subs: DistanceMatrixTensor of shape (3, 2000)
+
+Each subsample is the **principal sub-distance-matrix** over the drawn points
+-- the reference matrix restricted to the drawn rows and columns -- and the
+result is a :class:`~stablebear.DistanceMatrixTensor`, which the
+:doc:`persistent homology pipeline <persistence>` accepts just like point
+clouds.
+
+:class:`~stablebear.DistanceMatrix` stores its symmetric, zero-diagonal matrix
+in compressed form -- :math:`n(n-1)/2` entries instead of :math:`n^2` (see
+:doc:`distances`) -- and each subsample is an index view sharing the reference
+matrix's entries rather than copying them. At scale, prefer building the
+``DistanceMatrix`` directly over round-tripping through a dense ``(n, n)``
+array with :meth:`~stablebear.DistanceMatrix.from_dense`.
+
 
 Distributions
 =============
