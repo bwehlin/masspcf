@@ -285,19 +285,25 @@ def test_empty_region_is_silent_without_verbose():
     assert not caught
     assert np.asarray(subs[0, 0].indices).size == 0
 
-
-def test_gaussian_underflow_region_is_empty_not_error():
-    # exp(-0.5 (d/sigma)^2) underflows to exactly 0 for huge d/sigma, so even a
-    # Gaussian can leave a query with an all-zero weight row. That must behave
-    # like any other empty region (empty subsamples + warning), not crash.
+def test_gaussian_far_query_samples_nearest_point_not_empty():
+    # exp(-0.5 (d/sigma)^2) underflows to exactly 0 for huge d/sigma, but the
+    # Gaussian weights are computed in log space with a per-query max shift,
+    # so a far query still samples its exact Gaussian — concentrated on the
+    # nearest reference point — instead of coming back empty with a warning.
     R = np.arange(20, dtype=np.float64).reshape(-1, 1)
     X = np.array([[1e6]])
 
-    with pytest.warns(UserWarning):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         subs = subsample_relative(R, X, sample_size=5, n_instances=2,
                                   distribution=Gaussian(mean=0.0, sigma=1.0),
                                   generator=sb.random.Generator(0), verbose=True)
-    assert np.asarray(subs[0, 0].indices).size == 0
+    assert not [w for w in caught if issubclass(w.category, UserWarning)]
+
+    for j in range(2):
+        idx = np.asarray(subs[0, j].indices)
+        assert idx.shape == (5,)
+        assert set(int(i) for i in idx) == {19}  # the nearest reference point
 
 
 def test_dimension_mismatch_raises():

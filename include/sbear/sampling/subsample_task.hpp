@@ -17,11 +17,10 @@
 namespace sb::sampling
 {
 
-  /// A launched subsampling run: the in-flight draw @p task plus the @p samples
-  /// tensor it fills, of shape (n_query, n_instances). @p ElemT is the per-cell
-  /// subsample type — an indexed PointCloud or DistanceMatrix view. The two
-  /// share storage — the task writes into @p samples — so read @p samples only
-  /// once @p task reports complete.
+  /// A launched subsampling run: the in-flight draw @p task plus the
+  /// (n_query, n_instances) @p samples tensor it fills. @p ElemT is the
+  /// per-cell subsample type, an indexed PointCloud or DistanceMatrix view.
+  /// Read @p samples only once @p task reports complete.
   template <typename ElemT>
   struct SubsampleHandle
   {
@@ -33,15 +32,9 @@ namespace sb::sampling
   {
 
     /// Stoppable, progress-reporting draw: one parallel walk over the
-    /// (n_query, n_instances) output grid, where cell (query, instance) draws
-    /// one subsample from the query's prepared weight row (see
-    /// prepare_weight_matrix). Every subsample is an *indexed* view sharing
-    /// the reference's buffer (a PointCloud's coordinates or a
-    /// DistanceMatrix's entries) — only the chosen indices are stored, never
-    /// the data. The per-cell engine (seeded from the cell's flat index) keeps
-    /// results independent of thread count. The output tensor is allocated by
-    /// the caller and shared (Tensor is shared_ptr-backed); read it only after
-    /// the task completes.
+    /// (n_query, n_instances) output grid, where each cell draws one
+    /// subsample from its query's prepared weight row. Subsamples store only
+    /// the drawn indices, sharing the reference's data buffer.
     template <typename ElemT>
     class SubsampleTask : public StoppableTask<void>
     {
@@ -66,7 +59,9 @@ namespace sb::sampling
           if (stop_requested())
             return;
 
-          const size_t queryIdx = cellIdx[0];  // cellIdx = (query, instance)
+          // cellIdx = (query, instance); the engine is seeded per cell, so
+          // draws are independent of thread count.
+          const size_t queryIdx = cellIdx[0];
           const std::span<const T> row = weight_row(m_weights, queryIdx);
           const size_t nEligible = m_nEligible({queryIdx});
 
@@ -87,9 +82,8 @@ namespace sb::sampling
     };
 
     /// Allocate the (n_query, n_instances) output and launch a stoppable
-    /// SubsampleTask that fills it from the prepared weight matrix. @p source
-    /// is the reference whose buffer the indexed subsamples share. Returns the
-    /// running task with its (not-yet-filled) output tensor.
+    /// SubsampleTask filling it from the prepared weight matrix. @p source is
+    /// the reference whose buffer the indexed subsamples share.
     template <typename ElemT>
     SubsampleHandle<ElemT> draw_subsets_from_weights(ElemT source,
         Tensor<typename ElemT::value_type> weights, Tensor<size_t> nEligible,

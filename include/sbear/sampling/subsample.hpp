@@ -58,17 +58,11 @@ namespace sb::sampling
 
   } // namespace detail
 
-  /// Per-query-point subsampling of a reference point cloud, with sampling
-  /// weights given by @p distribution applied to @p filter of each
-  /// (query point, reference point) pair.
-  ///
-  /// Launches the draw asynchronously and returns a SubsampleHandle: a
-  /// (n_query, n_instances) @p samples tensor whose element (i, j) is the j-th
-  /// subsample for query point i — an indexed view sharing @p reference's
-  /// coordinates — together with the task filling it. @p sampleSize is the
-  /// maximum subsample size: without replacement a subsample shrinks to the
-  /// number of positively-weighted reference points, and a query whose weight
-  /// row is all zero yields length-0 subsamples (see detail::draw_indices).
+  /// Subsample @p reference relative to each point of @p query, weighted by
+  /// @p distribution of @p filter per point pair. Returns a SubsampleHandle:
+  /// the async draw task plus its (n_query, n_instances) samples tensor of
+  /// indexed views into @p reference. @p sampleSize is a maximum — see
+  /// detail::draw_indices for the length contract.
   template <typename T, typename FilterF, typename DistF>
   SubsampleHandle<PointCloud<T>> sample_subsets(const PointCloud<T>& reference,
                                                 const PointCloud<T>& query, FilterF filter,
@@ -82,9 +76,6 @@ namespace sb::sampling
     if (query.dim() != reference.dim())
       throw std::invalid_argument("reference and query must have the same dimension");
 
-    // Evaluate the filter/distribution once per (query, reference) pair,
-    // ready each row for drawing, then launch the draws (the shared path with
-    // the precomputed-weight variant below).
     Tensor<T> weights = detail::compute_weights(reference, query, filter, distribution, exec);
     Tensor<size_t> nEligible = detail::prepare_weight_matrix(weights, replace, exec);
 
@@ -92,12 +83,10 @@ namespace sb::sampling
         std::move(nEligible), sampleSize, nInstances, replace, std::move(gen), exec);
   }
 
-  /// Per-query-point subsampling of a reference distance matrix. For each query
-  /// row index in @p query, weights over the reference points are
-  /// @p distribution(source(query_row, j)); up to @p sampleSize indices are
-  /// drawn (ragged semantics as in sample_subsets) and the subsample is the
-  /// principal submatrix over them (an indexed DistanceMatrix view). @p samples
-  /// has shape (n_query, n_instances).
+  /// As sample_subsets, but distances come from the precomputed @p source
+  /// matrix and @p query holds reference row indices. Each subsample is the
+  /// principal submatrix over the drawn points (an indexed DistanceMatrix
+  /// view).
   template <typename T, typename DistF>
   SubsampleHandle<DistanceMatrix<T>> sample_subsets_distmat(const DistanceMatrix<T>& source,
                                                             const Tensor<uint64_t>& query,
