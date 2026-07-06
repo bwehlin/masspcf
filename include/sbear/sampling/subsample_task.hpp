@@ -39,14 +39,15 @@ namespace sb::sampling
     class SubsampleTask : public StoppableTask<void>
     {
       using T = typename ElemT::value_type;
+      using SeedBlock = DefaultRandomGenerator::Block;
 
     public:
       SubsampleTask(ElemT source, Tensor<T> weights, Tensor<size_t> nEligible,
                     Tensor<ElemT> out, size_t sampleSize, bool replace,
-                    DefaultRandomGenerator gen)
+                    SeedBlock seedBlock)
         : m_source(std::move(source)), m_weights(std::move(weights)),
           m_nEligible(std::move(nEligible)), m_out(std::move(out)),
-          m_sampleSize(sampleSize), m_replace(replace), m_gen(std::move(gen))
+          m_sampleSize(sampleSize), m_replace(replace), m_seedBlock(seedBlock)
       { }
 
     private:
@@ -54,13 +55,15 @@ namespace sb::sampling
       {
         next_step(m_out.size(), "Drawing subsamples.", "subsample");
 
-        return parallel_walk_async(m_out, m_gen,
-            [this](const std::vector<size_t>& cellIdx, auto& engine) {
+        const size_t nInstances = m_out.shape(1);
+        return parallel_walk_async(m_out,
+            [this, nInstances](const std::vector<size_t>& cellIdx) {
           if (stop_requested())
             return;
 
-          // cellIdx = (query, instance); the engine is seeded per cell, so
-          // draws are independent of thread count.
+          // cellIdx = (query, instance); the engine is seeded per cell from
+          // the reserved block, so draws are independent of thread count.
+          auto engine = m_seedBlock.sub_generator(cellIdx[0] * nInstances + cellIdx[1]);
           const size_t queryIdx = cellIdx[0];
           const std::span<const T> row = weight_row(m_weights, queryIdx);
           const size_t nEligible = m_nEligible({queryIdx});
@@ -78,23 +81,26 @@ namespace sb::sampling
       Tensor<ElemT> m_out;         ///< (n_query, n_instances)
       size_t m_sampleSize;
       bool m_replace;
-      DefaultRandomGenerator m_gen;  ///< owned: its seed block is reserved by the walk
+      SeedBlock m_seedBlock;  ///< one seed slot per output cell, reserved by the caller
     };
 
     /// Allocate the (n_query, n_instances) output and launch a stoppable
     /// SubsampleTask filling it from the prepared weight matrix. @p source is
-    /// the reference whose buffer the indexed subsamples share.
+    /// the reference whose buffer the indexed subsamples share. The seed block
+    /// is reserved from @p gen here, synchronously — the caller's generator
+    /// advances past this draw before the async task runs, so a subsequent
+    /// draw can never reuse its seeds.
     template <typename ElemT>
     SubsampleHandle<ElemT> draw_subsets_from_weights(ElemT source,
         Tensor<typename ElemT::value_type> weights, Tensor<size_t> nEligible,
-        size_t sampleSize, size_t nInstances, bool replace, DefaultRandomGenerator gen,
+        size_t sampleSize, size_t nInstances, bool replace, DefaultRandomGenerator& gen,
         Executor& exec)
     {
       Tensor<ElemT> samples({weights.shape(0), nInstances});
       auto task = std::make_unique<SubsampleTask<ElemT>>(
           std::move(source), std::move(weights), std::move(nEligible), samples,
-          sampleSize, replace, std::move(gen));
-          
+          sampleSize, replace, gen.reserve(samples.size()));
+
       task->start_async(exec);
       return {std::move(task), std::move(samples)};
     }

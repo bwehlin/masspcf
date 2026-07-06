@@ -97,6 +97,49 @@ def test_reproducible_with_seed(float_kind):
     assert any_diff
 
 
+def _all_equal(a, b):
+    return all(
+        np.array_equal(np.asarray(a[i, j]), np.asarray(b[i, j]))
+        for i in range(a.shape[0]) for j in range(a.shape[1])
+    )
+
+
+def test_consecutive_calls_advance_the_generator():
+    # A draw must consume its seed block from the caller's generator, not a
+    # private copy: two consecutive calls with the same generator draw fresh
+    # samples, and reseeding replays the whole sequence call by call.
+    R = np.random.default_rng(2).standard_normal((40, 2))
+    X = np.random.default_rng(3).standard_normal((3, 2))
+
+    gen = sb.random.Generator(7)
+    a = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen)
+    b = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen)
+    assert not _all_equal(a, b)
+
+    gen2 = sb.random.Generator(7)
+    a2 = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen2)
+    b2 = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen2)
+    assert _all_equal(a, a2)
+    assert _all_equal(b, b2)
+
+
+def test_consecutive_calls_advance_the_global_generator():
+    # Same contract for generator=None: the global generator advances.
+    R = np.random.default_rng(2).standard_normal((40, 2))
+    X = np.random.default_rng(3).standard_normal((3, 2))
+
+    sb.random.seed(11)
+    a = subsample_relative(R, X, sample_size=10, n_instances=5)
+    b = subsample_relative(R, X, sample_size=10, n_instances=5)
+    assert not _all_equal(a, b)
+
+    sb.random.seed(11)
+    a2 = subsample_relative(R, X, sample_size=10, n_instances=5)
+    b2 = subsample_relative(R, X, sample_size=10, n_instances=5)
+    assert _all_equal(a, a2)
+    assert _all_equal(b, b2)
+
+
 def test_verbose_matches_nonverbose():
     # verbose=True drives the result through the stoppable-task progress loop;
     # it must produce exactly the same (deterministic) subsamples as verbose=False.

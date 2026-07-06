@@ -62,13 +62,14 @@ namespace sb::sampling
   /// @p distribution of @p filter per point pair. Returns a SubsampleHandle:
   /// the async draw task plus its (n_query, n_instances) samples tensor of
   /// indexed views into @p reference. @p sampleSize is a maximum — see
-  /// detail::draw_indices for the length contract.
+  /// detail::draw_indices for the length contract. @p gen advances past the
+  /// draw's reserved seed block, so consecutive calls draw fresh samples.
   template <typename T, typename FilterF, typename DistF>
   SubsampleHandle<PointCloud<T>> sample_subsets(const PointCloud<T>& reference,
                                                 const PointCloud<T>& query, FilterF filter,
                                                 DistF distribution, size_t sampleSize,
                                                 size_t nInstances, bool replace,
-                                                DefaultRandomGenerator gen, Executor& exec)
+                                                DefaultRandomGenerator& gen, Executor& exec)
   {
     detail::validate_reference(reference, sampleSize);
     if (query.rank() != 2)
@@ -80,7 +81,7 @@ namespace sb::sampling
     Tensor<size_t> nEligible = detail::prepare_weight_matrix(weights, replace, exec);
 
     return detail::draw_subsets_from_weights<PointCloud<T>>(reference, std::move(weights),
-        std::move(nEligible), sampleSize, nInstances, replace, std::move(gen), exec);
+        std::move(nEligible), sampleSize, nInstances, replace, gen, exec);
   }
 
   /// As sample_subsets, but distances come from the precomputed @p source
@@ -92,13 +93,13 @@ namespace sb::sampling
                                                             const Tensor<uint64_t>& query,
                                                             DistF distribution, size_t sampleSize,
                                                             size_t nInstances, bool replace,
-                                                            DefaultRandomGenerator gen, Executor& exec)
+                                                            DefaultRandomGenerator& gen, Executor& exec)
   {
     detail::validate_distmat(source, sampleSize);
     Tensor<T> weights = detail::compute_weights_distmat(source, query, distribution, exec);
     Tensor<size_t> nEligible = detail::prepare_weight_matrix(weights, replace, exec);
     return detail::draw_subsets_from_weights<DistanceMatrix<T>>(source, std::move(weights),
-        std::move(nEligible), sampleSize, nInstances, replace, std::move(gen), exec);
+        std::move(nEligible), sampleSize, nInstances, replace, gen, exec);
   }
 
 }

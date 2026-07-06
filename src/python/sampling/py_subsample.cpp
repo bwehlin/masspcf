@@ -82,7 +82,7 @@ namespace
       size_t sampleSize;
       size_t nInstances;
       bool replace;
-      const Gen* gen;
+      Gen* gen;
 
       template <typename FilterF, typename DistF>
       py::tuple operator()(const FilterF& filter, const DistF& distribution) const
@@ -98,7 +98,7 @@ namespace
     static py::tuple sample_subsets(const TensorT& reference, const TensorT& query,
                                     const FilterVariant<T>& filter,
                                     const DistVariant<T>& distribution, size_t sampleSize,
-                                    size_t nInstances, bool replace, const Gen* gen)
+                                    size_t nInstances, bool replace, Gen* gen)
     {
       return std::visit(
           SampleSubsetsCall{reference, query, sampleSize, nInstances, replace, gen},
@@ -112,7 +112,7 @@ namespace
       size_t sampleSize;
       size_t nInstances;
       bool replace;
-      const Gen* gen;
+      Gen* gen;
 
       template <typename DistF>
       py::tuple operator()(const DistF& distribution) const
@@ -130,7 +130,7 @@ namespace
                                             const sb::Tensor<uint64_t>& query,
                                             const DistVariant<T>& distribution,
                                             size_t sampleSize, size_t nInstances, bool replace,
-                                            const Gen* gen)
+                                            Gen* gen)
     {
       return std::visit(
           SampleSubsetsDistmatCall{source, query, sampleSize, nInstances, replace, gen},
@@ -155,8 +155,9 @@ namespace
     // -------------------------------------------------------------------------
 
     /// Resolve the nullable generator argument (Python None -> nullptr) to a
-    /// concrete generator, falling back to the global default.
-    static const Gen& resolve_generator(const Gen* gen)
+    /// concrete generator, falling back to the global default. Mutable: the
+    /// draw reserves its seed block from the resolved generator, advancing it.
+    static Gen& resolve_generator(Gen* gen)
     {
       return gen ? *gen : sb::default_generator();
     }

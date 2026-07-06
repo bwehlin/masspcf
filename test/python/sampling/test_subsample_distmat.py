@@ -102,6 +102,30 @@ def test_distmat_per_query_points_differ():
     assert set(drawn[0]) != set(drawn[1])
 
 
+def test_distmat_consecutive_calls_advance_the_generator():
+    # The distmat path shares the draw pipeline with the point-cloud path:
+    # consecutive calls with one generator must draw fresh samples, and
+    # reseeding must replay the sequence call by call.
+    D = _ref_distmat(40)
+    dm = sb.DistanceMatrix.from_dense(D)
+    query = np.array([0, 5, 10], dtype=np.uint64)
+
+    def draw(gen):
+        subs = subsample_relative(dm, query, sample_size=10, n_instances=5,
+                                  generator=gen)
+        return [np.asarray(subs[i, j].indices)
+                for i in range(subs.shape[0]) for j in range(subs.shape[1])]
+
+    gen = sb.random.Generator(7)
+    a, b = draw(gen), draw(gen)
+    assert not all(np.array_equal(x, y) for x, y in zip(a, b))
+
+    gen2 = sb.random.Generator(7)
+    a2, b2 = draw(gen2), draw(gen2)
+    assert all(np.array_equal(x, y) for x, y in zip(a, a2))
+    assert all(np.array_equal(x, y) for x, y in zip(b, b2))
+
+
 def test_distmat_without_replacement_distinct():
     D = _ref_distmat(15)
     dm = sb.DistanceMatrix.from_dense(D)
