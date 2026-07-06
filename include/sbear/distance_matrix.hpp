@@ -33,7 +33,9 @@ namespace sb
   /// a tensor of subsampled distance matrices store one shared source plus small
   /// index arrays instead of re-storing every sub-matrix. Access is transparent,
   /// so Ripser (which uses only size()/operator()) needs no special case. An
-  /// indexed view is read-only and not serializable; materialize() it first.
+  /// indexed view is read-only. Tensors of matrices serialize views natively
+  /// (each distinct source stored once, see tensor_io.hpp); a *standalone*
+  /// indexed view cannot be serialized — materialize() it first.
   template <ArithmeticType T>
   class DistanceMatrix
   {
@@ -121,6 +123,11 @@ namespace sb
 
     /// Number of points: selected indices when indexed, otherwise the full size.
     [[nodiscard]] size_t size() const { return is_indexed() ? m_indices.shape(0) : m_size; }
+
+    /// Number of points in the (possibly shared) source buffer — equals size()
+    /// unless indexed. This is the matrix data() spans, used when serializing
+    /// the shared source of indexed views.
+    [[nodiscard]] size_t source_size() const { return m_size; }
 
     /// Number of stored compressed entries (owning matrices only).
     [[nodiscard]] size_t storage_count() const { return storage_size(m_size); }

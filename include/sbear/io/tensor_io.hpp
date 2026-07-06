@@ -44,6 +44,15 @@ namespace sb::io::detail
   template <typename T>
   inline constexpr bool is_point_cloud_v = is_point_cloud<T>::value;
 
+  template <typename T>
+  struct is_dist_matrix : std::false_type {};
+
+  template <typename T>
+  struct is_dist_matrix<DistanceMatrix<T>> : std::true_type { using scalar_type = T; };
+
+  template <typename T>
+  inline constexpr bool is_dist_matrix_v = is_dist_matrix<T>::value;
+
   using StreamableTensor = std::variant<
       Tensor<float32_t>,
       Tensor<float64_t>,
@@ -136,8 +145,12 @@ namespace sb::io::detail
     else if constexpr (std::is_same_v<T, SymmetricMatrix<float32_t>>) { return TensorFormat{ .baseFormat = 1100, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, SymmetricMatrix<float64_t>>) { return TensorFormat{ .baseFormat = 1100, .subFormat = 64 }; }
 
-    else if constexpr (std::is_same_v<T, DistanceMatrix<float32_t>>) { return TensorFormat{ .baseFormat = 1120, .subFormat = 32 }; }
-    else if constexpr (std::is_same_v<T, DistanceMatrix<float64_t>>) { return TensorFormat{ .baseFormat = 1120, .subFormat = 64 }; }
+    // baseFormat 1120 is the legacy distance-matrix format (every tensor element
+    // a full compressed matrix); 1121 is the current format that stores each
+    // distinct source buffer once plus per-element (source id, indices) — the
+    // distance-matrix analogue of the 1000 -> 1001 point cloud change above.
+    else if constexpr (std::is_same_v<T, DistanceMatrix<float32_t>>) { return TensorFormat{ .baseFormat = 1121, .subFormat = 32 }; }
+    else if constexpr (std::is_same_v<T, DistanceMatrix<float64_t>>) { return TensorFormat{ .baseFormat = 1121, .subFormat = 64 }; }
 
     else if constexpr (std::is_same_v<T, ph::Barcode<float32_t>>) { return TensorFormat{ .baseFormat = 10000, .subFormat = 32 }; }
     else if constexpr (std::is_same_v<T, ph::Barcode<float64_t>>) { return TensorFormat{ .baseFormat = 10000, .subFormat = 64 }; }
@@ -223,6 +236,52 @@ namespace sb::io::detail
     }
   }
 
+  // As write_point_cloud_elements, for tensors of distance matrices: each
+  // distinct source buffer is stored once as a full compressed matrix
+  // (uint64 size + entries, the read_compressed_matrix layout), then every
+  // element as a source id plus, for indexed views, its index array. This is
+  // what lets subsampled sub-matrices be saved without either duplicating the
+  // source per element or desynchronizing on size()/storage_count().
+  template <typename ScalarT>
+  void write_distance_matrix_elements(std::ostream& os, const Tensor<DistanceMatrix<ScalarT>>& tensor)
+  {
+    std::unordered_map<const void*, uint64_t> idOf;
+    std::vector<const DistanceMatrix<ScalarT>*> sources;
+
+    auto sz = tensor.size();
+    const auto* data = tensor.data();
+    std::vector<uint64_t> sourceId(sz);
+    for (auto k = 0_uz; k < sz; ++k)
+    {
+      const DistanceMatrix<ScalarT>& elem = data[k];
+      const void* key = static_cast<const void*>(elem.data());
+      auto [it, inserted] = idOf.try_emplace(key, static_cast<uint64_t>(sources.size()));
+      if (inserted)
+        sources.push_back(&elem);
+      sourceId[k] = it->second;
+    }
+
+    write_bytes<uint64_t>(os, static_cast<uint64_t>(sources.size()));
+    for (const DistanceMatrix<ScalarT>* src : sources)
+    {
+      // The full shared buffer: source_size(), not size(), which for an
+      // indexed view reports the selected submatrix instead.
+      const uint64_t n = src->source_size();
+      write_bytes<uint64_t>(os, n);
+      for (size_t i = 0; i < DistanceMatrix<ScalarT>::storage_size(n); ++i)
+        write_bytes<ScalarT>(os, src->data()[i]);
+    }
+
+    for (auto k = 0_uz; k < sz; ++k)
+    {
+      write_bytes<uint64_t>(os, sourceId[k]);
+      const DistanceMatrix<ScalarT>& elem = data[k];
+      write_bytes<uint8_t>(os, elem.is_indexed() ? uint8_t{1} : uint8_t{0});
+      if (elem.is_indexed())
+        write_tensor(os, elem.indices());
+    }
+  }
+
   template <IsTensor TensorT>
     void write_contiguous_tensor(std::ostream& os, const TensorT& tensor)
   {
@@ -242,6 +301,11 @@ namespace sb::io::detail
     if constexpr (is_point_cloud_v<value_type>)
     {
       write_point_cloud_elements<typename is_point_cloud<value_type>::scalar_type>(os, tensor);
+      return;
+    }
+    if constexpr (is_dist_matrix_v<value_type>)
+    {
+      write_distance_matrix_elements<typename is_dist_matrix<value_type>::scalar_type>(os, tensor);
       return;
     }
 
@@ -339,6 +403,47 @@ namespace sb::io::detail
         *elem = PointCloud<ScalarT>(sources[id], read_element<Tensor<uint64_t>>(is));
       else
         *elem = PointCloud<ScalarT>(sources[id]);
+    }
+
+    return ret;
+  }
+
+  // Read the current (baseFormat 1121) distance-matrix tensor format: distinct
+  // source matrices stored once, then per-element (source id, optional indices).
+  // Elements referencing the same source share its buffer, as before saving.
+  template <typename ScalarT>
+  Tensor<DistanceMatrix<ScalarT>> read_indexed_distance_matrix_tensor(std::istream& is)
+  {
+    auto shapeSz = read_bytes<std::uint64_t>(is);
+    std::vector<size_t> shape(shapeSz);
+    std::vector<ptrdiff_t> strides(shapeSz);
+    for (auto i = 0_uz; i < shapeSz; ++i)
+    {
+      shape[i] = read_bytes<std::uint64_t>(is);
+      strides[i] = static_cast<ptrdiff_t>(read_bytes<std::uint64_t>(is));
+    }
+
+    Tensor<DistanceMatrix<ScalarT>> ret(shape);
+    if (ret.strides() != strides)
+    {
+      throw std::runtime_error("Incorrect strides in saved data (expected " + index_to_string(ret.strides()) + " but got " + index_to_string(strides) + ")");
+    }
+
+    auto numSources = read_bytes<std::uint64_t>(is);
+    std::vector<DistanceMatrix<ScalarT>> sources;
+    sources.reserve(numSources);
+    for (auto i = 0_uz; i < numSources; ++i)
+      sources.push_back(read_compressed_matrix<DistanceMatrix<ScalarT>>(is));
+
+    auto sz = ret.size();
+    for (auto * elem = ret.data(); elem != ret.data() + sz; ++elem)
+    {
+      auto id = read_bytes<std::uint64_t>(is);
+      auto indexed = read_bytes<std::uint8_t>(is);
+      if (indexed)
+        *elem = DistanceMatrix<ScalarT>(sources[id], read_element<Tensor<uint64_t>>(is));
+      else
+        *elem = sources[id];  // copy shares the source buffer (shared_ptr)
     }
 
     return ret;

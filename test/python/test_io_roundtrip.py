@@ -1,9 +1,10 @@
 import io
 
 import numpy as np
+import pytest
 
 import stablebear as sb
-from stablebear.sampling import Gaussian, subsample_relative
+from stablebear.sampling import Gaussian, Uniform, subsample_relative
 
 
 def _roundtrip(tensor):
@@ -127,3 +128,67 @@ def test_indexed_subsamples_roundtrip():
     for i in range(3):
         for j in range(7):
             assert np.array_equal(np.asarray(loaded[i, j]), before[i][j])
+
+
+# --- Indexed distance matrices (subsamples) ---
+
+
+def _euclidean_distmat(n, dim=3, seed=0):
+    pts = np.random.default_rng(seed).standard_normal((n, dim))
+    return np.sqrt(((pts[:, None, :] - pts[None, :, :]) ** 2).sum(-1))
+
+
+def test_indexed_distmat_subsamples_roundtrip():
+    dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(40))
+    subs = subsample_relative(dm, np.array([0, 5, 10], dtype=np.uint64),
+                              sample_size=8, n_instances=4,
+                              generator=sb.random.Generator(0))
+
+    before = [[np.asarray(subs[i, j]) for j in range(4)] for i in range(3)]
+
+    loaded = _roundtrip(subs)
+
+    assert isinstance(loaded, sb.DistanceMatrixTensor)
+    assert loaded.shape == (3, 4)
+    # Indexed structure survives the round trip (sources shared, not re-stored).
+    assert loaded[0, 0].is_indexed
+    for i in range(3):
+        for j in range(4):
+            assert np.array_equal(np.asarray(loaded[i, j].indices),
+                                  np.asarray(subs[i, j].indices))
+            assert np.array_equal(np.asarray(loaded[i, j]), before[i][j])
+
+
+def test_indexed_distmat_empty_regions_roundtrip():
+    # A band beyond the data diameter empties every subsample; the length-0
+    # index arrays must survive the round trip.
+    dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(20))
+    subs = subsample_relative(dm, np.array([0, 3], dtype=np.uint64),
+                              sample_size=5, n_instances=2,
+                              distribution=Uniform(low=1e12),
+                              generator=sb.random.Generator(0))
+    assert subs[0, 0].size == 0
+
+    loaded = _roundtrip(subs)
+    assert loaded.shape == (2, 2)
+    for i in range(2):
+        for j in range(2):
+            assert loaded[i, j].size == 0
+
+
+def test_standalone_indexed_distmat_save_requires_materialize():
+    dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(30))
+    subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
+                              sample_size=6, n_instances=1,
+                              generator=sb.random.Generator(0))
+    view = subs[0, 0]
+    assert view.is_indexed
+
+    # A standalone view cannot be written faithfully -> clear error...
+    with pytest.raises(ValueError, match="materialize"):
+        sb.save(view, io.BytesIO())
+
+    # ...and materializing first round-trips the selected submatrix.
+    loaded = _roundtrip(view.materialize())
+    assert isinstance(loaded, sb.DistanceMatrix)
+    assert np.array_equal(np.asarray(loaded), np.asarray(view))
