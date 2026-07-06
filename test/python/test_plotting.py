@@ -179,6 +179,94 @@ class TestPlotBarcode:
         y = plot_barcode(bt2d, ax=ax)
         assert y == 2
 
+    def test_tensor_default_colors_follow_prop_cycle(self, ax):
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import to_rgba
+
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc, bc])
+        plot_barcode(bt, ax=ax)
+        cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        for i, lc in enumerate(ax.collections):
+            assert tuple(lc.get_colors()[0]) == to_rgba(cycle[i % len(cycle)])
+
+    def test_tensor_color_list_assigns_per_barcode(self, ax):
+        from matplotlib.colors import to_rgba
+
+        bc = _make_barcode([[0, 1], [0.5, 2]])
+        bt = BarcodeTensor([bc, bc])
+        plot_barcode(bt, ax=ax, color=["red", "green"])
+        assert tuple(ax.collections[0].get_colors()[0]) == to_rgba("red")
+        assert tuple(ax.collections[1].get_colors()[0]) == to_rgba("green")
+
+    def test_tensor_color_list_cycles_when_short(self, ax):
+        from matplotlib.colors import to_rgba
+
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc, bc])
+        plot_barcode(bt, ax=ax, color=["red", "green"])
+        assert tuple(ax.collections[2].get_colors()[0]) == to_rgba("red")
+
+    def test_tensor_single_color_applies_to_all(self, ax):
+        from matplotlib.colors import to_rgba
+
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc])
+        plot_barcode(bt, ax=ax, color="blue")
+        for lc in ax.collections:
+            assert tuple(lc.get_colors()[0]) == to_rgba("blue")
+
+    def test_color_list_on_single_barcode_raises(self, ax):
+        bc = _make_barcode([[0, 1], [0.5, 2]])
+        with pytest.raises(TypeError, match="single color"):
+            plot_barcode(bc, ax=ax, color=["red", "green"])
+
+    def test_colors_kwarg_rejected(self, ax):
+        bc = _make_barcode([[0, 1]])
+        with pytest.raises(TypeError, match="use 'color'"):
+            plot_barcode(bc, ax=ax, colors=["red"])
+        bt = BarcodeTensor([bc, bc])
+        with pytest.raises(TypeError, match="use 'color'"):
+            plot_barcode(bt, ax=ax, colors=["red", "green"])
+
+    def test_tensor_invalid_color_raises(self, ax):
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc])
+        with pytest.raises(ValueError, match="sequence of colors"):
+            plot_barcode(bt, ax=ax, color=["red", "not-a-color"])
+        with pytest.raises(ValueError, match="sequence of colors"):
+            plot_barcode(bt, ax=ax, color=[])
+
+    def test_arrowhead_matches_bar_color_and_alpha(self, ax):
+        from matplotlib.colors import to_rgba
+
+        bc = _make_barcode([[0, 1], [0.5, np.inf]])
+        plot_barcode(bc, ax=ax, color="red", alpha=0.1)
+        bar_color = tuple(ax.collections[0].get_colors()[0])
+        assert bar_color == to_rgba("red", alpha=0.1)
+        assert tuple(ax.texts[0].arrow_patch.get_edgecolor()) == bar_color
+
+    def test_tensor_cmap_samples_colormap(self, ax):
+        import matplotlib as mpl
+
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc, bc])
+        plot_barcode(bt, ax=ax, cmap="viridis")
+        expected = mpl.colormaps.get_cmap("viridis")(np.linspace(0, 1, 3))
+        for lc, exp in zip(ax.collections, expected):
+            assert tuple(lc.get_colors()[0]) == tuple(exp)
+
+    def test_color_and_cmap_together_raises(self, ax):
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc])
+        with pytest.raises(TypeError, match="not both"):
+            plot_barcode(bt, ax=ax, color="red", cmap="viridis")
+
+    def test_cmap_on_single_barcode_raises(self, ax):
+        bc = _make_barcode([[0, 1]])
+        with pytest.raises(TypeError, match="only supported for BarcodeTensor"):
+            plot_barcode(bc, ax=ax, cmap="viridis")
+
     def test_bars_sorted_by_birth_then_length_descending(self, ax):
         # Bars given out of order
         bc = _make_barcode([[1, 3], [0, np.inf], [0, 2], [0, 5]])
