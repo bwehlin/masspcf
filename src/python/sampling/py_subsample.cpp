@@ -124,9 +124,14 @@ namespace
       template <typename DistF>
       py::tuple operator()(const DistF& distribution) const
       {
-        return to_tuple(sb::sampling::sample_subsets_distmat(
-            source, query, distribution, sampleSize, nInstances, replace,
-            resolve_generator(gen), sb::default_executor()));
+        // Same GIL story as SampleSubsetsCall above.
+        auto handle = [&] {
+          py::gil_scoped_release release;
+          return sb::sampling::sample_subsets_distmat(
+              source, query, distribution, sampleSize, nInstances, replace,
+              resolve_generator(gen), sb::default_executor());
+        }();
+        return to_tuple(std::move(handle));
       }
     };
 

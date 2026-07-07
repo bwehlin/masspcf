@@ -836,4 +836,34 @@ namespace
     EXPECT_EQ(view.source_size(), 4u);
   }
 
+  TEST(DistanceMatrixView, AllcloseComparesThePrincipalSubmatrix)
+  {
+    // allclose on a view must compare the selected submatrix, not the raw
+    // shared source buffer (which data() no longer even hands out).
+    sb::DistanceMatrix<double> source(4);
+    source(0, 1) = 1.0;
+    source(0, 2) = 2.0;
+    source(0, 3) = 3.0;
+    source(1, 2) = 4.0;
+    source(1, 3) = 5.0;
+    source(2, 3) = 6.0;
+
+    sb::Tensor<uint64_t> indices({2});
+    indices({0}) = 1;
+    indices({1}) = 3;
+    sb::DistanceMatrix<double> view(source, indices);  // submatrix {{0, 5}, {5, 0}}
+
+    EXPECT_TRUE(sb::allclose(view, view.materialize()));
+
+    sb::DistanceMatrix<double> other(2);
+    other(0, 1) = 5.0;
+    EXPECT_TRUE(sb::allclose(view, other));
+    other(0, 1) = 5.5;
+    EXPECT_FALSE(sb::allclose(view, other));
+    EXPECT_TRUE(sb::allclose(view, other, 1.0));
+
+    sb::DistanceMatrix<double> wrongSize(3);
+    EXPECT_FALSE(sb::allclose(view, wrongSize));
+  }
+
 } // namespace

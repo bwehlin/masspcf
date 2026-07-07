@@ -44,8 +44,8 @@ re-exported at the top level, so the common case needs a single import::
    # Default: Euclidean-distance filter + Gaussian(mean=0, sigma=1)
    subs = sb.subsample_relative(reference, query, sample_size=30, n_instances=2000)
 
-   print(subs.shape)      # (10, 2000)   -> one row of subsamples per query point
-   print(subs[0, 0].shape) # (30, 3)     -> a single subsample is a point cloud
+   subs.shape       # (10, 2000)   -> one row of subsamples per query point
+   subs[0, 0].shape # (30, 3)      -> a single subsample is a point cloud
 
 The result is a :class:`~stablebear.PointCloudTensor` of shape
 ``(n_query, n_instances)``; element ``[i, j]`` is the ``j``-th subsample (a

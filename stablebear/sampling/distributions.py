@@ -7,6 +7,8 @@ built-ins. The distance-to-weight math lives solely in the C++ functor; these
 classes carry no Python copy of it.
 """
 
+import math
+
 
 class Uniform:
     r"""Uniform weight over a band of filter values :math:`[\text{low}, \text{high}]`,
@@ -74,17 +76,25 @@ class Gaussian:
     Parameters
     ----------
     mean : float, optional, keyword-only
-        Center :math:`\mu`, by default 0.0.
+        Center :math:`\mu`, by default 0.0. Must be finite.
     sigma : float, optional, keyword-only
-        Standard deviation :math:`\sigma`, by default 1.0.
+        Standard deviation :math:`\sigma`, by default 1.0. Must be positive
+        and finite.
     """
 
     def __init__(self, *, mean=0.0, sigma=1.0):
-        # Inverted comparison so that a NaN sigma fails validation too.
-        if not (sigma > 0):
-            raise ValueError("sigma must be positive.")
-        self.mean = float(mean)
-        self.sigma = float(sigma)
+        mean = float(mean)
+        sigma = float(sigma)
+        # Non-finite parameters would not error downstream — they silently
+        # produce all-empty (mean=nan/inf) or plain-uniform (sigma=inf)
+        # sampling — so reject them here, like Uniform does. The inverted
+        # comparison makes a NaN sigma fail validation too.
+        if not math.isfinite(mean):
+            raise ValueError("mean must be finite.")
+        if not (sigma > 0) or math.isinf(sigma):
+            raise ValueError("sigma must be positive and finite.")
+        self.mean = mean
+        self.sigma = sigma
 
     def _descriptor(self, backend):
         """The matching C++ descriptor for the given precision backend."""

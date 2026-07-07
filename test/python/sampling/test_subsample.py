@@ -235,6 +235,18 @@ def test_gaussian_positional_args_rejected(args):
         Gaussian(*args)
 
 
+@pytest.mark.parametrize("kwargs", [
+    {"sigma": 0.0}, {"sigma": -1.0}, {"sigma": float("nan")}, {"sigma": float("inf")},
+    {"mean": float("nan")}, {"mean": float("inf")}, {"mean": float("-inf")},
+])
+def test_gaussian_invalid_params_raise(kwargs):
+    # Non-finite parameters would not error downstream: mean=nan/inf silently
+    # empties every subsample, sigma=inf silently degenerates to uniform
+    # sampling. They must be rejected at construction, like Uniform's.
+    with pytest.raises(ValueError):
+        Gaussian(**kwargs)
+
+
 def test_without_replacement_gives_distinct_points():
     R = (np.arange(15, dtype=np.float64)).reshape(-1, 1)
     X = np.array([[0.0]])
@@ -447,10 +459,54 @@ def test_query_by_index_matches_coordinates():
             assert np.array_equal(np.asarray(by_index[i, j]), np.asarray(by_coords[i, j]))
 
 
+def test_negative_query_indices_match_positive():
+    # Negative indices count from the end, as in NumPy.
+    R = np.random.default_rng(0).standard_normal((30, 2))
+
+    negative = subsample_relative(R, np.array([-1, -30]), sample_size=6, n_instances=4,
+                                  generator=sb.random.Generator(3))
+    positive = subsample_relative(R, np.array([29, 0]), sample_size=6, n_instances=4,
+                                  generator=sb.random.Generator(3))
+    assert _all_equal(negative, positive)
+
+
+def test_query_none_uses_all_reference_points():
+    # The default query is the reference cloud itself: one output row per
+    # reference point.
+    R = np.random.default_rng(0).standard_normal((17, 2))
+    subs = subsample_relative(R, sample_size=4, n_instances=3,
+                              generator=sb.random.Generator(0))
+    assert subs.shape == (17, 3)
+
+
 def test_query_index_out_of_range_raises():
     R = np.zeros((10, 2))
     with pytest.raises(ValueError):
         subsample_relative(R, np.array([10]), sample_size=3, n_instances=1)
+    with pytest.raises(ValueError):
+        subsample_relative(R, np.array([-11]), sample_size=3, n_instances=1)
+
+
+def test_huge_unsigned_query_index_raises():
+    # A uint64 value >= 2^63 casts to a negative int64; only *signed* input
+    # gets the negative-index treatment, so it must fail the range check
+    # rather than wrap to a valid row.
+    R = np.zeros((10, 2))
+    with pytest.raises(ValueError):
+        subsample_relative(R, np.array([2**63], dtype=np.uint64),
+                           sample_size=3, n_instances=1)
+
+
+@pytest.mark.parametrize("shape", [(10,), (2, 5, 3)], ids=["1d", "3d"])
+def test_non_2d_reference_raises(shape):
+    with pytest.raises(ValueError):
+        subsample_relative(np.zeros(shape), sample_size=3, n_instances=1)
+
+
+def test_non_2d_coordinate_query_raises():
+    R = np.zeros((10, 3))
+    with pytest.raises(ValueError):
+        subsample_relative(R, np.zeros((2, 2, 3)), sample_size=3, n_instances=1)
 
 
 def test_pipeline_to_relative_stable_rank():

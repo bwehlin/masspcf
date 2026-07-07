@@ -80,6 +80,43 @@ def test_distmat_zero_weight_points_never_sampled():
     assert all(D[q, i] <= cutoff for i in seen)
 
 
+def test_distmat_negative_query_indices_match_positive():
+    # Negative indices count from the end, as in NumPy — shared with the
+    # point-cloud path but asserted here too since the distmat path resolves
+    # them into a different backend call.
+    D = _ref_distmat(25)
+    dm = sb.DistanceMatrix.from_dense(D)
+
+    neg = subsample_relative(dm, np.array([-1, -25]), sample_size=5, n_instances=3,
+                             generator=sb.random.Generator(4))
+    pos = subsample_relative(dm, np.array([24, 0]), sample_size=5, n_instances=3,
+                             generator=sb.random.Generator(4))
+    for i in range(2):
+        for j in range(3):
+            assert np.array_equal(np.asarray(neg[i, j].indices),
+                                  np.asarray(pos[i, j].indices))
+
+
+def test_distmat_gaussian_far_shell_samples_nearest_not_empty():
+    # Every distance in the query row lies hundreds of sigmas from the
+    # Gaussian mean: a raw exp of the exponents would underflow the whole row
+    # to zero (an artificial empty region), while the log-space evaluation
+    # must still sample the point whose distance is nearest the mean. This is
+    # the distmat twin of test_gaussian_far_query_samples_nearest_point_not_empty.
+    pts = np.array([[0.0], [100.0], [101.0], [102.0]])
+    D = np.abs(pts - pts.T)
+    dm = sb.DistanceMatrix.from_dense(D)
+
+    subs = subsample_relative(dm, np.array([0]), sample_size=5, n_instances=4,
+                              distribution=Gaussian(mean=90.0, sigma=0.1),
+                              generator=sb.random.Generator(0))
+
+    for j in range(subs.shape[1]):
+        el = subs[0, j]
+        assert el.size == 5  # non-empty: repeats of the nearest-to-shell point
+        assert set(int(i) for i in np.asarray(el.indices)) == {1}
+
+
 def test_distmat_per_query_points_differ():
     # Two different query rows should pull from different neighbourhoods.
     D = _ref_distmat(60, seed=2)
