@@ -812,4 +812,28 @@ namespace
     EXPECT_TRUE(sb::allclose(a, b, T(1)));
   }
 
+  // ==========================================================================
+  // DistanceMatrix indexed views — buffer access
+  // ==========================================================================
+
+  TEST(DistanceMatrixView, DataThrowsOnIndexedViewSourceDataDoesNot)
+  {
+    // data() on a view is the footgun that once corrupted serialization: the
+    // buffer is the full shared source while size()/storage_count() describe
+    // the submatrix. It must throw; deliberate source access goes through
+    // source_data() (paired with source_size()).
+    sb::DistanceMatrix<double> source(4);
+    source(0, 1) = 1.0;
+    source(1, 3) = 2.0;
+
+    sb::Tensor<uint64_t> indices({2});
+    indices({0}) = 1;
+    indices({1}) = 3;
+    sb::DistanceMatrix<double> view(source, indices);
+
+    EXPECT_THROW((void)view.data(), std::logic_error);
+    EXPECT_EQ(view.source_data(), source.data());
+    EXPECT_EQ(view.source_size(), 4u);
+  }
+
 } // namespace

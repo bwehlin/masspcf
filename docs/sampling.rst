@@ -162,7 +162,10 @@ Gaussian
 With the default distance filter, this concentrates sampling on reference points
 whose distance to the query point is near :math:`\mu`. Sample close to each query
 point with a small ``sigma`` around ``mean=0``, or focus on a shell at distance
-:math:`\mu` by setting ``mean``::
+:math:`\mu` by setting ``mean``. The weights are evaluated in a numerically
+stable way, so even a query point arbitrarily many sigmas away from every
+reference point still samples its nearest points — a Gaussian weights every
+reference point positively, at any distance and any ``sigma``. ::
 
    # Favour the immediate neighbourhood of each query point
    subs = sb.subsample_relative(reference, query, sample_size=30, n_instances=2000,
@@ -240,9 +243,11 @@ Drawing controls
 .. note::
 
    **Empty regions.** A query point for which *no* reference point has positive
-   weight -- e.g. a ``Uniform`` band that no reference point falls in -- yields
-   *empty* (0-point) subsamples; with ``verbose=True``, ``subsample_relative``
-   emits a ``UserWarning`` naming the affected query points. Degenerate
+   weight yields *empty* (0-point) subsamples; with ``verbose=True``,
+   ``subsample_relative`` emits a ``UserWarning`` naming the affected query
+   points. Of the built-in distributions only ``Uniform`` can produce an empty
+   region -- a band that no reference point falls in -- since a ``Gaussian``
+   weights every reference point positively at any distance. Degenerate
    distribution *parameters* (``high <= low``, ``sigma <= 0``) are instead
    rejected when the distribution object is constructed, so an empty subsample
    always means a validly-specified region that happens to contain no

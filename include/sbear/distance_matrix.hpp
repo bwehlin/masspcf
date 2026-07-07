@@ -170,9 +170,26 @@ namespace sb
 
     [[nodiscard]] bool operator!=(const DistanceMatrix& rhs) const { return !(*this == rhs); }
 
-    /// Raw compressed buffer (owning matrices only; an indexed view shares the
-    /// full source buffer, which is not its principal submatrix).
-    [[nodiscard]] const T* data() const { return m_data.get(); }
+    /// Raw compressed buffer of an owning matrix. An indexed view throws:
+    /// its buffer is the full shared source, not the principal submatrix
+    /// that size()/storage_count() describe — reading it as this matrix's
+    /// entries is the exact mismatch that corrupts serialization. Call
+    /// materialize() for the submatrix, or source_data() to read the shared
+    /// source deliberately.
+    [[nodiscard]] const T* data() const
+    {
+      if (is_indexed())
+        throw std::logic_error(
+            "an indexed distance-matrix view has no buffer of its own; use "
+            "materialize() for the submatrix or source_data() for the shared source");
+      return m_data.get();
+    }
+
+    /// The (possibly shared) source buffer, spanning
+    /// storage_size(source_size()) entries — equals data() unless indexed.
+    /// For code that deliberately reads through the view's indexing, e.g.
+    /// serializing the shared source once (pairs with source_size()).
+    [[nodiscard]] const T* source_data() const { return m_data.get(); }
 
     [[nodiscard]] static size_t storage_size(size_t n)
     {

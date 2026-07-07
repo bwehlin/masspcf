@@ -12,15 +12,16 @@
 
 // Unit tests for the row-level weighted-draw primitives underlying
 // sample_subsets: one row is prepared per query point and then drawn from once
-// per subsample. End-to-end determinism is pinned by the Python regression
-// tests (test_subsample_regression.py); these tests cover the primitives'
-// contracts in isolation.
+// per subsample. End-to-end behavior (determinism, generator advancement,
+// region semantics) is covered by the Python tests in test/python/sampling/;
+// these tests cover the primitives' contracts in isolation.
 
 namespace
 {
   using sb::sampling::detail::draw_indices;
   using sb::sampling::detail::draw_with_replacement;
   using sb::sampling::detail::draw_without_replacement;
+  using sb::sampling::detail::index_for_target;
   using sb::sampling::detail::prepare_weight_matrix;
   using sb::sampling::detail::prepare_weight_row;
   using sb::sampling::detail::weight_row;
@@ -82,6 +83,36 @@ TEST(PrepareWeightRow, RejectsNanWeights)
 {
   std::vector<double> row{1.0, std::numeric_limits<double>::quiet_NaN()};
   EXPECT_THROW(prepare_weight_row(std::span<double>(row), true), std::invalid_argument);
+}
+
+// ---------------------------------------------------------------------------
+// index_for_target
+// ---------------------------------------------------------------------------
+
+TEST(IndexForTarget, BoundaryTargetSkipsTrailingZeroWeights)
+{
+  // uniform_real_distribution may return exactly cdf.back() (LWG 2524). Such
+  // a draw must land on the last positive-weight interval — clamping to the
+  // last *array index* instead would put an ineligible trailing-zero point
+  // into the subsample (or a duplicate, once no-replacement draws zero out
+  // the tail of the row).
+  std::vector<double> row{2.0, 3.0, 0.0, 0.0};
+  prepare_weight_row(std::span<double>(row), true);  // cdf = {2, 5, 5, 5}
+
+  EXPECT_EQ(index_for_target(std::span<const double>(row), 5.0), 1u);
+}
+
+TEST(IndexForTarget, InteriorTargetsMapToTheirIntervals)
+{
+  // Zero-width intervals (leading, interior) are skipped by upper_bound; a
+  // target on an interior boundary belongs to the next interval.
+  std::vector<double> row{0.0, 2.0, 0.0, 3.0};
+  prepare_weight_row(std::span<double>(row), true);  // cdf = {0, 2, 2, 5}
+
+  EXPECT_EQ(index_for_target(std::span<const double>(row), 0.0), 1u);
+  EXPECT_EQ(index_for_target(std::span<const double>(row), 1.5), 1u);
+  EXPECT_EQ(index_for_target(std::span<const double>(row), 2.0), 3u);
+  EXPECT_EQ(index_for_target(std::span<const double>(row), 4.9), 3u);
 }
 
 // ---------------------------------------------------------------------------

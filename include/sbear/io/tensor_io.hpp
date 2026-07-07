@@ -254,7 +254,7 @@ namespace sb::io::detail
     for (auto k = 0_uz; k < sz; ++k)
     {
       const DistanceMatrix<ScalarT>& elem = data[k];
-      const void* key = static_cast<const void*>(elem.data());
+      const void* key = static_cast<const void*>(elem.source_data());
       auto [it, inserted] = idOf.try_emplace(key, static_cast<uint64_t>(sources.size()));
       if (inserted)
         sources.push_back(&elem);
@@ -269,7 +269,7 @@ namespace sb::io::detail
       const uint64_t n = src->source_size();
       write_bytes<uint64_t>(os, n);
       for (size_t i = 0; i < DistanceMatrix<ScalarT>::storage_size(n); ++i)
-        write_bytes<ScalarT>(os, src->data()[i]);
+        write_bytes<ScalarT>(os, src->source_data()[i]);
     }
 
     for (auto k = 0_uz; k < sz; ++k)
