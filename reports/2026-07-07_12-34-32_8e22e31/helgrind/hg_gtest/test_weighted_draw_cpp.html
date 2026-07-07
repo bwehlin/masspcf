@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>/home/runner/work/stablebear/stablebear/test/test_weighted_draw.cpp</title>
+    <link href='valgrind.css' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+    <script src="valgrind.js"></script>
+</head>
+
+<body>
+    <div class="global">
+        <div class="header">
+            <h1>/home/runner/work/stablebear/stablebear/test/test_weighted_draw.cpp</h1>
+            <p><b>2</b> errors</p>
+            <button class="next_error">Goto First Error</button>
+        </div>
+        <div class="listing">
+            <pre class="code">
+<code class="c++"><span class="line_number">1</span>#include &lt;gtest/gtest.h&gt;
+<span class="line_number">2</span>#include &lt;sbear/executor.hpp&gt;
+<span class="line_number">3</span>#include &lt;sbear/sampling/weighted_draw.hpp&gt;
+<span class="line_number">4</span>#include &lt;sbear/sampling/weighting.hpp&gt;
+<span class="line_number">5</span>#include &lt;sbear/xoroshiro128pp.hpp&gt;
+<span class="line_number">6</span>
+<span class="line_number">7</span>#include &lt;cstdint&gt;
+<span class="line_number">8</span>#include &lt;limits&gt;
+<span class="line_number">9</span>#include &lt;set&gt;
+<span class="line_number">10</span>#include &lt;span&gt;
+<span class="line_number">11</span>#include &lt;vector&gt;
+<span class="line_number">12</span>
+<span class="line_number">13</span>// Unit tests for the row-level weighted-draw primitives underlying
+<span class="line_number">14</span>// sample_subsets: one row is prepared per query point and then drawn from once
+<span class="line_number">15</span>// per subsample. End-to-end behavior (determinism, generator advancement,
+<span class="line_number">16</span>// region semantics) is covered by the Python tests in test/python/sampling/;
+<span class="line_number">17</span>// these tests cover the primitives&#39; contracts in isolation.
+<span class="line_number">18</span>
+<span class="line_number">19</span>namespace
+<span class="line_number">20</span>{
+<span class="line_number">21</span>  using sb::sampling::detail::draw_indices;
+<span class="line_number">22</span>  using sb::sampling::detail::draw_with_replacement;
+<span class="line_number">23</span>  using sb::sampling::detail::draw_without_replacement;
+<span class="line_number">24</span>  using sb::sampling::detail::index_for_target;
+<span class="line_number">25</span>  using sb::sampling::detail::prepare_weight_matrix;
+<span class="line_number">26</span>  using sb::sampling::detail::prepare_weight_row;
+<span class="line_number">27</span>  using sb::sampling::detail::weight_row;
+<span class="line_number">28</span>
+<span class="line_number">29</span>  sb::Xoroshiro128pp engine(uint64_t seed = 7)
+<span class="line_number">30</span>  {
+<span class="line_number">31</span>    return sb::Xoroshiro128pp(seed, seed + 1);
+<span class="line_number">32</span>  }
+<span class="line_number">33</span>
+<span class="line_number">34</span>  std::vector&lt;uint64_t&gt; to_vector(const sb::Tensor&lt;uint64_t&gt;&amp; drawn)
+<span class="line_number">35</span>  {
+<span class="line_number">36</span>    std::vector&lt;uint64_t&gt; indices(drawn.size());
+<span class="line_number">37</span>    for (size_t i = 0; i &lt; drawn.size(); ++i)
+<span class="line_number">38</span>      indices[i] = drawn({i});
+<span class="line_number">39</span>    return indices;
+<span class="line_number">40</span>  }
+<span class="line_number">41</span>
+<span class="line_number">42</span>  std::vector&lt;double&gt; to_vector_row(const sb::Tensor&lt;double&gt;&amp; matrix, size_t row)
+<span class="line_number">43</span>  {
+<span class="line_number">44</span>    std::vector&lt;double&gt; values(matrix.shape(1));
+<span class="line_number">45</span>    for (size_t j = 0; j &lt; values.size(); ++j)
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x4E89B50 by thread #1</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/test/test_weighted_draw.cpp:218<br>
+                                    <code class="cpp">PrepareWeightMatrix_PreparesEveryRowAndCountsEligibles_Test::TestBody()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">215</span>  EXPECT_EQ(nEligible({0}), 2u);
+<span class="line_number">216</span>  EXPECT_EQ(nEligible({1}), 0u);  // all-zero row: a valid empty region
+<span class="line_number">217</span>  // Row 0 was converted in place to its CDF; the empty row is untouched.
+<span class="line_number">218</span><span class="error">  EXPECT_EQ(to_vector_row(weights, 0), (std::vector&lt;double&gt;{1.0, 1.0, 3.0}));
+</span><span class="line_number">219</span>  EXPECT_EQ(to_vector_row(weights, 1), (std::vector&lt;double&gt;{0.0, 0.0, 0.0}));
+<span class="line_number">220</span>}
+<span class="line_number">221</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2664<br>
+                                    <code class="cpp">void testing::internal::HandleSehExceptionsInMethodIfSupported&lt;testing::Test, void&gt;(testing::Test*, void (testing::Test::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2661</span>  }
+<span class="line_number">2662</span>#else
+<span class="line_number">2663</span>  (void)location;
+<span class="line_number">2664</span><span class="error">  return (object-&gt;*method)();
+</span><span class="line_number">2665</span>#endif  // GTEST_HAS_SEH
+<span class="line_number">2666</span>}
+<span class="line_number">2667</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2700<br>
+                                    <code class="cpp">void testing::internal::HandleExceptionsInMethodIfSupported&lt;testing::Test, void&gt;(testing::Test*, void (testing::Test::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2697</span>  if (internal::GetUnitTestImpl()-&gt;catch_exceptions()) {
+<span class="line_number">2698</span>#if GTEST_HAS_EXCEPTIONS
+<span class="line_number">2699</span>    try {
+<span class="line_number">2700</span><span class="error">      return HandleSehExceptionsInMethodIfSupported(object, method, location);
+</span><span class="line_number">2701</span>    } catch (const AssertionException&amp;) {  // NOLINT
+<span class="line_number">2702</span>      // This failure was reported already.
+<span class="line_number">2703</span>    } catch (const internal::GoogleTestFailureException&amp;) {  // NOLINT
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2739<br>
+                                    <code class="cpp">testing::Test::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2736</span>  // GTEST_SKIP().
+<span class="line_number">2737</span>  if (!HasFatalFailure() &amp;&amp; !IsSkipped()) {
+<span class="line_number">2738</span>    impl-&gt;os_stack_trace_getter()-&gt;UponLeavingGTest();
+<span class="line_number">2739</span><span class="error">    internal::HandleExceptionsInMethodIfSupported(this, &amp;Test::TestBody,
+</span><span class="line_number">2740</span>                                                  &#34;the test body&#34;);
+<span class="line_number">2741</span>  }
+<span class="line_number">2742</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2885<br>
+                                    <code class="cpp">testing::TestInfo::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2882</span>  if (!Test::HasFatalFailure() &amp;&amp; !Test::IsSkipped()) {
+<span class="line_number">2883</span>    // This doesn&#39;t throw as all user code that can throw are wrapped into
+<span class="line_number">2884</span>    // exception handling code.
+<span class="line_number">2885</span><span class="error">    test-&gt;Run();
+</span><span class="line_number">2886</span>  }
+<span class="line_number">2887</span>
+<span class="line_number">2888</span>  if (test != nullptr) {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:3063<br>
+                                    <code class="cpp">testing::TestSuite::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">3060</span>    if (skip_all) {
+<span class="line_number">3061</span>      GetMutableTestInfo(i)-&gt;Skip();
+<span class="line_number">3062</span>    } else {
+<span class="line_number">3063</span><span class="error">      GetMutableTestInfo(i)-&gt;Run();
+</span><span class="line_number">3064</span>    }
+<span class="line_number">3065</span>    if (GTEST_FLAG_GET(fail_fast) &amp;&amp;
+<span class="line_number">3066</span>        GetMutableTestInfo(i)-&gt;result()-&gt;Failed()) {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:6054<br>
+                                    <code class="cpp">testing::internal::UnitTestImpl::RunAllTests()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">6051</span>      } else if (!Test::HasFatalFailure()) {
+<span class="line_number">6052</span>        for (int test_index = 0; test_index &lt; total_test_suite_count();
+<span class="line_number">6053</span>             test_index++) {
+<span class="line_number">6054</span><span class="error">          GetMutableSuiteCase(test_index)-&gt;Run();
+</span><span class="line_number">6055</span>          if (GTEST_FLAG_GET(fail_fast) &amp;&amp;
+<span class="line_number">6056</span>              GetMutableSuiteCase(test_index)-&gt;Failed()) {
+<span class="line_number">6057</span>            for (int j = test_index + 1; j &lt; total_test_suite_count(); j++) {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2664<br>
+                                    <code class="cpp">bool testing::internal::HandleSehExceptionsInMethodIfSupported&lt;testing::internal::UnitTestImpl, bool&gt;(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2661</span>  }
+<span class="line_number">2662</span>#else
+<span class="line_number">2663</span>  (void)location;
+<span class="line_number">2664</span><span class="error">  return (object-&gt;*method)();
+</span><span class="line_number">2665</span>#endif  // GTEST_HAS_SEH
+<span class="line_number">2666</span>}
+<span class="line_number">2667</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2700<br>
+                                    <code class="cpp">bool testing::internal::HandleExceptionsInMethodIfSupported&lt;testing::internal::UnitTestImpl, bool&gt;(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2697</span>  if (internal::GetUnitTestImpl()-&gt;catch_exceptions()) {
+<span class="line_number">2698</span>#if GTEST_HAS_EXCEPTIONS
+<span class="line_number">2699</span>    try {
+<span class="line_number">2700</span><span class="error">      return HandleSehExceptionsInMethodIfSupported(object, method, location);
+</span><span class="line_number">2701</span>    } catch (const AssertionException&amp;) {  // NOLINT
+<span class="line_number">2702</span>      // This failure was reported already.
+<span class="line_number">2703</span>    } catch (const internal::GoogleTestFailureException&amp;) {  // NOLINT
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:5594<br>
+                                    <code class="cpp">testing::UnitTest::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">5591</span>  (void)in_death_test_child_process;  // Needed inside the #if block above
+<span class="line_number">5592</span>#endif  // GTEST_OS_WINDOWS
+<span class="line_number">5593</span>
+<span class="line_number">5594</span><span class="error">  return internal::HandleExceptionsInMethodIfSupported(
+</span><span class="line_number">5595</span>             impl(), &amp;internal::UnitTestImpl::RunAllTests,
+<span class="line_number">5596</span>             &#34;auxiliary test code (environments or event listeners)&#34;)
+<span class="line_number">5597</span>             ? 0
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/include/gtest/gtest.h:2334<br>
+                                    <code class="cpp">RUN_ALL_TESTS()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2331</span>// namespace and has an all-caps name.
+<span class="line_number">2332</span>[[nodiscard]] int RUN_ALL_TESTS();
+<span class="line_number">2333</span>
+<span class="line_number">2334</span><span class="error">inline int RUN_ALL_TESTS() { return ::testing::UnitTest::GetInstance()-&gt;Run(); }
+</span><span class="line_number">2335</span>
+<span class="line_number">2336</span>GTEST_DISABLE_MSC_WARNINGS_POP_()  //  4251
+<span class="line_number">2337</span>
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">46</span><span class="error">      values[j] = matrix({row, j});</span>
+<span class="line_number">47</span>    return values;
+<span class="line_number">48</span>  }
+<span class="line_number">49</span>}
+<span class="line_number">50</span>
+<span class="line_number">51</span>// ---------------------------------------------------------------------------
+<span class="line_number">52</span>// prepare_weight_row
+<span class="line_number">53</span>// ---------------------------------------------------------------------------
+<span class="line_number">54</span>
+<span class="line_number">55</span>TEST(PrepareWeightRow, CountsStrictlyPositiveWeightsAsEligible)
+<span class="line_number">56</span>{
+<span class="line_number">57</span>  std::vector&lt;double&gt; row{0.5, 0.0, 2.0, 0.0, 1.0};
+<span class="line_number">58</span>  EXPECT_EQ(prepare_weight_row(std::span&lt;double&gt;(row), false), 3u);
+<span class="line_number">59</span>  // Without CDF conversion the weights are left untouched.
+<span class="line_number">60</span>  EXPECT_EQ(row, (std::vector&lt;double&gt;{0.5, 0.0, 2.0, 0.0, 1.0}));
+<span class="line_number">61</span>}
+<span class="line_number">62</span>
+<span class="line_number">63</span>TEST(PrepareWeightRow, ConvertsRowToPrefixSumsWhenRequested)
+<span class="line_number">64</span>{
+<span class="line_number">65</span>  std::vector&lt;double&gt; row{0.5, 0.0, 2.0, 0.0, 1.0};
+<span class="line_number">66</span>  EXPECT_EQ(prepare_weight_row(std::span&lt;double&gt;(row), true), 3u);
+<span class="line_number">67</span>  EXPECT_EQ(row, (std::vector&lt;double&gt;{0.5, 0.5, 2.5, 2.5, 3.5}));
+<span class="line_number">68</span>}
+<span class="line_number">69</span>
+<span class="line_number">70</span>TEST(PrepareWeightRow, AllZeroRowIsAValidEmptyRegion)
+<span class="line_number">71</span>{
+<span class="line_number">72</span>  std::vector&lt;double&gt; row{0.0, 0.0, 0.0};
+<span class="line_number">73</span>  EXPECT_EQ(prepare_weight_row(std::span&lt;double&gt;(row), true), 0u);
+<span class="line_number">74</span>}
+<span class="line_number">75</span>
+<span class="line_number">76</span>TEST(PrepareWeightRow, RejectsNegativeWeights)
+<span class="line_number">77</span>{
+<span class="line_number">78</span>  std::vector&lt;double&gt; row{1.0, -0.5, 2.0};
+<span class="line_number">79</span>  EXPECT_THROW(prepare_weight_row(std::span&lt;double&gt;(row), false), std::invalid_argument);
+<span class="line_number">80</span>}
+<span class="line_number">81</span>
+<span class="line_number">82</span>TEST(PrepareWeightRow, RejectsNanWeights)
+<span class="line_number">83</span>{
+<span class="line_number">84</span>  std::vector&lt;double&gt; row{1.0, std::numeric_limits&lt;double&gt;::quiet_NaN()};
+<span class="line_number">85</span>  EXPECT_THROW(prepare_weight_row(std::span&lt;double&gt;(row), true), std::invalid_argument);
+<span class="line_number">86</span>}
+<span class="line_number">87</span>
+<span class="line_number">88</span>// ---------------------------------------------------------------------------
+<span class="line_number">89</span>// index_for_target
+<span class="line_number">90</span>// ---------------------------------------------------------------------------
+<span class="line_number">91</span>
+<span class="line_number">92</span>TEST(IndexForTarget, BoundaryTargetSkipsTrailingZeroWeights)
+<span class="line_number">93</span>{
+<span class="line_number">94</span>  // uniform_real_distribution may return exactly cdf.back() (LWG 2524). Such
+<span class="line_number">95</span>  // a draw must land on the last positive-weight interval — clamping to the
+<span class="line_number">96</span>  // last *array index* instead would put an ineligible trailing-zero point
+<span class="line_number">97</span>  // into the subsample (or a duplicate, once no-replacement draws zero out
+<span class="line_number">98</span>  // the tail of the row).
+<span class="line_number">99</span>  std::vector&lt;double&gt; row{2.0, 3.0, 0.0, 0.0};
+<span class="line_number">100</span>  prepare_weight_row(std::span&lt;double&gt;(row), true);  // cdf = {2, 5, 5, 5}
+<span class="line_number">101</span>
+<span class="line_number">102</span>  EXPECT_EQ(index_for_target(std::span&lt;const double&gt;(row), 5.0), 1u);
+<span class="line_number">103</span>}
+<span class="line_number">104</span>
+<span class="line_number">105</span>TEST(IndexForTarget, InteriorTargetsMapToTheirIntervals)
+<span class="line_number">106</span>{
+<span class="line_number">107</span>  // Zero-width intervals (leading, interior) are skipped by upper_bound; a
+<span class="line_number">108</span>  // target on an interior boundary belongs to the next interval.
+<span class="line_number">109</span>  std::vector&lt;double&gt; row{0.0, 2.0, 0.0, 3.0};
+<span class="line_number">110</span>  prepare_weight_row(std::span&lt;double&gt;(row), true);  // cdf = {0, 2, 2, 5}
+<span class="line_number">111</span>
+<span class="line_number">112</span>  EXPECT_EQ(index_for_target(std::span&lt;const double&gt;(row), 0.0), 1u);
+<span class="line_number">113</span>  EXPECT_EQ(index_for_target(std::span&lt;const double&gt;(row), 1.5), 1u);
+<span class="line_number">114</span>  EXPECT_EQ(index_for_target(std::span&lt;const double&gt;(row), 2.0), 3u);
+<span class="line_number">115</span>  EXPECT_EQ(index_for_target(std::span&lt;const double&gt;(row), 4.9), 3u);
+<span class="line_number">116</span>}
+<span class="line_number">117</span>
+<span class="line_number">118</span>// ---------------------------------------------------------------------------
+<span class="line_number">119</span>// draw_with_replacement
+<span class="line_number">120</span>// ---------------------------------------------------------------------------
+<span class="line_number">121</span>
+<span class="line_number">122</span>TEST(DrawWithReplacement, DrawsExactlySampleSizeInRange)
+<span class="line_number">123</span>{
+<span class="line_number">124</span>  std::vector&lt;double&gt; row{1.0, 1.0, 0.0, 1.0};
+<span class="line_number">125</span>  prepare_weight_row(std::span&lt;double&gt;(row), true);
+<span class="line_number">126</span>
+<span class="line_number">127</span>  auto eng = engine();
+<span class="line_number">128</span>  auto drawn = to_vector(draw_with_replacement(std::span&lt;const double&gt;(row), 32, eng));
+<span class="line_number">129</span>
+<span class="line_number">130</span>  ASSERT_EQ(drawn.size(), 32u);
+<span class="line_number">131</span>  for (uint64_t idx : drawn)
+<span class="line_number">132</span>    EXPECT_LT(idx, 4u);
+<span class="line_number">133</span>}
+<span class="line_number">134</span>
+<span class="line_number">135</span>TEST(DrawWithReplacement, NeverDrawsZeroWeightPoints)
+<span class="line_number">136</span>{
+<span class="line_number">137</span>  // Zero weights produce zero-width CDF intervals, which upper_bound skips.
+<span class="line_number">138</span>  std::vector&lt;double&gt; row{0.0, 1.0, 0.0, 1.0, 0.0};
+<span class="line_number">139</span>  prepare_weight_row(std::span&lt;double&gt;(row), true);
+<span class="line_number">140</span>
+<span class="line_number">141</span>  auto eng = engine();
+<span class="line_number">142</span>  for (uint64_t idx : to_vector(draw_with_replacement(std::span&lt;const double&gt;(row), 200, eng)))
+<span class="line_number">143</span>    EXPECT_TRUE(idx == 1u || idx == 3u) &lt;&lt; &#34;drew ineligible index &#34; &lt;&lt; idx;
+<span class="line_number">144</span>}
+<span class="line_number">145</span>
+<span class="line_number">146</span>// ---------------------------------------------------------------------------
+<span class="line_number">147</span>// draw_without_replacement
+<span class="line_number">148</span>// ---------------------------------------------------------------------------
+<span class="line_number">149</span>
+<span class="line_number">150</span>TEST(DrawWithoutReplacement, DrawsAreDistinctAndEligible)
+<span class="line_number">151</span>{
+<span class="line_number">152</span>  std::vector&lt;double&gt; row{1.0, 0.0, 2.0, 3.0, 0.0, 1.0};
+<span class="line_number">153</span>
+<span class="line_number">154</span>  auto eng = engine();
+<span class="line_number">155</span>  auto drawn = to_vector(draw_without_replacement(std::span&lt;const double&gt;(row), 4, eng));
+<span class="line_number">156</span>
+<span class="line_number">157</span>  ASSERT_EQ(drawn.size(), 4u);
+<span class="line_number">158</span>  EXPECT_EQ(std::set&lt;uint64_t&gt;(drawn.begin(), drawn.end()).size(), 4u);
+<span class="line_number">159</span>  for (uint64_t idx : drawn)
+<span class="line_number">160</span>    EXPECT_GT(row[idx], 0.0) &lt;&lt; &#34;drew ineligible index &#34; &lt;&lt; idx;
+<span class="line_number">161</span>}
+<span class="line_number">162</span>
+<span class="line_number">163</span>TEST(DrawWithoutReplacement, DrawingAllEligiblePointsYieldsEachOnce)
+<span class="line_number">164</span>{
+<span class="line_number">165</span>  std::vector&lt;double&gt; row{0.5, 0.0, 1.5, 2.5};
+<span class="line_number">166</span>
+<span class="line_number">167</span>  auto eng = engine();
+<span class="line_number">168</span>  auto drawn = to_vector(draw_without_replacement(std::span&lt;const double&gt;(row), 3, eng));
+<span class="line_number">169</span>
+<span class="line_number">170</span>  EXPECT_EQ(std::set&lt;uint64_t&gt;(drawn.begin(), drawn.end()),
+<span class="line_number">171</span>            (std::set&lt;uint64_t&gt;{0u, 2u, 3u}));
+<span class="line_number">172</span>}
+<span class="line_number">173</span>
+<span class="line_number">174</span>// ---------------------------------------------------------------------------
+<span class="line_number">175</span>// draw_indices (the ragged-length dispatch over the modes)
+<span class="line_number">176</span>// ---------------------------------------------------------------------------
+<span class="line_number">177</span>
+<span class="line_number">178</span>TEST(DrawIndices, EmptyRegionGivesLengthZeroSubsample)
+<span class="line_number">179</span>{
+<span class="line_number">180</span>  std::vector&lt;double&gt; row{0.0, 0.0};
+<span class="line_number">181</span>  auto eng = engine();
+<span class="line_number">182</span>  EXPECT_EQ(draw_indices(std::span&lt;const double&gt;(row), 0, 5, true, eng).size(), 0u);
+<span class="line_number">183</span>}
+<span class="line_number">184</span>
+<span class="line_number">185</span>TEST(DrawIndices, WithReplacementFillsSampleSize)
+<span class="line_number">186</span>{
+<span class="line_number">187</span>  std::vector&lt;double&gt; row{1.0, 1.0};
+<span class="line_number">188</span>  const size_t nEligible = prepare_weight_row(std::span&lt;double&gt;(row), true);
+<span class="line_number">189</span>
+<span class="line_number">190</span>  auto eng = engine();
+<span class="line_number">191</span>  EXPECT_EQ(draw_indices(std::span&lt;const double&gt;(row), nEligible, 5, true, eng).size(), 5u);
+<span class="line_number">192</span>}
+<span class="line_number">193</span>
+<span class="line_number">194</span>TEST(DrawIndices, WithoutReplacementShrinksToEligibleCount)
+<span class="line_number">195</span>{
+<span class="line_number">196</span>  std::vector&lt;double&gt; row{1.0, 0.0, 1.0};
+<span class="line_number">197</span>  const size_t nEligible = prepare_weight_row(std::span&lt;double&gt;(row), false);
+<span class="line_number">198</span>
+<span class="line_number">199</span>  auto eng = engine();
+<span class="line_number">200</span>  EXPECT_EQ(draw_indices(std::span&lt;const double&gt;(row), nEligible, 5, false, eng).size(), 2u);
+<span class="line_number">201</span>}
+<span class="line_number">202</span>
+<span class="line_number">203</span>// ---------------------------------------------------------------------------
+<span class="line_number">204</span>// prepare_weight_matrix (blocking parallel preparation of all rows)
+<span class="line_number">205</span>// ---------------------------------------------------------------------------
+<span class="line_number">206</span>
+<span class="line_number">207</span>TEST(PrepareWeightMatrix, PreparesEveryRowAndCountsEligibles)
+<span class="line_number">208</span>{
+<span class="line_number">209</span>  sb::Tensor&lt;double&gt; weights({2, 3});
+<span class="line_number">210</span>  weights({0, 0}) = 1.0; weights({0, 1}) = 0.0; weights({0, 2}) = 2.0;
+<span class="line_number">211</span>  weights({1, 0}) = 0.0; weights({1, 1}) = 0.0; weights({1, 2}) = 0.0;
+<span class="line_number">212</span>
+<span class="line_number">213</span>  auto nEligible = prepare_weight_matrix(weights, /*toCdf=*/true, sb::default_executor());
+<span class="line_number">214</span>
+<span class="line_number">215</span>  EXPECT_EQ(nEligible({0}), 2u);
+<span class="line_number">216</span>  EXPECT_EQ(nEligible({1}), 0u);  // all-zero row: a valid empty region
+<span class="line_number">217</span>  // Row 0 was converted in place to its CDF; the empty row is untouched.
+<span class="line_number">218</span>  EXPECT_EQ(to_vector_row(weights, 0), (std::vector&lt;double&gt;{1.0, 1.0, 3.0}));
+<span class="line_number">219</span>  EXPECT_EQ(to_vector_row(weights, 1), (std::vector&lt;double&gt;{0.0, 0.0, 0.0}));
+<span class="line_number">220</span>}
+<span class="line_number">221</span>
+<span class="line_number">222</span>TEST(PrepareWeightMatrix, ValidationErrorsOnWorkersReachTheCaller)
+<span class="line_number">223</span>{
+<span class="line_number">224</span>  sb::Tensor&lt;double&gt; weights({2, 2});
+<span class="line_number">225</span>  weights({0, 0}) = 1.0; weights({0, 1}) = 1.0;
+<span class="line_number">226</span>  weights({1, 0}) = 1.0; weights({1, 1}) = -1.0;
+<span class="line_number">227</span>
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x4E945C8 by thread #1</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2664<br>
+                                    <code class="cpp">void testing::internal::HandleSehExceptionsInMethodIfSupported&lt;testing::Test, void&gt;(testing::Test*, void (testing::Test::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2661</span>  }
+<span class="line_number">2662</span>#else
+<span class="line_number">2663</span>  (void)location;
+<span class="line_number">2664</span><span class="error">  return (object-&gt;*method)();
+</span><span class="line_number">2665</span>#endif  // GTEST_HAS_SEH
+<span class="line_number">2666</span>}
+<span class="line_number">2667</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2700<br>
+                                    <code class="cpp">void testing::internal::HandleExceptionsInMethodIfSupported&lt;testing::Test, void&gt;(testing::Test*, void (testing::Test::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2697</span>  if (internal::GetUnitTestImpl()-&gt;catch_exceptions()) {
+<span class="line_number">2698</span>#if GTEST_HAS_EXCEPTIONS
+<span class="line_number">2699</span>    try {
+<span class="line_number">2700</span><span class="error">      return HandleSehExceptionsInMethodIfSupported(object, method, location);
+</span><span class="line_number">2701</span>    } catch (const AssertionException&amp;) {  // NOLINT
+<span class="line_number">2702</span>      // This failure was reported already.
+<span class="line_number">2703</span>    } catch (const internal::GoogleTestFailureException&amp;) {  // NOLINT
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2739<br>
+                                    <code class="cpp">testing::Test::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2736</span>  // GTEST_SKIP().
+<span class="line_number">2737</span>  if (!HasFatalFailure() &amp;&amp; !IsSkipped()) {
+<span class="line_number">2738</span>    impl-&gt;os_stack_trace_getter()-&gt;UponLeavingGTest();
+<span class="line_number">2739</span><span class="error">    internal::HandleExceptionsInMethodIfSupported(this, &amp;Test::TestBody,
+</span><span class="line_number">2740</span>                                                  &#34;the test body&#34;);
+<span class="line_number">2741</span>  }
+<span class="line_number">2742</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2885<br>
+                                    <code class="cpp">testing::TestInfo::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2882</span>  if (!Test::HasFatalFailure() &amp;&amp; !Test::IsSkipped()) {
+<span class="line_number">2883</span>    // This doesn&#39;t throw as all user code that can throw are wrapped into
+<span class="line_number">2884</span>    // exception handling code.
+<span class="line_number">2885</span><span class="error">    test-&gt;Run();
+</span><span class="line_number">2886</span>  }
+<span class="line_number">2887</span>
+<span class="line_number">2888</span>  if (test != nullptr) {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:3063<br>
+                                    <code class="cpp">testing::TestSuite::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">3060</span>    if (skip_all) {
+<span class="line_number">3061</span>      GetMutableTestInfo(i)-&gt;Skip();
+<span class="line_number">3062</span>    } else {
+<span class="line_number">3063</span><span class="error">      GetMutableTestInfo(i)-&gt;Run();
+</span><span class="line_number">3064</span>    }
+<span class="line_number">3065</span>    if (GTEST_FLAG_GET(fail_fast) &amp;&amp;
+<span class="line_number">3066</span>        GetMutableTestInfo(i)-&gt;result()-&gt;Failed()) {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:6054<br>
+                                    <code class="cpp">testing::internal::UnitTestImpl::RunAllTests()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">6051</span>      } else if (!Test::HasFatalFailure()) {
+<span class="line_number">6052</span>        for (int test_index = 0; test_index &lt; total_test_suite_count();
+<span class="line_number">6053</span>             test_index++) {
+<span class="line_number">6054</span><span class="error">          GetMutableSuiteCase(test_index)-&gt;Run();
+</span><span class="line_number">6055</span>          if (GTEST_FLAG_GET(fail_fast) &amp;&amp;
+<span class="line_number">6056</span>              GetMutableSuiteCase(test_index)-&gt;Failed()) {
+<span class="line_number">6057</span>            for (int j = test_index + 1; j &lt; total_test_suite_count(); j++) {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2664<br>
+                                    <code class="cpp">bool testing::internal::HandleSehExceptionsInMethodIfSupported&lt;testing::internal::UnitTestImpl, bool&gt;(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2661</span>  }
+<span class="line_number">2662</span>#else
+<span class="line_number">2663</span>  (void)location;
+<span class="line_number">2664</span><span class="error">  return (object-&gt;*method)();
+</span><span class="line_number">2665</span>#endif  // GTEST_HAS_SEH
+<span class="line_number">2666</span>}
+<span class="line_number">2667</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:2700<br>
+                                    <code class="cpp">bool testing::internal::HandleExceptionsInMethodIfSupported&lt;testing::internal::UnitTestImpl, bool&gt;(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2697</span>  if (internal::GetUnitTestImpl()-&gt;catch_exceptions()) {
+<span class="line_number">2698</span>#if GTEST_HAS_EXCEPTIONS
+<span class="line_number">2699</span>    try {
+<span class="line_number">2700</span><span class="error">      return HandleSehExceptionsInMethodIfSupported(object, method, location);
+</span><span class="line_number">2701</span>    } catch (const AssertionException&amp;) {  // NOLINT
+<span class="line_number">2702</span>      // This failure was reported already.
+<span class="line_number">2703</span>    } catch (const internal::GoogleTestFailureException&amp;) {  // NOLINT
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/src/gtest.cc:5594<br>
+                                    <code class="cpp">testing::UnitTest::Run()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">5591</span>  (void)in_death_test_child_process;  // Needed inside the #if block above
+<span class="line_number">5592</span>#endif  // GTEST_OS_WINDOWS
+<span class="line_number">5593</span>
+<span class="line_number">5594</span><span class="error">  return internal::HandleExceptionsInMethodIfSupported(
+</span><span class="line_number">5595</span>             impl(), &amp;internal::UnitTestImpl::RunAllTests,
+<span class="line_number">5596</span>             &#34;auxiliary test code (environments or event listeners)&#34;)
+<span class="line_number">5597</span>             ? 0
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/googletest/googletest/include/gtest/gtest.h:2334<br>
+                                    <code class="cpp">RUN_ALL_TESTS()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">2331</span>// namespace and has an all-caps name.
+<span class="line_number">2332</span>[[nodiscard]] int RUN_ALL_TESTS();
+<span class="line_number">2333</span>
+<span class="line_number">2334</span><span class="error">inline int RUN_ALL_TESTS() { return ::testing::UnitTest::GetInstance()-&gt;Run(); }
+</span><span class="line_number">2335</span>
+<span class="line_number">2336</span>GTEST_DISABLE_MSC_WARNINGS_POP_()  //  4251
+<span class="line_number">2337</span>
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">228</span><span class="error">  EXPECT_THROW(prepare_weight_matrix(weights, true, sb::default_executor()),</span>
+<span class="line_number">229</span>               std::invalid_argument);
+<span class="line_number">230</span>}
+</code>
+            </pre>
+        </div>
+    </div>
+</body>
+
+</html>
