@@ -73,16 +73,16 @@ def _resolve_barcode_colors(n, color=None, cmap=None):
         for all barcodes, and a sequence of colors is cycled across barcodes.
     cmap : str or Colormap, optional
         If passed, colors are sampled from the specified color map.
-        
+
     Returns
     -------
     list of color-like objects
         One color per barcode to be plotted.
-    
+
     Raises
     ------
     ValueError
-        If color is not None, a color-like object or a list of color-like objects.
+        If color is neither None, a color-like object, nor a list of color-like objects.
     TypeError
         If both color and cmap are passed
     """
@@ -129,14 +129,14 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
         Additional keyword arguments passed to
         ``matplotlib.collections.LineCollection``
         (e.g. ``color``, ``linewidth``, ``alpha``, ``label``).
-        When ``bc`` is a ``BarcodeTensor``, ``color`` may also be a sequence
-        of colors — one per barcode, cycled if there are more barcodes than
-        colors. If ``color`` is omitted, each barcode in a tensor gets the
+        ``color`` may be a single color or a sequence of colors — one per
+        barcode, cycled if there are more barcodes than colors;
+        surplus colors are ignored; a single ``Barcode`` or array uses the
+        first color. Alternatively, ``cmap`` (a colormap name or ``Colormap``) samples
+        one color per barcode evenly from the colormap; a single ``Barcode``
+        or array gets the colormap's first color. ``color`` and ``cmap`` are mutually
+        exclusive. If both are omitted, each barcode in a tensor gets the
         next color from matplotlib's property cycle.
-        Alternatively, when ``bc`` is a ``BarcodeTensor``, ``cmap`` (a
-        colormap name or ``Colormap``) samples one color per barcode
-        evenly from the colormap; ``color`` and ``cmap`` are mutually
-        exclusive.
 
     Returns
     -------
@@ -148,10 +148,8 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
     TypeError
         If ``bc`` is not a ``Barcode``, ``BarcodeTensor``, or ``numpy.ndarray``,
         if ``bc`` is a ``numpy.ndarray`` containing neither floats nor ints,
-        if ``color`` is a sequence of colors while ``bc`` is a single ``Barcode`` or array,
         if keyword ``colors`` is passed (instead of ``color``),
-        if both ``color`` and ``cmap`` are passed,
-        or if ``cmap`` is passed for a single ``Barcode`` or array.
+        or if both ``color`` and ``cmap`` are passed.
     ValueError
         If ``bc`` is a numpy array that is not of shape ``(n, 2)``, a
         ``BarcodeTensor`` with more than one dimension, or if ``color`` is
@@ -183,22 +181,12 @@ def plot_barcode(bc, ax=None, y_offset=0, **kwargs):
     if not isinstance(bc, (Barcode, np.ndarray)):
         raise TypeError(f"Expected Barcode or numpy.ndarray; got {type(bc)}")
 
-    from matplotlib.colors import is_color_like
-
-    if "cmap" in kwargs:
-        raise TypeError(
-            "'cmap' is only supported for BarcodeTensor input; "
-            "use 'color' for a single barcode"
-        )
-
-    # A sequence of colors is only meaningful per barcode (tensor input);
-    # letting it through here would color individual bars in the internally
-    # sorted (i.e. scrambled) order via LineCollection.    
-    if "color" in kwargs and not is_color_like(kwargs["color"]):
-        raise TypeError(
-            "'color' must be a single color when plotting a single barcode; "
-            "a sequence of colors is only supported for BarcodeTensor input"
-        )
+    # A single barcode behaves like a 1-element tensor for color purposes:
+    # a sequence of colors or a cmap resolves to its first color.
+    color = kwargs.pop("color", None)
+    cmap = kwargs.pop("cmap", None)
+    if color is not None or cmap is not None:
+        kwargs["color"] = _resolve_barcode_colors(1, color, cmap)[0]
 
     if isinstance(bc, np.ndarray):
         if bc.ndim != 2 or bc.shape[1] != 2:

@@ -216,10 +216,21 @@ class TestPlotBarcode:
         for lc in ax.collections:
             assert tuple(lc.get_colors()[0]) == to_rgba("blue")
 
-    def test_color_list_on_single_barcode_raises(self, ax):
+    def test_color_list_on_single_barcode_uses_first(self, ax):
+        from matplotlib.colors import to_rgba
+
         bc = _make_barcode([[0, 1], [0.5, 2]])
-        with pytest.raises(TypeError, match="single color"):
-            plot_barcode(bc, ax=ax, color=["red", "green"])
+        plot_barcode(bc, ax=ax, color=["red", "green"])
+        assert tuple(ax.collections[0].get_colors()[0]) == to_rgba("red")
+
+    def test_tensor_surplus_colors_ignored(self, ax):
+        from matplotlib.colors import to_rgba
+
+        bc = _make_barcode([[0, 1]])
+        bt = BarcodeTensor([bc, bc])
+        plot_barcode(bt, ax=ax, color=["red", "green", "blue"])
+        assert tuple(ax.collections[0].get_colors()[0]) == to_rgba("red")
+        assert tuple(ax.collections[1].get_colors()[0]) == to_rgba("green")
 
     def test_colors_kwarg_rejected(self, ax):
         bc = _make_barcode([[0, 1]])
@@ -261,11 +272,16 @@ class TestPlotBarcode:
         bt = BarcodeTensor([bc, bc])
         with pytest.raises(TypeError, match="not both"):
             plot_barcode(bt, ax=ax, color="red", cmap="viridis")
+        with pytest.raises(TypeError, match="not both"):
+            plot_barcode(bc, ax=ax, color="red", cmap="viridis")
 
-    def test_cmap_on_single_barcode_raises(self, ax):
+    def test_cmap_on_single_barcode_uses_first_color(self, ax):
+        import matplotlib as mpl
+
         bc = _make_barcode([[0, 1]])
-        with pytest.raises(TypeError, match="only supported for BarcodeTensor"):
-            plot_barcode(bc, ax=ax, cmap="viridis")
+        plot_barcode(bc, ax=ax, cmap="viridis")
+        expected = mpl.colormaps.get_cmap("viridis")(0.0)
+        assert tuple(ax.collections[0].get_colors()[0]) == tuple(expected)
 
     def test_bars_sorted_by_birth_then_length_descending(self, ax):
         # Bars given out of order
