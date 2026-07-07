@@ -87,9 +87,16 @@ namespace
       template <typename FilterF, typename DistF>
       py::tuple operator()(const FilterF& filter, const DistF& distribution) const
       {
-        return to_tuple(sb::sampling::sample_subsets(
-            sb::PointCloud<T>(reference), sb::PointCloud<T>(query), filter, distribution,
-            sampleSize, nInstances, replace, resolve_generator(gen), sb::default_executor()));
+        // The weighting/preparation phases block this thread in pure C++ for
+        // O(n_query * n_reference); release the GIL so other Python threads
+        // keep running. Reacquired before to_tuple builds Python objects.
+        auto handle = [&] {
+          py::gil_scoped_release release;
+          return sb::sampling::sample_subsets(
+              sb::PointCloud<T>(reference), sb::PointCloud<T>(query), filter, distribution,
+              sampleSize, nInstances, replace, resolve_generator(gen), sb::default_executor());
+        }();
+        return to_tuple(std::move(handle));
       }
     };
 
