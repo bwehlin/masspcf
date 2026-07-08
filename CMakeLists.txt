@@ -599,6 +599,7 @@ SET(SB_LIB_SOURCES
 SET(SB_PY_PERSISTENCE_SOURCES
     py_barcode.hpp py_barcode.cpp
     py_barcode_summary.hpp py_barcode_summary.cpp
+    py_homological_kernel.hpp py_homological_kernel.cpp
     py_persistence_pair.hpp py_persistence_pair.cpp
     py_ripser.hpp py_ripser.cpp
     pymodule_persistence.hpp pymodule_persistence.cpp

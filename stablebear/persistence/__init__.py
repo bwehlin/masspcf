@@ -6,6 +6,7 @@ from .barcode_summary import (
     barcode_to_betti_curve,
     barcode_to_stable_rank,
 )
+from .homological_kernel import compute_homological_kernel
 from .homology import ComplexType, DistanceType, compute_persistent_homology
 from .ph_tensor import BarcodeTensor
 
