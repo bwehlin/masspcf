@@ -29,7 +29,8 @@ namespace sb::ph
     /// without materializing a distance matrix. Exposes the same call interface
     /// as DistanceMatrix<T> (operator()(i, j) and size()), so the kernel
     /// algorithms can be templated over either.
-    template <typename T> class EuclideanDistance
+    template <typename T>
+    class EuclideanDistance
     {
     public:
       explicit EuclideanDistance(const PointCloud<T> &points)
@@ -64,14 +65,16 @@ namespace sb::ph
       size_t m_dim;
     };
 
-    template <typename T> struct MergeEdge
+    template <typename T>
+    struct MergeEdge
     {
       size_t a; // endpoints of the MST edge = representatives of the two merging components
       size_t b;
       T mergeDist;
     };
 
-    template <typename T> struct Dendrogram
+    template <typename T>
+    struct Dendrogram
     {
       std::vector<size_t> parent; // size 2n−1; parent[root] == root
       std::vector<T> height;      // size 2n−1; 0 for leaves, merge weight for internal nodes
@@ -148,8 +151,9 @@ namespace sb::ph
       }
 
       // Lambda to order the merges by size. Neccecary for later steps
-      std::sort(merges.begin(), merges.end(),
-                [](const MergeEdge<T> &x, const MergeEdge<T> &y) { return x.mergeDist < y.mergeDist; });
+      std::sort(merges.begin(), merges.end(), [](const MergeEdge<T> &x, const MergeEdge<T> &y) {
+        return x.mergeDist < y.mergeDist;
+      });
     }
 
     // this will use the MST constructed above to construct data in the form of a dendrogram. This will make it easy to
@@ -213,8 +217,9 @@ namespace sb::ph
     // O(n log^2 n) time, O(n log n) memory. Throws if some death lands below its
     // birth, which means d does not dominate d'.
     template <typename T>
-    void cross_filtration(const std::vector<MergeEdge<T>> &primeMerges, const Dendrogram<T> &dTree, size_t n,
-                          std::vector<PersistencePair<T>> &bars)
+    void cross_filtration(
+        const std::vector<MergeEdge<T>> &primeMerges, const Dendrogram<T> &dTree, size_t n,
+        std::vector<PersistencePair<T>> &bars)
     {
       bars.clear();
       if (n <= 1)
@@ -334,7 +339,7 @@ namespace sb::ph
 
         if (death < merge.mergeDist)
         {
-          throw std::runtime_error("homological kernel: d does not dominate d' (death below birth)");
+          throw std::runtime_error("homological kernel: d and d' are not lipshitz (death below birth)");
         }
         bars.emplace_back(merge.mergeDist, death);
 
@@ -345,7 +350,7 @@ namespace sb::ph
     }
 
     // Calls the 3 steps above to perform the algorithm for the homological kernel.
-    // d must dominate d' (d' <= d pointwise); cross_filtration throws otherwise.
+    // d must be strictly larger than d' (d' <= d pointwise); cross_filtration throws otherwise.
     // For n <= 1 the kernel barcode is empty.
     template <typename DistT, typename T>
     void homological_kernel_single_impl(const DistT &dDist, const DistT &dPrimeDist, size_t n, Barcode<T> &ret)
@@ -364,9 +369,9 @@ namespace sb::ph
     }
 
     template <typename T>
-    void homological_kernel_distmat_single_impl(const Tensor<DistanceMatrix<T>> &distmat,
-                                                const Tensor<DistanceMatrix<T>> &distmatPrime,
-                                                Tensor<Barcode<T>> &ret_barcodes, const std::vector<size_t> &index)
+    void homological_kernel_distmat_single_impl(
+        const Tensor<DistanceMatrix<T>> &distmat, const Tensor<DistanceMatrix<T>> &distmatPrime,
+        Tensor<Barcode<T>> &ret_barcodes, const std::vector<size_t> &index)
     {
       auto const &dm = distmat(index);           // the Distmat<T> for this instance
       auto const &dmPrime = distmatPrime(index); // its aligned d′ counterpart
@@ -379,9 +384,9 @@ namespace sb::ph
     }
 
     template <typename T>
-    void homological_kernel_pcloud_single_impl(const Tensor<PointCloud<T>> &pclouds,
-                                               const Tensor<PointCloud<T>> &pcloudsPrime,
-                                               Tensor<Barcode<T>> &ret_barcodes, const std::vector<size_t> &index)
+    void homological_kernel_pcloud_single_impl(
+        const Tensor<PointCloud<T>> &pclouds, const Tensor<PointCloud<T>> &pcloudsPrime,
+        Tensor<Barcode<T>> &ret_barcodes, const std::vector<size_t> &index)
     {
       auto const &pc = pclouds(index);           // the PointCloud<T> for this instance
       auto const &pcPrime = pcloudsPrime(index); // its aligned d′ counterpart
@@ -401,10 +406,10 @@ namespace sb::ph
 
   } // namespace detail
 
-  template <typename ElemT, typename T> class HomologicalKernelImpl : public StoppableTask<void>
+  template <typename ElemT, typename T>
+  class HomologicalKernelImpl : public StoppableTask<void>
   {
   public:
-    // TODO Implement cross filtration
     // TODO Test results against handcalculated examples and old paper code
 
     HomologicalKernelImpl(const Tensor<ElemT> &input, const Tensor<ElemT> &inputPrime, Tensor<Barcode<T>> &ret)
@@ -421,8 +426,9 @@ namespace sb::ph
       if (m_input.shape() != m_inputPrime.shape())
         throw std::runtime_error("homological kernel inputs must have the same shape");
 
-      next_step(m_input.size(), "Computing 0th homological kernel",
-                std::is_same_v<ElemT, PointCloud<T>> ? "pointcloud" : "distance matrix");
+      next_step(
+          m_input.size(), "Computing 0th homological kernel",
+          std::is_same_v<ElemT, PointCloud<T>> ? "pointcloud" : "distance matrix");
       return sb::parallel_walk_async(
           m_input,
           [this](const std::vector<size_t> &index) {
