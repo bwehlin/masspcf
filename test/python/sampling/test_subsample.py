@@ -509,6 +509,40 @@ def test_non_2d_coordinate_query_raises():
         subsample_relative(R, np.zeros((2, 2, 3)), sample_size=3, n_instances=1)
 
 
+@pytest.mark.parametrize("n", [1, 2, 12], ids=["1x1", "2x2", "12x12"])
+def test_square_reference_rejected_as_ambiguous(n):
+    R = np.random.default_rng(0).random((n, n))
+    with pytest.raises(ValueError, match="ambiguous"):
+        subsample_relative(R, np.array([0]), sample_size=3, n_instances=2)
+
+
+def test_float_tensor_wrapper_accepts_square_reference():
+    # An explicit FloatTensor declares "rows are points" and skips the guard.
+    R = sb.FloatTensor(np.random.default_rng(0).random((12, 12)))
+    subs = subsample_relative(R, np.array([0]), sample_size=3, n_instances=2,
+                              generator=sb.random.Generator(0))
+    assert isinstance(subs, sb.PointCloudTensor)
+    assert subs.shape == (1, 2)
+    assert subs[0, 0].shape == (3, 12)
+
+
+def test_distance_matrix_wrapper_accepts_square_reference():
+    A = np.random.default_rng(0).random((12, 12))
+    D = (A + A.T) / 2
+    np.fill_diagonal(D, 0.0)
+    subs = subsample_relative(sb.DistanceMatrix.from_dense(D), np.array([0]),
+                              sample_size=3, n_instances=2,
+                              generator=sb.random.Generator(0))
+    assert isinstance(subs, sb.DistanceMatrixTensor)
+
+
+def test_non_square_reference_needs_no_wrapper():
+    R = np.random.default_rng(0).random((12, 3))
+    subs = subsample_relative(R, np.array([0]), sample_size=3, n_instances=2,
+                              generator=sb.random.Generator(0))
+    assert isinstance(subs, sb.PointCloudTensor)
+
+
 def test_pipeline_to_relative_stable_rank():
     R = np.random.default_rng(0).standard_normal((200, 2))
     X = np.random.default_rng(1).standard_normal((4, 2))
