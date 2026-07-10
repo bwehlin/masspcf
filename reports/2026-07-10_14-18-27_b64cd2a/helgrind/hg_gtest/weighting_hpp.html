@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>/home/runner/work/stablebear/stablebear/include/sbear/sampling/weighting.hpp</title>
+    <link href='valgrind.css' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+    <script src="valgrind.js"></script>
+</head>
+
+<body>
+    <div class="global">
+        <div class="header">
+            <h1>/home/runner/work/stablebear/stablebear/include/sbear/sampling/weighting.hpp</h1>
+            <p><b>1</b> errors</p>
+            <button class="next_error">Goto First Error</button>
+        </div>
+        <div class="listing">
+            <pre class="code">
+<code class="c++"><span class="line_number">1</span>#ifndef STABLEBEAR_SAMPLING_WEIGHTING_H
+<span class="line_number">2</span>#define STABLEBEAR_SAMPLING_WEIGHTING_H
+<span class="line_number">3</span>
+<span class="line_number">4</span>#include &#34;weighted_draw.hpp&#34;
+<span class="line_number">5</span>
+<span class="line_number">6</span>#include &#34;../distance_matrix.hpp&#34;
+<span class="line_number">7</span>#include &#34;../executor.hpp&#34;
+<span class="line_number">8</span>#include &#34;../point_cloud.hpp&#34;
+<span class="line_number">9</span>#include &#34;../tensor.hpp&#34;
+<span class="line_number">10</span>#include &#34;../walk.hpp&#34;
+<span class="line_number">11</span>
+<span class="line_number">12</span>#include &lt;cmath&gt;
+<span class="line_number">13</span>#include &lt;concepts&gt;
+<span class="line_number">14</span>#include &lt;cstdint&gt;
+<span class="line_number">15</span>#include &lt;limits&gt;
+<span class="line_number">16</span>#include &lt;span&gt;
+<span class="line_number">17</span>#include &lt;vector&gt;
+<span class="line_number">18</span>
+<span class="line_number">19</span>namespace sb::sampling
+<span class="line_number">20</span>{
+<span class="line_number">21</span>
+<span class="line_number">22</span>  // ===========================================================================
+<span class="line_number">23</span>  // Sampling weights: how each reference point earns its draw probability.
+<span class="line_number">24</span>  //
+<span class="line_number">25</span>  // A filter maps a (query point, reference point) pair to a scalar; a
+<span class="line_number">26</span>  // distribution maps that value to a non-negative weight. Both are plain
+<span class="line_number">27</span>  // functors, so custom callables work like the built-ins.
+<span class="line_number">28</span>  //
+<span class="line_number">29</span>  // A distribution may additionally provide `T log_weight(T v) const`
+<span class="line_number">30</span>  // (= log(operator()(v)), see Gaussian): its rows are then evaluated in log
+<span class="line_number">31</span>  // space and finished with a max-shift exponentiation, so weights that
+<span class="line_number">32</span>  // mathematically never vanish cannot underflow to an all-zero row. Either
+<span class="line_number">33</span>  // way, code downstream of compute_weights only ever sees plain weights.
+<span class="line_number">34</span>  // ===========================================================================
+<span class="line_number">35</span>
+<span class="line_number">36</span>  /// Euclidean distance between query point @p queryIdx and reference point
+<span class="line_number">37</span>  /// @p refIdx. The samplers validate the shared dimension once up front, so
+<span class="line_number">38</span>  /// this hot-path operator stays branch-free.
+<span class="line_number">39</span>  template &lt;typename T&gt;
+<span class="line_number">40</span>  struct EuclideanDistance
+<span class="line_number">41</span>  {
+<span class="line_number">42</span>    T operator()(const PointCloud&lt;T&gt;&amp; query, size_t queryIdx,
+<span class="line_number">43</span>                 const PointCloud&lt;T&gt;&amp; reference, size_t refIdx) const
+<span class="line_number">44</span>    {
+<span class="line_number">45</span>      T acc = T(0);
+<span class="line_number">46</span>      for (size_t k = 0; k &lt; query.dim(); ++k)
+<span class="line_number">47</span>      {
+<span class="line_number">48</span>        T d = query(queryIdx, k) - reference(refIdx, k);
+<span class="line_number">49</span>        acc += d * d;
+<span class="line_number">50</span>      }
+<span class="line_number">51</span>      return std::sqrt(acc);
+<span class="line_number">52</span>    }
+<span class="line_number">53</span>  };
+<span class="line_number">54</span>
+<span class="line_number">55</span>  /// Weight 1 when the filter value lies in [low, high], 0 outside. With the
+<span class="line_number">56</span>  /// distance filter that is a disk (low = 0), an annulus, or the whole cloud
+<span class="line_number">57</span>  /// (the default, high = +inf). Member names match the Python spec.
+<span class="line_number">58</span>  template &lt;typename T&gt;
+<span class="line_number">59</span>  struct Uniform
+<span class="line_number">60</span>  {
+<span class="line_number">61</span>    T low = T(0);
+<span class="line_number">62</span>    T high = std::numeric_limits&lt;T&gt;::infinity();
+<span class="line_number">63</span>
+<span class="line_number">64</span>    T operator()(T v) const { return (v &gt;= low &amp;&amp; v &lt;= high) ? T(1) : T(0); }
+<span class="line_number">65</span>  };
+<span class="line_number">66</span>
+<span class="line_number">67</span>  /// Unnormalized Gaussian exp(-((v - mean) / sigma)^2 / 2) of the filter
+<span class="line_number">68</span>  /// value, offering the log-space channel: a raw exp would underflow to an
+<span class="line_number">69</span>  /// artificial all-zero row once every reference point sits ~38 sigma
+<span class="line_number">70</span>  /// (float64; ~14 float32) from the mean, while the max-shifted exp samples
+<span class="line_number">71</span>  /// this exact Gaussian at any distance.
+<span class="line_number">72</span>  template &lt;typename T&gt;
+<span class="line_number">73</span>  struct Gaussian
+<span class="line_number">74</span>  {
+<span class="line_number">75</span>    T mean = T(0);
+<span class="line_number">76</span>    T sigma = T(1);
+<span class="line_number">77</span>
+<span class="line_number">78</span>    T operator()(T v) const { return std::exp(log_weight(v)); }
+<span class="line_number">79</span>
+<span class="line_number">80</span>    T log_weight(T v) const
+<span class="line_number">81</span>    {
+<span class="line_number">82</span>      T d = (v - mean) / sigma;
+<span class="line_number">83</span>      return T(-0.5) * d * d;
+<span class="line_number">84</span>    }
+<span class="line_number">85</span>  };
+<span class="line_number">86</span>
+<span class="line_number">87</span>  namespace detail
+<span class="line_number">88</span>  {
+<span class="line_number">89</span>
+<span class="line_number">90</span>    /// Detects the optional log-space channel: a `log_weight(v)` member
+<span class="line_number">91</span>    /// returning log(operator()(v)). Plain functors are evaluated directly.
+<span class="line_number">92</span>    template &lt;typename DistF, typename T&gt;
+<span class="line_number">93</span>    concept has_log_weight = requires(const DistF dist, T v) {
+<span class="line_number">94</span>      { dist.log_weight(v) } -&gt; std::convertible_to&lt;T&gt;;
+<span class="line_number">95</span>    };
+<span class="line_number">96</span>
+<span class="line_number">97</span>    /// In-place max-shift exponentiation of a log-weight row:
+<span class="line_number">98</span>    /// w_i = exp(e_i - max_j e_j). The shift cancels on normalization, and
+<span class="line_number">99</span>    /// the best point&#39;s weight is exactly 1, so the row can never underflow
+<span class="line_number">100</span>    /// to all-zero.
+<span class="line_number">101</span>    template &lt;typename T&gt;
+<span class="line_number">102</span>    void log_row_to_weights(std::span&lt;T&gt; row)
+<span class="line_number">103</span>    {
+<span class="line_number">104</span>      T maxLog = -std::numeric_limits&lt;T&gt;::infinity();
+<span class="line_number">105</span>      for (T e : row)
+<span class="line_number">106</span>        maxLog = std::max(maxLog, e);  // drops NaNs; exp keeps them NaN below
+<span class="line_number">107</span>      if (!(maxLog &gt; -std::numeric_limits&lt;T&gt;::infinity()))
+<span class="line_number">108</span>        maxLog = T(0);  // all -inf (empty region): avoid (-inf) - (-inf) = NaN
+<span class="line_number">109</span>      for (T&amp; e : row)
+<span class="line_number">110</span>        e = std::exp(e - maxLog);
+<span class="line_number">111</span>    }
+<span class="line_number">112</span>
+<span class="line_number">113</span>    /// Max-shift every row of a freshly computed (hence contiguous)
+<span class="line_number">114</span>    /// log-weight matrix into plain weights, in parallel.
+<span class="line_number">115</span>    template &lt;typename T&gt;
+<span class="line_number">116</span>    void exponentiate_log_rows(Tensor&lt;T&gt;&amp; weights, Executor&amp; exec)
+<span class="line_number">117</span>    {
+<span class="line_number">118</span>      Tensor&lt;size_t&gt; rowIndices({weights.shape(0)});
+<span class="line_number">119</span>      parallel_walk(rowIndices, [&amp;weights](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">120</span>        const std::span&lt;T&gt; row = weight_row(weights, idx[0]);
+<span class="line_number">121</span>        log_row_to_weights(row);
+<span class="line_number">122</span>      }, exec);
+<span class="line_number">123</span>    }
+<span class="line_number">124</span>
+<span class="line_number">125</span>    /// One weight-matrix entry: the log-weight when the distribution offers
+<span class="line_number">126</span>    /// the channel (rows are then finished by exponentiate_log_rows), else
+<span class="line_number">127</span>    /// the weight itself.
+<span class="line_number">128</span>    template &lt;typename T, typename DistF&gt;
+<span class="line_number">129</span>    T weight_entry(const DistF&amp; distribution, T value)
+<span class="line_number">130</span>    {
+<span class="line_number">131</span>      if constexpr (has_log_weight&lt;DistF, T&gt;)
+<span class="line_number">132</span>        return distribution.log_weight(value);
+<span class="line_number">133</span>      else
+<span class="line_number">134</span>        return distribution(value);
+<span class="line_number">135</span>    }
+<span class="line_number">136</span>
+<span class="line_number">137</span>    /// The (n_query, n_reference) weight matrix: @p distribution of
+<span class="line_number">138</span>    /// @p filter(query, reference) per pair. Always returns plain
+<span class="line_number">139</span>    /// non-negative weights.
+<span class="line_number">140</span>    template &lt;typename T, typename FilterF, typename DistF&gt;
+<span class="line_number">141</span>    Tensor&lt;T&gt; compute_weights(const PointCloud&lt;T&gt;&amp; reference, const PointCloud&lt;T&gt;&amp; query,
+<span class="line_number">142</span>                              FilterF filter, DistF distribution, Executor&amp; exec)
+<span class="line_number">143</span>    {
+<span class="line_number">144</span>      Tensor&lt;T&gt; weights({query.n_points(), reference.n_points()});
+<span class="line_number">145</span>      parallel_walk(weights,
+<span class="line_number">146</span>          [&amp;weights, &amp;reference, &amp;query, filter, distribution](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">147</span>        const T filterValue = filter(query, idx[0], reference, idx[1]);
+<span class="line_number">148</span>        weights(idx) = weight_entry(distribution, filterValue);
+<span class="line_number">149</span>      }, exec);
+<span class="line_number">150</span>      if constexpr (has_log_weight&lt;DistF, T&gt;)
+<span class="line_number">151</span>        exponentiate_log_rows(weights, exec);
+<span class="line_number">152</span>      return weights;
+<span class="line_number">153</span>    }
+<span class="line_number">154</span>
+<span class="line_number">155</span>    /// As compute_weights, with filter values read from the precomputed
+<span class="line_number">156</span>    /// distance matrix @p source; @p query holds reference row indices.
+<span class="line_number">157</span>    template &lt;typename T, typename DistF&gt;
+<span class="line_number">158</span>    Tensor&lt;T&gt; compute_weights_distmat(const DistanceMatrix&lt;T&gt;&amp; source,
+<span class="line_number">159</span>                                      const Tensor&lt;uint64_t&gt;&amp; query, DistF distribution,
+<span class="line_number">160</span>                                      Executor&amp; exec)
+<span class="line_number">161</span>    {
+<span class="line_number">162</span>      Tensor&lt;T&gt; weights({query.shape(0), source.size()});
+<span class="line_number">163</span>      parallel_walk(weights, [&amp;weights, &amp;source, &amp;query, distribution](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">164</span>        const size_t queryRow = static_cast&lt;size_t&gt;(query({idx[0]}));
+<span class="line_number">165</span>        const T filterValue = source(queryRow, idx[1]);
+<span class="line_number">166</span>        weights(idx) = weight_entry(distribution, filterValue);
+<span class="line_number">167</span>      }, exec);
+<span class="line_number">168</span>      if constexpr (has_log_weight&lt;DistF, T&gt;)
+<span class="line_number">169</span>        exponentiate_log_rows(weights, exec);
+<span class="line_number">170</span>      return weights;
+<span class="line_number">171</span>    }
+<span class="line_number">172</span>
+<span class="line_number">173</span>    /// Ready every row for drawing (see prepare_weight_row) and return the
+<span class="line_number">174</span>    /// per-query eligible counts. Blocking, so the async draw task stays
+<span class="line_number">175</span>    /// single-phase.
+<span class="line_number">176</span>    template &lt;typename T&gt;
+<span class="line_number">177</span>    Tensor&lt;size_t&gt; prepare_weight_matrix(Tensor&lt;T&gt;&amp; weights, bool toCdf, Executor&amp; exec)
+<span class="line_number">178</span>    {
+<span class="line_number">179</span>      // weight_row() needs contiguous rows; fresh matrices are, but normalize.
+<span class="line_number">180</span>      if (!weights.is_contiguous())
+<span class="line_number">181</span>        weights = weights.copy();
+<span class="line_number">182</span>
+<span class="line_number">183</span>      Tensor&lt;size_t&gt; nEligible({weights.shape(0)});
+<span class="line_number">184</span>      // get(), not wait(): a validation error thrown on a worker (negative or
+<span class="line_number">185</span>      // NaN weight) must resurface here, at the caller.
+<span class="line_number">186</span>      parallel_walk_async(nEligible, [&amp;weights, &amp;nEligible, toCdf](const std::vector&lt;size_t&gt;&amp; idx) {
+<span class="line_number">187</span>        const std::span&lt;T&gt; row = weight_row(weights, idx[0]);
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during write of size 8 at 0x4E97C30 by thread #5</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:155<br>
+                                    <code class="cpp">sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">152</span>  tf::Future&lt;void&gt; parallel_walk_async(const TTensor&amp; tensor, UnaryFunc&amp;&amp; f, Executor&amp; exec)
+<span class="line_number">153</span>  {
+<span class="line_number">154</span>    return detail::parallel_walk_impl(tensor, [f = std::forward&lt;UnaryFunc&gt;(f)](const std::vector&lt;size_t&gt;&amp; idx, size_t) {
+<span class="line_number">155</span><span class="error">      f(idx);
+</span><span class="line_number">156</span>    }, exec);
+<span class="line_number">157</span>  }
+<span class="line_number">158</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:118<br>
+                                    <code class="cpp">sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}::operator()(unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">115</span>          rem /= shape[i];
+<span class="line_number">116</span>        }
+<span class="line_number">117</span>
+<span class="line_number">118</span><span class="error">        f(idx, flat);
+</span><span class="line_number">119</span>      });
+<span class="line_number">120</span>
+<span class="line_number">121</span>      return exec.cpu()-&gt;run(std::move(flow));
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:134<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}::operator()(unsigned long, unsigned long)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">131</span>          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+<span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span><span class="error">              c(idx);
+</span><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/core/../algorithm/partitioner.hpp:316<br>
+                                    <code class="cpp">void tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;::loop&lt;tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}, (void*)0&gt;(unsigned long, unsigned long, std::atomic&lt;unsigned long&gt;&amp;, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}&amp;&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">313</span>          if(curr_b &gt;= N) {
+<span class="line_number">314</span>            return;
+<span class="line_number">315</span>          }
+<span class="line_number">316</span><span class="error">          func(curr_b, (std::min)(curr_b + chunk_size, N));
+</span><span class="line_number">317</span>        }
+<span class="line_number">318</span>        break;
+<span class="line_number">319</span>      }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:131<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">128</span>      auto next = std::make_shared&lt;std::atomic&lt;size_t&gt;&gt;(0);
+<span class="line_number">129</span>      for(size_t w=0; w&lt;W;) {
+<span class="line_number">130</span>        auto task = part([=] () mutable {
+<span class="line_number">131</span><span class="error">          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+</span><span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span>              c(idx);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:138<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+<span class="line_number">138</span><span class="error">        (++w == W) ? task() : rt.silent_async(task);
+</span><span class="line_number">139</span>      }
+<span class="line_number">140</span>    }
+<span class="line_number">141</span>  };
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:61<br>
+                                    <code class="cpp">void std::__invoke_impl&lt;void, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&amp;, tf::Runtime&amp;&gt;(std::__invoke_other, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">58</span>  template&lt;typename _Res, typename _Fn, typename... _Args&gt;
+<span class="line_number">59</span>    constexpr _Res
+<span class="line_number">60</span>    __invoke_impl(__invoke_other, _Fn&amp;&amp; __f, _Args&amp;&amp;... __args)
+<span class="line_number">61</span><span class="error">    { return std::forward&lt;_Fn&gt;(__f)(std::forward&lt;_Args&gt;(__args)...); }
+</span><span class="line_number">62</span>
+<span class="line_number">63</span>  template&lt;typename _Res, typename _MemFun, typename _Tp, typename... _Args&gt;
+<span class="line_number">64</span>    constexpr _Res
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:111<br>
+                                    <code class="cpp">_ZSt10__invoke_rIvRZN2tf24make_for_each_index_taskImmmZN2sb6detail18parallel_walk_implINS2_6TensorImEEZNS2_19parallel_walk_asyncIS6_ZNS2_8sampling6detail21prepare_weight_matrixIdEES6_RNS5_IT_EEbRNS2_8ExecutorEEUlRKSt6vectorImSaImEEE_EENS0_6FutureIvEERKSB_OT0_SF_EUlSK_mE_EESN_SP_SR_SF_EUlmE0_NS0_17GuidedPartitionerINS0_21DefaultClosureWrapperEEEEEDaSB_SQ_T1_T2_T3_EUlRNS0_7RuntimeEE_JS11_EENSt9enable_ifIX16is_invocable_r_vISB_SQ_DpT1_EESB_E4typeESR_DpOS15_</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">108</span>      using __type = typename __result::type;
+<span class="line_number">109</span>      using __tag = typename __result::__invoke_type;
+<span class="line_number">110</span>      if constexpr (is_void_v&lt;_Res&gt;)
+<span class="line_number">111</span><span class="error">	std::__invoke_impl&lt;__type&gt;(__tag{}, std::forward&lt;_Callable&gt;(__fn),
+</span><span class="line_number">112</span>					std::forward&lt;_Args&gt;(__args)...);
+<span class="line_number">113</span>      else
+<span class="line_number">114</span>	return std::__invoke_impl&lt;__type&gt;(__tag{},
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:290<br>
+                                    <code class="cpp">std::_Function_handler&lt;void (tf::Runtime&amp;), tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::detail::prepare_weight_matrix&lt;double&gt;(sb::Tensor&lt;double&gt;&amp;, bool, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&gt;::_M_invoke(std::_Any_data const&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">287</span>      static _Res
+<span class="line_number">288</span>      _M_invoke(const _Any_data&amp; __functor, _ArgTypes&amp;&amp;... __args)
+<span class="line_number">289</span>      {
+<span class="line_number">290</span><span class="error">	return std::__invoke_r&lt;_Res&gt;(*_Base::_M_get_pointer(__functor),
+</span><span class="line_number">291</span>				     std::forward&lt;_ArgTypes&gt;(__args)...);
+<span class="line_number">292</span>      }
+<span class="line_number">293</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:591<br>
+                                    <code class="cpp">std::function&lt;void (tf::Runtime&amp;)&gt;::operator()(tf::Runtime&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">588</span>      {
+<span class="line_number">589</span>	if (_M_empty())
+<span class="line_number">590</span>	  __throw_bad_function_call();
+<span class="line_number">591</span><span class="error">	return _M_invoker(_M_functor, std::forward&lt;_ArgTypes&gt;(__args)...);
+</span><span class="line_number">592</span>      }
+<span class="line_number">593</span>
+<span class="line_number">594</span>#if __cpp_rtti
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/core/runtime.hpp:826<br>
+                                    <code class="cpp">tf::Executor::_invoke_runtime_task_impl(tf::Worker&amp;, tf::Node*, std::function&lt;void (tf::Runtime&amp;)&gt;&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">823</span>    node-&gt;_join_counter.fetch_add(1, std::memory_order_release);
+<span class="line_number">824</span>
+<span class="line_number">825</span>    _observer_prologue(worker, node);
+<span class="line_number">826</span><span class="error">    TF_EXECUTOR_EXCEPTION_HANDLER(worker, node, {
+</span><span class="line_number">827</span>      work(rt);
+<span class="line_number">828</span>    });
+<span class="line_number">829</span>    _observer_epilogue(worker, node);
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">188</span><span class="error">        nEligible(idx) = prepare_weight_row(row, toCdf);</span>
+<span class="line_number">189</span>      }, exec).get();
+<span class="line_number">190</span>      return nEligible;
+<span class="line_number">191</span>    }
+<span class="line_number">192</span>
+<span class="line_number">193</span>  } // namespace detail
+<span class="line_number">194</span>
+<span class="line_number">195</span>}
+<span class="line_number">196</span>
+<span class="line_number">197</span>#endif
+</code>
+            </pre>
+        </div>
+    </div>
+</body>
+
+</html>
