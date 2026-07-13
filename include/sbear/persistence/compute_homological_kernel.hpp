@@ -1,13 +1,14 @@
 #ifndef STABLEBEAR_HOMOLOGICAL_KERNEL_H
 #define STABLEBEAR_HOMOLOGICAL_KERNEL_H
 
+#include "../distance_matrix.hpp"
+#include "../executor.hpp"
 #include "../task.hpp"
+#include "../tensor.hpp"
+#include "../walk.hpp"
 #include "barcode.hpp"
-#include "distance_matrix.hpp"
-#include "executor.hpp"
+
 #include "taskflow/core/taskflow.hpp"
-#include "tensor.hpp"
-#include "walk.hpp"
 
 #include <algorithm>
 #include <array>

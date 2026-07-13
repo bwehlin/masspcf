@@ -14,5 +14,6 @@ User guide
    saving
    distances
    persistence
+   homological-kernel
    point_processes
    gpu

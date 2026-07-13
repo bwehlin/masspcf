@@ -38,6 +38,14 @@ barcode_summary
    :undoc-members:
    :show-inheritance:
 
+homological_kernel
+------------------
+
+.. automodule:: stablebear.persistence.homological_kernel
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 References
 ----------
 
