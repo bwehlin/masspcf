@@ -87,55 +87,55 @@ The kernel could be read off the two full persistence modules, but that is
 expensive and indirect. Instead the algorithm exploits a single structural fact:
 if the merges are processed **in the order dictated by the finer distance**
 :math:`d'`, smallest merge scale first, then at every step exactly one bar of the
-kernel splits off as a direct summand. This reduces the whole computation to
-single-linkage hierarchical clustering plus a running distance update.
+kernel splits off as a direct summand. This reduces the whole computation to two
+minimum spanning trees plus a union-find replay.
 
 Concretely, ``stablebear`` follows these steps:
 
-1. **Cophenetic distances.** Replace :math:`d` and :math:`d'` by the
-   single-linkage cophenetic (sub-dominant ultra-pseudo-metric) distances
-   :math:`d_{sd}` and :math:`d'_{sd}`. The cophenetic distance between two points
-   is the scale at which they first land in the same connected component, so this
-   step encodes the entire 0-th persistence of each filtration.
+1. **Two spanning trees.** Compute a minimum spanning tree of :math:`(X, d)` and
+   one of :math:`(X, d')`. Single-linkage connectivity at every scale is fully
+   determined by the tree -- two points are connected at scale :math:`t` exactly
+   when the tree edges of weight :math:`\le t` join them -- so the two trees
+   encode the entire 0-th persistence of both filtrations.
 
-2. **Merge order from** :math:`d'`. Extract the :math:`n - 1` merges of the
-   :math:`d'`-hierarchy in non-decreasing scale order. The :math:`i`-th merge
-   joins components :math:`[a_i]` and :math:`[b_i]` at birth
-   :math:`w_i = d'_{sd}([a_i], [b_i])`, with
-   :math:`w_1 \le w_2 \le \dots \le w_{n-1}`.
+2. **Merge order from** :math:`d'`. Sorting the :math:`d'`-tree edges gives the
+   :math:`n - 1` merges of the :math:`d'`-hierarchy in non-decreasing scale
+   order. The :math:`i`-th merge joins components :math:`[a_i]` and :math:`[b_i]`
+   at birth :math:`w_i`, with :math:`w_1 \le w_2 \le \dots \le w_{n-1}`.
 
-3. **Deaths from** :math:`d`. Maintain a distance :math:`d^{(0)} = d_{sd}` on the
-   components. For :math:`i = 1, \dots, n - 1`:
-
-   a. read the death :math:`v_i = d^{(i-1)}([a_i], [b_i])` -- the scale at which
-      the same two components merge under the current coarse distance;
-   b. record the kernel bar :math:`[w_i, v_i)`;
-   c. contract :math:`[a_i]` and :math:`[b_i]` into a single component;
-   d. update the coarse distance by the single-linkage (quotient) rule: for every
-      remaining component :math:`c`,
-
-      .. math::
-
-         d^{(i)}([a_i] \cup [b_i],\, c)
-           = \min\bigl(d^{(i-1)}([a_i], c),\, d^{(i-1)}([b_i], c)\bigr).
+3. **Deaths from the quotient of** :math:`d`. The death :math:`v_i` is the scale
+   at which :math:`[a_i]` and :math:`[b_i]` connect under :math:`d` **in the
+   quotient space** obtained by contracting the :math:`i - 1` earlier merges.
+   Each death is read off by a Kruskal-style sweep: a union-find is seeded with
+   the current :math:`d'`-components, the :math:`d`-tree edges are added in
+   ascending weight order, and the weight of the edge that first connects
+   :math:`[a_i]` to :math:`[b_i]` is :math:`v_i`. The bar :math:`[w_i, v_i)` is
+   recorded, and only then is the contraction added to the seed, so that later
+   merges see it and merge :math:`i` itself does not.
 
 The result is the kernel barcode
 :math:`\ker \mu \cong \bigoplus_{i=1}^{n-1} [w_i, v_i)`.
 
 Two subtleties are worth highlighting, because the test suite guards both:
 
-- **Deaths are a property of the whole component pair, not of the merging edge.**
-  The death :math:`v_i` is the coarse-distance merge scale of the two *components*
-  :math:`[a_i]` and :math:`[b_i]`, which can be realized by a pair of points that
-  touches neither endpoint of the edge that triggered the :math:`d'`-merge. The
-  running quotient distance in step 3(d) is what keeps this correct.
+- **Deaths are a global property of the contracted space.** The connecting chain
+  behind :math:`v_i` can be realized by point pairs that touch neither endpoint
+  of the edge that triggered the :math:`d'`-merge, and it may pass *through*
+  other, already-contracted components: contracting two points that are far
+  apart under :math:`d` creates a shortcut that lowers the connection scale of
+  other pairs. This is why each death is computed in the quotient space by a
+  sweep over the whole tree -- no search local to the two merging components can
+  answer it.
 - **Ties are order-independent.** When several merges share a birth scale, the
   resulting barcode is the same multiset regardless of which tied merge is
   processed first.
 
 If the input violates :math:`d' \le d` -- some merge is "born" after it would
 have to die -- the computation cannot produce a valid bar and raises a
-``RuntimeError``.
+``RuntimeError``. Deaths within floating-point roundoff of their births are
+treated as equal and clamped to empty bars :math:`[w, w)` rather than raising,
+so inputs where :math:`d' = d` on some pairs are safe even when the two sides
+are computed through different arithmetic.
 
 
 Computing the kernel in stablebear

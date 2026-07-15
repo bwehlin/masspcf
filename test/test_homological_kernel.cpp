@@ -74,6 +74,17 @@ namespace
     return bc;
   }
 
+  /// Run the algorithm core on a (X, X') point-cloud pair via the Euclidean oracle.
+  template <typename T>
+  sb::ph::Barcode<T> kernel_of(const sb::PointCloud<T>& X, const sb::PointCloud<T>& XPrime)
+  {
+    sb::ph::detail::EuclideanDistance<T> d(X);
+    sb::ph::detail::EuclideanDistance<T> dPrime(XPrime);
+    sb::ph::Barcode<T> bc;
+    sb::ph::detail::homological_kernel_single_impl(d, dPrime, d.size(), bc);
+    return bc;
+  }
+
   /// Compare a computed barcode against expected {birth, death} bars via
   /// Barcode::is_isomorphic_to (order-independent, default tolerances).
   template <typename T>
@@ -230,6 +241,54 @@ namespace
     expect_kernel_bars<T>(d, dPrime, { { T(1), T(3) }, { T(1), T(4) }, { T(2), T(4) } });
   }
 
+  // Contracting a d-far pair creates a shortcut that lowers the death of a
+  // LATER merge between two other components. Points in the projection frame
+  // (x = the coordinate d' keeps): A=(0,6), P=(5,6), P'=(5,0), B=(2,0); d'
+  // drops y, so P and P' contract at d'=0. At the merge (A,B)@2 the death is 5,
+  // via the chain A -5- P ≡ P' -3- B — a path through a component containing
+  // neither A nor B. Reading the death off the original (uncontracted) d
+  // hierarchy would give 6: deaths must be computed against the quotient space.
+  TYPED_TEST(HomologicalKernelTest, ContractionShortcutLowersLaterDeath)
+  {
+    using T = TypeParam;
+
+    auto X = make_pcloud<T>({ { T(0), T(6) }, { T(5), T(6) }, { T(5), T(0) }, { T(2), T(0) } });
+    auto XPrime = make_pcloud<T>({ { T(0), T(0) }, { T(5), T(0) }, { T(5), T(0) }, { T(2), T(0) } });
+
+    expect_bars(kernel_of(X, XPrime), { { T(0), T(6) }, { T(2), T(5) }, { T(3), T(3) } });
+  }
+
+  // Staircase version of the shortcut above: the death chain of the (A,B)@1
+  // merge needs TWO contraction hops, A -8- R1 ≡ R1' -3- R2 ≡ R2' -4- B, so no
+  // bounded-radius search around the merging pair can find it (a k-rung
+  // staircase needs k hops). The uncontracted-hierarchy answer would be 10.
+  // The deaths must equal the d-MST weight multiset {3, 4, 8, 10, 10}.
+  TYPED_TEST(HomologicalKernelTest, StaircaseDeathNeedsChainedContractionShortcuts)
+  {
+    using T = TypeParam;
+
+    auto X = make_pcloud<T>({
+      { T(0), T(20) },  // A
+      { T(8), T(20) },  // R1
+      { T(8), T(10) },  // R1'
+      { T(5), T(10) },  // R2
+      { T(5), T(0) },   // R2'
+      { T(1), T(0) },   // B
+    });
+    auto XPrime = make_pcloud<T>({
+      { T(0), T(0) },
+      { T(8), T(0) },
+      { T(8), T(0) },
+      { T(5), T(0) },
+      { T(5), T(0) },
+      { T(1), T(0) },
+    });
+
+    expect_bars(
+      kernel_of(X, XPrime),
+      { { T(0), T(10) }, { T(0), T(10) }, { T(1), T(8) }, { T(3), T(3) }, { T(4), T(4) } });
+  }
+
   TYPED_TEST(HomologicalKernelTest, NonDominatedMetricsThrow)
   {
     using T = TypeParam;
@@ -247,6 +306,45 @@ namespace
     };
 
     EXPECT_THROW(kernel_of(make_distmat(d), make_distmat(dPrime)), std::runtime_error);
+  }
+
+  TYPED_TEST(HomologicalKernelTest, RoundoffLevelDominationViolationIsClamped)
+  {
+    using T = TypeParam;
+
+    // d is one ULP below d' on the only pair: mathematically d = d' (an empty
+    // bar), and the discrepancy is pure roundoff from computing the two sides
+    // through different arithmetic. This must clamp to [w, w), not throw.
+    const T w = T(1.5);
+    const T justBelow = std::nextafter(w, T(0));
+    std::vector<std::vector<T>> d = {
+      { T(0), justBelow },
+      { justBelow, T(0) },
+    };
+    std::vector<std::vector<T>> dPrime = {
+      { T(0), w },
+      { w, T(0) },
+    };
+
+    expect_kernel_bars<T>(d, dPrime, { { w, w } });
+  }
+
+  TYPED_TEST(HomologicalKernelTest, TwoPointsGiveSingleBar)
+  {
+    using T = TypeParam;
+
+    // Minimal nontrivial case: one merge, one bar — the sweep at its smallest
+    // size (a single d-MST edge).
+    std::vector<std::vector<T>> d = {
+      { T(0), T(5) },
+      { T(5), T(0) },
+    };
+    std::vector<std::vector<T>> dPrime = {
+      { T(0), T(2) },
+      { T(2), T(0) },
+    };
+
+    expect_kernel_bars<T>(d, dPrime, { { T(2), T(5) } });
   }
 
   TYPED_TEST(HomologicalKernelTest, TrivialInputsGiveEmptyBarcode)
@@ -301,6 +399,45 @@ namespace
     EXPECT_THROW(
       sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 }),
       std::runtime_error);
+  }
+
+  TYPED_TEST(HomologicalKernelTest, PcloudWrapperRejectsRankOneElements)
+  {
+    using T = TypeParam;
+
+    sb::Tensor<sb::PointCloud<T>> input({ 1 });
+    sb::Tensor<sb::PointCloud<T>> inputPrime({ 1 });
+    sb::Tensor<sb::ph::Barcode<T>> ret({ 1 });
+
+    // A rank-1 "cloud" (a bare vector, no coordinate axis) must throw, not read
+    // shape(1) out of bounds and silently return all-zero bars.
+    sb::PointCloud<T> vec(std::vector<size_t>{ 3 });
+    vec({ 0 }) = T(1);
+    vec({ 1 }) = T(2);
+    vec({ 2 }) = T(3);
+    input({ 0 }) = vec;
+    inputPrime({ 0 }) = vec;
+
+    EXPECT_THROW(
+      sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 }),
+      std::runtime_error);
+  }
+
+  TYPED_TEST(HomologicalKernelTest, PcloudWrapperGivesEmptyBarcodeForDegenerateClouds)
+  {
+    using T = TypeParam;
+
+    sb::Tensor<sb::PointCloud<T>> input({ 1 });
+    sb::Tensor<sb::PointCloud<T>> inputPrime({ 1 });
+    sb::Tensor<sb::ph::Barcode<T>> ret({ 1 });
+
+    // (n, 0): n points with no coordinates. All points coincide; the kernel is
+    // empty, mirroring the ripser path's early-out for degenerate clouds.
+    input({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 3, 0 });
+    inputPrime({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 3, 0 });
+
+    sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 });
+    EXPECT_TRUE(ret({ 0 }).bars().empty());
   }
 
 } // namespace

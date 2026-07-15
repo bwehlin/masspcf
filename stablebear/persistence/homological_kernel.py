@@ -11,15 +11,18 @@ from ..base_tensor import (
     PointCloudTensor,
     _get_backend,
 )
-from ..typing import barcode32, barcode64, distmat32, distmat64, float32, float64, pcloud32, pcloud64
-from .homology import DistanceType
+from ..typing import distmat32, distmat64, float32, float64, pcloud32, pcloud64
+from .homology import (
+    _DISTMAT_TO_BARCODE_DTYPE,
+    _FLOAT_TO_PCLOUD_DTYPE,
+    _PCLOUD_TO_BARCODE_DTYPE,
+    DistanceType,
+)
 from .ph_tensor import BarcodeTensor
 
 cpp_p = cpp.persistence
 
-_DISTMAT_TO_BARCODE_DTYPE = {distmat32: barcode32, distmat64: barcode64}
-_PCLOUD_TO_BARCODE_DTYPE = {pcloud32: barcode32, pcloud64: barcode64}
-_FLOAT_TO_PCLOUD_DTYPE = {float32: pcloud32, float64: pcloud64}
+_FLOAT_TO_DISTMAT_DTYPE = {float32: distmat32, float64: distmat64}
 
 
 def _spawn_homological_kernel_pcloud_task(
@@ -47,21 +50,33 @@ def _spawn_homological_kernel_distmat_task(
 
 
 def _project_diagonal(points: np.ndarray) -> np.ndarray:
-    """Orthogonal projection onto the diagonal line spanned by (1, ..., 1)."""
-    return np.broadcast_to(points.mean(axis=1, keepdims=True), points.shape).copy()
+    """Orthogonal projection onto the diagonal line spanned by (1, ..., 1).
+
+    Each cloud is centered first and the offset is not restored (distances,
+    which are all the kernel consumes, are translation invariant). The
+    projected coordinates are stored in the cloud's dtype, so their rounding
+    error scales with coordinate magnitude; centering keeps that magnitude at
+    the cloud's spread instead of its distance from the origin.
+    """
+    if points.shape[-2] == 0:
+        return points.copy()
+    centered = points - points.mean(axis=-2, keepdims=True)
+    return np.broadcast_to(centered.mean(axis=-1, keepdims=True), points.shape).copy()
 
 
 def _project_coordinate(points: np.ndarray) -> np.ndarray:
     """Orthogonal projection onto the first dim-1 coordinate axes."""
     out = points.copy()
-    out[:, -1] = 0
+    out[..., -1] = 0
     return out
 
 
 # Certified transform presets: every entry is an orthogonal projection, hence
 # 1-Lipschitz with respect to the Euclidean metric in every dimension, so the
 # resulting d' is guaranteed to be dominated by d. Each maps an (n, dim) array
-# to an (n, dim) array (projections stay in ambient coordinates).
+# to an (n, dim) array (projections stay in ambient coordinates) and operates
+# on the trailing axes only, so a stacked (..., n, dim) batch projects in one
+# call.
 _TRANSFORM_PRESETS = {
     "diagonal": _project_diagonal,
     "coordinate": _project_coordinate,
@@ -77,9 +92,26 @@ def _apply_transform(X: PointCloudTensor, transform: str) -> PointCloudTensor:
             f"Unknown transform {transform!r}; available presets: {sorted(_TRANSFORM_PRESETS)}"
         )
 
-    X_prime = zeros(tuple(X.shape), dtype=X.dtype)
-    for idx in np.ndindex(tuple(X.shape)):
-        X_prime[idx] = preset(np.asarray(X[idx]))
+    shape = tuple(X.shape)
+    # _get_element directly: __getitem__'s fancy-index parsing costs ~6x per
+    # element, which dominates for large batches of small clouds.
+    data = X._data
+    clouds = [np.array(data._get_element(list(idx)), copy=False) for idx in np.ndindex(shape)]
+    if not clouds:
+        return zeros(shape, dtype=X.dtype)
+
+    if all(c.shape == clouds[0].shape for c in clouds):
+        # Uniform batch: one vectorized projection, one tensor construction.
+        stacked = np.stack(clouds).reshape(shape + clouds[0].shape)
+        return PointCloudTensor(preset(stacked), cloud_ndim=clouds[0].ndim, dtype=X.dtype)
+
+    projected = [preset(c) for c in clouds]
+    if len(shape) == 1:
+        return PointCloudTensor(projected, dtype=X.dtype)
+
+    X_prime = zeros(shape, dtype=X.dtype)
+    for idx, cloud in zip(np.ndindex(shape), projected):
+        X_prime[idx] = cloud
     return X_prime
 
 
@@ -97,10 +129,9 @@ def _normalize_kernel_input(X, name: str):
         return pcX
 
     if isinstance(X, DistanceMatrix):
-        if isinstance(X._data, cpp.DistanceMatrix_f32):
-            dmX = zeros((1,), dtype=distmat32)
-        else:
-            dmX = zeros((1,), dtype=distmat64)
+        # Keyed on dtype (not an isinstance sniff) so an unmapped precision
+        # raises instead of silently defaulting to float64.
+        dmX = zeros((1,), dtype=_FLOAT_TO_DISTMAT_DTYPE[X.dtype])
         dmX[0] = X
         return dmX
 
@@ -184,11 +215,14 @@ def compute_homological_kernel(
         dtype, or if ``transform`` is used with distance matrix input.
     ValueError
         If neither or both of ``X_prime`` and ``transform`` are given,
-        the shapes differ, the transform is unknown, or the metric is
-        unsupported.
+        the (outer) tensor shapes differ, the transform is unknown, or
+        the metric is unsupported.
     RuntimeError
         If :math:`d'` does not dominate :math:`d` (a death would land
-        below its birth).
+        below its birth by more than floating-point roundoff), or if
+        paired elements mismatch (for example, two point clouds with
+        different point counts, or a point cloud that is not an
+        ``(n, dim)`` array).
 
     """
     from ..tensor_create import zeros

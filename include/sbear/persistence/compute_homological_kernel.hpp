@@ -11,13 +11,11 @@
 #include "taskflow/core/taskflow.hpp"
 
 #include <algorithm>
-#include <array>
-#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <limits>
-#include <set>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -74,28 +72,17 @@ namespace sb::ph
       T mergeDist;
     };
 
-    template <typename T>
-    struct Dendrogram
-    {
-      std::vector<size_t> parent; // size 2n−1; parent[root] == root
-      std::vector<T> height;      // size 2n−1; 0 for leaves, merge weight for internal nodes
-    };
-
-    // Union-find root lookup with path compression.
+    // Union-find root lookup with path halving: every node on the walk is
+    // pointed at its grandparent, halving the path in one traversal. Same
+    // near-constant amortized bound as two-pass compression, but one pass.
     inline size_t uf_find_root(std::vector<size_t> &ufParent, size_t x)
     {
-      auto root = x;
-      while (ufParent[root] != root)
+      while (ufParent[x] != x)
       {
-        root = ufParent[root];
+        ufParent[x] = ufParent[ufParent[x]];
+        x = ufParent[x];
       }
-      while (ufParent[x] != root) // path compression
-      {
-        auto next = ufParent[x];
-        ufParent[x] = root;
-        x = next;
-      }
-      return root;
+      return x;
     }
 
     // Distance type is in practice a distance matrix. The euclideanDistance above calculates the distance for a
@@ -157,69 +144,34 @@ namespace sb::ph
       });
     }
 
-    // this will use the MST constructed above to construct data in the form of a dendrogram. This will make it easy to
-    // perform cross filtration later for the kernel.
+    // Performs the cross filtration: replays the d' merges (the births w_i) and
+    // computes each death v_i against d.
     //
-    // merges must be sorted ascending by mergeDist (as produced by mst_merge_order) and
-    // hold exactly n-1 entries. Nodes 0..n-1 are leaves; merge i mints internal node n+i.
-    template <typename T>
-    void build_dendrogram(const std::vector<MergeEdge<T>> &merges, size_t n, Dendrogram<T> &tree)
-    {
-      if (n == 0)
-      {
-        tree.parent.clear();
-        tree.height.clear();
-        return;
-      }
-
-      auto numNodes = (2 * n) - 1;
-      tree.parent.resize(numNodes);
-      tree.height.assign(numNodes, T{0});
-      for (size_t v = 0; v < numNodes; ++v)
-      {
-        tree.parent[v] = v; // every node is its own root until a later merge links it
-      }
-
-      // Scratch union-find over points. Path compression rewires parent links, so it
-      // must not run on tree.parent itself: those links are the output.
-      std::vector<size_t> ufParent(n);
-      std::vector<size_t> clusterNode(n); // union-find representative -> current cluster top node
-      for (size_t p = 0; p < n; ++p)
-      {
-        ufParent[p] = p;
-        clusterNode[p] = p;
-      }
-
-      for (size_t i = 0; i < merges.size(); ++i)
-      {
-        auto ra = uf_find_root(ufParent, merges[i].a);
-        auto rb = uf_find_root(ufParent, merges[i].b);
-
-        auto v = n + i;
-        tree.parent[clusterNode[ra]] = v;
-        tree.parent[clusterNode[rb]] = v;
-        tree.height[v] = merges[i].mergeDist;
-
-        ufParent[rb] = ra;
-        clusterNode[ra] = v;
-      }
-    }
-
-    // Performs cross filtration on the dendrogram to calculate the kernel barcode.
+    // The death of merge i is the scale at which [a_i] and [b_i] connect in the
+    // quotient of (X, d) by the i-1 earlier contractions — the subdominant ultra
+    // pseudo-metric of the quotient space. Contracting two d-far points (which
+    // every nonempty bar does) creates shortcuts THROUGH the contracted
+    // component that lower the connection scale of other pairs, so the death is
+    // a global property of the contracted space: it cannot be read off the
+    // static d-dendrogram (the min-cross-pair LCA there equals the Lance-
+    // Williams min-rule, which overestimates deaths), and no bounded-radius
+    // search around the merging pair can answer it either — the connecting
+    // chain may hop through arbitrarily many other contracted components.
     //
-    // Replays the d' merges (births w_i) and computes each death
-    //   v_i = min over cross pairs (x in A_i, y in B_i) of the d-tree LCA height,
-    // i.e. the contracted subdominant ultrametric of d. Uses two facts:
-    //  1. with leaves in DFS order, the LCA height of two leaves is the maximum of
-    //     the gap array (LCA heights of consecutive leaves) over the spanned range;
-    //  2. the minimizing cross pair is adjacent in the merged position order, so a
-    //     merge only has to check each smaller-side position against its neighbours
-    //     in the larger side's ordered set (small-to-large).
-    // O(n log^2 n) time, O(n log n) memory. Throws if some death lands below its
-    // birth, which means d does not dominate d'.
+    // Connectivity at scale t of (X, d) equals connectivity of the d-MST
+    // restricted to edges <= t, and contractions only add identifications on
+    // top. So each death is answered by a Kruskal sweep: seed a union-find with
+    // the current d'-components, add d-MST edges in ascending order, and stop
+    // as soon as a_i ~ b_i; the weight of the connecting edge is the death.
+    //
+    // The sweep for merge i stops after rank(v_i) edges, and the deaths are a
+    // permutation of the d-MST edge ranks, so all sweeps together perform
+    // exactly n(n-1)/2 bounded union-find operations plus an O(n) seed copy per
+    // merge: O(n^2 alpha(n)) time, O(n) memory. Throws if some death lands
+    // below its birth (beyond roundoff), which means d does not dominate d'.
     template <typename T>
     void cross_filtration(
-        const std::vector<MergeEdge<T>> &primeMerges, const Dendrogram<T> &dTree, size_t n,
+        const std::vector<MergeEdge<T>> &primeMerges, const std::vector<MergeEdge<T>> &dMerges, size_t n,
         std::vector<PersistencePair<T>> &bars)
     {
       bars.clear();
@@ -229,124 +181,71 @@ namespace sb::ph
       }
       bars.reserve(n - 1);
 
-      const auto numNodes = (2 * n) - 1;
-
-      // Child lists from the parent array. The tree is binary: two slots per node.
-      std::vector<std::array<size_t, 2>> children(numNodes);
-      std::vector<unsigned char> childCount(numNodes, 0);
-      for (size_t v = 0; v < numNodes; ++v)
-      {
-        auto p = dTree.parent[v];
-        if (p != v)
-        {
-          children[p][childCount[p]++] = v;
-        }
-      }
-
-      // DFS from the root: pos[leaf] = position in leaf order, and gap[k] = height of
-      // the divergence node between consecutive leaves k and k+1 (their LCA).
-      std::vector<size_t> pos(n);
-      std::vector<T> gap(n - 1);
-      {
-        std::vector<std::pair<size_t, size_t>> stack; // (node, next child slot)
-        stack.reserve(numNodes);
-        stack.emplace_back(numNodes - 1, 0); // last minted node is the root
-        size_t nextPos = 0;
-        T pendingGap{0};
-        while (!stack.empty())
-        {
-          auto v = stack.back().first;
-          if (childCount[v] == 0) // leaf
-          {
-            if (nextPos > 0)
-            {
-              gap[nextPos - 1] = pendingGap;
-            }
-            pos[v] = nextPos++;
-            stack.pop_back();
-          }
-          else if (stack.back().second < childCount[v])
-          {
-            auto slot = stack.back().second++;
-            if (slot > 0)
-            {
-              // Descending into the second subtree of v: v is the divergence node
-              // between the previous leaf and the next one to be emitted.
-              pendingGap = dTree.height[v];
-            }
-            stack.emplace_back(children[v][slot], 0);
-          }
-          else
-          {
-            stack.pop_back();
-          }
-        }
-      }
-
-      // Sparse table over the gap array: table[j][k] = max of gap[k .. k + 2^j).
-      const auto numGaps = n - 1;
-      const auto levels = static_cast<size_t>(std::bit_width(numGaps));
-      std::vector<std::vector<T>> table(levels);
-      table[0].assign(gap.begin(), gap.end());
-      for (size_t j = 1; j < levels; ++j)
-      {
-        const auto span = size_t{1} << j;
-        table[j].resize(numGaps - span + 1);
-        for (size_t k = 0; k + span <= numGaps; ++k)
-        {
-          table[j][k] = std::max(table[j - 1][k], table[j - 1][k + (span / 2)]);
-        }
-      }
-
-      // LCA height of the leaves at positions lo < hi = max of gap[lo .. hi).
-      auto lcaHeight = [&table](size_t lo, size_t hi) {
-        const auto j = static_cast<size_t>(std::bit_width(hi - lo)) - 1;
-        return std::max(table[j][lo], table[j][hi - (size_t{1} << j)]);
-      };
-
-      // Replay the d' merges, keeping per component the ordered set of its leaf positions.
-      std::vector<size_t> ufParent(n);
-      std::vector<std::set<size_t>> positions(n);
+      // seedParent holds the components induced by the contractions performed so
+      // far (= the current d'-components); scratchParent is the working copy each
+      // sweep runs on. The copy assignment reuses capacity, so the steady state
+      // allocates nothing.
+      std::vector<size_t> seedParent(n);
       for (size_t p = 0; p < n; ++p)
       {
-        ufParent[p] = p;
-        positions[p].insert(pos[p]);
+        seedParent[p] = p;
       }
+      std::vector<size_t> scratchParent;
 
       for (auto const &merge : primeMerges)
       {
-        auto ra = uf_find_root(ufParent, merge.a);
-        auto rb = uf_find_root(ufParent, merge.b);
-        if (positions[ra].size() < positions[rb].size())
-        {
-          std::swap(ra, rb); // ra keeps the larger position set
-        }
-        auto &large = positions[ra];
-        auto &small = positions[rb];
+        scratchParent = seedParent;
 
-        auto death = std::numeric_limits<T>::infinity();
-        for (auto p : small)
+        // The seed alone can never connect merge.a to merge.b (its unions stay
+        // inside d'-components, and a and b are in different ones by definition
+        // of this merge), and the full d-MST is spanning — so the loop always
+        // runs at least once and exits with k <= n-1, having set death.
+        //
+        // The connectivity check is find-free: rootA/rootB are cached, and a
+        // cached root can only stop being one when the union writes over its
+        // slot (rv below) — so patching on that case keeps both caches exact.
+        auto rootA = uf_find_root(scratchParent, merge.a);
+        auto rootB = uf_find_root(scratchParent, merge.b);
+        auto death = std::numeric_limits<T>::quiet_NaN();
+        size_t k = 0;
+        while (rootA != rootB)
         {
-          auto it = large.lower_bound(p);
-          if (it != large.end())
+          auto const &edge = dMerges[k++];
+          // Unconditional union: an edge whose endpoints are already connected
+          // (through the seed or earlier edges) is a harmless self-assignment.
+          auto ru = uf_find_root(scratchParent, edge.a);
+          auto rv = uf_find_root(scratchParent, edge.b);
+          scratchParent[rv] = ru;
+          if (rv == rootA)
           {
-            death = std::min(death, lcaHeight(p, *it));
+            rootA = ru;
           }
-          if (it != large.begin())
+          else if (rv == rootB)
           {
-            death = std::min(death, lcaHeight(*std::prev(it), p));
+            rootB = ru;
           }
+          death = edge.mergeDist;
         }
 
-        if (death < merge.mergeDist)
+        // Births (from d') and deaths (from d) can reach mathematically equal
+        // values through different arithmetic. The gap is not always a few ULPs
+        // of the distances: inputs materialized at large coordinate magnitude
+        // (e.g. projected point clouds) carry absolute error ~eps * |coordinate|,
+        // which dwarfs ULP-of-distance whenever coordinates dwarf pair
+        // distances. sqrt(eps) relative splits the significand between signal
+        // and guard: it forgives any plausible roundoff, while genuine
+        // domination failures -- which violate at data scale -- still throw.
+        const auto tol =
+            std::sqrt(std::numeric_limits<T>::epsilon()) * std::max(std::abs(merge.mergeDist), std::abs(death));
+        if (death < merge.mergeDist - tol)
         {
-          throw std::runtime_error("homological kernel: d and d' are not lipshitz (death below birth)");
+          throw std::runtime_error("homological kernel: d does not dominate d' (death below birth)");
         }
-        bars.emplace_back(merge.mergeDist, death);
+        bars.emplace_back(merge.mergeDist, std::max(death, merge.mergeDist));
 
-        large.insert(small.begin(), small.end());
-        small.clear();
-        ufParent[rb] = ra;
+        // Only now does the contraction enter the seed: merge i must see the
+        // quotient by merges 1..i-1, not by itself or later ones.
+        seedParent[uf_find_root(seedParent, merge.b)] = uf_find_root(seedParent, merge.a);
       }
     }
 
@@ -357,15 +256,12 @@ namespace sb::ph
     void homological_kernel_single_impl(const DistT &dDist, const DistT &dPrimeDist, size_t n, Barcode<T> &ret)
     {
       std::vector<MergeEdge<T>> primeMerges; // d' merge order: the births
-      std::vector<MergeEdge<T>> dMerges;
+      std::vector<MergeEdge<T>> dMerges;     // d-MST edges: the sweep timeline that answers the deaths
       mst_merge_order(dPrimeDist, n, primeMerges);
       mst_merge_order(dDist, n, dMerges);
 
-      Dendrogram<T> tree; // only d needs a dendrogram: it answers the death queries
-      build_dendrogram(dMerges, n, tree);
-
       std::vector<PersistencePair<T>> bars;
-      cross_filtration(primeMerges, tree, n, bars);
+      cross_filtration(primeMerges, dMerges, n, bars);
       ret = std::move(bars);
     }
 
@@ -378,7 +274,9 @@ namespace sb::ph
       auto const &dmPrime = distmatPrime(index); // its aligned d′ counterpart
       if (dm.size() != dmPrime.size())
       {
-        throw std::runtime_error("homological kernel inputs must have the same shape");
+        throw std::runtime_error(
+            "homological kernel: distance matrices at index " + index_to_string(index) + " have mismatched sizes (" +
+            std::to_string(dm.size()) + " and " + std::to_string(dmPrime.size()) + ")");
       }
 
       detail::homological_kernel_single_impl(dm, dmPrime, dm.size(), ret_barcodes(index));
@@ -392,11 +290,24 @@ namespace sb::ph
       auto const &pc = pclouds(index);           // the PointCloud<T> for this instance
       auto const &pcPrime = pcloudsPrime(index); // its aligned d′ counterpart
 
-      // validation here: rank()==2 for both, pc.shape(0)==pcPrime.shape(0)
-      // (mirror the throw at compute_persistence.hpp:107-110)
       if (pc.shape() != pcPrime.shape())
       {
-        throw std::runtime_error("homological kernel inputs must have the same shape");
+        throw std::runtime_error(
+            "homological kernel: point clouds at index " + index_to_string(index) + " have mismatched shapes " +
+            shape_to_string(pc.shape()) + " and " + shape_to_string(pcPrime.shape()));
+      }
+
+      // Degenerate clouds (no points or no coordinates) have an empty kernel.
+      if (pc.rank() == 0 || std::any_of(pc.shape().begin(), pc.shape().end(), [](size_t v) { return v == 0; }))
+      {
+        return;
+      }
+
+      if (pc.rank() != 2)
+      {
+        throw std::runtime_error(
+            "homological kernel: point cloud at index " + index_to_string(index) + " has unexpected shape " +
+            shape_to_string(pc.shape()) + " (should be (m, n))");
       }
 
       detail::EuclideanDistance<T> dDist(pc); // captures pointer+strides, computes d on demand
@@ -411,8 +322,6 @@ namespace sb::ph
   class HomologicalKernelImpl : public StoppableTask<void>
   {
   public:
-    // TODO Test results against handcalculated examples and old paper code
-
     HomologicalKernelImpl(const Tensor<ElemT> &input, const Tensor<ElemT> &inputPrime, Tensor<Barcode<T>> &ret)
         : m_input(input), m_inputPrime(inputPrime), m_ret(ret)
     {
@@ -425,7 +334,9 @@ namespace sb::ph
       m_ret = Tensor<Barcode<T>>(shape);
 
       if (m_input.shape() != m_inputPrime.shape())
-        throw std::runtime_error("homological kernel inputs must have the same shape");
+        throw std::runtime_error(
+            "homological kernel: input tensors must have the same shape (got " + shape_to_string(m_input.shape()) +
+            " and " + shape_to_string(m_inputPrime.shape()) + ")");
 
       next_step(
           m_input.size(), "Computing 0th homological kernel",
