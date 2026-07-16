@@ -116,27 +116,6 @@ Concretely, ``stablebear`` follows these steps:
 The result is the kernel barcode
 :math:`\ker \mu \cong \bigoplus_{i=1}^{n-1} [w_i, v_i)`.
 
-Two subtleties are worth highlighting, because the test suite guards both:
-
-- **Deaths are a global property of the contracted space.** The connecting chain
-  behind :math:`v_i` can be realized by point pairs that touch neither endpoint
-  of the edge that triggered the :math:`d'`-merge, and it may pass *through*
-  other, already-contracted components: contracting two points that are far
-  apart under :math:`d` creates a shortcut that lowers the connection scale of
-  other pairs. This is why each death is computed in the quotient space by a
-  sweep over the whole tree -- no search local to the two merging components can
-  answer it.
-- **Ties are order-independent.** When several merges share a birth scale, the
-  resulting barcode is the same multiset regardless of which tied merge is
-  processed first.
-
-If the input violates :math:`d' \le d` -- some merge is "born" after it would
-have to die -- the computation cannot produce a valid bar and raises a
-``RuntimeError``. Deaths within floating-point roundoff of their births are
-treated as equal and clamped to empty bars :math:`[w, w)` rather than raising,
-so inputs where :math:`d' = d` on some pairs are safe even when the two sides
-are computed through different arithmetic.
-
 
 Computing the kernel in stablebear
 ==================================
@@ -201,9 +180,13 @@ distance matrices must always be paired with an explicit ``X_prime``::
    import stablebear as sb
    from stablebear import persistence
 
+   # Three points on a line: d is the true metric, d' halves the far gap
+   # (d' <= d entrywise, so d dominates d').
    d  = sb.DistanceMatrix(3, dtype=sb.float64)
    dp = sb.DistanceMatrix(3, dtype=sb.float64)
-   # ... fill d and dp with d' <= d entrywise ...
+   for i, j, dist in [(1, 0, 1.0), (2, 0, 2.0), (2, 1, 1.0)]:
+       d[i, j]  = dist
+       dp[i, j] = dist / 2
 
    bcs = persistence.compute_homological_kernel(d, dp)
 
@@ -239,8 +222,14 @@ so it feeds straight into the functional summaries from :doc:`persistence`. In
 the correlation use case, the score is the total persistence of the kernel,
 obtained as the :math:`L_1` integral of its stable rank::
 
+   import numpy as np
    import stablebear as sb
    from stablebear import persistence
+
+   # A batch of correlation clouds
+   clouds = sb.zeros((100,), dtype=sb.pcloud64)
+   for i in range(100):
+       clouds[i] = np.random.randn(30, 2)
 
    kernels = persistence.compute_homological_kernel(clouds, transform="diagonal")
 
