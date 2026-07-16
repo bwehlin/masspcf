@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -24,15 +25,18 @@ namespace sb::ph
 {
   namespace detail
   {
-    /// Euclidean distance functor over a point cloud: answers d(i, j) on demand
-    /// without materializing a distance matrix. Exposes the same call interface
-    /// as DistanceMatrix<T> (operator()(i, j) and size()), so the kernel
-    /// algorithms can be templated over either.
+    /// Squared-Euclidean distance functor over a point cloud: answers d(i, j)^2
+    /// on demand without materializing a distance matrix. Exposes the same call
+    /// interface as DistanceMatrix<T> (operator()(i, j) and size()), so the
+    /// kernel algorithms can be templated over either. Works in squared
+    /// distances because MST construction and the merge sort only compare
+    /// (x -> x^2 is monotone on [0, inf)); the caller applies sqrt to the n-1
+    /// stored merge distances instead of one sqrt per O(n^2) query.
     template <typename T>
-    class EuclideanDistance
+    class SquaredEuclideanDistance
     {
     public:
-      explicit EuclideanDistance(const PointCloud<T> &points)
+      explicit SquaredEuclideanDistance(const PointCloud<T> &points)
           : m_data(points.data()), m_pointStride(points.stride(0)), m_coordStride(points.stride(1)),
             m_size(points.shape(0)), m_dim(points.shape(1))
       {
@@ -48,7 +52,7 @@ namespace sb::ph
           auto diff = p[k * m_coordStride] - q[k * m_coordStride];
           sumSq += diff * diff;
         }
-        return std::sqrt(sumSq);
+        return sumSq;
       }
 
       [[nodiscard]] size_t size() const noexcept
@@ -72,9 +76,7 @@ namespace sb::ph
       T mergeDist;
     };
 
-    // Union-find root lookup with path halving: every node on the walk is
-    // pointed at its grandparent, halving the path in one traversal. Same
-    // near-constant amortized bound as two-pass compression, but one pass.
+    // Union-find root lookup with path halving.
     inline size_t uf_find_root(std::vector<size_t> &ufParent, size_t x)
     {
       while (ufParent[x] != x)
@@ -85,8 +87,9 @@ namespace sb::ph
       return x;
     }
 
-    // Distance type is in practice a distance matrix. The euclideanDistance above calculates the distance for a
-    // pointcloud as well so we dont even need to construct a full distance matrix when working with pointclouds.
+    // Distance type is in practice a distance matrix. The SquaredEuclideanDistance above calculates the (squared)
+    // distance for a pointcloud as well so we dont even need to construct a full distance matrix when working with
+    // pointclouds.
     //
     // Fills merges with the n-1 single-linkage merges of the metric, sorted ascending
     // by merge distance. Array-based Prim: O(n^2) distance queries, O(n) memory.
@@ -138,7 +141,6 @@ namespace sb::ph
         }
       }
 
-      // Lambda to order the merges by size. Neccecary for later steps
       std::sort(merges.begin(), merges.end(), [](const MergeEdge<T> &x, const MergeEdge<T> &y) {
         return x.mergeDist < y.mergeDist;
       });
@@ -149,14 +151,10 @@ namespace sb::ph
     //
     // The death of merge i is the scale at which [a_i] and [b_i] connect in the
     // quotient of (X, d) by the i-1 earlier contractions — the subdominant ultra
-    // pseudo-metric of the quotient space. Contracting two d-far points (which
-    // every nonempty bar does) creates shortcuts THROUGH the contracted
-    // component that lower the connection scale of other pairs, so the death is
-    // a global property of the contracted space: it cannot be read off the
-    // static d-dendrogram (the min-cross-pair LCA there equals the Lance-
-    // Williams min-rule, which overestimates deaths), and no bounded-radius
-    // search around the merging pair can answer it either — the connecting
-    // chain may hop through arbitrarily many other contracted components.
+    // pseudo-metric of the quotient space. A contraction can create a shortcut
+    // through the contracted component that lowers the connection scale of
+    // other pairs, so each death depends on the whole set of earlier
+    // contractions, not just the merging pair.
     //
     // Connectivity at scale t of (X, d) equals connectivity of the d-MST
     // restricted to edges <= t, and contractions only add identifications on
@@ -228,13 +226,12 @@ namespace sb::ph
         }
 
         // Births (from d') and deaths (from d) can reach mathematically equal
-        // values through different arithmetic. The gap is not always a few ULPs
-        // of the distances: inputs materialized at large coordinate magnitude
-        // (e.g. projected point clouds) carry absolute error ~eps * |coordinate|,
-        // which dwarfs ULP-of-distance whenever coordinates dwarf pair
-        // distances. sqrt(eps) relative splits the significand between signal
-        // and guard: it forgives any plausible roundoff, while genuine
-        // domination failures -- which violate at data scale -- still throw.
+        // values through different arithmetic, and inputs materialized at large
+        // coordinate magnitude (e.g. projected point clouds) carry absolute
+        // error ~eps * |coordinate|, which can dwarf a few ULPs of the
+        // distances. sqrt(eps) relative forgives any plausible roundoff, while
+        // genuine domination failures — which violate at data scale — still
+        // throw.
         const auto tol =
             std::sqrt(std::numeric_limits<T>::epsilon()) * std::max(std::abs(merge.mergeDist), std::abs(death));
         if (death < merge.mergeDist - tol)
@@ -249,16 +246,29 @@ namespace sb::ph
       }
     }
 
-    // Calls the 3 steps above to perform the algorithm for the homological kernel.
-    // d must be strictly larger than d' (d' <= d pointwise); cross_filtration throws otherwise.
-    // For n <= 1 the kernel barcode is empty.
-    template <typename DistT, typename T>
-    void homological_kernel_single_impl(const DistT &dDist, const DistT &dPrimeDist, size_t n, Barcode<T> &ret)
+    // Full kernel computation for one instance: d' merge order (the births),
+    // d-MST (the death timeline), cross filtration. Requires d' <= d pointwise;
+    // cross_filtration throws otherwise. For n <= 1 the kernel barcode is empty.
+    // mergeDistTransform maps each stored merge distance from the scale the
+    // DistT functor computes in to the scale of the output bars (sqrt for the
+    // squared-Euclidean oracle, identity for oracles already in bar scale); it
+    // must be monotone so the merge order is unchanged.
+    template <typename DistT, typename T, typename PostF = std::identity>
+    void homological_kernel_single_impl(
+        const DistT &dDist, const DistT &dPrimeDist, size_t n, Barcode<T> &ret, PostF mergeDistTransform = {})
     {
       std::vector<MergeEdge<T>> primeMerges; // d' merge order: the births
       std::vector<MergeEdge<T>> dMerges;     // d-MST edges: the sweep timeline that answers the deaths
       mst_merge_order(dPrimeDist, n, primeMerges);
       mst_merge_order(dDist, n, dMerges);
+      for (auto &m : primeMerges)
+      {
+        m.mergeDist = mergeDistTransform(m.mergeDist);
+      }
+      for (auto &m : dMerges)
+      {
+        m.mergeDist = mergeDistTransform(m.mergeDist);
+      }
 
       std::vector<PersistencePair<T>> bars;
       cross_filtration(primeMerges, dMerges, n, bars);
@@ -297,12 +307,6 @@ namespace sb::ph
             shape_to_string(pc.shape()) + " and " + shape_to_string(pcPrime.shape()));
       }
 
-      // Degenerate clouds (no points or no coordinates) have an empty kernel.
-      if (pc.rank() == 0 || std::any_of(pc.shape().begin(), pc.shape().end(), [](size_t v) { return v == 0; }))
-      {
-        return;
-      }
-
       if (pc.rank() != 2)
       {
         throw std::runtime_error(
@@ -310,10 +314,15 @@ namespace sb::ph
             shape_to_string(pc.shape()) + " (should be (m, n))");
       }
 
-      detail::EuclideanDistance<T> dDist(pc); // captures pointer+strides, computes d on demand
-      detail::EuclideanDistance<T> dPrimeDist(pcPrime);
+      // Every rank-2 cloud flows through: 0 or 1 points give an empty barcode
+      // via the n <= 1 early-outs, and a zero-dimensional cloud (n, 0) induces
+      // the all-zero metric, yielding n-1 zero-length bars exactly like the
+      // distance-matrix route does for the equivalent all-zero matrix.
+      detail::SquaredEuclideanDistance<T> dDist(pc); // captures pointer+strides, computes d^2 on demand
+      detail::SquaredEuclideanDistance<T> dPrimeDist(pcPrime);
 
-      detail::homological_kernel_single_impl(dDist, dPrimeDist, dDist.size(), ret_barcodes(index));
+      detail::homological_kernel_single_impl(
+          dDist, dPrimeDist, dDist.size(), ret_barcodes(index), [](T v) { return std::sqrt(v); });
     }
 
   } // namespace detail
@@ -330,13 +339,16 @@ namespace sb::ph
   private:
     tf::Future<void> run_async(Executor &exec) override
     {
-      auto shape = m_input.shape();
-      m_ret = Tensor<Barcode<T>>(shape);
-
       if (m_input.shape() != m_inputPrime.shape())
+      {
         throw std::runtime_error(
             "homological kernel: input tensors must have the same shape (got " + shape_to_string(m_input.shape()) +
             " and " + shape_to_string(m_inputPrime.shape()) + ")");
+      }
+
+      // Validate before touching m_ret so a failed spawn leaves the caller's
+      // out tensor intact.
+      m_ret = Tensor<Barcode<T>>(m_input.shape());
 
       next_step(
           m_input.size(), "Computing 0th homological kernel",
@@ -351,6 +363,7 @@ namespace sb::ph
               detail::homological_kernel_pcloud_single_impl(m_input, m_inputPrime, m_ret, index);
             else
               detail::homological_kernel_distmat_single_impl(m_input, m_inputPrime, m_ret, index);
+
             add_progress(1);
           },
           exec);

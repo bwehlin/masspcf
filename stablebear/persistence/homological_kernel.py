@@ -129,8 +129,6 @@ def _normalize_kernel_input(X, name: str):
         return pcX
 
     if isinstance(X, DistanceMatrix):
-        # Keyed on dtype (not an isinstance sniff) so an unmapped precision
-        # raises instead of silently defaulting to float64.
         dmX = zeros((1,), dtype=_FLOAT_TO_DISTMAT_DTYPE[X.dtype])
         dmX[0] = X
         return dmX
@@ -218,7 +216,7 @@ def compute_homological_kernel(
         the (outer) tensor shapes differ, the transform is unknown, or
         the metric is unsupported.
     RuntimeError
-        If :math:`d'` does not dominate :math:`d` (a death would land
+        If :math:`d` does not dominate :math:`d'` (a death would land
         below its birth by more than floating-point roundoff), or if
         paired elements mismatch (for example, two point clouds with
         different point counts, or a point cloud that is not an
