@@ -36,7 +36,7 @@ namespace
 
   /// Build a DistanceMatrix<T> from a full square matrix given row by row.
   template <typename T>
-  sb::DistanceMatrix<T> make_distmat(const std::vector<std::vector<T>>& full)
+  sb::DistanceMatrix<T> make_distmat(const std::vector<std::vector<T>> &full)
   {
     const auto n = full.size();
     sb::DistanceMatrix<T> dm(n);
@@ -54,22 +54,24 @@ namespace
 
   /// Build a PointCloud<T> (rank-2 tensor, one point per row) from a list of points.
   template <typename T>
-  sb::PointCloud<T> make_pcloud(const std::vector<std::vector<T>>& points)
+  sb::PointCloud<T> make_pcloud(const std::vector<std::vector<T>> &points)
   {
     const auto n = points.size();
     const auto dim = points.empty() ? size_t{0} : points[0].size();
-    sb::PointCloud<T> pc(std::vector<size_t>{ n, dim });
+    sb::PointCloud<T> pc(std::vector<size_t>{n, dim});
     for (size_t i = 0; i < n; ++i)
     {
       for (size_t k = 0; k < dim; ++k)
-        pc({ i, k }) = points[i][k];
+      {
+        pc({i, k}) = points[i][k];
+      }
     }
     return pc;
   }
 
   /// Run the algorithm core on a (d, d') distance-matrix pair.
   template <typename T>
-  sb::ph::Barcode<T> kernel_of(const sb::DistanceMatrix<T>& d, const sb::DistanceMatrix<T>& dPrime)
+  sb::ph::Barcode<T> kernel_of(const sb::DistanceMatrix<T> &d, const sb::DistanceMatrix<T> &dPrime)
   {
     sb::ph::Barcode<T> bc;
     sb::ph::detail::homological_kernel_single_impl(d, dPrime, d.size(), bc);
@@ -78,7 +80,7 @@ namespace
 
   /// Run the algorithm core on a (X, X') point-cloud pair via the Euclidean oracle.
   template <typename T>
-  sb::ph::Barcode<T> kernel_of(const sb::PointCloud<T>& X, const sb::PointCloud<T>& XPrime)
+  sb::ph::Barcode<T> kernel_of(const sb::PointCloud<T> &X, const sb::PointCloud<T> &XPrime)
   {
     sb::ph::detail::SquaredEuclideanDistance<T> d(X);
     sb::ph::detail::SquaredEuclideanDistance<T> dPrime(XPrime);
@@ -90,24 +92,24 @@ namespace
   /// Compare a computed barcode against expected {birth, death} bars via
   /// Barcode::is_isomorphic_to (order-independent, default tolerances).
   template <typename T>
-  void expect_bars(const sb::ph::Barcode<T>& bc, const std::vector<std::pair<T, T>>& expected)
+  void expect_bars(const sb::ph::Barcode<T> &bc, const std::vector<std::pair<T, T>> &expected)
   {
     std::vector<sb::ph::PersistencePair<T>> bars;
     bars.reserve(expected.size());
-    for (const auto& [birth, death] : expected)
+    for (const auto &[birth, death] : expected)
+    {
       bars.emplace_back(birth, death);
+    }
     sb::ph::Barcode<T> expectedBc(std::move(bars));
 
-    EXPECT_TRUE(bc.is_isomorphic_to(expectedBc))
-      << "actual:   " << bc << "\nexpected: " << expectedBc;
+    EXPECT_TRUE(bc.is_isomorphic_to(expectedBc)) << "actual:   " << bc << "\nexpected: " << expectedBc;
   }
 
   /// Check the kernel barcode of a (d, d') distance-matrix pair against expected bars.
   template <typename T>
   void expect_kernel_bars(
-    const std::vector<std::vector<T>>& d,
-    const std::vector<std::vector<T>>& dPrime,
-    const std::vector<std::pair<T, T>>& expected)
+      const std::vector<std::vector<T>> &d, const std::vector<std::vector<T>> &dPrime,
+      const std::vector<std::pair<T, T>> &expected)
   {
     expect_bars(kernel_of(make_distmat(d), make_distmat(dPrime)), expected);
   }
@@ -119,10 +121,10 @@ namespace
   std::vector<std::vector<T>> line_metric()
   {
     return {
-      { T(0), T(1), T(3), T(7) },
-      { T(1), T(0), T(2), T(6) },
-      { T(3), T(2), T(0), T(4) },
-      { T(7), T(6), T(4), T(0) },
+        {T(0), T(1), T(3), T(7)},
+        {T(1), T(0), T(2), T(6)},
+        {T(3), T(2), T(0), T(4)},
+        {T(7), T(6), T(4), T(0)},
     };
   }
 
@@ -134,10 +136,10 @@ namespace
   {
     using T = TypeParam;
 
-    auto pc = make_pcloud<T>({ { T(0), T(0) }, { T(3), T(4) }, { T(0), T(12) } });
+    auto pc = make_pcloud<T>({{T(0), T(0)}, {T(3), T(4)}, {T(0), T(12)}});
     sb::ph::detail::SquaredEuclideanDistance<T> dist(pc);
 
-    EXPECT_EQ(dist.size(), 3u);
+    EXPECT_EQ(dist.size(), 3U);
     EXPECT_NEAR(dist(0, 1), T(25), tolerance<T>());
     EXPECT_NEAR(dist(0, 2), T(144), tolerance<T>());
     EXPECT_NEAR(dist(1, 2), T(73), tolerance<T>());
@@ -157,11 +159,15 @@ namespace
     // d'-merge scales w = 0.5, 1, 2 of the line example.
     auto d = line_metric<T>();
     auto dPrime = d;
-    for (auto& row : dPrime)
-      for (auto& v : row)
+    for (auto &row : dPrime)
+    {
+      for (auto &v : row)
+      {
         v /= T(2);
+      }
+    }
 
-    expect_kernel_bars<T>(d, dPrime, { { T(0.5), T(1) }, { T(1), T(2) }, { T(2), T(4) } });
+    expect_kernel_bars<T>(d, dPrime, {{T(0.5), T(1)}, {T(1), T(2)}, {T(2), T(4)}});
   }
 
   TYPED_TEST(HomologicalKernelTest, IdenticalMetricsGiveEmptyBars)
@@ -170,7 +176,7 @@ namespace
 
     // d' == d: every death equals its birth — empty bars [w, w), no throw.
     auto d = line_metric<T>();
-    expect_kernel_bars<T>(d, d, { { T(1), T(1) }, { T(2), T(2) }, { T(4), T(4) } });
+    expect_kernel_bars<T>(d, d, {{T(1), T(1)}, {T(2), T(2)}, {T(4), T(4)}});
   }
 
   TYPED_TEST(HomologicalKernelTest, DeathCarriedByNonMergedPair)
@@ -184,19 +190,19 @@ namespace
     // involves neither endpoint of the merge edge: the death is determined by
     // the whole component pair.
     std::vector<std::vector<T>> d = {
-      { T(0), T(1), T(5), T(9) },
-      { T(1), T(0), T(5), T(9) },
-      { T(5), T(5), T(0), T(9) },
-      { T(9), T(9), T(9), T(0) },
+        {T(0), T(1), T(5), T(9)},
+        {T(1), T(0), T(5), T(9)},
+        {T(5), T(5), T(0), T(9)},
+        {T(9), T(9), T(9), T(0)},
     };
     std::vector<std::vector<T>> dPrime = {
-      { T(0.0), T(0.9), T(0.1), T(0.9) },
-      { T(0.9), T(0.0), T(0.9), T(0.2) },
-      { T(0.1), T(0.9), T(0.0), T(0.5) },
-      { T(0.9), T(0.2), T(0.5), T(0.0) },
+        {T(0.0), T(0.9), T(0.1), T(0.9)},
+        {T(0.9), T(0.0), T(0.9), T(0.2)},
+        {T(0.1), T(0.9), T(0.0), T(0.5)},
+        {T(0.9), T(0.2), T(0.5), T(0.0)},
     };
 
-    expect_kernel_bars<T>(d, dPrime, { { T(0.1), T(5) }, { T(0.2), T(9) }, { T(0.5), T(1) } });
+    expect_kernel_bars<T>(d, dPrime, {{T(0.1), T(5)}, {T(0.2), T(9)}, {T(0.5), T(1)}});
   }
 
   // Pure merge-order inversion (abstract metrics): d' merges A-B first, but
@@ -206,17 +212,17 @@ namespace
     using T = TypeParam;
 
     std::vector<std::vector<T>> dPrime = {
-      { T(0), T(1), T(3) },
-      { T(1), T(0), T(2) },
-      { T(3), T(2), T(0) },
+        {T(0), T(1), T(3)},
+        {T(1), T(0), T(2)},
+        {T(3), T(2), T(0)},
     };
     std::vector<std::vector<T>> d = {
-      { T(0), T(5), T(6) },
-      { T(5), T(0), T(3) },
-      { T(6), T(3), T(0) },
+        {T(0), T(5), T(6)},
+        {T(5), T(0), T(3)},
+        {T(6), T(3), T(0)},
     };
 
-    expect_kernel_bars<T>(d, dPrime, { { T(1), T(5) }, { T(2), T(3) } });
+    expect_kernel_bars<T>(d, dPrime, {{T(1), T(5)}, {T(2), T(3)}});
   }
 
   // Two disjoint pairs merge at the same birth (tie). The barcode multiset
@@ -227,19 +233,19 @@ namespace
     using T = TypeParam;
 
     std::vector<std::vector<T>> dPrime = {
-      { T(0), T(1), T(2), T(2) },
-      { T(1), T(0), T(2), T(2) },
-      { T(2), T(2), T(0), T(1) },
-      { T(2), T(2), T(1), T(0) },
+        {T(0), T(1), T(2), T(2)},
+        {T(1), T(0), T(2), T(2)},
+        {T(2), T(2), T(0), T(1)},
+        {T(2), T(2), T(1), T(0)},
     };
     std::vector<std::vector<T>> d = {
-      { T(0), T(3), T(4), T(4) },
-      { T(3), T(0), T(4), T(4) },
-      { T(4), T(4), T(0), T(5) },
-      { T(4), T(4), T(5), T(0) },
+        {T(0), T(3), T(4), T(4)},
+        {T(3), T(0), T(4), T(4)},
+        {T(4), T(4), T(0), T(5)},
+        {T(4), T(4), T(5), T(0)},
     };
 
-    expect_kernel_bars<T>(d, dPrime, { { T(1), T(3) }, { T(1), T(4) }, { T(2), T(4) } });
+    expect_kernel_bars<T>(d, dPrime, {{T(1), T(3)}, {T(1), T(4)}, {T(2), T(4)}});
   }
 
   // Contracting a d-far pair creates a shortcut that lowers the death of a
@@ -252,10 +258,10 @@ namespace
   {
     using T = TypeParam;
 
-    auto X = make_pcloud<T>({ { T(0), T(6) }, { T(5), T(6) }, { T(5), T(0) }, { T(2), T(0) } });
-    auto XPrime = make_pcloud<T>({ { T(0), T(0) }, { T(5), T(0) }, { T(5), T(0) }, { T(2), T(0) } });
+    auto X = make_pcloud<T>({{T(0), T(6)}, {T(5), T(6)}, {T(5), T(0)}, {T(2), T(0)}});
+    auto XPrime = make_pcloud<T>({{T(0), T(0)}, {T(5), T(0)}, {T(5), T(0)}, {T(2), T(0)}});
 
-    expect_bars(kernel_of(X, XPrime), { { T(0), T(6) }, { T(2), T(5) }, { T(3), T(3) } });
+    expect_bars(kernel_of(X, XPrime), {{T(0), T(6)}, {T(2), T(5)}, {T(3), T(3)}});
   }
 
   // Staircase version of the shortcut above: the death chain of the (A,B)@1
@@ -267,25 +273,23 @@ namespace
     using T = TypeParam;
 
     auto X = make_pcloud<T>({
-      { T(0), T(20) },  // A
-      { T(8), T(20) },  // R1
-      { T(8), T(10) },  // R1'
-      { T(5), T(10) },  // R2
-      { T(5), T(0) },   // R2'
-      { T(1), T(0) },   // B
+        {T(0), T(20)}, // A
+        {T(8), T(20)}, // R1
+        {T(8), T(10)}, // R1'
+        {T(5), T(10)}, // R2
+        {T(5), T(0)},  // R2'
+        {T(1), T(0)},  // B
     });
     auto XPrime = make_pcloud<T>({
-      { T(0), T(0) },
-      { T(8), T(0) },
-      { T(8), T(0) },
-      { T(5), T(0) },
-      { T(5), T(0) },
-      { T(1), T(0) },
+        {T(0), T(0)},
+        {T(8), T(0)},
+        {T(8), T(0)},
+        {T(5), T(0)},
+        {T(5), T(0)},
+        {T(1), T(0)},
     });
 
-    expect_bars(
-      kernel_of(X, XPrime),
-      { { T(0), T(10) }, { T(0), T(10) }, { T(1), T(8) }, { T(3), T(3) }, { T(4), T(4) } });
+    expect_bars(kernel_of(X, XPrime), {{T(0), T(10)}, {T(0), T(10)}, {T(1), T(8)}, {T(3), T(3)}, {T(4), T(4)}});
   }
 
   // The births of ker mu are exactly the d'-MST edge weights and the deaths
@@ -297,7 +301,7 @@ namespace
   {
     using T = TypeParam;
 
-    std::mt19937 rng(20260716u);
+    std::mt19937 rng(20260716U);
     std::uniform_real_distribution<double> unit(0.0, 1.0);
 
     for (int trial = 0; trial < 50; ++trial)
@@ -325,7 +329,7 @@ namespace
 
       std::vector<T> births;
       std::vector<T> deaths;
-      for (const auto& bar : bc.bars())
+      for (const auto &bar : bc.bars())
       {
         births.push_back(bar.birth);
         deaths.push_back(bar.death);
@@ -347,14 +351,14 @@ namespace
 
     // d' > d pointwise: the first d' merge is born at 2 but dies at 1.
     std::vector<std::vector<T>> d = {
-      { T(0), T(1), T(1) },
-      { T(1), T(0), T(1) },
-      { T(1), T(1), T(0) },
+        {T(0), T(1), T(1)},
+        {T(1), T(0), T(1)},
+        {T(1), T(1), T(0)},
     };
     std::vector<std::vector<T>> dPrime = {
-      { T(0), T(2), T(2) },
-      { T(2), T(0), T(2) },
-      { T(2), T(2), T(0) },
+        {T(0), T(2), T(2)},
+        {T(2), T(0), T(2)},
+        {T(2), T(2), T(0)},
     };
 
     EXPECT_THROW(kernel_of(make_distmat(d), make_distmat(dPrime)), std::runtime_error);
@@ -370,15 +374,15 @@ namespace
     const T w = T(1.5);
     const T justBelow = std::nextafter(w, T(0));
     std::vector<std::vector<T>> d = {
-      { T(0), justBelow },
-      { justBelow, T(0) },
+        {T(0), justBelow},
+        {justBelow, T(0)},
     };
     std::vector<std::vector<T>> dPrime = {
-      { T(0), w },
-      { w, T(0) },
+        {T(0), w},
+        {w, T(0)},
     };
 
-    expect_kernel_bars<T>(d, dPrime, { { w, w } });
+    expect_kernel_bars<T>(d, dPrime, {{w, w}});
   }
 
   TYPED_TEST(HomologicalKernelTest, TwoPointsGiveSingleBar)
@@ -388,15 +392,15 @@ namespace
     // Minimal nontrivial case: one merge, one bar — the sweep at its smallest
     // size (a single d-MST edge).
     std::vector<std::vector<T>> d = {
-      { T(0), T(5) },
-      { T(5), T(0) },
+        {T(0), T(5)},
+        {T(5), T(0)},
     };
     std::vector<std::vector<T>> dPrime = {
-      { T(0), T(2) },
-      { T(2), T(0) },
+        {T(0), T(2)},
+        {T(2), T(0)},
     };
 
-    expect_kernel_bars<T>(d, dPrime, { { T(2), T(5) } });
+    expect_kernel_bars<T>(d, dPrime, {{T(2), T(5)}});
   }
 
   TYPED_TEST(HomologicalKernelTest, TrivialInputsGiveEmptyBarcode)
@@ -415,97 +419,97 @@ namespace
   {
     using T = TypeParam;
 
-    sb::Tensor<sb::DistanceMatrix<T>> input({ 1 });
-    sb::Tensor<sb::DistanceMatrix<T>> inputPrime({ 1 });
-    sb::Tensor<sb::ph::Barcode<T>> ret({ 1 });
+    sb::Tensor<sb::DistanceMatrix<T>> input({1});
+    sb::Tensor<sb::DistanceMatrix<T>> inputPrime({1});
+    sb::Tensor<sb::ph::Barcode<T>> ret({1});
 
     auto d = line_metric<T>();
     auto dPrime = d;
-    for (auto& row : dPrime)
-      for (auto& v : row)
+    for (auto &row : dPrime)
+    {
+      for (auto &v : row)
+      {
         v /= T(2);
-    input({ 0 }) = make_distmat<T>(d);
-    inputPrime({ 0 }) = make_distmat<T>(dPrime);
+      }
+    }
+    input({0}) = make_distmat<T>(d);
+    inputPrime({0}) = make_distmat<T>(dPrime);
 
-    sb::ph::detail::homological_kernel_distmat_single_impl(input, inputPrime, ret, { 0 });
-    EXPECT_EQ(ret({ 0 }).bars().size(), 3u);
+    sb::ph::detail::homological_kernel_distmat_single_impl(input, inputPrime, ret, {0});
+    EXPECT_EQ(ret({0}).bars().size(), 3U);
 
     // Same outer shape but ragged element sizes must throw.
-    inputPrime({ 0 }) = sb::DistanceMatrix<T>(3);
+    inputPrime({0}) = sb::DistanceMatrix<T>(3);
     EXPECT_THROW(
-      sb::ph::detail::homological_kernel_distmat_single_impl(input, inputPrime, ret, { 0 }),
-      std::runtime_error);
+        sb::ph::detail::homological_kernel_distmat_single_impl(input, inputPrime, ret, {0}), std::runtime_error);
   }
 
   TYPED_TEST(HomologicalKernelTest, PcloudWrapperRejectsMismatchedElementShapes)
   {
     using T = TypeParam;
 
-    sb::Tensor<sb::PointCloud<T>> input({ 1 });
-    sb::Tensor<sb::PointCloud<T>> inputPrime({ 1 });
-    sb::Tensor<sb::ph::Barcode<T>> ret({ 1 });
+    sb::Tensor<sb::PointCloud<T>> input({1});
+    sb::Tensor<sb::PointCloud<T>> inputPrime({1});
+    sb::Tensor<sb::ph::Barcode<T>> ret({1});
 
-    input({ 0 }) = make_pcloud<T>({ { T(0), T(0) }, { T(1), T(0) } });
-    inputPrime({ 0 }) = make_pcloud<T>({ { T(0) }, { T(1) } }); // same n, different dim
+    input({0}) = make_pcloud<T>({{T(0), T(0)}, {T(1), T(0)}});
+    inputPrime({0}) = make_pcloud<T>({{T(0)}, {T(1)}}); // same n, different dim
 
     EXPECT_THROW(
-      sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 }),
-      std::runtime_error);
+        sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, {0}), std::runtime_error);
   }
 
   TYPED_TEST(HomologicalKernelTest, PcloudWrapperRejectsRankOneElements)
   {
     using T = TypeParam;
 
-    sb::Tensor<sb::PointCloud<T>> input({ 1 });
-    sb::Tensor<sb::PointCloud<T>> inputPrime({ 1 });
-    sb::Tensor<sb::ph::Barcode<T>> ret({ 1 });
+    sb::Tensor<sb::PointCloud<T>> input({1});
+    sb::Tensor<sb::PointCloud<T>> inputPrime({1});
+    sb::Tensor<sb::ph::Barcode<T>> ret({1});
 
     // A rank-1 "cloud" (a bare vector, no coordinate axis) is not a valid
     // (n, dim) point cloud and must be rejected.
-    sb::PointCloud<T> vec(std::vector<size_t>{ 3 });
-    vec({ 0 }) = T(1);
-    vec({ 1 }) = T(2);
-    vec({ 2 }) = T(3);
-    input({ 0 }) = vec;
-    inputPrime({ 0 }) = vec;
+    sb::PointCloud<T> vec(std::vector<size_t>{3});
+    vec({0}) = T(1);
+    vec({1}) = T(2);
+    vec({2}) = T(3);
+    input({0}) = vec;
+    inputPrime({0}) = vec;
 
     EXPECT_THROW(
-      sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 }),
-      std::runtime_error);
+        sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, {0}), std::runtime_error);
 
     // Empty rank-1 shapes are rejected the same way: the rank check runs
     // before any degeneracy handling, so validation does not depend on
     // whether the malformed cloud happens to be empty.
-    input({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 0 });
-    inputPrime({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 0 });
+    input({0}) = sb::PointCloud<T>(std::vector<size_t>{0});
+    inputPrime({0}) = sb::PointCloud<T>(std::vector<size_t>{0});
     EXPECT_THROW(
-      sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 }),
-      std::runtime_error);
+        sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, {0}), std::runtime_error);
   }
 
   TYPED_TEST(HomologicalKernelTest, PcloudWrapperTreatsZeroDimCloudsAsCoincidentPoints)
   {
     using T = TypeParam;
 
-    sb::Tensor<sb::PointCloud<T>> input({ 1 });
-    sb::Tensor<sb::PointCloud<T>> inputPrime({ 1 });
-    sb::Tensor<sb::ph::Barcode<T>> ret({ 1 });
+    sb::Tensor<sb::PointCloud<T>> input({1});
+    sb::Tensor<sb::PointCloud<T>> inputPrime({1});
+    sb::Tensor<sb::ph::Barcode<T>> ret({1});
 
     // (n, 0): n points with no coordinates. All points coincide, inducing the
     // all-zero metric — n-1 zero-length bars, matching the distmat route on
     // the equivalent all-zero matrix and the documented n-1 bar count.
-    input({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 3, 0 });
-    inputPrime({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 3, 0 });
+    input({0}) = sb::PointCloud<T>(std::vector<size_t>{3, 0});
+    inputPrime({0}) = sb::PointCloud<T>(std::vector<size_t>{3, 0});
 
-    sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 });
-    expect_bars<T>(ret({ 0 }), { { T(0), T(0) }, { T(0), T(0) } });
+    sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, {0});
+    expect_bars<T>(ret({0}), {{T(0), T(0)}, {T(0), T(0)}});
 
     // (0, dim): no points at all — empty barcode.
-    input({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 0, 2 });
-    inputPrime({ 0 }) = sb::PointCloud<T>(std::vector<size_t>{ 0, 2 });
-    sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, { 0 });
-    EXPECT_TRUE(ret({ 0 }).bars().empty());
+    input({0}) = sb::PointCloud<T>(std::vector<size_t>{0, 2});
+    inputPrime({0}) = sb::PointCloud<T>(std::vector<size_t>{0, 2});
+    sb::ph::detail::homological_kernel_pcloud_single_impl(input, inputPrime, ret, {0});
+    EXPECT_TRUE(ret({0}).bars().empty());
   }
 
 } // namespace
