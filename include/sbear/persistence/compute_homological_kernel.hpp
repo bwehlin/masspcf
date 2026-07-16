@@ -42,7 +42,7 @@ namespace sb::ph
       {
       }
 
-      T operator()(size_t i, size_t j) const
+      [[nodiscard]] T operator()(size_t i, size_t j) const
       {
         const T *p = m_data + static_cast<ptrdiff_t>(i) * m_pointStride;
         const T *q = m_data + static_cast<ptrdiff_t>(j) * m_pointStride;
