@@ -121,16 +121,21 @@ Computing the kernel in stablebear
 ==================================
 
 :py:func:`~stablebear.persistence.compute_homological_kernel` takes the coarse
-data :math:`d` as ``X`` and the finer data :math:`d'` as ``X_prime``, and returns
-a :py:class:`~stablebear.persistence.BarcodeTensor`. The finer distance is
-supplied in one of two ways.
+data :math:`d` as ``X`` and the finer data :math:`d'` as ``Y``, and returns
+a :py:class:`~stablebear.persistence.BarcodeTensor`. ``Y`` must be the same
+kind and shape as ``X``, and element :math:`i` of ``X`` is paired with element
+:math:`i` of ``Y``. The kernel is computed in homology dimension ``dim``; only
+``dim=0`` is currently supported.
 
-Built-in projection presets
----------------------------
+Point-cloud input
+-----------------
 
-For the correlation use case, pass a point cloud and let a ``transform`` preset
-produce :math:`d'` by projecting the points. Every preset is an orthogonal
-projection, so the domination :math:`d' \le d` is guaranteed for any input::
+Point clouds always use the Euclidean metric. For the correlation use case,
+pass the cloud as ``X`` and its projection onto the diagonal as ``Y``: the
+projection is orthogonal, hence 1-Lipschitz, so the domination
+:math:`d' \le d` is guaranteed for any input. Point clouds stay in the
+ambient dimension -- express a lower-dimensional projection in the original
+coordinates rather than dropping columns::
 
    import numpy as np
    from stablebear import persistence
@@ -138,44 +143,19 @@ projection, so the domination :math:`d' \le d` is guaranteed for any input::
    # A small 2D "correlation cloud"
    X = np.array([[0.0, 0.0], [4.0, 0.0], [0.0, 4.0], [3.0, 3.0]])
 
-   bcs = persistence.compute_homological_kernel(X, transform="diagonal")
-   kernel = bcs[0]     # one Barcode, with len(X) - 1 = 3 bars
-
-The available presets are:
-
-- ``"diagonal"`` -- projection onto the diagonal line spanned by
-  :math:`(1, \dots, 1)`. This is the correlation construction: it compares the
-  cloud with its collapse onto :math:`y = x`.
-- ``"coordinate"`` -- projection onto the first :math:`\dim - 1` coordinate axes
-  (drops the last coordinate).
-
-Explicit ``X_prime``
---------------------
-
-To use a projection or transform of your own, pass the finer data directly as
-``X_prime``. It must be the same kind and shape as ``X``, and element :math:`i`
-of ``X`` is paired with element :math:`i` of ``X_prime``. Point clouds stay in
-the ambient dimension -- express a lower-dimensional projection in the original
-coordinates rather than dropping columns::
-
-   X = np.array([[0.0, 0.0], [4.0, 0.0], [0.0, 4.0], [3.0, 3.0]])
-
-   # Diagonal projection expressed explicitly: (x, y) -> ((x+y)/2, (x+y)/2)
+   # Diagonal projection: (x, y) -> ((x+y)/2, (x+y)/2)
    m = X.mean(axis=1, keepdims=True)
-   X_prime = np.broadcast_to(m, X.shape).copy()
+   Y = np.broadcast_to(m, X.shape).copy()
 
-   bcs = persistence.compute_homological_kernel(X, X_prime)
-
-Exactly one of ``X_prime`` and ``transform`` must be given; supplying both or
-neither is a ``ValueError``.
+   bcs = persistence.compute_homological_kernel(X, Y)
+   kernel = bcs[0]     # one Barcode, with len(X) - 1 = 3 bars
 
 Distance-matrix input
 ---------------------
 
 When the metrics are not Euclidean point clouds -- for instance abstract
 distances where :math:`d'` reorders the merges relative to :math:`d` -- provide
-them as distance matrices. ``transform`` presets require point-cloud input, so
-distance matrices must always be paired with an explicit ``X_prime``::
+both inputs as distance matrices::
 
    import stablebear as sb
    from stablebear import persistence
@@ -193,7 +173,7 @@ distance matrices must always be paired with an explicit ``X_prime``::
 Accepted input types
 --------------------
 
-Both ``X`` and ``X_prime`` accept the same forms as
+Both ``X`` and ``Y`` accept the same forms as
 :py:func:`~stablebear.persistence.compute_persistent_homology`:
 
 - a plain NumPy array or ``FloatTensor`` (a single point cloud);
@@ -207,10 +187,13 @@ the same shape, one kernel barcode per element::
 
    # A batch of correlation clouds, one kernel each
    clouds = sb.zeros((100,), dtype=sb.pcloud64)
+   projected = sb.zeros((100,), dtype=sb.pcloud64)
    for i in range(100):
-       clouds[i] = np.random.randn(30, 2)
+       cloud = np.random.randn(30, 2)
+       clouds[i] = cloud
+       projected[i] = np.broadcast_to(cloud.mean(axis=1, keepdims=True), cloud.shape).copy()
 
-   kernels = persistence.compute_homological_kernel(clouds, transform="diagonal")
+   kernels = persistence.compute_homological_kernel(clouds, projected)
    print(kernels.shape)   # (100,)
 
 
@@ -226,12 +209,15 @@ obtained as the :math:`L_1` integral of its stable rank::
    import stablebear as sb
    from stablebear import persistence
 
-   # A batch of correlation clouds
+   # A batch of correlation clouds and their diagonal projections
    clouds = sb.zeros((100,), dtype=sb.pcloud64)
+   projected = sb.zeros((100,), dtype=sb.pcloud64)
    for i in range(100):
-       clouds[i] = np.random.randn(30, 2)
+       cloud = np.random.randn(30, 2)
+       clouds[i] = cloud
+       projected[i] = np.broadcast_to(cloud.mean(axis=1, keepdims=True), cloud.shape).copy()
 
-   kernels = persistence.compute_homological_kernel(clouds, transform="diagonal")
+   kernels = persistence.compute_homological_kernel(clouds, projected)
 
    # Stable rank of each kernel, then its L1 norm = total persistence
    sranks = persistence.barcode_to_stable_rank(kernels)
