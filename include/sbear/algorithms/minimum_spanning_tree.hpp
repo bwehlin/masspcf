@@ -13,7 +13,10 @@ namespace sb
   /// Squared-Euclidean distance functor over a point cloud: answers d(i, j)^2
   /// on demand without materializing a distance matrix. Exposes the same call
   /// interface as DistanceMatrix<T> (operator()(i, j) and size()), so
-  /// algorithms such as MST construction can be templated over either. Works
+  /// algorithms such as MST construction can be templated over either.
+  /// Precondition: the cloud must be rank 2 with shape (n, dim) — the
+  /// constructor reads stride(1)/shape(1), so the caller must validate the
+  /// rank first (as homological_kernel_pcloud_single_impl does). Works
   /// in squared distances because comparisons are unchanged (x -> x^2 is
   /// monotone on [0, inf)); the caller applies sqrt to the few distances it
   /// keeps (e.g. the n-1 merge distances of an MST) instead of one sqrt per
