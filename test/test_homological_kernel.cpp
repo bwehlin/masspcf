@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <sbear/algorithms/minimum_spanning_tree.hpp>
 #include <sbear/distance_matrix.hpp>
 #include <sbear/persistence/barcode.hpp>
 #include <sbear/persistence/compute_homological_kernel.hpp>
@@ -82,8 +83,8 @@ namespace
   template <typename T>
   sb::ph::Barcode<T> kernel_of(const sb::PointCloud<T> &X, const sb::PointCloud<T> &XPrime)
   {
-    sb::ph::detail::SquaredEuclideanDistance<T> d(X);
-    sb::ph::detail::SquaredEuclideanDistance<T> dPrime(XPrime);
+    sb::SquaredEuclideanDistance<T> d(X);
+    sb::SquaredEuclideanDistance<T> dPrime(XPrime);
     sb::ph::Barcode<T> bc;
     sb::ph::detail::homological_kernel_single_impl(d, dPrime, d.size(), bc, [](T v) { return std::sqrt(v); });
     return bc;
@@ -137,7 +138,7 @@ namespace
     using T = TypeParam;
 
     auto pc = make_pcloud<T>({{T(0), T(0)}, {T(3), T(4)}, {T(0), T(12)}});
-    sb::ph::detail::SquaredEuclideanDistance<T> dist(pc);
+    sb::SquaredEuclideanDistance<T> dist(pc);
 
     EXPECT_EQ(dist.size(), 3U);
     EXPECT_NEAR(dist(0, 1), T(25), tolerance<T>());
@@ -322,10 +323,10 @@ namespace
       const auto bc = kernel_of(d, dPrime);
       ASSERT_EQ(bc.bars().size(), n - 1);
 
-      std::vector<sb::ph::detail::MergeEdge<T>> dMerges;
-      std::vector<sb::ph::detail::MergeEdge<T>> primeMerges;
-      sb::ph::detail::mst_merge_order(d, n, dMerges);
-      sb::ph::detail::mst_merge_order(dPrime, n, primeMerges);
+      std::vector<sb::MergeEdge<T>> dMerges;
+      std::vector<sb::MergeEdge<T>> primeMerges;
+      sb::mst_merge_order(d, n, dMerges);
+      sb::mst_merge_order(dPrime, n, primeMerges);
 
       std::vector<T> births;
       std::vector<T> deaths;

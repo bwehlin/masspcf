@@ -1,6 +1,7 @@
 #ifndef STABLEBEAR_HOMOLOGICAL_KERNEL_H
 #define STABLEBEAR_HOMOLOGICAL_KERNEL_H
 
+#include "../algorithms/minimum_spanning_tree.hpp"
 #include "../distance_matrix.hpp"
 #include "../executor.hpp"
 #include "../task.hpp"
@@ -25,57 +26,6 @@ namespace sb::ph
 {
   namespace detail
   {
-    /// Squared-Euclidean distance functor over a point cloud: answers d(i, j)^2
-    /// on demand without materializing a distance matrix. Exposes the same call
-    /// interface as DistanceMatrix<T> (operator()(i, j) and size()), so the
-    /// kernel algorithms can be templated over either. Works in squared
-    /// distances because MST construction and the merge sort only compare
-    /// (x -> x^2 is monotone on [0, inf)); the caller applies sqrt to the n-1
-    /// stored merge distances instead of one sqrt per O(n^2) query.
-    template <typename T>
-    class SquaredEuclideanDistance
-    {
-    public:
-      explicit SquaredEuclideanDistance(const PointCloud<T> &points)
-          : m_data(points.data()), m_pointStride(points.stride(0)), m_coordStride(points.stride(1)),
-            m_size(points.shape(0)), m_dim(points.shape(1))
-      {
-      }
-
-      [[nodiscard]] T operator()(size_t i, size_t j) const
-      {
-        const T *p = m_data + static_cast<ptrdiff_t>(i) * m_pointStride;
-        const T *q = m_data + static_cast<ptrdiff_t>(j) * m_pointStride;
-        T sumSq{0};
-        for (auto k = ptrdiff_t{0}; k < static_cast<ptrdiff_t>(m_dim); ++k)
-        {
-          auto diff = p[k * m_coordStride] - q[k * m_coordStride];
-          sumSq += diff * diff;
-        }
-        return sumSq;
-      }
-
-      [[nodiscard]] size_t size() const noexcept
-      {
-        return m_size;
-      }
-
-    private:
-      const T *m_data;
-      ptrdiff_t m_pointStride;
-      ptrdiff_t m_coordStride;
-      size_t m_size;
-      size_t m_dim;
-    };
-
-    template <typename T>
-    struct MergeEdge
-    {
-      size_t a; // endpoints of the MST edge = representatives of the two merging components
-      size_t b;
-      T mergeDist;
-    };
-
     // Union-find root lookup with path halving.
     inline size_t uf_find_root(std::vector<size_t> &ufParent, size_t x)
     {
@@ -85,65 +35,6 @@ namespace sb::ph
         x = ufParent[x];
       }
       return x;
-    }
-
-    // Distance type is in practice a distance matrix. The SquaredEuclideanDistance above calculates the (squared)
-    // distance for a pointcloud as well so we dont even need to construct a full distance matrix when working with
-    // pointclouds.
-    //
-    // Fills merges with the n-1 single-linkage merges of the metric, sorted ascending
-    // by merge distance. Array-based Prim: O(n^2) distance queries, O(n) memory.
-    template <typename DistT, typename T>
-    void mst_merge_order(const DistT &dist, size_t n, std::vector<MergeEdge<T>> &merges)
-    {
-      merges.clear();
-      if (n <= 1)
-        return;
-      merges.reserve(n - 1);
-
-      std::vector<T> minDist(n, std::numeric_limits<T>::infinity());
-      std::vector<size_t> parent(n, 0);
-      std::vector<char> visited(n, 0);
-
-      minDist[0] = T{0};
-
-      for (size_t iter = 0; iter < n; ++iter)
-      {
-        // Pick the unvisited node closest to the tree.
-        size_t u = 0;
-        bool found = false;
-        for (size_t j = 0; j < n; ++j)
-        {
-          if (!visited[j] && (!found || minDist[j] < minDist[u]))
-          {
-            u = j;
-            found = true;
-          }
-        }
-
-        visited[u] = 1;
-        if (iter > 0)
-        {
-          merges.push_back({parent[u], u, minDist[u]});
-        }
-
-        for (size_t j = 0; j < n; ++j)
-        {
-          if (!visited[j])
-          {
-            auto d = dist(u, j);
-            if (d < minDist[j])
-            {
-              minDist[j] = d;
-              parent[j] = u;
-            }
-          }
-        }
-      }
-
-      std::sort(merges.begin(), merges.end(), [](const MergeEdge<T> &x, const MergeEdge<T> &y) {
-        return x.mergeDist < y.mergeDist;
-      });
     }
 
     // Performs the cross filtration: replays the d' merges (the births w_i) and
@@ -197,30 +88,31 @@ namespace sb::ph
         // The seed alone can never connect merge.a to merge.b (its unions stay
         // inside d'-components, and a and b are in different ones by definition
         // of this merge), and the full d-MST is spanning — so the loop always
-        // runs at least once and exits with k <= n-1, having set death.
+        // runs at least once and exits with edgeIdx <= n-1, having set death.
         //
         // The connectivity check is find-free: rootA/rootB are cached, and a
         // cached root can only stop being one when the union writes over its
-        // slot (rv below) — so patching on that case keeps both caches exact.
+        // slot (absorbedRoot below) — so patching on that case keeps both
+        // caches exact.
         auto rootA = uf_find_root(scratchParent, merge.a);
         auto rootB = uf_find_root(scratchParent, merge.b);
         auto death = std::numeric_limits<T>::quiet_NaN();
-        size_t k = 0;
+        size_t edgeIdx = 0;
         while (rootA != rootB)
         {
-          auto const &edge = dMerges[k++];
+          auto const &edge = dMerges[edgeIdx++];
           // Unconditional union: an edge whose endpoints are already connected
           // (through the seed or earlier edges) is a harmless self-assignment.
-          auto ru = uf_find_root(scratchParent, edge.a);
-          auto rv = uf_find_root(scratchParent, edge.b);
-          scratchParent[rv] = ru;
-          if (rv == rootA)
+          auto survivingRoot = uf_find_root(scratchParent, edge.a);
+          auto absorbedRoot = uf_find_root(scratchParent, edge.b);
+          scratchParent[absorbedRoot] = survivingRoot;
+          if (absorbedRoot == rootA)
           {
-            rootA = ru;
+            rootA = survivingRoot;
           }
-          else if (rv == rootB)
+          else if (absorbedRoot == rootB)
           {
-            rootB = ru;
+            rootB = survivingRoot;
           }
           death = edge.mergeDist;
         }
@@ -232,9 +124,9 @@ namespace sb::ph
         // distances. sqrt(eps) relative forgives any plausible roundoff, while
         // genuine domination failures — which violate at data scale — still
         // throw.
-        const auto tol =
+        const auto tolerance =
             std::sqrt(std::numeric_limits<T>::epsilon()) * std::max(std::abs(merge.mergeDist), std::abs(death));
-        if (death < merge.mergeDist - tol)
+        if (death < merge.mergeDist - tolerance)
         {
           throw std::runtime_error("homological kernel: d does not dominate d' (death below birth)");
         }
@@ -278,7 +170,7 @@ namespace sb::ph
     template <typename T>
     void homological_kernel_distmat_single_impl(
         const Tensor<DistanceMatrix<T>> &distmat, const Tensor<DistanceMatrix<T>> &distmatPrime,
-        Tensor<Barcode<T>> &ret_barcodes, const std::vector<size_t> &index)
+        Tensor<Barcode<T>> &retBarcodes, const std::vector<size_t> &index)
     {
       auto const &dm = distmat(index);           // the Distmat<T> for this instance
       auto const &dmPrime = distmatPrime(index); // its aligned d′ counterpart
@@ -289,13 +181,13 @@ namespace sb::ph
             std::to_string(dm.size()) + " and " + std::to_string(dmPrime.size()) + ")");
       }
 
-      detail::homological_kernel_single_impl(dm, dmPrime, dm.size(), ret_barcodes(index));
+      detail::homological_kernel_single_impl(dm, dmPrime, dm.size(), retBarcodes(index));
     }
 
     template <typename T>
     void homological_kernel_pcloud_single_impl(
         const Tensor<PointCloud<T>> &pclouds, const Tensor<PointCloud<T>> &pcloudsPrime,
-        Tensor<Barcode<T>> &ret_barcodes, const std::vector<size_t> &index)
+        Tensor<Barcode<T>> &retBarcodes, const std::vector<size_t> &index)
     {
       auto const &pc = pclouds(index);           // the PointCloud<T> for this instance
       auto const &pcPrime = pcloudsPrime(index); // its aligned d′ counterpart
@@ -318,11 +210,11 @@ namespace sb::ph
       // via the n <= 1 early-outs, and a zero-dimensional cloud (n, 0) induces
       // the all-zero metric, yielding n-1 zero-length bars exactly like the
       // distance-matrix route does for the equivalent all-zero matrix.
-      detail::SquaredEuclideanDistance<T> dDist(pc); // captures pointer+strides, computes d^2 on demand
-      detail::SquaredEuclideanDistance<T> dPrimeDist(pcPrime);
+      SquaredEuclideanDistance<T> dDist(pc); // captures pointer+strides, computes d^2 on demand
+      SquaredEuclideanDistance<T> dPrimeDist(pcPrime);
 
       detail::homological_kernel_single_impl(
-          dDist, dPrimeDist, dDist.size(), ret_barcodes(index), [](T v) { return std::sqrt(v); });
+          dDist, dPrimeDist, dDist.size(), retBarcodes(index), [](T v) { return std::sqrt(v); });
     }
 
   } // namespace detail
@@ -357,12 +249,18 @@ namespace sb::ph
           m_input,
           [this](const std::vector<size_t> &index) {
             if (stop_requested())
+            {
               return;
+            }
 
             if constexpr (std::is_same_v<ElemT, PointCloud<T>>)
+            {
               detail::homological_kernel_pcloud_single_impl(m_input, m_inputPrime, m_ret, index);
+            }
             else
+            {
               detail::homological_kernel_distmat_single_impl(m_input, m_inputPrime, m_ret, index);
+            }
 
             add_progress(1);
           },

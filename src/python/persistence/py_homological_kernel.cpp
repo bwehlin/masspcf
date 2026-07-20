@@ -11,6 +11,9 @@ namespace py = pybind11;
 namespace
 {
 
+  // Naming seam: the Python API calls the two inputs X and Y, the C++ layer
+  // names them after the metrics they carry — X induces d (the dominating
+  // metric), Y induces d' (the dominated one, d' <= d pointwise).
   template <typename T>
   class PyHomologicalKernelBindings
   {
