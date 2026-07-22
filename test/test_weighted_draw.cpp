@@ -1,7 +1,5 @@
 #include <gtest/gtest.h>
-#include <sbear/executor.hpp>
 #include <sbear/sampling/weighted_draw.hpp>
-#include <sbear/sampling/weighting.hpp>
 #include <sbear/xoroshiro128pp.hpp>
 
 #include <cstdint>
@@ -10,9 +8,9 @@
 #include <span>
 #include <vector>
 
-// Unit tests for the row-level weighted-draw primitives underlying
-// sample_subsets: one row is prepared per query point and then drawn from once
-// per subsample. End-to-end behavior (determinism, generator advancement,
+// Unit tests for the row-level weighted-draw primitives underlying the
+// subsampling task: one row is prepared per query point and then drawn from
+// once per subsample. End-to-end behavior (determinism, generator advancement,
 // region semantics) is covered by the Python tests in test/python/sampling/;
 // these tests cover the primitives' contracts in isolation.
 
@@ -22,9 +20,7 @@ namespace
   using sb::sampling::detail::draw_with_replacement;
   using sb::sampling::detail::draw_without_replacement;
   using sb::sampling::detail::index_for_target;
-  using sb::sampling::detail::prepare_weight_matrix;
   using sb::sampling::detail::prepare_weight_row;
-  using sb::sampling::detail::weight_row;
 
   sb::Xoroshiro128pp engine(uint64_t seed = 7)
   {
@@ -37,14 +33,6 @@ namespace
     for (size_t i = 0; i < drawn.size(); ++i)
       indices[i] = drawn({i});
     return indices;
-  }
-
-  std::vector<double> to_vector_row(const sb::Tensor<double>& matrix, size_t row)
-  {
-    std::vector<double> values(matrix.shape(1));
-    for (size_t j = 0; j < values.size(); ++j)
-      values[j] = matrix({row, j});
-    return values;
   }
 }
 
@@ -171,6 +159,23 @@ TEST(DrawWithoutReplacement, DrawingAllEligiblePointsYieldsEachOnce)
             (std::set<uint64_t>{0u, 2u, 3u}));
 }
 
+TEST(DrawWithoutReplacement, HeavierWeightsAreDrawnMoreOften)
+{
+  // Weights 1:9 — a single draw must select the heavy point ~90% of the
+  // time (5-sigma bounds around 900/1000). Catches inverted-key bugs in the
+  // reservoir sampling (taking the largest keys, or dividing the wrong way
+  // round) that the structural tests above cannot see.
+  std::vector<double> row{1.0, 9.0};
+
+  auto eng = engine();
+  size_t heavy = 0;
+  for (size_t run = 0; run < 1000; ++run)
+    heavy += to_vector(draw_without_replacement(std::span<const double>(row), 1, eng))[0];
+
+  EXPECT_GT(heavy, 850u);
+  EXPECT_LT(heavy, 950u);
+}
+
 // ---------------------------------------------------------------------------
 // draw_indices (the ragged-length dispatch over the modes)
 // ---------------------------------------------------------------------------
@@ -200,31 +205,8 @@ TEST(DrawIndices, WithoutReplacementShrinksToEligibleCount)
   EXPECT_EQ(draw_indices(std::span<const double>(row), nEligible, 5, false, eng).size(), 2u);
 }
 
-// ---------------------------------------------------------------------------
-// prepare_weight_matrix (blocking parallel preparation of all rows)
-// ---------------------------------------------------------------------------
-
-TEST(PrepareWeightMatrix, PreparesEveryRowAndCountsEligibles)
-{
-  sb::Tensor<double> weights({2, 3});
-  weights({0, 0}) = 1.0; weights({0, 1}) = 0.0; weights({0, 2}) = 2.0;
-  weights({1, 0}) = 0.0; weights({1, 1}) = 0.0; weights({1, 2}) = 0.0;
-
-  auto nEligible = prepare_weight_matrix(weights, /*toCdf=*/true, sb::default_executor());
-
-  EXPECT_EQ(nEligible({0}), 2u);
-  EXPECT_EQ(nEligible({1}), 0u);  // all-zero row: a valid empty region
-  // Row 0 was converted in place to its CDF; the empty row is untouched.
-  EXPECT_EQ(to_vector_row(weights, 0), (std::vector<double>{1.0, 1.0, 3.0}));
-  EXPECT_EQ(to_vector_row(weights, 1), (std::vector<double>{0.0, 0.0, 0.0}));
-}
-
-TEST(PrepareWeightMatrix, ValidationErrorsOnWorkersReachTheCaller)
-{
-  sb::Tensor<double> weights({2, 2});
-  weights({0, 0}) = 1.0; weights({0, 1}) = 1.0;
-  weights({1, 0}) = 1.0; weights({1, 1}) = -1.0;
-
-  EXPECT_THROW(prepare_weight_matrix(weights, true, sb::default_executor()),
-               std::invalid_argument);
-}
+// Preparation of a whole weight matrix (the old prepare_weight_matrix, and its
+// worker-exception propagation) is gone: the pipeline no longer materializes a
+// dense matrix. Per-query weighting + drawing, and the propagation of an
+// invalid row from a worker, are now exercised end-to-end by the Python
+// sampling tests (test/python/sampling/).
