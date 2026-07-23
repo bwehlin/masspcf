@@ -1,7 +1,6 @@
 import io
 
 import numpy as np
-import pytest
 
 import stablebear as sb
 from stablebear.sampling import Gaussian, Uniform, subsample_relative
@@ -176,7 +175,7 @@ def test_indexed_distmat_empty_regions_roundtrip():
             assert loaded[i, j].size == 0
 
 
-def test_standalone_indexed_distmat_save_requires_materialize():
+def test_standalone_indexed_distmat_saves_as_materialization():
     dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(30))
     subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
                               sample_size=6, n_instances=1,
@@ -184,11 +183,9 @@ def test_standalone_indexed_distmat_save_requires_materialize():
     view = subs[0, 0]
     assert view.is_indexed
 
-    # A standalone view cannot be written faithfully -> clear error...
-    with pytest.raises(ValueError, match="materialize"):
-        sb.save(view, io.BytesIO())
-
-    # ...and materializing first round-trips the selected submatrix.
-    loaded = _roundtrip(view.materialize())
+    # A standalone view is written as its materialization: the loaded matrix
+    # is the selected submatrix, indistinguishable from saving materialize().
+    loaded = _roundtrip(view)
     assert isinstance(loaded, sb.DistanceMatrix)
+    assert not loaded.is_indexed
     assert np.array_equal(np.asarray(loaded), np.asarray(view))
