@@ -52,6 +52,75 @@ def test_single_cloud_is_subscriptable():
     assert pc[...].array_equal(arr)
 
 
+def test_point_selection_returns_a_shared_view():
+    # Selecting whole points is the indexed-view machinery: the result shares
+    # the source coordinates instead of copying them.
+    arr = np.random.RandomState(3).rand(10, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+    pc = T[0]
+
+    for key, expected in [(slice(1, 4), arr[1:4]),
+                          ([3, 7], arr[[3, 7]]),
+                          ([-1, -2], arr[[-1, -2]]),
+                          (np.arange(10) % 3 == 0, arr[np.arange(10) % 3 == 0])]:
+        selected = pc[key]
+        assert isinstance(selected, sb.PointCloud)
+        assert selected.is_indexed
+        assert selected.array_equal(expected)
+
+
+def test_point_selection_of_a_view_composes_indices():
+    # A view's indices address the source coordinates, so slicing a view must
+    # compose through them rather than index the view's own rows.
+    arr = np.random.RandomState(4).rand(12, 3)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+    pc = T[0]
+
+    view = pc[2:9]
+    nested = view[1:3]
+    assert nested.is_indexed
+    assert nested.array_equal(arr[2:9][1:3])
+    # ...and the original view is untouched by the nested selection.
+    assert view.array_equal(arr[2:9])
+
+
+def test_coordinate_indexing_still_materializes():
+    # Anything that drops the point axis or reaches the coordinate axis yields
+    # numbers, so the plotting idiom keeps working.
+    arr = np.random.RandomState(5).rand(8, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+    pc = T[0]
+
+    for key, expected in [(0, arr[0]), ((slice(None), 0), arr[:, 0]),
+                          ((slice(1, 4), slice(0, 1)), arr[1:4, 0:1]),
+                          (Ellipsis, arr), ((), arr)]:
+        selected = pc[key]
+        assert isinstance(selected, sb.FloatTensor)
+        assert selected.array_equal(expected)
+
+
+def test_out_of_range_point_selection_raises():
+    arr = np.random.RandomState(6).rand(5, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+
+    with pytest.raises(IndexError):
+        T[0][[0, 5]]
+    with pytest.raises(IndexError):
+        T[0][np.array([True, False])]  # mask shorter than the cloud
+
+
+def test_tensor_and_point_cloud_share_the_indexing_interface():
+    # bwehlin's Indexable ask: one contract, both containers.
+    from stablebear._indexable import Indexable
+
+    assert issubclass(sb.FloatTensor, Indexable)
+    assert issubclass(sb.PointCloud, Indexable)
+
+
 def test_tensor_of_clouds_indexing_unchanged():
     # Rank >= 1 tensors still index over clouds, not into them: T[0] is one
     # cloud (a PointCloud), which is itself subscriptable as its (n_points, dim)
