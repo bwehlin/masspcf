@@ -86,22 +86,8 @@ def test_reproducible_with_seed(float_kind):
     b = subsample_relative(R, X, sample_size=10, n_instances=5, generator=sb.random.Generator(7))
     c = subsample_relative(R, X, sample_size=10, n_instances=5, generator=sb.random.Generator(8))
 
-    for i in range(3):
-        for j in range(5):
-            assert np.array_equal(np.asarray(a[i, j]), np.asarray(b[i, j]))
-
-    any_diff = any(
-        not np.array_equal(np.asarray(a[i, j]), np.asarray(c[i, j]))
-        for i in range(3) for j in range(5)
-    )
-    assert any_diff
-
-
-def _all_equal(a, b):
-    return all(
-        np.array_equal(np.asarray(a[i, j]), np.asarray(b[i, j]))
-        for i in range(a.shape[0]) for j in range(a.shape[1])
-    )
+    assert a.array_equal(b)
+    assert not a.array_equal(c)
 
 
 def test_consecutive_calls_advance_the_generator():
@@ -114,13 +100,13 @@ def test_consecutive_calls_advance_the_generator():
     gen = sb.random.Generator(7)
     a = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen)
     b = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen)
-    assert not _all_equal(a, b)
+    assert not a.array_equal(b)
 
     gen2 = sb.random.Generator(7)
     a2 = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen2)
     b2 = subsample_relative(R, X, sample_size=10, n_instances=5, generator=gen2)
-    assert _all_equal(a, a2)
-    assert _all_equal(b, b2)
+    assert a.array_equal(a2)
+    assert b.array_equal(b2)
 
 
 def test_consecutive_calls_advance_the_global_generator():
@@ -131,13 +117,13 @@ def test_consecutive_calls_advance_the_global_generator():
     sb.random.seed(11)
     a = subsample_relative(R, X, sample_size=10, n_instances=5)
     b = subsample_relative(R, X, sample_size=10, n_instances=5)
-    assert not _all_equal(a, b)
+    assert not a.array_equal(b)
 
     sb.random.seed(11)
     a2 = subsample_relative(R, X, sample_size=10, n_instances=5)
     b2 = subsample_relative(R, X, sample_size=10, n_instances=5)
-    assert _all_equal(a, a2)
-    assert _all_equal(b, b2)
+    assert a.array_equal(a2)
+    assert b.array_equal(b2)
 
 
 def test_verbose_matches_nonverbose():
@@ -152,10 +138,7 @@ def test_verbose_matches_nonverbose():
                      generator=sb.random.Generator(11), verbose=True)
 
     assert isinstance(loud, sb.PointCloudTensor)
-    assert loud.shape == quiet.shape
-    for i in range(3):
-        for j in range(5):
-            assert np.array_equal(np.asarray(loud[i, j]), np.asarray(quiet[i, j]))
+    assert loud.array_equal(quiet)
 
 
 def test_uniform_samples_all_reference_points():
@@ -219,20 +202,26 @@ def test_uniform_invalid_radii_raise(kwargs):
         Uniform(**kwargs)
 
 
-@pytest.mark.parametrize("args", [(3.0,), (1.0, 3.0)], ids=["one", "two"])
-def test_uniform_positional_args_rejected(args):
-    # The band edges are keyword-only: a bare Uniform(3.0) is ambiguous (disk
-    # of radius 3 vs everything beyond 3), so it must not be accepted.
-    with pytest.raises(TypeError):
-        Uniform(*args)
+@pytest.mark.parametrize("args,low,high", [
+    ((3.0,), 3.0, float("inf")),
+    ((1.0, 3.0), 1.0, 3.0),
+], ids=["one", "two"])
+def test_uniform_accepts_positional_args(args, low, high):
+    # Positional band edges bind in (low, high) order.
+    spec = Uniform(*args)
+    assert spec.low == low
+    assert spec.high == high
 
 
-@pytest.mark.parametrize("args", [(0.3,), (0.0, 0.3)], ids=["one", "two"])
-def test_gaussian_positional_args_rejected(args):
-    # mean and sigma are keyword-only: a bare Gaussian(0.3) is ambiguous
-    # (mean or sigma?), so it must not be accepted.
-    with pytest.raises(TypeError):
-        Gaussian(*args)
+@pytest.mark.parametrize("args,mean,sigma", [
+    ((0.3,), 0.3, 1.0),
+    ((0.0, 0.3), 0.0, 0.3),
+], ids=["one", "two"])
+def test_gaussian_accepts_positional_args(args, mean, sigma):
+    # Positional parameters bind in (mean, sigma) order.
+    spec = Gaussian(*args)
+    assert spec.mean == mean
+    assert spec.sigma == sigma
 
 
 @pytest.mark.parametrize("kwargs", [
@@ -245,6 +234,20 @@ def test_gaussian_invalid_params_raise(kwargs):
     # sampling. They must be rejected at construction, like Uniform's.
     with pytest.raises(ValueError):
         Gaussian(**kwargs)
+
+
+def test_nan_reference_coordinate_propagates_from_worker():
+    # Weight-row validation runs inside the parallel walk, not in the task's
+    # synchronous prologue, so this is the one path that exercises a worker
+    # exception reaching the caller. A NaN coordinate survives the log-space
+    # max-shift (max() drops NaNs) and poisons the row sum, which
+    # prepare_weight_row rejects on whichever worker thread drew that query.
+    R = np.zeros((8, 2))
+    R[3, 0] = np.nan
+
+    with pytest.raises(ValueError, match="positive sum"):
+        subsample_relative(sb.FloatTensor(R), R[:1], sample_size=3, n_instances=2,
+                           distribution=Gaussian(mean=1.0, sigma=0.5))
 
 
 def test_without_replacement_gives_distinct_points():
@@ -454,9 +457,7 @@ def test_query_by_index_matches_coordinates():
                                    generator=sb.random.Generator(0))
 
     assert by_index.shape == (4, 5)
-    for i in range(4):
-        for j in range(5):
-            assert np.array_equal(np.asarray(by_index[i, j]), np.asarray(by_coords[i, j]))
+    assert by_index.array_equal(by_coords)
 
 
 def test_negative_query_indices_match_positive():
@@ -467,7 +468,7 @@ def test_negative_query_indices_match_positive():
                                   generator=sb.random.Generator(3))
     positive = subsample_relative(R, np.array([29, 0]), sample_size=6, n_instances=4,
                                   generator=sb.random.Generator(3))
-    assert _all_equal(negative, positive)
+    assert negative.array_equal(positive)
 
 
 def test_query_none_uses_all_reference_points():

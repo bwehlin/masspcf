@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <sbear/distance_matrix.hpp>
 #include <sbear/io.hpp>
+#include <sbear/point_cloud.hpp>
 #include <sbear/tensor.hpp>
 #include <sbear/walk.hpp>
 
@@ -321,6 +323,80 @@ namespace
 
     std::istringstream iss(data);
     EXPECT_THROW(sb::read<TensorT>(iss), std::runtime_error);
+  }
+
+// ============================================================================
+// Shared-source element tensors through the typed sb::read<> entry point.
+//
+// Point-cloud (1001) and distance-matrix (1121) tensors are written in the
+// shared-source layout but were previously read back by the legacy element-wise
+// reader, which desynchronized the stream — silently for distance matrices.
+// ============================================================================
+
+  TYPED_TEST(IoReadWriteTest, PointCloudTensorRoundtrip)
+  {
+    using TensorT = sb::Tensor<sb::PointCloud<TypeParam>>;
+
+    sb::Tensor<TypeParam> coords({ 4, 2 });
+    for (auto i = 0_uz; i < 4; ++i)
+    {
+      coords({ i, 0 }) = static_cast<TypeParam>(i);
+      coords({ i, 1 }) = static_cast<TypeParam>(2 * i);
+    }
+
+    TensorT tensor({ 2 });
+    tensor(0) = sb::PointCloud<TypeParam>(coords);
+    // An indexed view over the same source: the layout this format exists for.
+    sb::Tensor<sb::uint64_t> indices({ 2 });
+    indices(0) = 3;
+    indices(1) = 1;
+    tensor(1) = sb::PointCloud<TypeParam>(coords, indices);
+
+    std::stringstream ss;
+    sb::write(tensor, ss);
+
+    std::istringstream iss(ss.str());
+    auto retTensor = sb::read<TensorT>(iss);
+
+    EXPECT_EQ(tensor, retTensor);
+    const auto& view = retTensor(1);
+    EXPECT_EQ(view.n_points(), 2u);
+    EXPECT_EQ(view(0, 0), static_cast<TypeParam>(3));
+  }
+
+  TYPED_TEST(IoReadWriteTest, DistanceMatrixTensorRoundtrip)
+  {
+    using TensorT = sb::Tensor<sb::DistanceMatrix<TypeParam>>;
+
+    sb::DistanceMatrix<TypeParam> source(4);
+    for (auto i = 0_uz; i < 4; ++i)
+    {
+      for (auto j = 0_uz; j < i; ++j)
+      {
+        source(i, j) = static_cast<TypeParam>((i * 4) + j);
+      }
+    }
+
+    TensorT tensor({ 2 });
+    tensor(0) = source;
+    sb::Tensor<sb::uint64_t> indices({ 2 });
+    indices(0) = 0;
+    indices(1) = 2;
+    tensor(1) = sb::DistanceMatrix<TypeParam>(source, indices);
+
+    std::stringstream ss;
+    sb::write(tensor, ss);
+
+    std::istringstream iss(ss.str());
+    auto retTensor = sb::read<TensorT>(iss);
+
+    EXPECT_EQ(tensor, retTensor);
+    // Before the dispatch fix this read back as a bogus 1x1 zero matrix.
+    // Bind const: the mutable operator() refuses to hand out a proxy into a view.
+    const auto& view = retTensor(1);
+    const auto& owning = source;
+    EXPECT_EQ(view.size(), 2u);
+    EXPECT_EQ(view(0, 1), owning(0, 2));
   }
 
 } // namespace

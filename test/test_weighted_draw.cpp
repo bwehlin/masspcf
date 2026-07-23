@@ -205,8 +205,8 @@ TEST(DrawIndices, WithoutReplacementShrinksToEligibleCount)
   EXPECT_EQ(draw_indices(std::span<const double>(row), nEligible, 5, false, eng).size(), 2u);
 }
 
-// Preparation of a whole weight matrix (the old prepare_weight_matrix, and its
-// worker-exception propagation) is gone: the pipeline no longer materializes a
-// dense matrix. Per-query weighting + drawing, and the propagation of an
-// invalid row from a worker, are now exercised end-to-end by the Python
-// sampling tests (test/python/sampling/).
+// Preparation of a whole weight matrix (the old prepare_weight_matrix) is gone:
+// the pipeline no longer materializes a dense matrix. Per-query weighting and
+// drawing are exercised through the task by the Python sampling tests, as is the
+// propagation of an invalid row from a worker to the caller
+// (test_subsample.py::test_nan_reference_coordinate_propagates_from_worker).
