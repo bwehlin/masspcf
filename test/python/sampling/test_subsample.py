@@ -544,6 +544,68 @@ def test_non_square_reference_needs_no_wrapper():
     assert isinstance(subs, sb.PointCloudTensor)
 
 
+@pytest.mark.parametrize("wrap", [
+    lambda R: sb.PointCloudTensor(R[None])[0],   # a single PointCloud
+    lambda R: sb.PointCloudTensor(R),            # 0-d single-cloud tensor
+    lambda R: sb.PointCloudTensor(R[None]),      # rank-1 single-cloud tensor
+], ids=["pointcloud", "0d-tensor", "1d-tensor"])
+def test_point_cloud_reference_matches_array(float_kind, wrap):
+    # A PointCloud (or a single-cloud PointCloudTensor) reference is taken as a
+    # point cloud, giving the same draw as passing the coordinates directly.
+    np_float, pcloud_dtype = float_kind
+    R = np.random.default_rng(0).standard_normal((40, 3)).astype(np_float)
+    X = np.random.default_rng(1).standard_normal((4, 3)).astype(np_float)
+
+    from_cloud = subsample_relative(wrap(R), X, sample_size=8, n_instances=5,
+                                    generator=sb.random.Generator(0))
+    from_array = subsample_relative(sb.FloatTensor(R), X, sample_size=8, n_instances=5,
+                                    generator=sb.random.Generator(0))
+    assert isinstance(from_cloud, sb.PointCloudTensor)
+    assert from_cloud.dtype == pcloud_dtype
+    assert from_cloud.array_equal(from_array)
+
+
+def test_subsample_can_be_fed_back_as_reference():
+    # The motivating workflow: a subsample -- an indexed-view PointCloud -- is a
+    # valid reference for a further subsampling pass, without materializing it.
+    R = np.random.default_rng(0).standard_normal((60, 3))
+    first = subsample_relative(R, sample_size=20, n_instances=1,
+                               generator=sb.random.Generator(0))
+    sub = first[0, 0]
+    assert sub.is_indexed  # shares R's coordinates through an index array
+
+    second = subsample_relative(sub, sample_size=5, n_instances=4,
+                                generator=sb.random.Generator(1))
+    assert isinstance(second, sb.PointCloudTensor)
+    assert second.shape == (20, 4)  # query=None: one row per point of `sub`
+
+    # Identical to materializing the subsample's coordinates first.
+    expected = subsample_relative(sb.FloatTensor(sub.to_numpy()),
+                                  sample_size=5, n_instances=4,
+                                  generator=sb.random.Generator(1))
+    assert second.array_equal(expected)
+
+
+def test_multi_cloud_tensor_reference_rejected():
+    # A PointCloudTensor holding more than one cloud is ambiguous as a single
+    # reference cloud and must be rejected with a clear error.
+    pct = sb.PointCloudTensor(np.random.default_rng(0).standard_normal((3, 10, 2)))
+    assert pct.shape == (3,)
+    with pytest.raises(ValueError, match="single reference cloud"):
+        subsample_relative(pct, np.array([0]), sample_size=3, n_instances=2)
+
+
+def test_point_cloud_reference_accepts_square():
+    # A PointCloud is unambiguously points, so a square (n, n) cloud skips the
+    # square-array ambiguity guard that rejects a raw ndarray.
+    R = np.random.default_rng(0).random((12, 12))
+    pc = sb.PointCloudTensor(R[None])[0]
+    subs = subsample_relative(pc, np.array([0]), sample_size=3, n_instances=2,
+                              generator=sb.random.Generator(0))
+    assert isinstance(subs, sb.PointCloudTensor)
+    assert subs[0, 0].shape == (3, 12)
+
+
 def test_pipeline_to_relative_stable_rank():
     R = np.random.default_rng(0).standard_normal((200, 2))
     X = np.random.default_rng(1).standard_normal((4, 2))
