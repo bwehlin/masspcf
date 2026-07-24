@@ -121,6 +121,27 @@ def test_persistence_ripser_reduced_homology():
     assert expected_h2.is_isomorphic_to(h2)
 
 
+def test_persistence_ripser_consumes_an_indexed_cloud_directly():
+    # An indexed view goes into Ripser as the view it is; the barcode must match
+    # the one computed from the same points materialized.
+    arr = np.random.RandomState(11).rand(12, 3)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+    view = T[0][3:11]
+    assert view.is_indexed
+
+    kwargs = dict(
+        max_dim=1,
+        complex_type=pers.ComplexType.VietorisRips,
+        distance_type=pers.DistanceType.Euclidean,
+    )
+    from_view = pers.compute_persistent_homology(view, **kwargs)
+    from_coords = pers.compute_persistent_homology(view.materialize(), **kwargs)
+
+    for dim in range(2):
+        assert from_view[dim].is_isomorphic_to(from_coords[dim])
+
+
 def test_persistence_ripser_compute_euclidean_barcode_on_tensor():
     X = sb.zeros((3, 4, 5), dtype=sb.pcloud64)
 

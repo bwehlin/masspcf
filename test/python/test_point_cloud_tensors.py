@@ -113,6 +113,46 @@ def test_out_of_range_point_selection_raises():
         T[0][np.array([True, False])]  # mask shorter than the cloud
 
 
+def test_storing_a_view_keeps_it_indexed():
+    # A PointCloud is the tensor's element type, so storing one must not
+    # materialize it -- the stored cell keeps sharing the source coordinates.
+    arr = np.random.RandomState(7).rand(10, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+
+    dest = sb.zeros((2,), dtype=sb.pcloud64)
+    dest[0] = T[0][2:6]
+
+    assert dest[0].is_indexed
+    assert dest[0].array_equal(arr[2:6])
+
+
+def test_storing_a_view_does_not_alias_the_source_cloud():
+    # The store copies the index array (store_copy -> PointCloud::copy), so
+    # writing to the cloud the view was taken from leaves the stored cell alone.
+    arr = np.random.RandomState(8).rand(6, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+
+    dest = sb.zeros((1,), dtype=sb.pcloud64)
+    dest[0] = T[0][1:4]
+    T[0][0, 0] = 99.0
+
+    assert dest[0].array_equal(arr[1:4])
+
+
+def test_storing_a_cloud_of_another_precision_converts():
+    arr = np.random.RandomState(9).rand(5, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud32)
+    T[0] = arr
+
+    dest = sb.zeros((1,), dtype=sb.pcloud64)
+    dest[0] = T[0][1:4]
+
+    assert not dest[0].is_indexed  # converted through its coordinates
+    assert np.allclose(dest[0].to_numpy(), arr[1:4])
+
+
 def test_tensor_and_point_cloud_share_the_indexing_interface():
     # bwehlin's Indexable ask: one contract, both containers.
     from stablebear._indexable import Indexable
