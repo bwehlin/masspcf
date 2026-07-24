@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>/home/runner/work/stablebear/stablebear/include/sbear/sampling/subsample.hpp</title>
+    <link href='valgrind.css' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.0/highlight.min.js"></script>
+    <script src="valgrind.js"></script>
+</head>
+
+<body>
+    <div class="global">
+        <div class="header">
+            <h1>/home/runner/work/stablebear/stablebear/include/sbear/sampling/subsample.hpp</h1>
+            <p><b>3</b> errors</p>
+            <button class="next_error">Goto First Error</button>
+        </div>
+        <div class="listing">
+            <pre class="code">
+<code class="c++"><span class="line_number">1</span>#ifndef STABLEBEAR_SAMPLING_SUBSAMPLE_H
+<span class="line_number">2</span>#define STABLEBEAR_SAMPLING_SUBSAMPLE_H
+<span class="line_number">3</span>
+<span class="line_number">4</span>// Per-query subsampling of a reference point cloud or distance matrix.
+<span class="line_number">5</span>//
+<span class="line_number">6</span>// Structured like the persistence pipeline (compute_persistence.hpp): a
+<span class="line_number">7</span>// `detail` per-query core, one templated StoppableTask that walks the query
+<span class="line_number">8</span>// points in parallel, and per-element-type aliases. Each query point computes
+<span class="line_number">9</span>// its own weight row on the fly (weighting.hpp functors) and draws all of its
+<span class="line_number">10</span>// instances from it (weighted_draw.hpp primitives), so no dense
+<span class="line_number">11</span>// (n_query x n_reference) weight matrix is ever materialized — only one
+<span class="line_number">12</span>// n_reference row per worker thread lives at a time.
+<span class="line_number">13</span>//
+<span class="line_number">14</span>// Each subsample is an indexed view: it stores just the drawn indices and
+<span class="line_number">15</span>// shares the reference&#39;s coordinate/distance buffer. The output tensor is
+<span class="line_number">16</span>// filled in place through the @p out reference the caller passes, mirroring the
+<span class="line_number">17</span>// Ripser tasks.
+<span class="line_number">18</span>
+<span class="line_number">19</span>#include &#34;weighted_draw.hpp&#34;
+<span class="line_number">20</span>#include &#34;weighting.hpp&#34;
+<span class="line_number">21</span>
+<span class="line_number">22</span>#include &#34;../distance_matrix.hpp&#34;
+<span class="line_number">23</span>#include &#34;../executor.hpp&#34;
+<span class="line_number">24</span>#include &#34;../point_cloud.hpp&#34;
+<span class="line_number">25</span>#include &#34;../random_generator.hpp&#34;
+<span class="line_number">26</span>#include &#34;../task.hpp&#34;
+<span class="line_number">27</span>#include &#34;../tensor.hpp&#34;
+<span class="line_number">28</span>#include &#34;../walk.hpp&#34;
+<span class="line_number">29</span>
+<span class="line_number">30</span>#include &lt;span&gt;
+<span class="line_number">31</span>#include &lt;stdexcept&gt;
+<span class="line_number">32</span>#include &lt;type_traits&gt;
+<span class="line_number">33</span>#include &lt;utility&gt;
+<span class="line_number">34</span>#include &lt;vector&gt;
+<span class="line_number">35</span>
+<span class="line_number">36</span>namespace sb::sampling
+<span class="line_number">37</span>{
+<span class="line_number">38</span>
+<span class="line_number">39</span>  /// Distance-matrix subsampling has no filter — the stored distance *is* the
+<span class="line_number">40</span>  /// filter value. This placeholder lets the point-cloud and distance-matrix
+<span class="line_number">41</span>  /// paths share one task template; the filter is used only in the point-cloud
+<span class="line_number">42</span>  /// branch (selected by `if constexpr`), so the distance-matrix instantiation
+<span class="line_number">43</span>  /// carries this empty type instead.
+<span class="line_number">44</span>  struct NoFilter
+<span class="line_number">45</span>  {
+<span class="line_number">46</span>  };
+<span class="line_number">47</span>
+<span class="line_number">48</span>  namespace detail
+<span class="line_number">49</span>  {
+<span class="line_number">50</span>
+<span class="line_number">51</span>    /// Fill query @p q&#39;s weight row @p row (length n_reference) from a point
+<span class="line_number">52</span>    /// cloud: @p distribution of @p filter(query point, reference point) per
+<span class="line_number">53</span>    /// reference point, log-space max-shifted when the distribution offers the
+<span class="line_number">54</span>    /// channel, then prepared for drawing (validated; converted in place to a
+<span class="line_number">55</span>    /// CDF when @p toCdf). Returns the eligible (strictly-positive) count. The
+<span class="line_number">56</span>    /// point-cloud analogue of run_euclidean_ripser.
+<span class="line_number">57</span>    template &lt;typename T, typename FilterF, typename DistF&gt;
+<span class="line_number">58</span>    size_t weight_query_row_pcloud(
+<span class="line_number">59</span>        const PointCloud&lt;T&gt; &amp;reference, const PointCloud&lt;T&gt; &amp;query, size_t q, const FilterF &amp;filter,
+<span class="line_number">60</span>        const DistF &amp;distribution, bool toCdf, std::span&lt;T&gt; row)
+<span class="line_number">61</span>    {
+<span class="line_number">62</span>      for (size_t r = 0; r &lt; row.size(); ++r)
+<span class="line_number">63</span>      {
+<span class="line_number">64</span>        row[r] = weight_entry(distribution, filter(query, q, reference, r));
+<span class="line_number">65</span>      }
+<span class="line_number">66</span>      if constexpr (has_log_weight&lt;DistF, T&gt;)
+<span class="line_number">67</span>      {
+<span class="line_number">68</span>        log_row_to_weights(row);
+<span class="line_number">69</span>      }
+<span class="line_number">70</span>      return prepare_weight_row(row, toCdf);
+<span class="line_number">71</span>    }
+<span class="line_number">72</span>
+<span class="line_number">73</span>    /// As weight_query_row_pcloud, with filter values read from the precomputed
+<span class="line_number">74</span>    /// distance matrix @p reference; @p query holds reference row indices. The
+<span class="line_number">75</span>    /// distance-matrix analogue.
+<span class="line_number">76</span>    template &lt;typename T, typename DistF&gt;
+<span class="line_number">77</span>    size_t weight_query_row_distmat(
+<span class="line_number">78</span>        const DistanceMatrix&lt;T&gt; &amp;reference, const Tensor&lt;uint64_t&gt; &amp;query, size_t q, const DistF &amp;distribution,
+<span class="line_number">79</span>        bool toCdf, std::span&lt;T&gt; row)
+<span class="line_number">80</span>    {
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x2AC5A400 by thread #11</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/subsample.hpp:218<br>
+                                    <code class="cpp">sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::weight_query_row(unsigned long, bool, std::span&lt;double, 18446744073709551615ul&gt;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">215</span>    {
+<span class="line_number">216</span>      if constexpr (!is_pcloud)
+<span class="line_number">217</span>      {
+<span class="line_number">218</span><span class="error">        return detail::weight_query_row_distmat(m_reference, m_query, q, m_distribution, toCdf, row);
+</span><span class="line_number">219</span>      }
+<span class="line_number">220</span>      else if constexpr (query_is_indices)
+<span class="line_number">221</span>      {
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/subsample.hpp:171<br>
+                                    <code class="cpp">sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">168</span>
+<span class="line_number">169</span>            // With replacement the row becomes a CDF, built once and drawn from by
+<span class="line_number">170</span>            // every instance; without replacement it stays raw weights.
+<span class="line_number">171</span><span class="error">            const size_t nEligible = weight_query_row(q, replace, row);
+</span><span class="line_number">172</span>            const std::span&lt;const T&gt; drawRow(row.data(), row.size());
+<span class="line_number">173</span>
+<span class="line_number">174</span>            for (size_t i = 0; i &lt; nInstances; ++i)
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:155<br>
+                                    <code class="cpp">sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">152</span>  tf::Future&lt;void&gt; parallel_walk_async(const TTensor&amp; tensor, UnaryFunc&amp;&amp; f, Executor&amp; exec)
+<span class="line_number">153</span>  {
+<span class="line_number">154</span>    return detail::parallel_walk_impl(tensor, [f = std::forward&lt;UnaryFunc&gt;(f)](const std::vector&lt;size_t&gt;&amp; idx, size_t) {
+<span class="line_number">155</span><span class="error">      f(idx);
+</span><span class="line_number">156</span>    }, exec);
+<span class="line_number">157</span>  }
+<span class="line_number">158</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:118<br>
+                                    <code class="cpp">sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}::operator()(unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">115</span>          rem /= shape[i];
+<span class="line_number">116</span>        }
+<span class="line_number">117</span>
+<span class="line_number">118</span><span class="error">        f(idx, flat);
+</span><span class="line_number">119</span>      });
+<span class="line_number">120</span>
+<span class="line_number">121</span>      return exec.cpu()-&gt;run(std::move(flow));
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:134<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}::operator()(unsigned long, unsigned long)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">131</span>          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+<span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span><span class="error">              c(idx);
+</span><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/core/../algorithm/partitioner.hpp:316<br>
+                                    <code class="cpp">void tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;::loop&lt;tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}, (void*)0&gt;(unsigned long, unsigned long, std::atomic&lt;unsigned long&gt;&amp;, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}&amp;&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">313</span>          if(curr_b &gt;= N) {
+<span class="line_number">314</span>            return;
+<span class="line_number">315</span>          }
+<span class="line_number">316</span><span class="error">          func(curr_b, (std::min)(curr_b + chunk_size, N));
+</span><span class="line_number">317</span>        }
+<span class="line_number">318</span>        break;
+<span class="line_number">319</span>      }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:131<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">128</span>      auto next = std::make_shared&lt;std::atomic&lt;size_t&gt;&gt;(0);
+<span class="line_number">129</span>      for(size_t w=0; w&lt;W;) {
+<span class="line_number">130</span>        auto task = part([=] () mutable {
+<span class="line_number">131</span><span class="error">          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+</span><span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span>              c(idx);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:138<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+<span class="line_number">138</span><span class="error">        (++w == W) ? task() : rt.silent_async(task);
+</span><span class="line_number">139</span>      }
+<span class="line_number">140</span>    }
+<span class="line_number">141</span>  };
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:61<br>
+                                    <code class="cpp">void std::__invoke_impl&lt;void, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&amp;, tf::Runtime&amp;&gt;(std::__invoke_other, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">58</span>  template&lt;typename _Res, typename _Fn, typename... _Args&gt;
+<span class="line_number">59</span>    constexpr _Res
+<span class="line_number">60</span>    __invoke_impl(__invoke_other, _Fn&amp;&amp; __f, _Args&amp;&amp;... __args)
+<span class="line_number">61</span><span class="error">    { return std::forward&lt;_Fn&gt;(__f)(std::forward&lt;_Args&gt;(__args)...); }
+</span><span class="line_number">62</span>
+<span class="line_number">63</span>  template&lt;typename _Res, typename _MemFun, typename _Tp, typename... _Args&gt;
+<span class="line_number">64</span>    constexpr _Res
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:111<br>
+                                    <code class="cpp">_ZSt10__invoke_rIvRZN2tf24make_for_each_index_taskImmmZN2sb6detail18parallel_walk_implINS2_6TensorImEEZNS2_19parallel_walk_asyncIS6_ZNS2_8sampling17SubsampleTaskImplINS2_14DistanceMatrixIdEES6_NS8_8NoFilterENS8_8GaussianIdEEE9run_asyncERNS2_8ExecutorEEUlRKSt6vectorImSaImEEE_EENS0_6FutureIvEERKT_OT0_SH_EUlSM_mE_EESP_SS_SU_SH_EUlmE0_NS0_17GuidedPartitionerINS0_21DefaultClosureWrapperEEEEEDaSQ_ST_T1_T2_T3_EUlRNS0_7RuntimeEE_JS14_EENSt9enable_ifIX16is_invocable_r_vISQ_ST_DpT1_EESQ_E4typeESU_DpOS18_</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">108</span>      using __type = typename __result::type;
+<span class="line_number">109</span>      using __tag = typename __result::__invoke_type;
+<span class="line_number">110</span>      if constexpr (is_void_v&lt;_Res&gt;)
+<span class="line_number">111</span><span class="error">	std::__invoke_impl&lt;__type&gt;(__tag{}, std::forward&lt;_Callable&gt;(__fn),
+</span><span class="line_number">112</span>					std::forward&lt;_Args&gt;(__args)...);
+<span class="line_number">113</span>      else
+<span class="line_number">114</span>	return std::__invoke_impl&lt;__type&gt;(__tag{},
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:290<br>
+                                    <code class="cpp">std::_Function_handler&lt;void (tf::Runtime&amp;), tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::DistanceMatrix&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::NoFilter, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&gt;::_M_invoke(std::_Any_data const&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">287</span>      static _Res
+<span class="line_number">288</span>      _M_invoke(const _Any_data&amp; __functor, _ArgTypes&amp;&amp;... __args)
+<span class="line_number">289</span>      {
+<span class="line_number">290</span><span class="error">	return std::__invoke_r&lt;_Res&gt;(*_Base::_M_get_pointer(__functor),
+</span><span class="line_number">291</span>				     std::forward&lt;_ArgTypes&gt;(__args)...);
+<span class="line_number">292</span>      }
+<span class="line_number">293</span>
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">81</span><span class="error">      const auto queryRow = static_cast&lt;size_t&gt;(query(q));</span>
+<span class="line_number">82</span>      for (size_t r = 0; r &lt; row.size(); ++r)
+<span class="line_number">83</span>      {
+<span class="line_number">84</span>        row[r] = weight_entry(distribution, reference(queryRow, r));
+<span class="line_number">85</span>      }
+<span class="line_number">86</span>      if constexpr (has_log_weight&lt;DistF, T&gt;)
+<span class="line_number">87</span>      {
+<span class="line_number">88</span>        log_row_to_weights(row);
+<span class="line_number">89</span>      }
+<span class="line_number">90</span>      return prepare_weight_row(row, toCdf);
+<span class="line_number">91</span>    }
+<span class="line_number">92</span>
+<span class="line_number">93</span>  } // namespace detail
+<span class="line_number">94</span>
+<span class="line_number">95</span>  /// Parallel per-query subsampling task, templated on the subsample element
+<span class="line_number">96</span>  /// type (PointCloud&lt;T&gt; or DistanceMatrix&lt;T&gt;), the query representation
+<span class="line_number">97</span>  /// (PointCloud&lt;T&gt; coordinates, or a Tensor&lt;uint64_t&gt; of reference indices),
+<span class="line_number">98</span>  /// and the weighting functors. Mirrors RipserTaskImpl: one class, one
+<span class="line_number">99</span>  /// parallel walk, `if constexpr` dispatch between the two input kinds.
+<span class="line_number">100</span>  ///
+<span class="line_number">101</span>  /// The filter/distribution are compile-time template parameters (unlike the
+<span class="line_number">102</span>  /// Ripser task, which has none) so the built-in weighting inlines into a
+<span class="line_number">103</span>  /// fully fused draw path — the feature&#39;s core performance property. The
+<span class="line_number">104</span>  /// binding selects the concrete instantiation via std::visit over the functor
+<span class="line_number">105</span>  /// variants.
+<span class="line_number">106</span>  template &lt;typename ElemT, typename QueryT, typename FilterF, typename DistF&gt;
+<span class="line_number">107</span>  class SubsampleTaskImpl : public StoppableTask&lt;void&gt;
+<span class="line_number">108</span>  {
+<span class="line_number">109</span>    using T = typename ElemT::value_type;
+<span class="line_number">110</span>    static constexpr bool is_pcloud = std::is_same_v&lt;ElemT, PointCloud&lt;T&gt;&gt;;
+<span class="line_number">111</span>    static constexpr bool query_is_indices = std::is_same_v&lt;QueryT, Tensor&lt;uint64_t&gt;&gt;;
+<span class="line_number">112</span>
+<span class="line_number">113</span>  public:
+<span class="line_number">114</span>    /// @p out is filled in place (allocated to (n_query, n_instances) when the
+<span class="line_number">115</span>    /// task runs), like the Ripser tasks. @p gen is read only in the
+<span class="line_number">116</span>    /// synchronous prologue of run_async, to reserve the draw&#39;s seed block
+<span class="line_number">117</span>    /// before the caller&#39;s next draw.
+<span class="line_number">118</span>    SubsampleTaskImpl(
+<span class="line_number">119</span>        ElemT reference, QueryT query, FilterF filter, DistF distribution, Tensor&lt;ElemT&gt; &amp;out, size_t sampleSize,
+<span class="line_number">120</span>        size_t nInstances, bool replace, DefaultRandomGenerator &amp;gen)
+<span class="line_number">121</span>        : m_reference(std::move(reference)), m_query(std::move(query)), m_filter(std::move(filter)),
+<span class="line_number">122</span>          m_distribution(std::move(distribution)), m_out(out), m_sampleSize(sampleSize), m_nInstances(nInstances),
+<span class="line_number">123</span>          m_replace(replace), m_gen(gen)
+<span class="line_number">124</span>    {
+<span class="line_number">125</span>    }
+<span class="line_number">126</span>
+<span class="line_number">127</span>  private:
+<span class="line_number">128</span>    tf::Future&lt;void&gt; run_async(Executor &amp;exec) override
+<span class="line_number">129</span>    {
+<span class="line_number">130</span>      // Synchronous prologue (runs on the caller&#39;s thread before the walk is
+<span class="line_number">131</span>      // launched): validate, size the output, and reserve the seed block.
+<span class="line_number">132</span>      // Reserving here, before the async draws, is what makes consecutive calls
+<span class="line_number">133</span>      // draw fresh samples. The block is sized to the *output* cells, not the
+<span class="line_number">134</span>      // walked queries: the parallel_walk(gen) overload would seed one engine
+<span class="line_number">135</span>      // per query cell, but each query fans out into n_instances draws that
+<span class="line_number">136</span>      // must each get their own engine, seeded by flat output index so the
+<span class="line_number">137</span>      // result is independent of thread count. Hence the block is reserved and
+<span class="line_number">138</span>      // sub-seeded by hand rather than via the walk overload.
+<span class="line_number">139</span>      validate();
+<span class="line_number">140</span>
+<span class="line_number">141</span>      const size_t nQuery = query_count();
+<span class="line_number">142</span>      const size_t nReference = reference_count();
+<span class="line_number">143</span>      m_out = Tensor&lt;ElemT&gt;({nQuery, m_nInstances});
+<span class="line_number">144</span>      m_queryIndices = Tensor&lt;size_t&gt;({nQuery}); // drives the per-query walk
+<span class="line_number">145</span>      const auto seedBlock = m_gen.reserve(m_out.size());
+<span class="line_number">146</span>
+<span class="line_number">147</span>      next_step(m_out.size(), &#34;Drawing subsamples.&#34;, &#34;subsample&#34;);
+<span class="line_number">148</span>
+<span class="line_number">149</span>      const size_t nInstances = m_nInstances;
+<span class="line_number">150</span>      const size_t sampleSize = m_sampleSize;
+<span class="line_number">151</span>      const bool replace = m_replace;
+<span class="line_number">152</span>      return parallel_walk_async(
+<span class="line_number">153</span>          m_queryIndices,
+<span class="line_number">154</span>          [this, nReference, nInstances, sampleSize, replace, seedBlock](const std::vector&lt;size_t&gt; &amp;idx) {
+<span class="line_number">155</span>            if (stop_requested())
+<span class="line_number">156</span>            {
+<span class="line_number">157</span>              return;
+<span class="line_number">158</span>            }
+<span class="line_number">159</span>
+<span class="line_number">160</span>            const size_t q = idx[0];
+<span class="line_number">161</span>
+<span class="line_number">162</span>            // One n_reference weight row per worker, reused across queries: this is
+<span class="line_number">163</span>            // what replaces the old dense (n_query x n_reference) matrix. The
+<span class="line_number">164</span>            // weighting overwrites every entry, so no clearing is needed.
+<span class="line_number">165</span>            thread_local std::vector&lt;T&gt; rowBuffer;
+<span class="line_number">166</span>            rowBuffer.resize(nReference);
+<span class="line_number">167</span>            const std::span&lt;T&gt; row(rowBuffer.data(), nReference);
+<span class="line_number">168</span>
+<span class="line_number">169</span>            // With replacement the row becomes a CDF, built once and drawn from by
+<span class="line_number">170</span>            // every instance; without replacement it stays raw weights.
+<span class="line_number">171</span>            const size_t nEligible = weight_query_row(q, replace, row);
+<span class="line_number">172</span>            const std::span&lt;const T&gt; drawRow(row.data(), row.size());
+<span class="line_number">173</span>
+<span class="line_number">174</span>            for (size_t i = 0; i &lt; nInstances; ++i)
+<span class="line_number">175</span>            {
+<span class="line_number">176</span>              // Seed per output cell from its flat index, so the draw is identical
+<span class="line_number">177</span>              // regardless of how the walk is scheduled across threads.
+<span class="line_number">178</span>              auto engine = seedBlock.sub_generator((q * nInstances) + i);
+<span class="line_number">179</span>              Tensor&lt;uint64_t&gt; indices = detail::draw_indices(drawRow, nEligible, sampleSize, replace, engine);
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x2AB93F48 by thread #8</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:155<br>
+                                    <code class="cpp">sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">152</span>  tf::Future&lt;void&gt; parallel_walk_async(const TTensor&amp; tensor, UnaryFunc&amp;&amp; f, Executor&amp; exec)
+<span class="line_number">153</span>  {
+<span class="line_number">154</span>    return detail::parallel_walk_impl(tensor, [f = std::forward&lt;UnaryFunc&gt;(f)](const std::vector&lt;size_t&gt;&amp; idx, size_t) {
+<span class="line_number">155</span><span class="error">      f(idx);
+</span><span class="line_number">156</span>    }, exec);
+<span class="line_number">157</span>  }
+<span class="line_number">158</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:118<br>
+                                    <code class="cpp">sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}::operator()(unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">115</span>          rem /= shape[i];
+<span class="line_number">116</span>        }
+<span class="line_number">117</span>
+<span class="line_number">118</span><span class="error">        f(idx, flat);
+</span><span class="line_number">119</span>      });
+<span class="line_number">120</span>
+<span class="line_number">121</span>      return exec.cpu()-&gt;run(std::move(flow));
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:134<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}::operator()(unsigned long, unsigned long)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">131</span>          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+<span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span><span class="error">              c(idx);
+</span><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/core/../algorithm/partitioner.hpp:316<br>
+                                    <code class="cpp">void tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;::loop&lt;tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}, (void*)0&gt;(unsigned long, unsigned long, std::atomic&lt;unsigned long&gt;&amp;, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}&amp;&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">313</span>          if(curr_b &gt;= N) {
+<span class="line_number">314</span>            return;
+<span class="line_number">315</span>          }
+<span class="line_number">316</span><span class="error">          func(curr_b, (std::min)(curr_b + chunk_size, N));
+</span><span class="line_number">317</span>        }
+<span class="line_number">318</span>        break;
+<span class="line_number">319</span>      }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:131<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">128</span>      auto next = std::make_shared&lt;std::atomic&lt;size_t&gt;&gt;(0);
+<span class="line_number">129</span>      for(size_t w=0; w&lt;W;) {
+<span class="line_number">130</span>        auto task = part([=] () mutable {
+<span class="line_number">131</span><span class="error">          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+</span><span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span>              c(idx);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:138<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+<span class="line_number">138</span><span class="error">        (++w == W) ? task() : rt.silent_async(task);
+</span><span class="line_number">139</span>      }
+<span class="line_number">140</span>    }
+<span class="line_number">141</span>  };
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:61<br>
+                                    <code class="cpp">void std::__invoke_impl&lt;void, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&amp;, tf::Runtime&amp;&gt;(std::__invoke_other, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">58</span>  template&lt;typename _Res, typename _Fn, typename... _Args&gt;
+<span class="line_number">59</span>    constexpr _Res
+<span class="line_number">60</span>    __invoke_impl(__invoke_other, _Fn&amp;&amp; __f, _Args&amp;&amp;... __args)
+<span class="line_number">61</span><span class="error">    { return std::forward&lt;_Fn&gt;(__f)(std::forward&lt;_Args&gt;(__args)...); }
+</span><span class="line_number">62</span>
+<span class="line_number">63</span>  template&lt;typename _Res, typename _MemFun, typename _Tp, typename... _Args&gt;
+<span class="line_number">64</span>    constexpr _Res
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:111<br>
+                                    <code class="cpp">_ZSt10__invoke_rIvRZN2tf24make_for_each_index_taskImmmZN2sb6detail18parallel_walk_implINS2_6TensorImEEZNS2_19parallel_walk_asyncIS6_ZNS2_8sampling17SubsampleTaskImplINS2_10PointCloudIfEESB_NS8_17EuclideanDistanceIfEENS8_8GaussianIfEEE9run_asyncERNS2_8ExecutorEEUlRKSt6vectorImSaImEEE_EENS0_6FutureIvEERKT_OT0_SI_EUlSN_mE_EESQ_ST_SV_SI_EUlmE0_NS0_17GuidedPartitionerINS0_21DefaultClosureWrapperEEEEEDaSR_SU_T1_T2_T3_EUlRNS0_7RuntimeEE_JS15_EENSt9enable_ifIX16is_invocable_r_vISR_SU_DpT1_EESR_E4typeESV_DpOS19_</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">108</span>      using __type = typename __result::type;
+<span class="line_number">109</span>      using __tag = typename __result::__invoke_type;
+<span class="line_number">110</span>      if constexpr (is_void_v&lt;_Res&gt;)
+<span class="line_number">111</span><span class="error">	std::__invoke_impl&lt;__type&gt;(__tag{}, std::forward&lt;_Callable&gt;(__fn),
+</span><span class="line_number">112</span>					std::forward&lt;_Args&gt;(__args)...);
+<span class="line_number">113</span>      else
+<span class="line_number">114</span>	return std::__invoke_impl&lt;__type&gt;(__tag{},
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:290<br>
+                                    <code class="cpp">std::_Function_handler&lt;void (tf::Runtime&amp;), tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;float&gt;, sb::PointCloud&lt;float&gt;, sb::sampling::EuclideanDistance&lt;float&gt;, sb::sampling::Gaussian&lt;float&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&gt;::_M_invoke(std::_Any_data const&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">287</span>      static _Res
+<span class="line_number">288</span>      _M_invoke(const _Any_data&amp; __functor, _ArgTypes&amp;&amp;... __args)
+<span class="line_number">289</span>      {
+<span class="line_number">290</span><span class="error">	return std::__invoke_r&lt;_Res&gt;(*_Base::_M_get_pointer(__functor),
+</span><span class="line_number">291</span>				     std::forward&lt;_ArgTypes&gt;(__args)...);
+<span class="line_number">292</span>      }
+<span class="line_number">293</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:591<br>
+                                    <code class="cpp">std::function&lt;void (tf::Runtime&amp;)&gt;::operator()(tf::Runtime&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">588</span>      {
+<span class="line_number">589</span>	if (_M_empty())
+<span class="line_number">590</span>	  __throw_bad_function_call();
+<span class="line_number">591</span><span class="error">	return _M_invoker(_M_functor, std::forward&lt;_ArgTypes&gt;(__args)...);
+</span><span class="line_number">592</span>      }
+<span class="line_number">593</span>
+<span class="line_number">594</span>#if __cpp_rtti
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/core/runtime.hpp:826<br>
+                                    <code class="cpp">tf::Executor::_invoke_runtime_task_impl(tf::Worker&amp;, tf::Node*, std::function&lt;void (tf::Runtime&amp;)&gt;&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">823</span>    node-&gt;_join_counter.fetch_add(1, std::memory_order_release);
+<span class="line_number">824</span>
+<span class="line_number">825</span>    _observer_prologue(worker, node);
+<span class="line_number">826</span><span class="error">    TF_EXECUTOR_EXCEPTION_HANDLER(worker, node, {
+</span><span class="line_number">827</span>      work(rt);
+<span class="line_number">828</span>    });
+<span class="line_number">829</span>    _observer_epilogue(worker, node);
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">180</span><span class="error">              m_out({q, i}) = ElemT(m_reference, std::move(indices));</span>
+<span class="line_number">181</span>            }
+<span class="line_number">182</span>            add_progress(nInstances);
+<span class="line_number">183</span>          },
+<span class="line_number">184</span>          exec);
+<span class="line_number">185</span>    }
+<span class="line_number">186</span>
+<span class="line_number">187</span>    /// Number of query points to walk.
+<span class="line_number">188</span>    size_t query_count() const
+<span class="line_number">189</span>    {
+<span class="line_number">190</span>      if constexpr (query_is_indices)
+<span class="line_number">191</span>      {
+<span class="line_number">192</span>        return m_query.shape(0);
+<span class="line_number">193</span>      }
+<span class="line_number">194</span>      else
+<span class="line_number">195</span>      {
+<span class="line_number">196</span>        return m_query.n_points();
+<span class="line_number">197</span>      }
+<span class="line_number">198</span>    }
+<span class="line_number">199</span>
+<span class="line_number">200</span>    /// Length of a weight row (points in the reference).
+<span class="line_number">201</span>    size_t reference_count() const
+<span class="line_number">202</span>    {
+<span class="line_number">203</span>      if constexpr (is_pcloud)
+<span class="line_number">204</span>      {
+<span class="line_number">205</span>        return m_reference.n_points();
+<span class="line_number">206</span>      }
+<span class="line_number">207</span>      else
+<span class="line_number">208</span>      {
+<span class="line_number">209</span>        return m_reference.size();
+<span class="line_number">210</span>      }
+<span class="line_number">211</span>    }
+<span class="line_number">212</span>
+<span class="line_number">213</span>    /// Compute + prepare query @p q&#39;s weight row, dispatching on the input kind.
+<span class="line_number">214</span>    size_t weight_query_row(size_t q, bool toCdf, std::span&lt;T&gt; row) const
+<span class="line_number">215</span>    {
+<span class="line_number">216</span>      if constexpr (!is_pcloud)
+<span class="line_number">217</span>      {
+<span class="line_number">218</span>        return detail::weight_query_row_distmat(m_reference, m_query, q, m_distribution, toCdf, row);
+<span class="line_number">219</span>      }
+<span class="line_number">220</span>      else if constexpr (query_is_indices)
+<span class="line_number">221</span>      {
+<span class="line_number">222</span>        // Query points selected from the reference itself: the query point is
+<span class="line_number">223</span>        // reference row m_query(q), so the reference doubles as the query cloud.
+</code></pre>
+            <div class="issue">
+                <div>
+                    <span class="what">Possible data race during read of size 8 at 0x2AC44220 by thread #10</span>
+                    <div class="navigation">
+                        <button class="next_error">Next</button>
+                        <button class="prev_error">Previous</button>
+                    </div>
+                </div>
+                <div>
+                    <table class="call_stack">
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/subsample.hpp:171<br>
+                                    <code class="cpp">sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">168</span>
+<span class="line_number">169</span>            // With replacement the row becomes a CDF, built once and drawn from by
+<span class="line_number">170</span>            // every instance; without replacement it stays raw weights.
+<span class="line_number">171</span><span class="error">            const size_t nEligible = weight_query_row(q, replace, row);
+</span><span class="line_number">172</span>            const std::span&lt;const T&gt; drawRow(row.data(), row.size());
+<span class="line_number">173</span>
+<span class="line_number">174</span>            for (size_t i = 0; i &lt; nInstances; ++i)
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:155<br>
+                                    <code class="cpp">sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}::operator()(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">152</span>  tf::Future&lt;void&gt; parallel_walk_async(const TTensor&amp; tensor, UnaryFunc&amp;&amp; f, Executor&amp; exec)
+<span class="line_number">153</span>  {
+<span class="line_number">154</span>    return detail::parallel_walk_impl(tensor, [f = std::forward&lt;UnaryFunc&gt;(f)](const std::vector&lt;size_t&gt;&amp; idx, size_t) {
+<span class="line_number">155</span><span class="error">      f(idx);
+</span><span class="line_number">156</span>    }, exec);
+<span class="line_number">157</span>  }
+<span class="line_number">158</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/include/sbear/sampling/../walk.hpp:118<br>
+                                    <code class="cpp">sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}::operator()(unsigned long) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">115</span>          rem /= shape[i];
+<span class="line_number">116</span>        }
+<span class="line_number">117</span>
+<span class="line_number">118</span><span class="error">        f(idx, flat);
+</span><span class="line_number">119</span>      });
+<span class="line_number">120</span>
+<span class="line_number">121</span>      return exec.cpu()-&gt;run(std::move(flow));
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:134<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}::operator()(unsigned long, unsigned long)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">131</span>          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+<span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span><span class="error">              c(idx);
+</span><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/core/../algorithm/partitioner.hpp:316<br>
+                                    <code class="cpp">void tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;::loop&lt;tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}, (void*)0&gt;(unsigned long, unsigned long, std::atomic&lt;unsigned long&gt;&amp;, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()::{lambda(unsigned long, unsigned long)#1}&amp;&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">313</span>          if(curr_b &gt;= N) {
+<span class="line_number">314</span>            return;
+<span class="line_number">315</span>          }
+<span class="line_number">316</span><span class="error">          func(curr_b, (std::min)(curr_b + chunk_size, N));
+</span><span class="line_number">317</span>        }
+<span class="line_number">318</span>        break;
+<span class="line_number">319</span>      }
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:131<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)::{lambda()#2}::operator()()</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">128</span>      auto next = std::make_shared&lt;std::atomic&lt;size_t&gt;&gt;(0);
+<span class="line_number">129</span>      for(size_t w=0; w&lt;W;) {
+<span class="line_number">130</span>        auto task = part([=] () mutable {
+<span class="line_number">131</span><span class="error">          part.loop(N, W, *next, [=] (size_t part_b, size_t part_e) mutable {
+</span><span class="line_number">132</span>            auto idx = static_cast&lt;B_t&gt;(part_b) * inc + beg;
+<span class="line_number">133</span>            for(size_t x=part_b; x&lt;part_e; x++, idx += inc) {
+<span class="line_number">134</span>              c(idx);
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /home/runner/work/stablebear/stablebear/3rd/taskflow/taskflow/algorithm/for_each.hpp:138<br>
+                                    <code class="cpp">tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}::operator()(tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">135</span>            }
+<span class="line_number">136</span>          });
+<span class="line_number">137</span>        });
+<span class="line_number">138</span><span class="error">        (++w == W) ? task() : rt.silent_async(task);
+</span><span class="line_number">139</span>      }
+<span class="line_number">140</span>    }
+<span class="line_number">141</span>  };
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:61<br>
+                                    <code class="cpp">void std::__invoke_impl&lt;void, tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&amp;, tf::Runtime&amp;&gt;(std::__invoke_other, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">58</span>  template&lt;typename _Res, typename _Fn, typename... _Args&gt;
+<span class="line_number">59</span>    constexpr _Res
+<span class="line_number">60</span>    __invoke_impl(__invoke_other, _Fn&amp;&amp; __f, _Args&amp;&amp;... __args)
+<span class="line_number">61</span><span class="error">    { return std::forward&lt;_Fn&gt;(__f)(std::forward&lt;_Args&gt;(__args)...); }
+</span><span class="line_number">62</span>
+<span class="line_number">63</span>  template&lt;typename _Res, typename _MemFun, typename _Tp, typename... _Args&gt;
+<span class="line_number">64</span>    constexpr _Res
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/invoke.h:111<br>
+                                    <code class="cpp">_ZSt10__invoke_rIvRZN2tf24make_for_each_index_taskImmmZN2sb6detail18parallel_walk_implINS2_6TensorImEEZNS2_19parallel_walk_asyncIS6_ZNS2_8sampling17SubsampleTaskImplINS2_10PointCloudIdEES6_NS8_17EuclideanDistanceIdEENS8_8GaussianIdEEE9run_asyncERNS2_8ExecutorEEUlRKSt6vectorImSaImEEE_EENS0_6FutureIvEERKT_OT0_SI_EUlSN_mE_EESQ_ST_SV_SI_EUlmE0_NS0_17GuidedPartitionerINS0_21DefaultClosureWrapperEEEEEDaSR_SU_T1_T2_T3_EUlRNS0_7RuntimeEE_JS15_EENSt9enable_ifIX16is_invocable_r_vISR_SU_DpT1_EESR_E4typeESV_DpOS19_</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">108</span>      using __type = typename __result::type;
+<span class="line_number">109</span>      using __tag = typename __result::__invoke_type;
+<span class="line_number">110</span>      if constexpr (is_void_v&lt;_Res&gt;)
+<span class="line_number">111</span><span class="error">	std::__invoke_impl&lt;__type&gt;(__tag{}, std::forward&lt;_Callable&gt;(__fn),
+</span><span class="line_number">112</span>					std::forward&lt;_Args&gt;(__args)...);
+<span class="line_number">113</span>      else
+<span class="line_number">114</span>	return std::__invoke_impl&lt;__type&gt;(__tag{},
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:290<br>
+                                    <code class="cpp">std::_Function_handler&lt;void (tf::Runtime&amp;), tf::make_for_each_index_task&lt;unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt; &gt;(unsigned long, unsigned long, unsigned long, sb::detail::parallel_walk_impl&lt;sb::Tensor&lt;unsigned long&gt;, sb::parallel_walk_async&lt;sb::Tensor&lt;unsigned long&gt;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;, unsigned long)#1}&gt;(sb::Tensor&lt;unsigned long&gt; const&amp;, sb::sampling::SubsampleTaskImpl&lt;sb::PointCloud&lt;double&gt;, sb::Tensor&lt;unsigned long&gt;, sb::sampling::EuclideanDistance&lt;double&gt;, sb::sampling::Gaussian&lt;double&gt; &gt;::run_async(sb::Executor&amp;)::{lambda(std::vector&lt;unsigned long, std::allocator&lt;unsigned long&gt; &gt; const&amp;)#1}&amp;&amp;, sb::Executor&amp;)::{lambda(unsigned long)#2}, tf::GuidedPartitioner&lt;tf::DefaultClosureWrapper&gt;)::{lambda(tf::Runtime&amp;)#1}&gt;::_M_invoke(std::_Any_data const&amp;, tf::Runtime&amp;)</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">287</span>      static _Res
+<span class="line_number">288</span>      _M_invoke(const _Any_data&amp; __functor, _ArgTypes&amp;&amp;... __args)
+<span class="line_number">289</span>      {
+<span class="line_number">290</span><span class="error">	return std::__invoke_r&lt;_Res&gt;(*_Base::_M_get_pointer(__functor),
+</span><span class="line_number">291</span>				     std::forward&lt;_ArgTypes&gt;(__args)...);
+<span class="line_number">292</span>      }
+<span class="line_number">293</span>
+</code></pre>
+                            </td>
+                        </tr>
+                        <tr class="stack_frame">
+                            <td class="ui-corner-all ui-widget">
+                                <div class="ui-widget-header">
+                                    /usr/include/c++/13/bits/std_function.h:591<br>
+                                    <code class="cpp">std::function&lt;void (tf::Runtime&amp;)&gt;::operator()(tf::Runtime&amp;) const</code>
+                                </div>
+                                <pre><code class="c++"><span class="line_number">588</span>      {
+<span class="line_number">589</span>	if (_M_empty())
+<span class="line_number">590</span>	  __throw_bad_function_call();
+<span class="line_number">591</span><span class="error">	return _M_invoker(_M_functor, std::forward&lt;_ArgTypes&gt;(__args)...);
+</span><span class="line_number">592</span>      }
+<span class="line_number">593</span>
+<span class="line_number">594</span>#if __cpp_rtti
+</code></pre>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <pre class="code">
+<code class="c++"><span class="line_number">224</span><span class="error">        return detail::weight_query_row_pcloud(</span>
+<span class="line_number">225</span>            m_reference, m_reference, static_cast&lt;size_t&gt;(m_query(q)), m_filter, m_distribution, toCdf, row);
+<span class="line_number">226</span>      }
+<span class="line_number">227</span>      else
+<span class="line_number">228</span>      {
+<span class="line_number">229</span>        return detail::weight_query_row_pcloud(m_reference, m_query, q, m_filter, m_distribution, toCdf, row);
+<span class="line_number">230</span>      }
+<span class="line_number">231</span>    }
+<span class="line_number">232</span>
+<span class="line_number">233</span>    /// Reject malformed inputs on the caller&#39;s thread, before any draws. Folds
+<span class="line_number">234</span>    /// in the checks the free-function entry points used to make.
+<span class="line_number">235</span>    void validate() const
+<span class="line_number">236</span>    {
+<span class="line_number">237</span>      if constexpr (is_pcloud)
+<span class="line_number">238</span>      {
+<span class="line_number">239</span>        if (m_reference.coords().rank() != 2)
+<span class="line_number">240</span>        {
+<span class="line_number">241</span>          throw std::invalid_argument(&#34;reference must be a 2-D (n_points, dim) point cloud&#34;);
+<span class="line_number">242</span>        }
+<span class="line_number">243</span>        if constexpr (!query_is_indices)
+<span class="line_number">244</span>        {
+<span class="line_number">245</span>          if (m_query.coords().rank() != 2)
+<span class="line_number">246</span>          {
+<span class="line_number">247</span>            throw std::invalid_argument(&#34;query must be a 2-D (n_points, dim) point cloud&#34;);
+<span class="line_number">248</span>          }
+<span class="line_number">249</span>          if (m_query.dim() != m_reference.dim())
+<span class="line_number">250</span>          {
+<span class="line_number">251</span>            throw std::invalid_argument(&#34;reference and query must have the same dimension&#34;);
+<span class="line_number">252</span>          }
+<span class="line_number">253</span>        }
+<span class="line_number">254</span>      }
+<span class="line_number">255</span>      else
+<span class="line_number">256</span>      {
+<span class="line_number">257</span>        if (m_reference.size() == 0)
+<span class="line_number">258</span>        {
+<span class="line_number">259</span>          throw std::invalid_argument(&#34;reference distance matrix must be nonempty&#34;);
+<span class="line_number">260</span>        }
+<span class="line_number">261</span>      }
+<span class="line_number">262</span>      if (m_sampleSize == 0)
+<span class="line_number">263</span>      {
+<span class="line_number">264</span>        throw std::invalid_argument(&#34;sample_size must be positive&#34;);
+<span class="line_number">265</span>      }
+<span class="line_number">266</span>    }
+<span class="line_number">267</span>
+<span class="line_number">268</span>    ElemT m_reference; ///&lt; reference whose buffer the indexed subsamples share
+<span class="line_number">269</span>    QueryT m_query;   ///&lt; query points (coordinates) or reference indices
+<span class="line_number">270</span>    FilterF m_filter; ///&lt; NoFilter for the distance-matrix path
+<span class="line_number">271</span>    DistF m_distribution;
+<span class="line_number">272</span>    Tensor&lt;ElemT&gt; &amp;m_out; ///&lt; (n_query, n_instances), filled in place
+<span class="line_number">273</span>    size_t m_sampleSize;
+<span class="line_number">274</span>    size_t m_nInstances;
+<span class="line_number">275</span>    bool m_replace;
+<span class="line_number">276</span>    DefaultRandomGenerator &amp;m_gen; ///&lt; used only in run_async&#39;s synchronous prologue
+<span class="line_number">277</span>    Tensor&lt;size_t&gt; m_queryIndices; ///&lt; walk driver, kept alive for the async walk
+<span class="line_number">278</span>  };
+<span class="line_number">279</span>
+<span class="line_number">280</span>  /// Point-cloud subsampling: weight each reference point by @p distribution of
+<span class="line_number">281</span>  /// @p filter(query point, reference point).
+<span class="line_number">282</span>  template &lt;typename T, typename FilterF, typename DistF&gt;
+<span class="line_number">283</span>  using SubsampleTask = SubsampleTaskImpl&lt;PointCloud&lt;T&gt;, PointCloud&lt;T&gt;, FilterF, DistF&gt;;
+<span class="line_number">284</span>
+<span class="line_number">285</span>  /// Point-cloud subsampling with the query points given as reference row
+<span class="line_number">286</span>  /// indices instead of coordinates (query point q is reference row query(q)).
+<span class="line_number">287</span>  template &lt;typename T, typename FilterF, typename DistF&gt;
+<span class="line_number">288</span>  using SubsampleIndexQueryTask = SubsampleTaskImpl&lt;PointCloud&lt;T&gt;, Tensor&lt;uint64_t&gt;, FilterF, DistF&gt;;
+<span class="line_number">289</span>
+<span class="line_number">290</span>  /// Distance-matrix subsampling: distances come from the precomputed reference
+<span class="line_number">291</span>  /// matrix, the query holds reference row indices, and there is no filter.
+<span class="line_number">292</span>  template &lt;typename T, typename DistF&gt;
+<span class="line_number">293</span>  using SubsampleDistMatTask = SubsampleTaskImpl&lt;DistanceMatrix&lt;T&gt;, Tensor&lt;uint64_t&gt;, NoFilter, DistF&gt;;
+<span class="line_number">294</span>
+<span class="line_number">295</span>} // namespace sb::sampling
+<span class="line_number">296</span>
+<span class="line_number">297</span>#endif
+</code>
+            </pre>
+        </div>
+    </div>
+</body>
+
+</html>
