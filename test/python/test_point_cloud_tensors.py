@@ -163,6 +163,25 @@ def test_copy_keep_source_controls_whether_the_source_is_shared():
     assert detached.array_equal(arr[1:4])
 
 
+def test_astype_preserves_indexed_views():
+    # pcloud_cast rebuilds views on one cast copy of the shared source instead
+    # of materializing each cell, so an astype of a subsample-style tensor
+    # keeps the one-source-plus-index-arrays layout.
+    arr = np.random.RandomState(10).rand(8, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+
+    dest = sb.zeros((2,), dtype=sb.pcloud64)
+    dest[0] = T[0][1:4]
+    dest[1] = T[0][[0, 5, 5]]
+
+    cast = dest.astype(sb.pcloud32)
+    assert cast[0].is_indexed
+    assert cast[1].is_indexed
+    assert np.allclose(cast[0].to_numpy(), arr[1:4], atol=1e-6)
+    assert np.allclose(cast[1].to_numpy(), arr[[0, 5, 5]], atol=1e-6)
+
+
 def test_storing_a_cloud_of_another_precision_converts():
     arr = np.random.RandomState(9).rand(5, 2)
     T = sb.zeros((1,), dtype=sb.pcloud32)

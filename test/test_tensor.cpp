@@ -935,4 +935,110 @@ namespace
     EXPECT_EQ(detached(0, 0), 2.0);
   }
 
+  TEST(PointCloudView, WalkVisitsIndexedCellsTransparently)
+  {
+    // walk only drives the shape odometer, so a tensor whose cells are indexed
+    // views must walk exactly like one with owning cells: every cell visited
+    // once, in order, with reads through the cell giving the selected points.
+    sb::Tensor<double> coords({4, 2});
+    for (size_t i = 0; i < 4; ++i)
+      for (size_t j = 0; j < 2; ++j)
+        coords({i, j}) = static_cast<double>((10 * i) + j);
+
+    sb::Tensor<uint64_t> idx0({2});
+    idx0({0}) = 3;
+    idx0({1}) = 1;
+    sb::Tensor<uint64_t> idx1({1});
+    idx1({0}) = 2;
+
+    sb::Tensor<sb::PointCloud<double>> t({3});
+    t(0) = sb::PointCloud<double>(coords, idx0);
+    t(1) = sb::PointCloud<double>(coords, idx1);
+    t(2) = sb::PointCloud<double>(coords); // owning cell over the same buffer
+
+    std::vector<std::vector<size_t>> visited;
+    std::vector<size_t> nPoints;
+    std::vector<double> firstCoord;
+    sb::walk(t, [&](const std::vector<size_t>& idx) {
+      visited.push_back(idx);
+      nPoints.push_back(t(idx).n_points());
+      firstCoord.push_back(t(idx)(0, 0));
+    });
+
+    std::vector<std::vector<size_t>> expectedOrder = {{0}, {1}, {2}};
+    EXPECT_EQ(visited, expectedOrder);
+    std::vector<size_t> expectedNPoints = {2, 1, 4};
+    EXPECT_EQ(nPoints, expectedNPoints);
+    std::vector<double> expectedFirst = {30.0, 20.0, 0.0}; // first selected point of each cell
+    EXPECT_EQ(firstCoord, expectedFirst);
+  }
+
+  TEST(PointCloudView, PcloudCastPreservesSourceSharing)
+  {
+    // pcloud_cast must not materialize views: the source buffer is cast once
+    // and the views are rebuilt on top of it, so a cast subsample tensor keeps
+    // the one-source-plus-index-arrays storage layout.
+    sb::Tensor<double> coords({3, 2});
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 2; ++j)
+        coords({i, j}) = static_cast<double>((2 * i) + j) + 0.5;
+
+    sb::Tensor<uint64_t> idx0({2});
+    idx0({0}) = 1;
+    idx0({1}) = 2;
+    sb::Tensor<uint64_t> idx1({3});
+    idx1({0}) = 0;
+    idx1({1}) = 0;
+    idx1({2}) = 2;
+
+    sb::Tensor<sb::PointCloud<double>> t({3});
+    t(0) = sb::PointCloud<double>(coords, idx0);
+    t(1) = sb::PointCloud<double>(coords, idx1);
+    t(2) = sb::PointCloud<double>(coords); // owning cell over the same buffer
+
+    auto cast = sb::pcloud_cast<float>(t);
+
+    // Same points as casting each cell's materialization (the old behavior).
+    for (size_t k = 0; k < 3; ++k)
+    {
+      sb::PointCloud<float> expected(sb::tensor_cast<float>(t(k).materialize()));
+      EXPECT_TRUE(cast(k) == expected) << "cell " << k;
+    }
+
+    // One shared cast buffer, view flags intact.
+    EXPECT_TRUE(cast(0).is_indexed());
+    EXPECT_TRUE(cast(1).is_indexed());
+    EXPECT_FALSE(cast(2).is_indexed());
+    EXPECT_EQ(cast(0).coords().data(), cast(1).coords().data());
+    EXPECT_EQ(cast(0).coords().data(), cast(2).coords().data());
+
+    // Index arrays carry over by value, not by aliasing the source tensor's.
+    EXPECT_TRUE(cast(0).indices() == t(0).indices());
+    EXPECT_NE(cast(0).indices().data(), t(0).indices().data());
+  }
+
+  TEST(PointCloudView, PcloudCastKeepsDistinctSourcesDistinct)
+  {
+    // Dedup is per source buffer: cells over different sources must not be
+    // collapsed onto one cast buffer.
+    sb::Tensor<double> coordsA({2, 1});
+    coordsA({0, 0}) = 1.0;
+    coordsA({1, 0}) = 2.0;
+    sb::Tensor<double> coordsB({2, 1});
+    coordsB({0, 0}) = 3.0;
+    coordsB({1, 0}) = 4.0;
+
+    sb::Tensor<uint64_t> indices({1});
+    indices({0}) = 1;
+
+    sb::Tensor<sb::PointCloud<double>> t({2});
+    t(0) = sb::PointCloud<double>(coordsA, indices);
+    t(1) = sb::PointCloud<double>(coordsB, indices);
+
+    auto cast = sb::pcloud_cast<float>(t);
+    EXPECT_NE(cast(0).coords().data(), cast(1).coords().data());
+    EXPECT_EQ(cast(0)(0, 0), 2.0f);
+    EXPECT_EQ(cast(1)(0, 0), 4.0f);
+  }
+
 } // namespace
