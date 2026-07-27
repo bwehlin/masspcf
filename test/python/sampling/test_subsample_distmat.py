@@ -111,6 +111,9 @@ def test_distmat_gaussian_far_shell_samples_nearest_not_empty():
                               distribution=Gaussian(mean=90.0, sigma=0.1),
                               generator=sb.random.Generator(0))
 
+    # Seed-independent: after the max shift the other points sit at -1050 or
+    # below, which exp underflows to a hard zero, leaving the row (0, 1, 0, 0).
+    # Only holds while sigma < ~0.12 (f64) / ~0.32 (f32).
     for j in range(subs.shape[1]):
         el = subs[0, j]
         assert el.size == 5  # non-empty: repeats of the nearest-to-shell point
@@ -277,6 +280,57 @@ def test_distmat_multi_matrix_reference_raises():
     dm = sb.DistanceMatrixTensor.from_numpy([D, D])   # two matrices
     with pytest.raises(ValueError):
         subsample_relative(dm, sample_size=3, n_instances=1)
+
+
+def test_distmat_copy_keep_source_controls_whether_the_source_is_shared():
+    # copy() copies a view's index array but keeps sharing the source buffer;
+    # copy(keep_source=False) deep-copies the source too, so a later write to
+    # the reference matrix cannot reach it.
+    D = _ref_distmat(20, seed=3)
+    dm = sb.DistanceMatrix.from_dense(D)
+    subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
+                              sample_size=6, n_instances=1,
+                              generator=sb.random.Generator(0))
+
+    view = subs[0, 0]
+    shared = view.copy()
+    detached = view.copy(keep_source=False)
+    assert shared.is_indexed
+    assert detached.is_indexed
+    assert np.allclose(shared.to_dense(), view.to_dense())
+    assert np.allclose(detached.to_dense(), view.to_dense())
+
+    # Move a source entry the subsample actually selects (two distinct drawn
+    # points — sampling is with replacement, so positions may repeat).
+    idx = np.asarray(view.indices)
+    p, q = next((p, q) for p in range(len(idx)) for q in range(p + 1, len(idx))
+                if idx[p] != idx[q])
+    a, b = int(idx[p]), int(idx[q])
+    dm[a, b] = 42.0
+    assert shared[p, q] == 42.0
+    assert detached[p, q] == pytest.approx(D[a, b])
+
+
+def test_distmat_indexed_view_write_detaches():
+    # Writing to an indexed view is copy-on-write: the view detaches
+    # (materializes in place), so the write succeeds, the matrix is no longer
+    # indexed, and the shared reference matrix is untouched.
+    D = _ref_distmat(20, seed=3)
+    dm = sb.DistanceMatrix.from_dense(D)
+    subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
+                              sample_size=6, n_instances=1,
+                              generator=sb.random.Generator(0))
+
+    view = subs[0, 0]
+    assert view.is_indexed
+    expected = view.to_dense()
+
+    view[0, 1] = 42.0
+    assert not view.is_indexed
+    assert view[0, 1] == 42.0
+    expected[0, 1] = expected[1, 0] = 42.0
+    assert np.allclose(view.to_dense(), expected)
+    assert np.allclose(dm.to_dense(), D)
 
 
 def test_distmat_pipeline_to_relative_stable_rank():

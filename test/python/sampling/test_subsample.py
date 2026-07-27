@@ -409,10 +409,10 @@ def test_subsamples_are_indexed_views():
     assert np.array_equal(el.to_numpy(), R[idx])
 
 
-def test_indexed_subsample_is_read_only():
-    # An indexed view shares the reference cloud's coordinates, so writing to it
-    # would corrupt the source; it must reject in-place assignment. materialize()
-    # gives an independent, writable copy.
+def test_indexed_subsample_write_detaches():
+    # Writing to an indexed view is copy-on-write: the view detaches from the
+    # shared source (materializing a private copy), so the write succeeds, the
+    # cloud is no longer indexed, and the reference cloud is untouched.
     R = np.random.default_rng(0).standard_normal((40, 3))
     X = np.random.default_rng(1).standard_normal((2, 3))
 
@@ -421,14 +421,11 @@ def test_indexed_subsample_is_read_only():
     el = subs[0, 0]
     assert el.is_indexed
 
-    with pytest.raises(TypeError):
-        el[0, 0] = 1.0
-
-    # A writable copy: mutating it leaves the source reference cloud untouched.
-    m = el.materialize()
-    m[0, 0] = 123.0
-    assert float(m[0, 0]) == 123.0
-    assert not np.any(R == 123.0)
+    before = R.copy()
+    el[0, 0] = 123.0
+    assert float(el[0, 0]) == 123.0
+    assert not el.is_indexed
+    assert np.array_equal(R, before)
 
 
 def test_owning_pointcloud_is_mutable():

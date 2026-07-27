@@ -3,8 +3,7 @@
 #include <sbear/tensor.hpp>
 #include <sbear/walk.hpp>
 #include <sbear/distance_matrix.hpp>
-#include <sbear/symmetric_matrix.hpp>
-#include <sbear/distance_matrix.hpp>
+#include <sbear/point_cloud.hpp>
 #include <sbear/symmetric_matrix.hpp>
 
 // ============================================================================
@@ -864,6 +863,76 @@ namespace
 
     sb::DistanceMatrix<double> wrongSize(3);
     EXPECT_FALSE(sb::allclose(view, wrongSize));
+  }
+
+  TEST(DistanceMatrixView, CopyKeepsOrDetachesTheSource)
+  {
+    sb::DistanceMatrix<double> source(4);
+    source(1, 3) = 5.0;
+
+    sb::Tensor<uint64_t> indices({2});
+    indices({0}) = 1;
+    indices({1}) = 3;
+    sb::DistanceMatrix<double> view(source, indices);
+
+    // const: a non-const read through operator() would COW-detach the copies.
+    const auto shared = view.copy();        // default: keeps sharing the source
+    const auto detached = view.copy(false); // clean slate: source deep-copied too
+    EXPECT_TRUE(shared.is_indexed());
+    EXPECT_TRUE(detached.is_indexed());
+    EXPECT_EQ(shared.source_data(), source.data());
+    EXPECT_NE(detached.source_data(), source.data());
+    EXPECT_EQ(detached(0, 1), 5.0);
+
+    // Moving the source shows through the sharing copy but not the detached one.
+    source(1, 3) = 7.0;
+    EXPECT_EQ(shared(0, 1), 7.0);
+    EXPECT_EQ(detached(0, 1), 5.0);
+  }
+
+  TEST(DistanceMatrixView, WriteDetachesTheViewFromTheSource)
+  {
+    // Copy-on-write: writing through an indexed view materializes it in place
+    // first, so the write lands on a private buffer and the shared source
+    // stays untouched.
+    sb::DistanceMatrix<double> source(4);
+    source(1, 3) = 5.0;
+
+    sb::Tensor<uint64_t> indices({2});
+    indices({0}) = 1;
+    indices({1}) = 3;
+    sb::DistanceMatrix<double> view(source, indices);
+    EXPECT_TRUE(view.is_indexed());
+
+    view(0, 1) = 9.0;
+    EXPECT_FALSE(view.is_indexed());
+    EXPECT_EQ(view(0, 1), 9.0);
+    EXPECT_EQ(source(1, 3), 5.0);
+  }
+
+  TEST(PointCloudView, CopyKeepsOrDetachesTheSource)
+  {
+    sb::Tensor<double> coords({3, 2});
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 2; ++j)
+        coords({i, j}) = static_cast<double>((2 * i) + j);
+
+    sb::Tensor<uint64_t> indices({2});
+    indices({0}) = 1;
+    indices({1}) = 2;
+    sb::PointCloud<double> view(coords, indices);
+
+    auto shared = view.copy();
+    auto detached = view.copy(false);
+    EXPECT_TRUE(shared.is_indexed());
+    EXPECT_TRUE(detached.is_indexed());
+    EXPECT_EQ(shared.coords().data(), coords.data());
+    EXPECT_NE(detached.coords().data(), coords.data());
+    EXPECT_EQ(detached(0, 0), 2.0);  // point 1 = (2, 3)
+
+    coords({1, 0}) = 9.0;
+    EXPECT_EQ(shared(0, 0), 9.0);
+    EXPECT_EQ(detached(0, 0), 2.0);
   }
 
 } // namespace

@@ -141,6 +141,28 @@ def test_storing_a_view_does_not_alias_the_source_cloud():
     assert dest[0].array_equal(arr[1:4])
 
 
+def test_copy_keep_source_controls_whether_the_source_is_shared():
+    # copy() copies a view's index array but keeps sharing the source
+    # coordinates; copy(keep_source=False) deep-copies the source too, so a
+    # later write to the cloud the view came from cannot reach it.
+    arr = np.random.RandomState(9).rand(6, 2)
+    T = sb.zeros((1,), dtype=sb.pcloud64)
+    T[0] = arr
+
+    view = T[0][1:4]
+    shared = view.copy()
+    detached = view.copy(keep_source=False)
+
+    assert shared.is_indexed
+    assert detached.is_indexed
+    assert shared.array_equal(arr[1:4])
+    assert detached.array_equal(arr[1:4])
+
+    T[0][1, 0] = 99.0
+    assert float(shared[0, 0]) == 99.0
+    assert detached.array_equal(arr[1:4])
+
+
 def test_storing_a_cloud_of_another_precision_converts():
     arr = np.random.RandomState(9).rand(5, 2)
     T = sb.zeros((1,), dtype=sb.pcloud32)
