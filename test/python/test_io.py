@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -112,3 +113,66 @@ def test_distance_matrix_tensor_roundtrip_empty(distmat_dtype, scalar_dtype):
     assert type(restored) is type(T)
     assert restored.shape == T.shape
     assert restored[0].size == 0
+
+
+# Legacy-format fixtures: bytes written by an older stablebear (main's
+# pre-indexed-views writer), checked into test/data/legacy_io/. The expected
+# values mirror generate_fixtures.cpp in that directory — keep them in sync.
+
+_LEGACY_DIR = Path(__file__).resolve().parent.parent / "data" / "legacy_io"
+
+
+def _legacy_pcloud(c):
+    return np.array([[100 * c + 10 * i + j + 0.25 for j in range(2)]
+                     for i in range(3 - c)])
+
+
+def _legacy_distmat_dense(n, offset):
+    D = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            D[i, j] = D[j, i] = 10 * i + j + offset
+    return D
+
+
+@pytest.mark.parametrize("suffix, np_dtype, pcloud_dtype", [
+    ("f32", np.float32, sb.pcloud32),
+    ("f64", np.float64, sb.pcloud64),
+])
+def test_load_legacy_point_cloud_tensor_fixture(suffix, np_dtype, pcloud_dtype):
+    t = sb.load(str(_LEGACY_DIR / f"pcloud_tensor_{suffix}.sb"))
+
+    assert isinstance(t, sb.PointCloudTensor)
+    assert t.dtype == pcloud_dtype
+    assert t.shape == (2,)
+    for c in range(2):
+        np.testing.assert_array_equal(
+            t[c].to_numpy(), _legacy_pcloud(c).astype(np_dtype))
+
+
+@pytest.mark.parametrize("suffix, np_dtype, distmat_dtype", [
+    ("f32", np.float32, sb.distmat32),
+    ("f64", np.float64, sb.distmat64),
+])
+def test_load_legacy_distance_matrix_tensor_fixture(suffix, np_dtype, distmat_dtype):
+    t = sb.load(str(_LEGACY_DIR / f"distmat_tensor_{suffix}.sb"))
+
+    assert isinstance(t, sb.DistanceMatrixTensor)
+    assert t.dtype == distmat_dtype
+    assert t.shape == (2,)
+    for c in range(2):
+        np.testing.assert_array_equal(
+            t[c].to_dense(), _legacy_distmat_dense(3 + c, 0.5).astype(np_dtype))
+
+
+@pytest.mark.parametrize("suffix, np_dtype, scalar_dtype", [
+    ("f32", np.float32, sb.float32),
+    ("f64", np.float64, sb.float64),
+])
+def test_load_legacy_distance_matrix_object_fixture(suffix, np_dtype, scalar_dtype):
+    m = sb.load(str(_LEGACY_DIR / f"distmat_object_{suffix}.sb"))
+
+    assert isinstance(m, sb.DistanceMatrix)
+    assert m.dtype == scalar_dtype
+    np.testing.assert_array_equal(
+        m.to_dense(), _legacy_distmat_dense(5, 0.25).astype(np_dtype))
