@@ -3,6 +3,7 @@ import io
 import numpy as np
 
 import stablebear as sb
+from stablebear.sampling import Gaussian, Uniform, subsample_relative
 
 
 def _roundtrip(tensor):
@@ -104,3 +105,87 @@ def test_barcode64_tensor_roundtrip():
 
 def test_barcode32_tensor_empty():
     _assert_roundtrip(sb.zeros((3,), dtype=sb.barcode32))
+
+
+# --- Indexed point clouds (subsamples) ---
+
+
+def test_indexed_subsamples_roundtrip():
+    R = np.random.default_rng(0).standard_normal((150, 6))
+    X = np.random.default_rng(1).standard_normal((3, 6))
+    subs = subsample_relative(R, X, sample_size=12, n_instances=7,
+                     distribution=Gaussian(mean=0.0, sigma=1.0), generator=sb.random.Generator(0))
+
+    before = [[np.asarray(subs[i, j]) for j in range(7)] for i in range(3)]
+
+    loaded = _roundtrip(subs)
+
+    assert isinstance(loaded, sb.PointCloudTensor)
+    assert loaded.shape == (3, 7)
+    # Indexed structure survives the round trip (sources shared, not re-stored).
+    assert loaded[0, 0].is_indexed
+    for i in range(3):
+        for j in range(7):
+            assert np.array_equal(np.asarray(loaded[i, j]), before[i][j])
+
+
+# --- Indexed distance matrices (subsamples) ---
+
+
+def _euclidean_distmat(n, dim=3, seed=0):
+    pts = np.random.default_rng(seed).standard_normal((n, dim))
+    return np.sqrt(((pts[:, None, :] - pts[None, :, :]) ** 2).sum(-1))
+
+
+def test_indexed_distmat_subsamples_roundtrip():
+    dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(40))
+    subs = subsample_relative(dm, np.array([0, 5, 10], dtype=np.uint64),
+                              sample_size=8, n_instances=4,
+                              generator=sb.random.Generator(0))
+
+    before = [[np.asarray(subs[i, j]) for j in range(4)] for i in range(3)]
+
+    loaded = _roundtrip(subs)
+
+    assert isinstance(loaded, sb.DistanceMatrixTensor)
+    assert loaded.shape == (3, 4)
+    # Indexed structure survives the round trip (sources shared, not re-stored).
+    assert loaded[0, 0].is_indexed
+    for i in range(3):
+        for j in range(4):
+            assert np.array_equal(np.asarray(loaded[i, j].indices),
+                                  np.asarray(subs[i, j].indices))
+            assert np.array_equal(np.asarray(loaded[i, j]), before[i][j])
+
+
+def test_indexed_distmat_empty_regions_roundtrip():
+    # A band beyond the data diameter empties every subsample; the length-0
+    # index arrays must survive the round trip.
+    dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(20))
+    subs = subsample_relative(dm, np.array([0, 3], dtype=np.uint64),
+                              sample_size=5, n_instances=2,
+                              distribution=Uniform(low=1e12),
+                              generator=sb.random.Generator(0))
+    assert subs[0, 0].size == 0
+
+    loaded = _roundtrip(subs)
+    assert loaded.shape == (2, 2)
+    for i in range(2):
+        for j in range(2):
+            assert loaded[i, j].size == 0
+
+
+def test_standalone_indexed_distmat_saves_as_materialization():
+    dm = sb.DistanceMatrix.from_dense(_euclidean_distmat(30))
+    subs = subsample_relative(dm, np.array([0], dtype=np.uint64),
+                              sample_size=6, n_instances=1,
+                              generator=sb.random.Generator(0))
+    view = subs[0, 0]
+    assert view.is_indexed
+
+    # A standalone view is written as its materialization: the loaded matrix
+    # is the selected submatrix, indistinguishable from saving materialize().
+    loaded = _roundtrip(view)
+    assert isinstance(loaded, sb.DistanceMatrix)
+    assert not loaded.is_indexed
+    assert np.array_equal(np.asarray(loaded), np.asarray(view))

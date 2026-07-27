@@ -9,12 +9,14 @@
 #include <pybind11/numpy.h>
 
 #include <sbear/tensor.hpp>
+#include <sbear/point_cloud.hpp>
 #include <sbear/concepts.hpp>
 #include <sbear/functional/pcf.hpp>
 #include "functional/py_pcf_tensor_eval.hpp"
 
 #include <algorithm>
 #include <numeric>
+#include <type_traits>
 
 namespace sb_py
 {
@@ -249,6 +251,21 @@ namespace sb_py
       }, pybind11::arg("tensor"), pybind11::arg("n_sections"), pybind11::arg("axis") = 0)
       .def("is_contiguous", &TTensor::is_contiguous)
     ;
+
+    // For a tensor of point clouds, assigning a plain coordinate tensor wraps it
+    // as a (materialized) PointCloud element. Reading elements goes through the
+    // generic _get_element, which returns the PointCloud as-is (kept lazy: an
+    // indexed view is only materialized on the Python side when numpy is needed).
+    if constexpr (sb::is_point_cloud_v<T>)
+    {
+      using ScalarT = typename T::value_type;
+      cls.def("_set_element", [](TTensor& self, const std::vector<size_t>& index, const sb::Tensor<ScalarT>& val) {
+        assert_valid_index(self, index);
+        // T(val) shares val's coordinate buffer; store_copy makes the stored cell
+        // independent (matches the generic _set_element above and main's #39 fix).
+        self(index) = sb::detail::store_copy(T(val));
+      });
+    }
 
     // Unary negation
     if constexpr (sb::CanNegate<T>)

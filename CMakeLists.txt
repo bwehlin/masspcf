@@ -613,6 +613,13 @@ SET(SB_PY_POINT_PROCESS_SOURCES
 
 list(TRANSFORM SB_PY_POINT_PROCESS_SOURCES PREPEND "point_process/")
 
+SET(SB_PY_SAMPLING_SOURCES
+    py_subsample.hpp py_subsample.cpp
+    pymodule_sampling.hpp pymodule_sampling.cpp
+)
+
+list(TRANSFORM SB_PY_SAMPLING_SOURCES PREPEND "sampling/")
+
 SET(SB_PY_SOURCES
     pybind.hpp
     pymodule.cpp
@@ -633,6 +640,7 @@ SET(SB_PY_SOURCES
     py_distance_matrix.hpp py_distance_matrix.cpp
     ${SB_PY_PERSISTENCE_SOURCES}
     ${SB_PY_POINT_PROCESS_SOURCES}
+    ${SB_PY_SAMPLING_SOURCES}
 )
 
 list(TRANSFORM SB_PY_SOURCES PREPEND "src/python/")
@@ -651,6 +659,8 @@ source_group("Persistence"             REGULAR_EXPRESSION "include/sbear/persist
 source_group("Persistence/Bindings"    REGULAR_EXPRESSION "src/python/persistence/.*")
 source_group("PointProcess"            REGULAR_EXPRESSION "include/sbear/point_process/.*")
 source_group("PointProcess/Bindings"   REGULAR_EXPRESSION "src/python/point_process/.*")
+source_group("Sampling"                REGULAR_EXPRESSION "include/sbear/sampling/.*")
+source_group("Sampling/Bindings"       REGULAR_EXPRESSION "src/python/sampling/.*")
 source_group("CUDA"                    REGULAR_EXPRESSION "(include/sbear/cuda/.*|src/cuda/.*)")
 source_group("Tensor"                  REGULAR_EXPRESSION "include/sbear/tensor[^/]*")
 source_group("Tensor/Bindings"         REGULAR_EXPRESSION "src/python/py_(np_tensor_convert|tensor)\\.(h|cpp)")
@@ -880,6 +890,7 @@ if (BUILD_TESTER)
       test/test_offset_data_manager.cpp
       test/test_walk_random.cpp
       test/test_subdivide.cpp
+      test/test_weighted_draw.cpp
   )
 
   if (BUILD_CUDA_TESTER)

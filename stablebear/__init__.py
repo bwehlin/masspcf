@@ -9,6 +9,7 @@ from .io import load, save
 from .norms import lp_norm
 from .functional import Pcf, iterate_rectangles
 from .reductions import max_time, mean
+from .sampling import Gaussian, Uniform, subsample_relative
 from .serialize import from_serial_content
 from .distance_matrix import DistanceMatrix, DistanceMatrixTensor
 from .symmetric_matrix import SymmetricMatrix, SymmetricMatrixTensor
@@ -20,6 +21,7 @@ from .base_tensor import (
     PcfTensor,
     PointCloudTensor,
 )
+from .point_cloud import PointCloud
 from .tensor_create import array_split, concatenate, split, stack, tensor, zeros
 from .typing import (
     dtype,

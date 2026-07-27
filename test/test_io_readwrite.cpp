@@ -1,11 +1,16 @@
 #include <gtest/gtest.h>
 
+#include <sbear/distance_matrix.hpp>
 #include <sbear/io.hpp>
+#include <sbear/point_cloud.hpp>
 #include <sbear/tensor.hpp>
 #include <sbear/walk.hpp>
 
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <variant>
 
 namespace
 {
@@ -321,6 +326,159 @@ namespace
 
     std::istringstream iss(data);
     EXPECT_THROW(sb::read<TensorT>(iss), std::runtime_error);
+  }
+
+// ============================================================================
+// Shared-source element tensors through the typed sb::read<> entry point.
+//
+// Point-cloud (1001) and distance-matrix (1121) tensors are written in the
+// shared-source layout but were previously read back by the legacy element-wise
+// reader, which desynchronized the stream — silently for distance matrices.
+// ============================================================================
+
+  TYPED_TEST(IoReadWriteTest, PointCloudTensorRoundtrip)
+  {
+    using TensorT = sb::Tensor<sb::PointCloud<TypeParam>>;
+
+    sb::Tensor<TypeParam> coords({ 4, 2 });
+    for (auto i = 0_uz; i < 4; ++i)
+    {
+      coords({ i, 0 }) = static_cast<TypeParam>(i);
+      coords({ i, 1 }) = static_cast<TypeParam>(2 * i);
+    }
+
+    TensorT tensor({ 2 });
+    tensor(0) = sb::PointCloud<TypeParam>(coords);
+    // An indexed view over the same source: the layout this format exists for.
+    sb::Tensor<sb::uint64_t> indices({ 2 });
+    indices(0) = 3;
+    indices(1) = 1;
+    tensor(1) = sb::PointCloud<TypeParam>(coords, indices);
+
+    std::stringstream ss;
+    sb::write(tensor, ss);
+
+    std::istringstream iss(ss.str());
+    auto retTensor = sb::read<TensorT>(iss);
+
+    EXPECT_EQ(tensor, retTensor);
+    const auto& view = retTensor(1);
+    EXPECT_EQ(view.n_points(), 2u);
+    EXPECT_EQ(view(0, 0), static_cast<TypeParam>(3));
+  }
+
+  TYPED_TEST(IoReadWriteTest, DistanceMatrixTensorRoundtrip)
+  {
+    using TensorT = sb::Tensor<sb::DistanceMatrix<TypeParam>>;
+
+    sb::DistanceMatrix<TypeParam> source(4);
+    for (auto i = 0_uz; i < 4; ++i)
+    {
+      for (auto j = 0_uz; j < i; ++j)
+      {
+        source(i, j) = static_cast<TypeParam>((i * 4) + j);
+      }
+    }
+
+    TensorT tensor({ 2 });
+    tensor(0) = source;
+    sb::Tensor<sb::uint64_t> indices({ 2 });
+    indices(0) = 0;
+    indices(1) = 2;
+    tensor(1) = sb::DistanceMatrix<TypeParam>(source, indices);
+
+    std::stringstream ss;
+    sb::write(tensor, ss);
+
+    std::istringstream iss(ss.str());
+    auto retTensor = sb::read<TensorT>(iss);
+
+    EXPECT_EQ(tensor, retTensor);
+    // Before the dispatch fix this read back as a bogus 1x1 zero matrix.
+    // Bind const: the mutable operator() would COW-detach the view.
+    const auto& view = retTensor(1);
+    const auto& owning = source;
+    EXPECT_EQ(view.size(), 2u);
+    EXPECT_EQ(view(0, 1), owning(0, 2));
+  }
+
+  // ============================================================================
+  // Legacy-format fixtures: bytes written by an older stablebear (main's
+  // pre-indexed-views writer), checked into test/data/legacy_io/. The expected
+  // values mirror generate_fixtures.cpp in that directory — keep them in sync.
+  // ============================================================================
+
+  template <typename T>
+  std::string legacy_fixture_path(const std::string& stem)
+  {
+    const std::string suffix = sizeof(T) == 4 ? "f32" : "f64";
+    return "data/legacy_io/" + stem + "_" + suffix + ".sb";
+  }
+
+  template <typename T>
+  sb::DistanceMatrix<T> legacy_fixture_distmat(size_t n, T offset)
+  {
+    sb::DistanceMatrix<T> m(n);
+    for (auto i = 0_uz; i < n; ++i)
+    {
+      for (auto j = i + 1; j < n; ++j)
+      {
+        m(i, j) = static_cast<T>(10 * i + j) + offset;
+      }
+    }
+    return m;
+  }
+
+  TYPED_TEST(IoReadWriteTest, ReadsLegacyPointCloudTensorFixture)
+  {
+    // Legacy baseFormat 1000: every element a full nested tensor (on the old
+    // main, PointCloud<T> was an alias for Tensor<T>).
+    std::ifstream is(legacy_fixture_path<TypeParam>("pcloud_tensor"), std::ios::binary);
+    ASSERT_TRUE(is.is_open()) << "fixture not found; sb_test must run from test/";
+
+    auto tensor = sb::read<sb::Tensor<sb::PointCloud<TypeParam>>>(is);
+
+    sb::Tensor<sb::PointCloud<TypeParam>> expected({ 2 });
+    for (auto c = 0_uz; c < 2; ++c)
+    {
+      sb::Tensor<TypeParam> coords({ 3 - c, 2 });
+      for (auto i = 0_uz; i < 3 - c; ++i)
+      {
+        for (auto j = 0_uz; j < 2; ++j)
+        {
+          coords({ i, j }) = static_cast<TypeParam>(100 * c + 10 * i + j) + TypeParam(0.25);
+        }
+      }
+      expected(c) = sb::PointCloud<TypeParam>(coords);
+    }
+    EXPECT_EQ(tensor, expected);
+  }
+
+  TYPED_TEST(IoReadWriteTest, ReadsLegacyDistanceMatrixTensorFixture)
+  {
+    // Legacy baseFormat 1120: every element a full compressed matrix.
+    std::ifstream is(legacy_fixture_path<TypeParam>("distmat_tensor"), std::ios::binary);
+    ASSERT_TRUE(is.is_open()) << "fixture not found; sb_test must run from test/";
+
+    auto tensor = sb::read<sb::Tensor<sb::DistanceMatrix<TypeParam>>>(is);
+
+    sb::Tensor<sb::DistanceMatrix<TypeParam>> expected({ 2 });
+    expected(0) = legacy_fixture_distmat<TypeParam>(3, TypeParam(0.5));
+    expected(1) = legacy_fixture_distmat<TypeParam>(4, TypeParam(0.5));
+    EXPECT_EQ(tensor, expected);
+  }
+
+  TYPED_TEST(IoReadWriteTest, ReadsLegacyDistanceMatrixObjectFixture)
+  {
+    // Standalone matrices kept their layout across format generations; the
+    // reader accepts the legacy (1120) tag alongside the current one.
+    std::ifstream is(legacy_fixture_path<TypeParam>("distmat_object"), std::ios::binary);
+    ASSERT_TRUE(is.is_open()) << "fixture not found; sb_test must run from test/";
+
+    auto obj = sb::read_any_object(is);
+    ASSERT_TRUE(std::holds_alternative<sb::DistanceMatrix<TypeParam>>(obj));
+    EXPECT_EQ(std::get<sb::DistanceMatrix<TypeParam>>(obj),
+              legacy_fixture_distmat<TypeParam>(5, TypeParam(0.25)));
   }
 
 } // namespace

@@ -1,6 +1,7 @@
 #include "py_tensor.hpp"
 
 #include <sbear/tensor.hpp>
+#include <sbear/point_cloud.hpp>
 #include <sbear/functional/pcf.hpp>
 
 #include <sstream>
@@ -116,6 +117,27 @@ namespace
 
   }
 
+  // The element type of a PointCloud tensor; an element may be an indexed
+  // view sharing a source cloud (materialized lazily — see stablebear.tensor.PointCloud).
+  template <typename T>
+  void register_point_cloud_element(py::module_& m, const std::string& suffix)
+  {
+    using PC = sb::PointCloud<T>;
+    py::class_<PC>(m, ("PointCloud" + suffix).c_str())
+        .def(py::init<const sb::Tensor<T>&>())
+        // Indexed view over `source`'s rows. Indices address source storage, so
+        // slicing a view must compose them against the source (see PointCloud
+        // in stablebear/point_cloud.py).
+        .def(py::init<const sb::Tensor<T>&, sb::Tensor<sb::uint64_t>>())
+        .def_property_readonly("n_points", &PC::n_points)
+        .def_property_readonly("n_dims", &PC::dim)
+        .def_property_readonly("is_indexed", &PC::is_indexed)
+        .def_property_readonly("indices", &PC::indices)
+        .def_property_readonly("coords", &PC::coords)
+        .def("materialize", &PC::materialize)
+        .def("copy", &PC::copy, py::arg("keep_source") = true);
+  }
+
 }
 
 namespace sb_py
@@ -141,5 +163,8 @@ namespace sb_py
 
     register_typed_tensor_bindings<sb::PointCloud<sb::float32_t>>(m, "PointCloud32", "");
     register_typed_tensor_bindings<sb::PointCloud<sb::float64_t>>(m, "PointCloud64", "");
+
+    register_point_cloud_element<sb::float32_t>(m, "32");
+    register_point_cloud_element<sb::float64_t>(m, "64");
   }
 }
