@@ -811,6 +811,17 @@ namespace
     EXPECT_TRUE(sb::allclose(a, b, T(1)));
   }
 
+  TEST(AllcloseCompressed, SymmetricDiagonalDifferenceIsCompared)
+  {
+    // The elementwise loop must include the diagonal: it is real stored data
+    // for a symmetric matrix (a distance matrix reads zero there either way).
+    sb::SymmetricMatrix<double> a(3, 1.0);
+    sb::SymmetricMatrix<double> b(3, 1.0);
+    b(1, 1) = 2.0;
+    EXPECT_FALSE(sb::allclose(a, b));
+    EXPECT_TRUE(sb::allclose(a, b, 1.0));
+  }
+
   // ==========================================================================
   // DistanceMatrix indexed views — buffer access
   // ==========================================================================
@@ -833,6 +844,22 @@ namespace
     EXPECT_THROW((void)view.data(), std::logic_error);
     EXPECT_EQ(view.source_data(), source.data());
     EXPECT_EQ(view.source_size(), 4u);
+  }
+
+  TEST(DistanceMatrixView, StorageCountReportsTheObservedSubmatrix)
+  {
+    // storage_count() describes the matrix as observed, like size() and
+    // operator(): for a view, the entry count of its principal submatrix.
+    // The physical source count stays available as storage_size(source_size()).
+    sb::DistanceMatrix<double> source(4);
+    EXPECT_EQ(source.storage_count(), 6u);
+
+    sb::Tensor<uint64_t> indices({2});
+    indices({0}) = 1;
+    indices({1}) = 3;
+    sb::DistanceMatrix<double> view(source, indices);
+    EXPECT_EQ(view.storage_count(), 1u);
+    EXPECT_EQ(sb::DistanceMatrix<double>::storage_size(view.source_size()), 6u);
   }
 
   TEST(DistanceMatrixView, AllcloseComparesThePrincipalSubmatrix)
