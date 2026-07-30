@@ -2,6 +2,7 @@
 
 #include <sbear/algorithms/minimum_spanning_tree.hpp>
 #include <sbear/distance_matrix.hpp>
+#include <sbear/distances.hpp>
 #include <sbear/persistence/barcode.hpp>
 #include <sbear/persistence/compute_homological_kernel.hpp>
 #include <sbear/persistence/persistence_pair.hpp>
@@ -75,7 +76,7 @@ namespace
   sb::ph::Barcode<T> kernel_of(const sb::DistanceMatrix<T> &d, const sb::DistanceMatrix<T> &dPrime)
   {
     sb::ph::Barcode<T> bc;
-    sb::ph::detail::homological_kernel_single_impl(d, dPrime, d.size(), bc);
+    sb::ph::detail::homological_kernel_single_impl(d, dPrime, bc);
     return bc;
   }
 
@@ -86,7 +87,7 @@ namespace
     sb::SquaredEuclideanDistance<T> d(X);
     sb::SquaredEuclideanDistance<T> dPrime(XPrime);
     sb::ph::Barcode<T> bc;
-    sb::ph::detail::homological_kernel_single_impl(d, dPrime, d.size(), bc, [](T v) { return std::sqrt(v); });
+    sb::ph::detail::homological_kernel_single_impl(d, dPrime, bc, [](T v) { return std::sqrt(v); });
     return bc;
   }
 
@@ -325,8 +326,8 @@ namespace
 
       std::vector<sb::MergeEdge<T>> dMerges;
       std::vector<sb::MergeEdge<T>> primeMerges;
-      sb::mst_merge_order(d, n, dMerges);
-      sb::mst_merge_order(dPrime, n, primeMerges);
+      sb::mst_merge_order(d, dMerges);
+      sb::mst_merge_order(dPrime, primeMerges);
 
       std::vector<T> births;
       std::vector<T> deaths;

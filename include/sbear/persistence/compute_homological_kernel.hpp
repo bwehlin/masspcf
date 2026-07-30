@@ -2,7 +2,10 @@
 #define STABLEBEAR_HOMOLOGICAL_KERNEL_H
 
 #include "../algorithms/minimum_spanning_tree.hpp"
+#include "../algorithms/union_find.hpp"
+#include "../concepts.hpp"
 #include "../distance_matrix.hpp"
+#include "../distances.hpp"
 #include "../executor.hpp"
 #include "../task.hpp"
 #include "../tensor.hpp"
@@ -26,17 +29,6 @@ namespace sb::ph
 {
   namespace detail
   {
-    // Union-find root lookup with path halving.
-    inline size_t uf_find_root(std::vector<size_t> &ufParent, size_t x)
-    {
-      while (ufParent[x] != x)
-      {
-        ufParent[x] = ufParent[ufParent[x]];
-        x = ufParent[x];
-      }
-      return x;
-    }
-
     // Performs the cross filtration: replays the d' merges (the births w_i) and
     // computes each death v_i against d.
     //
@@ -59,53 +51,55 @@ namespace sb::ph
     // merge: O(n^2 alpha(n)) time, O(n) memory. Throws if some death lands
     // below its birth (beyond roundoff), which means d does not dominate d'.
     template <typename T>
-    void cross_filtration(
-        const std::vector<MergeEdge<T>> &primeMerges, const std::vector<MergeEdge<T>> &dMerges, size_t n,
+    void compute_cross_filtration(
+        const std::vector<MergeEdge<T>> &primeMerges, const std::vector<MergeEdge<T>> &dMerges,
         std::vector<PersistencePair<T>> &bars)
     {
       bars.clear();
-      if (n <= 1)
+      if (primeMerges.empty())
       {
         return;
       }
-      bars.reserve(n - 1);
+      // Exactly n-1 merges for n points is an invariant the callers establish
+      // (both merge vectors come from mst_merge_order), so the point count is
+      // recoverable from the merge count.
+      const size_t n = primeMerges.size() + 1;
+      bars.reserve(primeMerges.size());
 
-      // seedParent holds the components induced by the contractions performed so
-      // far (= the current d'-components); scratchParent is the working copy each
-      // sweep runs on. The copy assignment reuses capacity, so the steady state
-      // allocates nothing.
-      std::vector<size_t> seedParent(n);
-      for (size_t p = 0; p < n; ++p)
-      {
-        seedParent[p] = p;
-      }
-      std::vector<size_t> scratchParent;
+      // primeComponents holds the components induced by the contractions
+      // performed so far (= the current d'-components); dComponents is the
+      // working copy each death query runs on, adding d-MST edges on top of
+      // those contractions. The copy assignment reuses capacity, so the
+      // steady state allocates nothing.
+      UnionFind primeComponents(n);
+      UnionFind dComponents(n);
 
       for (auto const &merge : primeMerges)
       {
-        scratchParent = seedParent;
+        dComponents = primeComponents;
 
-        // The seed alone can never connect merge.a to merge.b (its unions stay
-        // inside d'-components, and a and b are in different ones by definition
-        // of this merge), and the full d-MST is spanning — so the loop always
-        // runs at least once and exits with edgeIdx <= n-1, having set death.
+        // The d'-components alone can never connect merge.a to merge.b (a and
+        // b are in different ones by definition of this merge), and the full
+        // d-MST is spanning — so the loop always runs at least once and exits
+        // with edgeIdx <= n-1, having set death.
         //
         // The connectivity check is find-free: rootA/rootB are cached, and a
-        // cached root can only stop being one when the union writes over its
-        // slot (absorbedRoot below) — so patching on that case keeps both
-        // caches exact.
-        auto rootA = uf_find_root(scratchParent, merge.a);
-        auto rootB = uf_find_root(scratchParent, merge.b);
+        // cached root can only stop being one when a union absorbs it
+        // (absorbedRoot below) — so patching on that case keeps both caches
+        // exact.
+        auto rootA = dComponents.find(merge.a);
+        auto rootB = dComponents.find(merge.b);
         auto death = std::numeric_limits<T>::quiet_NaN();
         size_t edgeIdx = 0;
         while (rootA != rootB)
         {
           auto const &edge = dMerges[edgeIdx++];
           // Unconditional union: an edge whose endpoints are already connected
-          // (through the seed or earlier edges) is a harmless self-assignment.
-          auto survivingRoot = uf_find_root(scratchParent, edge.a);
-          auto absorbedRoot = uf_find_root(scratchParent, edge.b);
-          scratchParent[absorbedRoot] = survivingRoot;
+          // (through the d'-contractions or earlier edges) is a harmless
+          // self-union.
+          auto survivingRoot = dComponents.find(edge.a);
+          auto absorbedRoot = dComponents.find(edge.b);
+          dComponents.unite(survivingRoot, absorbedRoot);
           if (absorbedRoot == rootA)
           {
             rootA = survivingRoot;
@@ -132,27 +126,30 @@ namespace sb::ph
         }
         bars.emplace_back(merge.mergeDist, std::max(death, merge.mergeDist));
 
-        // Only now does the contraction enter the seed: merge i must see the
-        // quotient by merges 1..i-1, not by itself or later ones.
-        seedParent[uf_find_root(seedParent, merge.b)] = uf_find_root(seedParent, merge.a);
+        // Only now does the contraction enter primeComponents: merge i must
+        // see the quotient by merges 1..i-1, not by itself or later ones.
+        primeComponents.unite(primeComponents.find(merge.a), primeComponents.find(merge.b));
       }
     }
 
     // Full kernel computation for one instance: d' merge order (the births),
     // d-MST (the death timeline), cross filtration. Requires d' <= d pointwise;
-    // cross_filtration throws otherwise. For n <= 1 the kernel barcode is empty.
+    // compute_cross_filtration throws otherwise. The instance size comes from
+    // dDist.size(); callers validate that both oracles agree on it. For
+    // sizes <= 1 the kernel barcode is empty.
     // mergeDistTransform maps each stored merge distance from the scale the
     // DistT functor computes in to the scale of the output bars (sqrt for the
     // squared-Euclidean oracle, identity for oracles already in bar scale); it
     // must be monotone so the merge order is unchanged.
     template <typename DistT, typename T, typename PostF = std::identity>
+    requires DistanceOracle<DistT, T>
     void homological_kernel_single_impl(
-        const DistT &dDist, const DistT &dPrimeDist, size_t n, Barcode<T> &ret, PostF mergeDistTransform = {})
+        const DistT &dDist, const DistT &dPrimeDist, Barcode<T> &ret, PostF mergeDistTransform = {})
     {
       std::vector<MergeEdge<T>> primeMerges; // d' merge order: the births
       std::vector<MergeEdge<T>> dMerges;     // d-MST edges: the sweep timeline that answers the deaths
-      mst_merge_order(dPrimeDist, n, primeMerges);
-      mst_merge_order(dDist, n, dMerges);
+      mst_merge_order(dPrimeDist, primeMerges);
+      mst_merge_order(dDist, dMerges);
       for (auto &m : primeMerges)
       {
         m.mergeDist = mergeDistTransform(m.mergeDist);
@@ -163,7 +160,7 @@ namespace sb::ph
       }
 
       std::vector<PersistencePair<T>> bars;
-      cross_filtration(primeMerges, dMerges, n, bars);
+      compute_cross_filtration(primeMerges, dMerges, bars);
       ret = std::move(bars);
     }
 
@@ -181,7 +178,7 @@ namespace sb::ph
             std::to_string(dm.size()) + " and " + std::to_string(dmPrime.size()) + ")");
       }
 
-      detail::homological_kernel_single_impl(dm, dmPrime, dm.size(), retBarcodes(index));
+      detail::homological_kernel_single_impl(dm, dmPrime, retBarcodes(index));
     }
 
     template <typename T>
@@ -213,8 +210,7 @@ namespace sb::ph
       SquaredEuclideanDistance<T> dDist(pc); // captures pointer+strides, computes d^2 on demand
       SquaredEuclideanDistance<T> dPrimeDist(pcPrime);
 
-      detail::homological_kernel_single_impl(
-          dDist, dPrimeDist, dDist.size(), retBarcodes(index), [](T v) { return std::sqrt(v); });
+      detail::homological_kernel_single_impl(dDist, dPrimeDist, retBarcodes(index), [](T v) { return std::sqrt(v); });
     }
 
   } // namespace detail

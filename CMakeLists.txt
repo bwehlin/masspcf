@@ -547,6 +547,7 @@ SET(SB_LIB_SOURCES_CUDA
 SET(SB_HEADER_FILES
     config.hpp
     concepts.hpp
+    distances.hpp
     version.hpp
     functional/pcf.hpp
     functional/piecewise_function.hpp
@@ -574,10 +575,13 @@ SET(SB_HEADER_FILES
     algorithms/functional/reduce.hpp
     algorithms/functional/matrix_integrate.hpp
     algorithms/functional/matrix_reduce.hpp
+    algorithms/minimum_spanning_tree.hpp
     algorithms/subdivide.hpp
+    algorithms/union_find.hpp
     algorithms/functional/apply_functional.hpp
     block_matrix_support.cuh
     persistence/barcode.hpp
+    persistence/compute_homological_kernel.hpp
     persistence/compute_persistence.hpp
     persistence/persistence_pair.hpp
     persistence/stable_rank.hpp
@@ -882,6 +886,7 @@ if (BUILD_TESTER)
       test/test_walk_random.cpp
       test/test_subdivide.cpp
       test/test_homological_kernel.cpp
+      test/test_union_find.cpp
   )
 
   if (BUILD_CUDA_TESTER)
