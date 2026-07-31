@@ -72,6 +72,14 @@ def _normalize_kernel_input(X, name: str):
     raise TypeError(f"compute_homological_kernel does not support {name} of type {type(X)}")
 
 
+def _validate_kernel_pair(X, Y):
+    """Check that a normalized (X, Y) pair matches in dtype and shape."""
+    if X.dtype != Y.dtype:
+        raise TypeError(f"X and Y must have the same dtype (got {X.dtype} and {Y.dtype})")
+    if X.shape != Y.shape:
+        raise ValueError(f"X and Y must have the same shape (got {X.shape} and {Y.shape})")
+
+
 def compute_homological_kernel(
     X: PointCloudTensor
     | DistanceMatrix
@@ -87,15 +95,19 @@ def compute_homological_kernel(
     dim: int = 0,
     verbose: bool = False,
 ) -> BarcodeTensor:
-    r"""Compute the homological kernel between two distance structures.
+    r"""Compute the homological kernel of two point clouds or distance matrices.
 
-    ``X`` carries the larger distances :math:`d` and ``Y`` the dominated
-    distances :math:`d'` (:math:`d' \le d` pointwise). Both must be the
-    same kind and the same shape; element ``i`` of ``X`` is paired with
-    element ``i`` of ``Y``. Point clouds always use the Euclidean metric;
-    for any other metric, pass precomputed distance matrices. When the
-    input contains multiple point clouds or distance matrices, the
-    computations are parallelized across them.
+    ``X`` carries the larger distances :math:`d` and ``Y`` the smaller
+    distances :math:`d'` (:math:`d' \le d` pointwise). Each bar of the
+    output barcode is born when two clusters merge under :math:`d'` and
+    dies when the same clusters merge under :math:`d`. Both inputs must
+    be the same kind and the same shape; element ``i`` of ``X`` is
+    paired with element ``i`` of ``Y``. Point clouds always use the
+    Euclidean metric; for any other metric, pass precomputed distance
+    matrices. When the input contains multiple point clouds or distance
+    matrices, the computations are parallelized across them. The method
+    and the algorithm used to compute it are described in full in
+    :footcite:`KampNorthman2026`.
 
     Parameters
     ----------
@@ -146,22 +158,23 @@ def compute_homological_kernel(
     X = _normalize_kernel_input(X, "X")
     Y = _normalize_kernel_input(Y, "Y")
 
-    if isinstance(X, PointCloudTensor) != isinstance(Y, PointCloudTensor):
-        raise TypeError(
-            "X and Y must be the same kind "
-            f"(got {type(X).__name__} and {type(Y).__name__})"
-        )
-    if X.dtype != Y.dtype:
-        raise TypeError(f"X and Y must have the same dtype (got {X.dtype} and {Y.dtype})")
-    if X.shape != Y.shape:
-        raise ValueError(f"X and Y must have the same shape (got {X.shape} and {Y.shape})")
-
-    if isinstance(X, PointCloudTensor):
+    # --- Point cloud input path ---
+    if isinstance(X, PointCloudTensor) and isinstance(Y, PointCloudTensor):
+        _validate_kernel_pair(X, Y)
         out = zeros((1,), dtype=_PCLOUD_TO_BARCODE_DTYPE[X.dtype])
         task = _spawn_homological_kernel_pcloud_task(X, Y, out)
-    else:
+
+    # --- Distance matrix input path ---
+    elif isinstance(X, DistanceMatrixTensor) and isinstance(Y, DistanceMatrixTensor):
+        _validate_kernel_pair(X, Y)
         out = zeros((1,), dtype=_DISTMAT_TO_BARCODE_DTYPE[X.dtype])
         task = _spawn_homological_kernel_distmat_task(X, Y, out)
+
+    else:
+        raise TypeError(
+            "X and Y must both be point clouds or both be distance matrices "
+            f"(got {type(X).__name__} and {type(Y).__name__})"
+        )
 
     _run_task(lambda: task, verbose=verbose)
 

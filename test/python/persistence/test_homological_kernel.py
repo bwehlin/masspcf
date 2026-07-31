@@ -324,6 +324,11 @@ def test_mixed_input_kinds_raise():
         )
 
 
+def test_unsupported_input_types_raise():
+    with pytest.raises(TypeError):
+        pers.compute_homological_kernel(1, 2)
+
+
 def test_dtype_mismatch_raises():
     X = np.array(DIAGONAL_POINTS, dtype=np.float32)
     Y = np.array(DIAGONAL_POINTS, dtype=np.float64)
