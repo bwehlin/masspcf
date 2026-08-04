@@ -234,6 +234,155 @@ def test_random_distance_matrices_match_reference_implementation():
         assert bcs[0].is_isomorphic_to(_bc(expected))
 
 
+# --- Hand-computed distance-matrix cases, both precisions ---
+
+DTYPES = [(sb.float32, np.float32), (sb.float64, np.float64)]
+
+# Four points on a line at 0, 1, 3, 7. d merges: {0,1}@1, {1,2}@2, {2,3}@4.
+LINE_METRIC = np.array(
+    [
+        [0.0, 1.0, 3.0, 7.0],
+        [1.0, 0.0, 2.0, 6.0],
+        [3.0, 2.0, 0.0, 4.0],
+        [7.0, 6.0, 4.0, 0.0],
+    ]
+)
+
+
+def _dm_from_full(full, dtype=sb.float64):
+    """Build a DistanceMatrix from a full square matrix."""
+    n = len(full)
+    dm = sb.DistanceMatrix(n, dtype=dtype)
+    for i in range(n):
+        for j in range(i + 1, n):
+            dm[i, j] = float(full[i][j])
+    return dm
+
+
+@pytest.mark.parametrize("sb_dtype, np_dtype", DTYPES, ids=["float32", "float64"])
+def test_halved_metric_gives_doubling_bars(sb_dtype, np_dtype):
+    # d' = d/2 keeps the merge structure, so every bar is [w, 2w) for the
+    # d'-merge scales w = 0.5, 1, 2 of the line metric.
+    bcs = pers.compute_homological_kernel(
+        _dm_from_full(LINE_METRIC, sb_dtype),
+        _dm_from_full(LINE_METRIC / 2.0, sb_dtype),
+    )
+    assert bcs[0].is_isomorphic_to(
+        _bc([[0.5, 1.0], [1.0, 2.0], [2.0, 4.0]], dtype=np_dtype)
+    )
+
+
+@pytest.mark.parametrize("sb_dtype, np_dtype", DTYPES, ids=["float32", "float64"])
+def test_identical_metrics_give_empty_bars(sb_dtype, np_dtype):
+    # d' == d: every death equals its birth -- empty bars [w, w), no throw.
+    bcs = pers.compute_homological_kernel(
+        _dm_from_full(LINE_METRIC, sb_dtype), _dm_from_full(LINE_METRIC, sb_dtype)
+    )
+    assert bcs[0].is_isomorphic_to(
+        _bc([[1.0, 1.0], [2.0, 2.0], [4.0, 4.0]], dtype=np_dtype)
+    )
+
+
+@pytest.mark.parametrize("sb_dtype, np_dtype", DTYPES, ids=["float32", "float64"])
+def test_death_carried_by_non_merged_pair(sb_dtype, np_dtype):
+    # Points x=0, y=1, a=2, b=3. d is the ultrametric of the tree
+    # (((x,y)@1, a)@5, b)@9. The d' merges are (a,x)@0.1, (b,y)@0.2, then
+    # {a,x} joins {b,y} at 0.5 via the edge (a,b). The death of that third bar
+    # is min cross-pair d_sd = d_sd(x,y) = 1, carried by the pair (x,y) --
+    # which involves neither endpoint of the merge edge: the death is
+    # determined by the whole component pair.
+    d = [
+        [0.0, 1.0, 5.0, 9.0],
+        [1.0, 0.0, 5.0, 9.0],
+        [5.0, 5.0, 0.0, 9.0],
+        [9.0, 9.0, 9.0, 0.0],
+    ]
+    d_prime = [
+        [0.0, 0.9, 0.1, 0.9],
+        [0.9, 0.0, 0.9, 0.2],
+        [0.1, 0.9, 0.0, 0.5],
+        [0.9, 0.2, 0.5, 0.0],
+    ]
+    bcs = pers.compute_homological_kernel(
+        _dm_from_full(d, sb_dtype), _dm_from_full(d_prime, sb_dtype)
+    )
+    assert bcs[0].is_isomorphic_to(
+        _bc([[0.1, 5.0], [0.2, 9.0], [0.5, 1.0]], dtype=np_dtype)
+    )
+
+
+@pytest.mark.parametrize("sb_dtype, np_dtype", DTYPES, ids=["float32", "float64"])
+def test_merge_order_inversion(sb_dtype, np_dtype):
+    # Pure merge-order inversion (abstract metrics): d' merges A-B first, but
+    # in d the tight pair is B-C. Deaths come from d, order from d'.
+    d = [
+        [0.0, 5.0, 6.0],
+        [5.0, 0.0, 3.0],
+        [6.0, 3.0, 0.0],
+    ]
+    d_prime = [
+        [0.0, 1.0, 3.0],
+        [1.0, 0.0, 2.0],
+        [3.0, 2.0, 0.0],
+    ]
+    bcs = pers.compute_homological_kernel(
+        _dm_from_full(d, sb_dtype), _dm_from_full(d_prime, sb_dtype)
+    )
+    assert bcs[0].is_isomorphic_to(_bc([[1.0, 5.0], [2.0, 3.0]], dtype=np_dtype))
+
+
+@pytest.mark.parametrize("sb_dtype, np_dtype", DTYPES, ids=["float32", "float64"])
+def test_tie_invariant_barcode(sb_dtype, np_dtype):
+    # Two disjoint pairs merge at the same birth (tie). The barcode multiset
+    # must be independent of which tied merge is processed first.
+    # Note d_sd(C,D) = 4 (MST path C-A-D), not the raw 5.
+    d = [
+        [0.0, 3.0, 4.0, 4.0],
+        [3.0, 0.0, 4.0, 4.0],
+        [4.0, 4.0, 0.0, 5.0],
+        [4.0, 4.0, 5.0, 0.0],
+    ]
+    d_prime = [
+        [0.0, 1.0, 2.0, 2.0],
+        [1.0, 0.0, 2.0, 2.0],
+        [2.0, 2.0, 0.0, 1.0],
+        [2.0, 2.0, 1.0, 0.0],
+    ]
+    bcs = pers.compute_homological_kernel(
+        _dm_from_full(d, sb_dtype), _dm_from_full(d_prime, sb_dtype)
+    )
+    assert bcs[0].is_isomorphic_to(
+        _bc([[1.0, 3.0], [1.0, 4.0], [2.0, 4.0]], dtype=np_dtype)
+    )
+
+
+@pytest.mark.parametrize("sb_dtype, np_dtype", DTYPES, ids=["float32", "float64"])
+def test_roundoff_level_domination_violation_is_clamped(sb_dtype, np_dtype):
+    # d is one ULP below d' on the only pair: mathematically d = d' (an empty
+    # bar), and the discrepancy is pure roundoff from computing the two sides
+    # through different arithmetic. This must clamp to [w, w), not raise.
+    w = np_dtype(1.5)
+    just_below = np.nextafter(w, np_dtype(0.0))
+
+    d = sb.DistanceMatrix(2, dtype=sb_dtype)
+    d[0, 1] = float(just_below)
+    d_prime = sb.DistanceMatrix(2, dtype=sb_dtype)
+    d_prime[0, 1] = float(w)
+
+    bcs = pers.compute_homological_kernel(d, d_prime)
+    assert bcs[0].is_isomorphic_to(_bc([[w, w]], dtype=np_dtype))
+
+
+def test_trivial_distance_matrices_give_empty_barcode():
+    # A single point (no merges) and no points at all.
+    for n in (1, 0):
+        bcs = pers.compute_homological_kernel(
+            sb.DistanceMatrix(n), sb.DistanceMatrix(n)
+        )
+        assert bcs.shape == (1,)
+        assert len(bcs[0]) == 0
+
+
 # --- Route consistency: distance matrices, float32 ---
 
 

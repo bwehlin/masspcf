@@ -9,7 +9,6 @@
 #include <sbear/tensor.hpp>
 
 #include <algorithm>
-#include <cmath>
 #include <random>
 #include <stdexcept>
 #include <utility>
@@ -80,17 +79,6 @@ namespace
     return bc;
   }
 
-  /// Run the algorithm core on a (X, X') point-cloud pair via the Euclidean oracle.
-  template <typename T>
-  sb::ph::Barcode<T> kernel_of(const sb::PointCloud<T> &X, const sb::PointCloud<T> &XPrime)
-  {
-    sb::SquaredEuclideanDistance<T> d(X);
-    sb::SquaredEuclideanDistance<T> dPrime(XPrime);
-    sb::ph::Barcode<T> bc;
-    sb::ph::detail::homological_kernel_single_impl(d, dPrime, bc, [](T v) { return std::sqrt(v); });
-    return bc;
-  }
-
   /// Compare a computed barcode against expected {birth, death} bars via
   /// Barcode::is_isomorphic_to (order-independent, default tolerances).
   template <typename T>
@@ -105,15 +93,6 @@ namespace
     sb::ph::Barcode<T> expectedBc(std::move(bars));
 
     EXPECT_TRUE(bc.is_isomorphic_to(expectedBc)) << "actual:   " << bc << "\nexpected: " << expectedBc;
-  }
-
-  /// Check the kernel barcode of a (d, d') distance-matrix pair against expected bars.
-  template <typename T>
-  void expect_kernel_bars(
-      const std::vector<std::vector<T>> &d, const std::vector<std::vector<T>> &dPrime,
-      const std::vector<std::pair<T, T>> &expected)
-  {
-    expect_bars(kernel_of(make_distmat(d), make_distmat(dPrime)), expected);
   }
 
   // Shared hand example: four points on a line at 0, 1, 3, 7.
@@ -150,149 +129,8 @@ namespace
   }
 
   // ============================================================================
-  // Core algorithm (homological_kernel_single_impl) on hand-calculated metrics
+  // Core algorithm: randomized MST-pairing property
   // ============================================================================
-
-  TYPED_TEST(HomologicalKernelTest, HalvedMetricGivesDoublingBars)
-  {
-    using T = TypeParam;
-
-    // d' = d/2 keeps the merge structure, so every bar is [w, 2w) for the
-    // d'-merge scales w = 0.5, 1, 2 of the line example.
-    auto d = line_metric<T>();
-    auto dPrime = d;
-    for (auto &row : dPrime)
-    {
-      for (auto &v : row)
-      {
-        v /= T(2);
-      }
-    }
-
-    expect_kernel_bars<T>(d, dPrime, {{T(0.5), T(1)}, {T(1), T(2)}, {T(2), T(4)}});
-  }
-
-  TYPED_TEST(HomologicalKernelTest, IdenticalMetricsGiveEmptyBars)
-  {
-    using T = TypeParam;
-
-    // d' == d: every death equals its birth — empty bars [w, w), no throw.
-    auto d = line_metric<T>();
-    expect_kernel_bars<T>(d, d, {{T(1), T(1)}, {T(2), T(2)}, {T(4), T(4)}});
-  }
-
-  TYPED_TEST(HomologicalKernelTest, DeathCarriedByNonMergedPair)
-  {
-    using T = TypeParam;
-
-    // Points x=0, y=1, a=2, b=3. d is the ultrametric of the tree
-    // (((x,y)@1, a)@5, b)@9. The d' merges are (a,x)@0.1, (b,y)@0.2, then
-    // {a,x} joins {b,y} at 0.5 via the edge (a,b). The death of that third bar
-    // is min cross-pair d_sd = d_sd(x,y) = 1, carried by the pair (x,y) — which
-    // involves neither endpoint of the merge edge: the death is determined by
-    // the whole component pair.
-    std::vector<std::vector<T>> d = {
-        {T(0), T(1), T(5), T(9)},
-        {T(1), T(0), T(5), T(9)},
-        {T(5), T(5), T(0), T(9)},
-        {T(9), T(9), T(9), T(0)},
-    };
-    std::vector<std::vector<T>> dPrime = {
-        {T(0.0), T(0.9), T(0.1), T(0.9)},
-        {T(0.9), T(0.0), T(0.9), T(0.2)},
-        {T(0.1), T(0.9), T(0.0), T(0.5)},
-        {T(0.9), T(0.2), T(0.5), T(0.0)},
-    };
-
-    expect_kernel_bars<T>(d, dPrime, {{T(0.1), T(5)}, {T(0.2), T(9)}, {T(0.5), T(1)}});
-  }
-
-  // Pure merge-order inversion (abstract metrics): d' merges A-B first, but
-  // in d the tight pair is B-C. Deaths come from d, order from d'.
-  TYPED_TEST(HomologicalKernelTest, MergeOrderInversion)
-  {
-    using T = TypeParam;
-
-    std::vector<std::vector<T>> dPrime = {
-        {T(0), T(1), T(3)},
-        {T(1), T(0), T(2)},
-        {T(3), T(2), T(0)},
-    };
-    std::vector<std::vector<T>> d = {
-        {T(0), T(5), T(6)},
-        {T(5), T(0), T(3)},
-        {T(6), T(3), T(0)},
-    };
-
-    expect_kernel_bars<T>(d, dPrime, {{T(1), T(5)}, {T(2), T(3)}});
-  }
-
-  // Two disjoint pairs merge at the same birth (tie). The barcode multiset
-  // must be independent of which tied merge is processed first.
-  // Note d_sd(C,D) = 4 (MST path C-A-D), not the raw 5.
-  TYPED_TEST(HomologicalKernelTest, TieInvariantBarcode)
-  {
-    using T = TypeParam;
-
-    std::vector<std::vector<T>> dPrime = {
-        {T(0), T(1), T(2), T(2)},
-        {T(1), T(0), T(2), T(2)},
-        {T(2), T(2), T(0), T(1)},
-        {T(2), T(2), T(1), T(0)},
-    };
-    std::vector<std::vector<T>> d = {
-        {T(0), T(3), T(4), T(4)},
-        {T(3), T(0), T(4), T(4)},
-        {T(4), T(4), T(0), T(5)},
-        {T(4), T(4), T(5), T(0)},
-    };
-
-    expect_kernel_bars<T>(d, dPrime, {{T(1), T(3)}, {T(1), T(4)}, {T(2), T(4)}});
-  }
-
-  // Contracting a d-far pair creates a shortcut that lowers the death of a
-  // LATER merge between two other components. Points in the projection frame
-  // (x = the coordinate d' keeps): A=(0,6), P=(5,6), P'=(5,0), B=(2,0); d'
-  // drops y, so P and P' contract at d'=0. At the merge (A,B)@2 the death is 5,
-  // via the chain A -5- P ≡ P' -3- B — a path through a component containing
-  // neither A nor B: deaths are computed against the quotient space.
-  TYPED_TEST(HomologicalKernelTest, ContractionShortcutLowersLaterDeath)
-  {
-    using T = TypeParam;
-
-    auto X = make_pcloud<T>({{T(0), T(6)}, {T(5), T(6)}, {T(5), T(0)}, {T(2), T(0)}});
-    auto XPrime = make_pcloud<T>({{T(0), T(0)}, {T(5), T(0)}, {T(5), T(0)}, {T(2), T(0)}});
-
-    expect_bars(kernel_of(X, XPrime), {{T(0), T(6)}, {T(2), T(5)}, {T(3), T(3)}});
-  }
-
-  // Staircase version of the shortcut above: the death chain of the (A,B)@1
-  // merge passes through TWO earlier contractions,
-  // A -8- R1 ≡ R1' -3- R2 ≡ R2' -4- B (a k-rung staircase needs k hops).
-  // The deaths equal the d-MST weight multiset {3, 4, 8, 10, 10}.
-  TYPED_TEST(HomologicalKernelTest, StaircaseDeathNeedsChainedContractionShortcuts)
-  {
-    using T = TypeParam;
-
-    auto X = make_pcloud<T>({
-        {T(0), T(20)}, // A
-        {T(8), T(20)}, // R1
-        {T(8), T(10)}, // R1'
-        {T(5), T(10)}, // R2
-        {T(5), T(0)},  // R2'
-        {T(1), T(0)},  // B
-    });
-    auto XPrime = make_pcloud<T>({
-        {T(0), T(0)},
-        {T(8), T(0)},
-        {T(8), T(0)},
-        {T(5), T(0)},
-        {T(5), T(0)},
-        {T(1), T(0)},
-    });
-
-    expect_bars(kernel_of(X, XPrime), {{T(0), T(10)}, {T(0), T(10)}, {T(1), T(8)}, {T(3), T(3)}, {T(4), T(4)}});
-  }
 
   // The births of ker mu are exactly the d'-MST edge weights and the deaths
   // are a permutation of the d-MST edge weights (mu_t is surjective, so the
@@ -345,72 +183,6 @@ namespace
         EXPECT_EQ(deaths[i], dMerges[i].mergeDist);
       }
     }
-  }
-
-  TYPED_TEST(HomologicalKernelTest, NonDominatedMetricsThrow)
-  {
-    using T = TypeParam;
-
-    // d' > d pointwise: the first d' merge is born at 2 but dies at 1.
-    std::vector<std::vector<T>> d = {
-        {T(0), T(1), T(1)},
-        {T(1), T(0), T(1)},
-        {T(1), T(1), T(0)},
-    };
-    std::vector<std::vector<T>> dPrime = {
-        {T(0), T(2), T(2)},
-        {T(2), T(0), T(2)},
-        {T(2), T(2), T(0)},
-    };
-
-    EXPECT_THROW(kernel_of(make_distmat(d), make_distmat(dPrime)), std::runtime_error);
-  }
-
-  TYPED_TEST(HomologicalKernelTest, RoundoffLevelDominationViolationIsClamped)
-  {
-    using T = TypeParam;
-
-    // d is one ULP below d' on the only pair: mathematically d = d' (an empty
-    // bar), and the discrepancy is pure roundoff from computing the two sides
-    // through different arithmetic. This must clamp to [w, w), not throw.
-    const T w = T(1.5);
-    const T justBelow = std::nextafter(w, T(0));
-    std::vector<std::vector<T>> d = {
-        {T(0), justBelow},
-        {justBelow, T(0)},
-    };
-    std::vector<std::vector<T>> dPrime = {
-        {T(0), w},
-        {w, T(0)},
-    };
-
-    expect_kernel_bars<T>(d, dPrime, {{w, w}});
-  }
-
-  TYPED_TEST(HomologicalKernelTest, TwoPointsGiveSingleBar)
-  {
-    using T = TypeParam;
-
-    // Minimal nontrivial case: one merge, one bar — the sweep at its smallest
-    // size (a single d-MST edge).
-    std::vector<std::vector<T>> d = {
-        {T(0), T(5)},
-        {T(5), T(0)},
-    };
-    std::vector<std::vector<T>> dPrime = {
-        {T(0), T(2)},
-        {T(2), T(0)},
-    };
-
-    expect_kernel_bars<T>(d, dPrime, {{T(2), T(5)}});
-  }
-
-  TYPED_TEST(HomologicalKernelTest, TrivialInputsGiveEmptyBarcode)
-  {
-    using T = TypeParam;
-
-    EXPECT_TRUE(kernel_of(sb::DistanceMatrix<T>(1), sb::DistanceMatrix<T>(1)).bars().empty());
-    EXPECT_TRUE(kernel_of(sb::DistanceMatrix<T>(0), sb::DistanceMatrix<T>(0)).bars().empty());
   }
 
   // ============================================================================

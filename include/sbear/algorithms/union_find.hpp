@@ -7,7 +7,8 @@
 
 namespace sb
 {
-  /// Disjoint-set forest over the elements 0..n-1 with path halving.
+  /// Disjoint-set forest over the elements 0..n-1 with path halving (the
+  /// standard one-pass variant of path compression).
   ///
   /// unite() is directed: the caller passes the two roots and picks which one
   /// survives. This is load-bearing for callers that cache roots across
@@ -27,7 +28,8 @@ namespace sb
       std::iota(m_parent.begin(), m_parent.end(), size_t{0});
     }
 
-    /// Root of x's component, halving the path along the way.
+    /// Root of x's component, compressing the path along the way (standard
+    /// "path halving": every visited node is re-pointed to its grandparent).
     [[nodiscard]] size_t find(size_t x)
     {
       while (m_parent[x] != x)

@@ -239,7 +239,7 @@ namespace sb::ph
       m_ret = Tensor<Barcode<T>>(m_input.shape());
 
       next_step(
-          m_input.size(), "Computing 0th homological kernel",
+          m_input.size(), "Computing H0 kernel",
           std::is_same_v<ElemT, PointCloud<T>> ? "pointcloud" : "distance matrix");
       return sb::parallel_walk_async(
           m_input,
