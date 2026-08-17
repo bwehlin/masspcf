@@ -335,8 +335,19 @@ You can also convert a single barcode to a stable rank::
    # sr is a Pcf
 
 
+Relative Persistent Homology
+============================
+
+
+.. toctree::
+   :maxdepth: 1
+
+   homological-kernel
+
 References
 ==========
 
 
 .. footbibliography::
+
+

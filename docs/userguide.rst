@@ -14,6 +14,5 @@ User guide
    saving
    distances
    persistence
-   relative-persistent-homology
    point_processes
    gpu
