@@ -1690,5 +1690,15 @@
     "py": 87.0,
     "cuda": null,
     "release_tag": null
+  },
+  {
+    "utc_iso": "2026-08-31T12:09:55Z",
+    "sha": "cea11ee",
+    "branch": "main",
+    "detail_path": "reports/2026-08-31_12-09-55_cea11ee/report.html",
+    "cpp": 88.6,
+    "py": 88.0,
+    "cuda": 100.0,
+    "release_tag": null
   }
 ]
